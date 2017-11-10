@@ -1,0 +1,33 @@
+# Ignore Image #
+################
+
+*.jpg
+*.jpeg
+*.png
+*.pkl
+
+# The Model #
+###################
+
+*.mat
+
+# The Profiling file #
+######################
+
+*.json
+
+# The Spyder folder #
+#####################
+
+__pycache__/*
+
+*.pyc
+
+# The PDF      #
+################
+
+*.pdf
+
+
+
+
