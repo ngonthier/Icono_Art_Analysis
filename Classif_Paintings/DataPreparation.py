@@ -12,7 +12,7 @@ from pandas import Series
 def f(x):
      return Series(dict(name_img = x['name_img'].min(), 
                         set = x['set'].min(), 
-                        classe = "\"%s\"" % ' '.join(x['classe'])))
+                        classe = "%s" % ' '.join(x['classe'])))
 
 def prepareVOC12():
      classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
@@ -38,34 +38,39 @@ def prepareVOC12():
     
      result = pd.concat(frames)
      result = result.groupby('name_img').apply(f)
+     #result.groupby('name_img').agg(dict(name_img = 'min', set = 'min', classe = lambda x: '%s'%', '.join(x)))
+     #result = result.groupby('name_img').apply(f)
      
-     result.to_csv(r'VOC12.txt', index=None, sep=' ', mode='a')
+     result.to_csv('VOC12.txt', index=None, sep=',', mode='w')
      
          # Test
-     df_test = pd.read_csv('VOC12.txt')
+     df_test = pd.read_csv('VOC12.txt',sep=",")
      print("VOC12")
      print(df_test.head(11))
+     print(len(df_test['classe']))
 
 def preparePaintings():
-    name_file = '/media/HDD/data/Painting Dataset/painting_dataset_updated.csv'
+    name_file = '/media/HDD/data/Painting_Dataset/painting_dataset_updated.csv'
     df = pd.read_csv(name_file, sep=",")
     df.columns = ['a','name_img','page','set','classe']
     df = df.drop('a', 1)
     df = df.drop('page', 1)
+    df = df[df['name_img'] != '[]']
     df['name_img'] = df['name_img'].apply(lambda a: str.split(a,'/')[-1])
     df['name_img'] = df['name_img'].apply(lambda a: str.split(a,'.')[0])
     
     df['set'] = df['set'].apply(lambda a: a.replace('\'',''))
     
     df['classe'] = df['classe'].apply(lambda a: a.replace('\'',''))
-    
-    df.to_csv(r'Paintings.txt', index=None, sep=' ', mode='a')
+    print((df['classe'].str.contains('bird')).sum())
+    df.to_csv('Paintings.txt', index=None, sep=',', mode='w')
     
     # Test
-    df_test = pd.read_csv('Paintings.txt')
+    df_test = pd.read_csv('Paintings.txt',sep=",")
     print("Paintings")
     print(df_test.head(11))
+    print(len(df_test['classe'])) # Must be 8621, to count the number of jpeg images find *.jpg | wc -l
     
 if __name__ == '__main__':
-    prepareVOC12()
+    #prepareVOC12()
     preparePaintings()
