@@ -7,7 +7,9 @@ Created on Fri Nov 10 15:51:16 2017
 """
 
 import cv2
+import tensorflow as tf
 import resnet_152_keras
+import inception_resnet_v2
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 import numpy as np
@@ -17,49 +19,55 @@ from sklearn.svm import LinearSVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import PredefinedSplit
 from Custom_Metrics import ranking_precision_score,VOCevalaction,computeAveragePrecision
+from sklearn.preprocessing import normalize
+import matplotlib.pyplot as plt
+from PIL import Image
+import vgg19
 
-def Classification_evaluation(kind='2048D',classifier_name='LinearSVM'):
+def Classification_evaluation(kind='2048D',kindnetwork='InceptionResNetv2',classifier_name='LinearSVM'):
+    """
+    kindnetwork in  [InceptionResNetv2,ResNet152]
+    """
     # Multilabel classification assigns to each sample a set of target labels. 
     # This can be thought as predicting properties of a data-point that are not mutually exclusive
     
-    if kind =='output':
-        name_pkl = 'ResNet_output.pkl'
-    elif kind == '2048D':
-        name_pkl = 'ResNet_2048D.pkl'
+    classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    name_pkl = kindnetwork +'_' + kind + '.pkl'
     [X_train,y_train,X_test,y_test,X_val,y_val] = pickle.load(open(name_pkl, 'rb'))
     X_trainval = np.append(X_train,X_val,axis=0)
     y_trainval = np.append(y_train,y_val,axis=0)
+
+#    X_trainval =  normalize(X_trainval, axis=1, norm='l2')
+#    X_test =  normalize(X_test, axis=1, norm='l2')
+
     k_tab = [5,10,20,50,100]
     if classifier_name=='LinearSVM':
-        classifier = LinearSVC()
-        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+        classifier = LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True)
         AP_per_class = []
         cs = np.logspace(-5, 7, 40)
-        cs = np.logspace(-5, -2, 15)
+        cs = np.logspace(-5, -2, 25)
+        cs = np.hstack((cs,[0.2,1,2]))
+        #cs = np.logspace(-10,0,40)
         param_grid = dict(C=cs)
-        custom_cv = PredefinedSplit(np.hstack((np.zeros((1,X_train.shape[0])),np.ones((1,X_val.shape[0])))).reshape(-1,1))
+        custom_cv = PredefinedSplit(np.hstack((-np.ones((1,X_train.shape[0])),np.zeros((1,X_val.shape[0])))).reshape(-1,1)) # For example, when using a validation set, set the test_fold to 0 for all samples that are part of the validation set, and to -1 for all other samples.
+        ###custom_cv = PredefinedSplit(np.hstack((np.zeros((1,X_train.shape[0])),np.ones((1,X_val.shape[0])))).reshape(-1,1)) # For example, when using a validation set, set the test_fold to 0 for all samples that are part of the validation set, and to -1 for all other samples.
+        #custom_cv = None
         # For custom_cv = zip(train_indices, test_indices) that's is used by Crowley but a better cross validation method is possible 
         # TODOcv=ShuffleSplit(train_size=train_size,n_splits=250, random_state=1)
-        y_predict_all_label = np.zeros_like(y_test)
+        #y_predict_all_label = np.zeros_like(y_test)
+        
+        # The C that produces the highest mAP
+        
+        
         for i,classe in enumerate(classes):
-            grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score), param_grid=param_grid,n_jobs=-1,
+            grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True), param_grid=param_grid,n_jobs=-1,
                             cv=custom_cv)
-            grid.fit(X_trainval,y_trainval[:,i]) 
-
-#            best_AP = 0
-#            for c in cs:
-#                classifier = ap = computeAveragePrecision(rec, prec, use_07_metric) LinearSVC(C=c)
-#                classifier.fit(X_train,y_train[:,i])
-#                y_predict_val = classifier.decision_function(X_val)
-#                AP = average_precision_score(y_val[:,i],y_predict_val)
-#                if(AP > best_AP):
-#                    grid = LinearSVC(C=c)
-#                    grid.fit(X_trainval,y_trainval[:,i])
+            grid.fit(X_trainval,y_trainval[:,i])  
             y_predict_confidence_score = grid.decision_function(X_test)
             y_predict_test = grid.predict(X_test) 
-            y_predict_trainval = grid.predict(X_trainval) 
+            #y_predict_trainval = grid.predict(X_trainval) 
             # Warning ! predict provide class labels for samples whereas decision_function provide confidence scores for samples.
-            AP = average_precision_score(y_test[:,i],y_predict_confidence_score)
+            AP = average_precision_score(y_test[:,i],y_predict_confidence_score,average=None)
             AP_per_class += [AP]
             print("Average Precision for",classe," = ",AP)
             
@@ -70,27 +78,42 @@ def Classification_evaluation(kind='2048D',classifier_name='LinearSVM'):
             
 #            training_precision = precision_score(y_trainval[:,i],y_predict_trainval)
 #            print("Training precision :{0:.2f}".format(training_precision))
-#            test_precision = precision_score(y_test[:,i],y_predict_test)
-#            test_recall = recall_score(y_test[:,i],y_predict_test)
-#            print("Test precision = {0:.2f}, recall = {1:.2f}".format(test_precision,test_recall))
-            y_predict_all_label[:,i] =  y_predict_confidence_score
+            test_precision = precision_score(y_test[:,i],y_predict_test)
+            test_recall = recall_score(y_test[:,i],y_predict_test)
+            print("Test precision = {0:.2f}, recall = {1:.2f}".format(test_precision,test_recall))
+            #y_predict_all_label[:,i] =  y_predict_confidence_score
+            #print("Number of elt predicted  {0} and true {1}".format(np.sum(y_predict_test),np.sum(y_test[:,i])))
 #            precision_at_k_tab = []
 #            for k in k_tab:
 #                precision_at_k = ranking_precision_score(y_test[:,i], y_predict_confidence_score,k)
 #                precision_at_k_tab += [precision_at_k]
 #                print("Precision @ ",k,":",precision_at_k)
             
-        print("mean Average Precision = {0:.2f}".format(np.mean(AP_per_class)))
+        print("mean Average Precision = {0:.3f}".format(np.mean(AP_per_class)))
 #        lr_AP = label_ranking_average_precision_score(y_test,y_predict_all_label)
 #        print("label Ranking Average Precision {0:.2f}".format(lr_AP))
         
-    elif classifier_name=='RF': # Random Forest that can deal with multilabel
+    elif classifier_name=='RF': 
+        
+        # Random Forest that can deal with multilabel
         classifier = RandomForestClassifier(n_estimators=100,criterion='gini',n_jobs=-1)
         classifier.fit(X_trainval,y_trainval)
         y_predict = classifier.predict(X_test)
         AP = average_precision_score(y_test,y_predict)
-        print('Average precision',AP)
-        print("Accuray ",classifier.score(X_test,y_test))
+        print('Average precision in multilabel ',AP)
+        print("Accuray in multilabel",classifier.score(X_test,y_test))
+        
+        # Now in One vs Rest
+        AP_tab = []
+        for i,classe in enumerate(classes):
+            classifier = RandomForestClassifier(n_estimators=100,criterion='gini',n_jobs=-1)
+            classifier.fit(X_trainval,y_trainval[:,i])
+            proba = classifier.predict_proba(X_test)
+            y_predict = proba[:,1]
+            AP = average_precision_score(y_test[:,i],y_predict)
+            AP_tab += [AP]
+            print("Average Precision for",classe," = ",AP)
+        print('Average precision in one VS rest ',np.mean(AP_tab))
     
     return(0)
    
@@ -108,11 +131,11 @@ def Compute_ResNet(kind='output'):
     if(kind=='output'):
         model = resnet_152_keras.resnet152_model(weights_path)
         size_output = 1000
-        name_pkl = 'ResNet_output.pkl'
+        name_pkl = 'ResNet152_output.pkl'
     elif(kind=='2048D'):
         model = resnet_152_keras.resnet152_model_2018output(weights_path)
         size_output = 2048
-        name_pkl = 'ResNet_2048D.pkl'
+        name_pkl = 'ResNet152_2048D.pkl'
     name_img = df_label['name_img'][0]
     i = 0
     
@@ -123,17 +146,24 @@ def Compute_ResNet(kind='output'):
         print(i,name_img)
         complet_name = path_to_img + name_img + '.jpg'
         
-        # Crowley : each image is downsized so that its smallest dimension is 224 pixels 
-        # and then a 224 × 224 frame is extracted from the centre
+        #In all cases the image is first resized
+        #(with aspect ratio preserved) such that its smallest length is 256 pixels. Crops extracted
+        #are ultimately 224 × 224 pixels. The schemes are: none, a single crop (N=1) is taken
+        #from the centre of the image Page 6 The Art of Detection Crowley
+         
         # To shrink an image, it will generally look best with CV_INTER_AREA interpolation
         im = cv2.imread(complet_name)
         if(im.shape[0] < im.shape[1]):
-            dim = (224, int(im.shape[1] * 224.0 / im.shape[0]))
+            dim = (256, int(im.shape[1] * 256.0 / im.shape[0]))
         else:
-            dim = (int(im.shape[0] * 224.0 / im.shape[1]),224)
-        resized = cv2.resize(im, dim, interpolation = cv2.INTER_LINEAR) # INTER_AREA
-        crop = resized[int(resized.shape[0]/2 - 112):int(resized.shape[0]/2 +112),int(resized.shape[1]/2-112):int(resized.shape[1]/2+112),:].astype(np.float32)
-        #im = cv2.resize(cv2.imread(complet_name), (224, 224)).astype(np.float32)
+            dim = (int(im.shape[0] * 256.0 / im.shape[1]),256)
+        # https://stackoverflow.com/questions/21248245/opencv-image-resize-flips-dimensions 
+        # OpenCV Image Resize flips dimensions !!!!     
+        tmp = (dim[1],dim[0])
+        dim = tmp
+        resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA) # INTER_AREA
+        crop = resized[int(resized.shape[0]/2 - 112):int(resized.shape[0]/2 +112),int(resized.shape[1]/2-112):int(resized.shape[1]/2+112),:]        
+        crop = crop.astype(np.float32)
         # Remove train image mean
         crop[:,:,0] -= 103.939
         crop[:,:,1] -= 116.779
@@ -143,7 +173,7 @@ def Compute_ResNet(kind='output'):
         features_resnet[i,:] = np.array(out[0])
         for j in range(10):
             if( classes[j] in df_label['classe'][i]):
-                classes_vectors[i,j] =  1
+                classes_vectors[i,j] = 1
         #print(out[0].tolist())
         #print(out)
         #df_label_augmented['resnet_output'][df_label_augmented['name_img']==name_img] = out[0].tolist()
@@ -165,62 +195,191 @@ def Compute_ResNet(kind='output'):
         pickle.dump(Data,pkl)
     
     return(X_train,y_train,X_test,y_test,X_val,y_val,df_label)
-#        
-#    # Generate the RF 
-#    
-#    classe = 'bird'
-#    
-#    (df_label['classe'].str.contains(classe)).sum()
-#    
-#    df_label.select(df_label['classe'] == classe)
-#    
-#    out = model.predict(im)
-#    
-#    
-#    im = cv2.resize(cv2.imread(), ).astype(np.float32)
 
+def compute_InceptionResNetv2_features(kind='1536D'):
+    classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    df_label = pd.read_csv('Paintings.txt',sep=",")
+    sLength = len(df_label['name_img'])
+    checkpoint_file = '/media/HDD/models/inception_resnet_v2_2016_08_30.ckpt'
+    name_img = df_label['name_img'][0]
+    i = 0
+    classes_vectors = np.zeros((sLength,10))
+    
+    if(kind=='output'):
+        size_output = 1001
+        name_pkl = 'InceptionResNetv2_output.pkl'
+    elif(kind=='1536D'):
+        size_output = 1536
+        name_pkl = 'InceptionResNetv2_1536D.pkl'
+    features_resnet = np.ones((sLength,size_output))
+    
+    
+    with tf.Graph().as_default():
+      # The Inception networks expect the input image to have color channels scaled from [-1, 1]
+      #Load the model
+      sess = tf.Session()
+      arg_scope = inception_resnet_v2.inception_resnet_v2_arg_scope()
+      slim = tf.contrib.slim # The TF-Slim library provides common abstractions which enable users to define models quickly and concisely, while keeping the model architecture transparent and its hyperparameters explicit.
+      
+      input_tensor = tf.placeholder(tf.float32, shape=(None,299,299,3), name='input_image')
+      scaled_input_tensor = tf.scalar_mul((1.0/255), input_tensor)
+      scaled_input_tensor = tf.subtract(scaled_input_tensor, 0.5)
+      scaled_input_tensor = tf.multiply(scaled_input_tensor, 2.0)
+      
+      with slim.arg_scope(arg_scope):
+          if(kind=='output'):
+              net, end_points = inception_resnet_v2.inception_resnet_v2(scaled_input_tensor, is_training=False)
+          elif(kind=='1536D'):
+              net, end_points = inception_resnet_v2.inception_resnet_v2_PreLogitsFlatten(scaled_input_tensor,is_training=False)
+          saver = tf.train.Saver()
+          saver.restore(sess, checkpoint_file)
+ 
+          for i,name_img in  enumerate(df_label['name_img']):
+            print(i,name_img)
+            complet_name = path_to_img + name_img + '.jpg'
+            im = cv2.imread(complet_name)
+            im = im[:,:,[2,1,0]] # To shift from BGR to RGB
+            if(im.shape[0] < im.shape[1]):
+                dim = (299, int(im.shape[1] * 299.0 / im.shape[0]),3)
+            else:
+                dim = (int(im.shape[0] * 299.0 / im.shape[1]),299,3)
+            tmp = (dim[1],dim[0])
+            dim = tmp
+            resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA) # INTER_AREA
+            im = resized[int(resized.shape[0]/2 - 149):int(resized.shape[0]/2 +150),int(resized.shape[1]/2-149):int(resized.shape[1]/2+150),:]
+            im = im.reshape(-1,299,299,3)
+            net_values, _ = sess.run([net,end_points], feed_dict={input_tensor: im})
+            features_resnet[i,:] = np.array(net_values[0])
+            for j in range(10):
+                if( classes[j] in df_label['classe'][i]):
+                    classes_vectors[i,j] = 1
 
+    X_train = features_resnet[df_label['set']=='train',:]
+    y_train = classes_vectors[df_label['set']=='train',:]
+    
+    X_test= features_resnet[df_label['set']=='test',:]
+    y_test = classes_vectors[df_label['set']=='test',:]
+    
+    X_val = features_resnet[df_label['set']=='validation',:]
+    y_val = classes_vectors[df_label['set']=='validation',:]
+    
+    print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
+    
+    Data = [X_train,y_train,X_test,y_test,X_val,y_val]
+    
+    with open(name_pkl, 'wb') as pkl:
+        pickle.dump(Data,pkl)
+    
+    return(X_train,y_train,X_test,y_test,X_val,y_val,df_label)
+    
+    
+def compute_VGG19_features():
+    classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    df_label = pd.read_csv('Paintings.txt',sep=",")
+    sLength = len(df_label['name_img'])
+    name_img = df_label['name_img'][0]
+    i = 0
+    classes_vectors = np.zeros((sLength,10))
+    kind='25088D'
+    size_output = 25088
+    name_pkl = 'VGG19_25088D.pkl'
+    features_resnet = np.ones((sLength,size_output))
+    
+    
+    with tf.Graph().as_default():
+      # The Inception networks expect the input image to have color channels scaled from [-1, 1]
+      #Load the model
+      sess = tf.Session()
+      input_image = np.zeros((1,224,224,3))
+      vgg_layers = vgg19.get_vgg_layers()
+      net = vgg19.net_preloaded(vgg_layers,input_image,pooling_type='max',padding='SAME')
+      placeholder = tf.placeholder(tf.float32, shape=input_image.shape)
+      assign_op = net['input'].assign(placeholder)
+      sess.run(tf.global_variables_initializer())
+			
+      for i,name_img in  enumerate(df_label['name_img']):
+        print(i,name_img)
+        complet_name = path_to_img + name_img + '.jpg'
+        im = cv2.imread(complet_name)
+        im = im[:,:,[2,1,0]] # To shift from BGR to RGB
+        if(im.shape[0] < im.shape[1]):
+            dim = (256, int(im.shape[1] * 256.0 / im.shape[0]),3)
+        else:
+            dim = (int(im.shape[0] * 256.0 / im.shape[1]),256,3)
+        tmp = (dim[1],dim[0])
+        dim = tmp
+        resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA) # INTER_AREA
+        crop = resized[int(resized.shape[0]/2 - 112):int(resized.shape[0]/2 +112),int(resized.shape[1]/2-112):int(resized.shape[1]/2+112),:]        
+        crop = crop.astype(np.float32)
+        # Remove train image mean
+        crop[:,:,0] -= 103.939
+        crop[:,:,1] -= 116.779
+        crop[:,:,2] -= 123.68
+        crop = np.expand_dims(crop, axis=0)
+        sess.run(assign_op, {placeholder: crop})
+        net_values = sess.run(net['output'])
+        features_resnet[i,:] = np.array(net_values[0])
+        for j in range(10):
+            if( classes[j] in df_label['classe'][i]):
+                classes_vectors[i,j] = 1
+
+    X_train = features_resnet[df_label['set']=='train',:]
+    y_train = classes_vectors[df_label['set']=='train',:]
+    
+    X_test= features_resnet[df_label['set']=='test',:]
+    y_test = classes_vectors[df_label['set']=='test',:]
+    
+    X_val = features_resnet[df_label['set']=='validation',:]
+    y_val = classes_vectors[df_label['set']=='validation',:]
+    
+    print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
+    
+    Data = [X_train,y_train,X_test,y_test,X_val,y_val]
+    
+    with open(name_pkl, 'wb') as pkl:
+        pickle.dump(Data,pkl)
+    
+    return(X_train,y_train,X_test,y_test,X_val,y_val,df_label)
+    
 if __name__ == '__main__':
-    Compute_ResNet('2048D')
-    Classification_evaluation('2048D')
-#Average Precision for aeroplane  =  0.667269500467
-#Average Precision for aeroplane : AP = 0.67, VOC12 = 0.68, VOC07 = 0.65
-#Training precision :1.00
-#Test precision = 0.84, recall = 0.54
-#Average Precision for bird  =  0.43263129913
-#Average Precision for bird : AP = 0.43, VOC12 = 0.43, VOC07 = 0.44
-#Training precision :0.97
-#Test precision = 0.71, recall = 0.20
-#Average Precision for boat  =  0.919813881584
-#Average Precision for boat : AP = 0.92, VOC12 = 0.92, VOC07 = 0.89
-#Training precision :0.92
-#Test precision = 0.88, recall = 0.78
-#Average Precision for chair  =  0.723004427855
-#Average Precision for chair : AP = 0.72, VOC12 = 0.73, VOC07 = 0.71
-#Training precision :0.90
-#Test precision = 0.70, recall = 0.62
-#Average Precision for cow  =  0.588617184568
-#Average Precision for cow : AP = 0.59, VOC12 = 0.59, VOC07 = 0.59
-#Training precision :0.92
-#Test precision = 0.76, recall = 0.33
-#Average Precision for diningtable  =  0.688512318176
-#Average Precision for diningtable : AP = 0.69, VOC12 = 0.69, VOC07 = 0.68
-#Training precision :0.88
-#Test precision = 0.73, recall = 0.51
-#Average Precision for dog  =  0.52862709804
-#Average Precision for dog : AP = 0.53, VOC12 = 0.53, VOC07 = 0.53
-#Training precision :0.94
-#Test precision = 0.69, recall = 0.33
-#Average Precision for horse  =  0.760910214053
-#Average Precision for horse : AP = 0.76, VOC12 = 0.76, VOC07 = 0.74
-#Training precision :0.93
-#Test precision = 0.80, recall = 0.60
-#Average Precision for sheep  =  0.670122581957
-#Average Precision for sheep : AP = 0.67, VOC12 = 0.67, VOC07 = 0.66
-#Training precision :0.92
-#Test precision = 0.77, recall = 0.41
-#Average Precision for train  =  0.847026669653
-#Average Precision for train : AP = 0.85, VOC12 = 0.85, VOC07 = 0.81
-#Training precision :1.00
-#Test precision = 0.89, recall = 0.69
-#mean Average Precision = 0.68
+    #Compute_ResNet('output')
+    #compute_InceptionResNetv2_features(kind='1536D')
+    #compute_VGG19_features()
+    #Classification_evaluation('1536D',kindnetwork='InceptionResNetv2')
+    Classification_evaluation('25088D',kindnetwork='VGG19')
+    
+    
+    
+#Average Precision for aeroplane  =  0.721583760331
+#Test precision = 0.96, recall = 0.48
+#Number of elt predicted  56.0 and true 113.0
+#Average Precision for bird  =  0.507878051912
+#Test precision = 0.82, recall = 0.20
+#Number of elt predicted  102.0 and true 414.0
+#Average Precision for boat  =  0.934756588006
+#Test precision = 0.89, recall = 0.82
+#Number of elt predicted  969.0 and true 1059.0
+#Average Precision for chair  =  0.764663394662
+#Test precision = 0.73, recall = 0.66
+#Number of elt predicted  517.0 and true 568.0
+#Average Precision for cow  =  0.674719155819
+#Test precision = 0.83, recall = 0.42
+#Number of elt predicted  161.0 and true 318.0
+#Average Precision for diningtable  =  0.72175161907
+#Test precision = 0.76, recall = 0.47
+#Number of elt predicted  362.0 and true 585.0
+#Average Precision for dog  =  0.588530673612
+#Test precision = 0.83, recall = 0.29
+#Number of elt predicted  193.0 and true 548.0
+#Average Precision for horse  =  0.826059227355
+#Test precision = 0.86, recall = 0.66
+#Number of elt predicted  543.0 and true 709.0
+#Average Precision for sheep  =  0.726930151375
+#Test precision = 0.86, recall = 0.43
+#Number of elt predicted  205.0 and true 405.0
+#Average Precision for train  =  0.865502745937
+#Test precision = 0.97, recall = 0.70
+#Number of elt predicted  118.0 and true 163.0
+#mean Average Precision = 0.733

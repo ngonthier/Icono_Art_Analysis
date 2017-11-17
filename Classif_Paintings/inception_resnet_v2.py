@@ -24,7 +24,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
+import inception_preprocessing
 import tensorflow as tf
 
 slim = tf.contrib.slim
@@ -364,12 +364,12 @@ def inception_resnet_v2(inputs, num_classes=1001, is_training=True,
     return logits, end_points
 
 def inception_resnet_v2_PreLogitsFlatten(inputs, num_classes=1001, is_training=True,
-                        dropout_keep_prob=0.8,
                         reuse=None,
                         scope='InceptionResnetV2',
                         create_aux_logits=True,
                         activation_fn=tf.nn.relu):
-  """Creates the Inception Resnet V2 model.
+  """Creates the Inception Resnet V2 model. and return the last layer output
+  before the last fully connected layer and the softmax
 
   Args:
     inputs: a 4-D tensor of size [batch_size, height, width, 3].
@@ -379,7 +379,6 @@ def inception_resnet_v2_PreLogitsFlatten(inputs, num_classes=1001, is_training=T
       is omitted and the input features to the logits layer (before  dropout)
       are returned instead.
     is_training: whether is training or not.
-    dropout_keep_prob: float, the fraction to keep before final layer.
     reuse: whether or not the network and its variables should be reused. To be
       able to reuse 'scope' must be given.
     scope: Optional variable_scope.
@@ -401,7 +400,11 @@ def inception_resnet_v2_PreLogitsFlatten(inputs, num_classes=1001, is_training=T
 
       net, end_points = inception_resnet_v2_base(inputs, scope=scope,
                                                  activation_fn=activation_fn)
-
+#      kernel_size = net.get_shape()[1:3]
+#      net = slim.avg_pool2d(net, kernel_size, padding='VALID',
+#                                scope='AvgPool_1a_8x8')
+#      net = slim.flatten(net)
+#      end_points['global_pool'] = net
       if create_aux_logits and num_classes:
         with tf.variable_scope('AuxLogits'):
           aux = end_points['PreAuxLogits']
@@ -425,8 +428,7 @@ def inception_resnet_v2_PreLogitsFlatten(inputs, num_classes=1001, is_training=T
         else:
           net = tf.reduce_mean(net, [1, 2], keep_dims=True, name='global_pool')
         end_points['global_pool'] = net
-        if not num_classes:
-          return net, end_points
+        print('Here I am')
         net = slim.flatten(net)
 #        net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
 #                           scope='Dropout')
@@ -436,7 +438,7 @@ def inception_resnet_v2_PreLogitsFlatten(inputs, num_classes=1001, is_training=T
 #        end_points['Logits'] = logits
 #        end_points['Predictions'] = tf.nn.softmax(logits, name='Predictions')
 
-    return net
+    return net,end_points
 
 inception_resnet_v2.default_image_size = 299
 
@@ -501,6 +503,14 @@ if __name__ == '__main__':
           logits, end_points = inception_resnet_v2(scaled_input_tensor, is_training=False)
       saver = tf.train.Saver()
       saver.restore(sess, checkpoint_file)
+      
+      # 2 manièeres de preprocesse les images 
+#      testImage_string = tf.gfile.FastGFile('lyon.jpg', 'rb').read()
+#      testImage = tf.image.decode_jpeg(testImage_string, channels=3)
+#      image_size = 299
+#      processed_image = inception_preprocessing.preprocess_image(testImage, image_size, image_size, is_training=False)
+#      im = sess.run(tf.expand_dims(processed_image, 0))
+#   
       im = Image.open('cat.jpg').resize((299,299))
       im = np.array(im)
       im = im.reshape(-1,299,299,3)

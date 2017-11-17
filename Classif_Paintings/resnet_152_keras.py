@@ -5,7 +5,7 @@ Created on Thu Nov  9 16:18:12 2017
 
 @author: flyyufelix, gonthier
 https://gist.github.com/flyyufelix/7e2eafb149f72f4d38dd661882c554a6#file-resnet-152_keras-py
-
+http://ethereon.github.io/netscope/#/gist/d38f3e6091952b45198b
 """
 
 # -*- coding: utf-8 -*-
@@ -286,12 +286,17 @@ def read_dict_imagenet():
     
 if __name__ == '__main__':
 
-  im = cv2.resize(cv2.imread('cat.jpg'), (224, 224)).astype(np.float32)
+  im = cv2.resize(cv2.imread('lyon.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
 
   # Remove train image mean
   im[:,:,0] -= 103.939
   im[:,:,1] -= 116.779
   im[:,:,2] -= 123.68
+  
+#  VGG_MEAN = [103.939, 116.779, 123.68]
+#  im = im[:, :, [2,1,0]] # swap channel from RGB to BGR
+
+  
 
   if K.image_dim_ordering() == 'th':
     # Transpose image dimensions (Theano uses the channels as the 1st dimension)
