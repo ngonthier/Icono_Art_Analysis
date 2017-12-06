@@ -428,7 +428,6 @@ def inception_resnet_v2_PreLogitsFlatten(inputs, num_classes=1001, is_training=T
         else:
           net = tf.reduce_mean(net, [1, 2], keep_dims=True, name='global_pool')
         end_points['global_pool'] = net
-        print('Here I am')
         net = slim.flatten(net)
 #        net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
 #                           scope='Dropout')
@@ -514,7 +513,13 @@ if __name__ == '__main__':
       im = Image.open('cat.jpg').resize((299,299))
       im = np.array(im)
       im = im.reshape(-1,299,299,3)
-      predict_values, logit_values = sess.run([end_points['Predictions'], logits], feed_dict={input_tensor: im})
+      im2 = Image.open('lyon.jpg').resize((299,299))
+      im2 = np.array(im2)
+      im2 = im2.reshape(-1,299,299,3)
+      ims = np.concatenate((im,im2))
+      
+      
+      predict_values, logit_values = sess.run([end_points['Predictions'], logits], feed_dict={input_tensor: ims})
       print (np.max(predict_values), np.max(logit_values))
       print (np.argmax(predict_values), np.argmax(logit_values))
       dict = yaml.load(open("imageNet_map.txt").read().replace('\n',''))

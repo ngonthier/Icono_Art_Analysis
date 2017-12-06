@@ -10,6 +10,7 @@ import scipy.io
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
+import cv2
 
 # Name of the 19 first layers of the VGG19
 VGG19_LAYERS = (
@@ -24,7 +25,7 @@ VGG19_LAYERS = (
     'relu4_3', 'conv4_4', 'relu4_4', 'pool4',
 
     'conv5_1', 'relu5_1', 'conv5_2', 'relu5_2', 'conv5_3',
-    'relu5_3', 'conv5_4', 'relu5_4','pool5')
+    'relu5_3', 'conv5_4', 'relu5_4','pool5','fuco6','relu6','fuco7','relu7','fuco8','prob')
 #layers   = [2 5 10 19 28]; for texture generation
 style_layers_size =  {'input':3,'conv1' : 64,'relu1' : 64,'pool1': 64,'conv2' : 128,'relu2' : 128,'pool2':128,'conv3' : 256,'relu3' : 256,'pool3':256,'conv4': 512,'relu4' : 512,'pool4':512,'conv5' : 512,'relu5' : 512,'pool5':512}
 # TODO : check if the N value are right for the poolx
@@ -58,14 +59,15 @@ def net_preloaded(vgg_layers, input_image,pooling_type='max',padding='SAME'):
     This function read the vgg layers and create the net architecture
     We need the input image to know the dimension of the input layer of the net
     """
-    
     net = {}
-    _,height, width, numberChannels = input_image.shape # In order to have the right shape of the input
-    current = tf.Variable(np.zeros((1, height, width, numberChannels), dtype=np.float32))
+    #_,height, width, numberChannels = input_image.shape # In order to have the right shape of the input
+    #current = tf.Variable(input_image, dtype=np.float32)
+    current = tf.cast(input_image, tf.float32)
     net['input'] = current
     for i, name in enumerate(VGG19_LAYERS):
         kind = name[:4]
         #print(name,current.shape)
+        #print(name)
         if(kind == 'conv'):
             # Only way to get the weight of the kernel of convolution
             # Inspired by http://programtalk.com/vs2/python/2964/facenet/tmp/vggverydeep19.py/
@@ -81,12 +83,35 @@ def net_preloaded(vgg_layers, input_image,pooling_type='max',padding='SAME'):
             current = tf.nn.relu(current,name=name)
         elif(kind == 'pool'):
             current = pool_layer(current,name,pooling_type,padding)
-
+        elif(kind=='fuco'):
+            kernels = vgg_layers[i][0][0][2][0][0] 
+            bias = vgg_layers[i][0][0][2][0][1]
+            # matconvnet: weights are [width, height, in_channels, out_channels]
+            # tensorflow: weights are [height, width, in_channels, out_channels]
+            kernels = tf.constant(np.transpose(kernels, (1,0 ,2, 3)))
+            bias = tf.constant(bias.reshape(-1))
+            current = fuco_layer(current, kernels, bias)
+        elif(kind=='prob'):
+            current  = tf.nn.softmax(current, name="prob")
         net[name] = current
-    
-    net['output'] = tf.contrib.layers.flatten(current)
-    assert len(net) == len(VGG19_LAYERS) +2 # Test if the length is right 
+        
+    assert net['fuco6'].get_shape().as_list()[1:] == [4096]
+    #net['output'] = tf.contrib.layers.flatten(current)
+    assert len(net) == len(VGG19_LAYERS) +1 # Test if the length is right 
     return(net)
+    
+    
+def fuco_layer(input,weights, bias):  
+    shape = input.get_shape().as_list()
+    dim = 1
+    for d in shape[1:]:
+        dim *= d
+    x = tf.reshape(input, [-1, dim])
+    weights = tf.reshape(weights,[dim,-1])
+    # Fully connected layer. Note that the '+' operation automatically
+    # broadcasts the biases.
+    fc = tf.nn.bias_add(tf.matmul(x, weights), bias)
+    return(fc) # TODO
 
 def conv_layer(input, weights, bias,name,padding='SAME'):
     """
@@ -116,7 +141,7 @@ def get_img_2pixels_more(input):
     new_input = tf.concat([new_input,new_input[:,:,0:2,:]],axis=2)
     return(new_input)
 
-def pool_layer(input,name,pooling_type='avg',padding='SAME'):
+def pool_layer(input,name,pooling_type='max',padding='SAME'):
     """
     Average pooling on windows 2*2 with stride of 2
     input is a 4D Tensor of shape [batch, height, width, channels]
@@ -139,6 +164,42 @@ def pool_layer(input,name,pooling_type='avg',padding='SAME'):
     return(pool)
 
 if __name__ == '__main__':
-    input_image = np.zeros((1,224,224,3))
-    vgg_layers = get_vgg_layers()
-    net_preloaded(vgg_layers,input_image,pooling_type='max',padding='SAME')
+   import yaml
+   with tf.Graph().as_default():
+        vgg_layers = get_vgg_layers()
+        input_tensor = tf.placeholder(tf.float32, shape=(None,224,224,3), name='input_image')
+        net = net_preloaded(vgg_layers,input_tensor,pooling_type='max',padding='SAME')
+        sess = tf.Session()
+        im = cv2.resize(cv2.imread('dog.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
+        im2 = cv2.resize(cv2.imread('cat.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
+#        im = im[...,::-1]
+#        im /= 255
+#        plt.imshow(im)
+        # Remove train image mean
+        im[:,:,0] -= 103.939
+        im[:,:,1] -= 116.779
+        im[:,:,2] -= 123.68
+        
+        im2[:,:,0] -= 103.939
+        im2[:,:,1] -= 116.779
+        im2[:,:,2] -= 123.68
+        im = np.expand_dims(im, axis=0)
+        im2 = np.expand_dims(im2, axis=0)
+        ims = np.concatenate((im,im2))
+        #ims = im
+      
+        predict_values = sess.run(net['prob'], feed_dict={input_tensor: ims})
+        print(predict_values.shape)
+        dict = yaml.load(open("imageNet_map.txt").read().replace('\n',''))
+         
+        
+        
+        numIm = predict_values.shape[0]
+        for j in range(numIm):
+            print("Im ",j)
+            string = "5 first Predicted class : \n"
+            out_sort_arg = np.argsort(predict_values[j,:])[::-1]
+            #out_sort_arg = np.flip(np.argsort(predict_values[j,:]),axis=1)[0]
+            for i in range(5):
+                string += str(out_sort_arg[i]) + ' : ' + dict[out_sort_arg[i]] + '\n'
+            print(string)

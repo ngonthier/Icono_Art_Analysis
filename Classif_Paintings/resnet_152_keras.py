@@ -287,11 +287,16 @@ def read_dict_imagenet():
 if __name__ == '__main__':
 
   im = cv2.resize(cv2.imread('lyon.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
-
+  im2 = cv2.resize(cv2.imread('cat.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
+  
   # Remove train image mean
   im[:,:,0] -= 103.939
   im[:,:,1] -= 116.779
   im[:,:,2] -= 123.68
+  
+  im2[:,:,0] -= 103.939
+  im2[:,:,1] -= 116.779
+  im2[:,:,2] -= 123.68
   
 #  VGG_MEAN = [103.939, 116.779, 123.68]
 #  im = im[:, :, [2,1,0]] # swap channel from RGB to BGR
@@ -310,21 +315,28 @@ if __name__ == '__main__':
 
   # Insert a new dimension for the batch_size
   im = np.expand_dims(im, axis=0)
+  im2 = np.expand_dims(im2, axis=0)
+  ims = np.concatenate((im,im2))
 
   # Test pretrained model
   model = resnet152_model(weights_path)
   #sgd = SGD(lr=1e-2, decay=1e-6, momentum=0.9, nesterov=True)
   #model.compile(optimizer=sgd, loss='categorical_crossentropy', metrics=['accuracy'])
 
-  out = model.predict(im)
+  predict_values = model.predict(ims)
   
-  print('Predicted:', decode_predictions(out, top=3)[0])
-  
+  print(predict_values.shape)
   dict = yaml.load(open("imageNet_map.txt").read().replace('\n',''))
-  
-  out_sort_arg = np.flip(np.argsort(out),axis=1)[0]
-  string = "5 first Predicted class : \n"
-  for i in range(5):
-      string += str(out_sort_arg[i]) + ' : ' + dict[out_sort_arg[i]] + '\n'
-  print(string)
+         
+
+        
+  numIm = predict_values.shape[0]
+  for j in range(numIm):
+    print("Im ",j)
+    string = "5 first Predicted class : \n"
+    out_sort_arg = np.argsort(predict_values[j,:])[::-1]
+    #out_sort_arg = np.flip(np.argsort(predict_values[j,:]),axis=1)[0]
+    for i in range(5):
+        string += str(out_sort_arg[i]) + ' : ' + dict[out_sort_arg[i]] + '\n'
+    print(string)
     
