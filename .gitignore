@@ -28,6 +28,10 @@ __pycache__/*
 
 *.pdf
 
+Classif_Paintings/*.txt
+Classif_Paintings/*.npy
+Classif_Paintings/__pycache/* 
+
 
 
 
