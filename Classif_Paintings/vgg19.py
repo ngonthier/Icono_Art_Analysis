@@ -29,13 +29,6 @@ VGG19_LAYERS = (
 #layers   = [2 5 10 19 28]; for texture generation
 style_layers_size =  {'input':3,'conv1' : 64,'relu1' : 64,'pool1': 64,'conv2' : 128,'relu2' : 128,'pool2':128,'conv3' : 256,'relu3' : 256,'pool3':256,'conv4': 512,'relu4' : 512,'pool4':512,'conv5' : 512,'relu5' : 512,'pool5':512}
 # TODO : check if the N value are right for the poolx
-
-def plot_image(path_to_image):
-    """
-    Function to plot an image
-    """
-    img = Image.open(path_to_image)
-    plt.imshow(img)
     
 def get_vgg_layers(VGG19_mat='/media/HDD/models/imagenet-vgg-verydeep-19.mat'):
     """
@@ -67,15 +60,24 @@ def net_preloaded(vgg_layers, input_image,pooling_type='max',padding='SAME'):
     for i, name in enumerate(VGG19_LAYERS):
         kind = name[:4]
         #print(name,current.shape)
-        #print(name)
         if(kind == 'conv'):
             # Only way to get the weight of the kernel of convolution
             # Inspired by http://programtalk.com/vs2/python/2964/facenet/tmp/vggverydeep19.py/
             kernels = vgg_layers[i][0][0][2][0][0] 
             bias = vgg_layers[i][0][0][2][0][1]
+            # F is an array of dimension FW x FH x FC x K where (FH,FW) are the filter height and width and K the number o filters in the bank.
+            # http://www.vlfeat.org/matconvnet/mfiles/vl_nnconv/
             # matconvnet: weights are [width, height, in_channels, out_channels]
+            # a filter / kernel tensor of shape [filter_height, filter_width, in_channels, out_channels]
+            # https://www.tensorflow.org/api_docs/python/tf/nn/conv2d
             # tensorflow: weights are [height, width, in_channels, out_channels]
-            kernels = tf.constant(np.transpose(kernels, (1,0 ,2, 3)))
+            #kernels = tf.constant(np.transpose(kernels, (1,0 ,2, 3)))
+            #kernels = tf.constant(kernels[:,:,::-1,:])
+            if(name=='conv1_1'):
+                kernels = tf.constant(kernels[:,:,::-1,:])
+            else:
+                kernels = tf.constant(kernels)
+            #kernels = tf.constant(kernels)
             bias = tf.constant(bias.reshape(-1))
             current = conv_layer(current, kernels, bias,name,padding) 
             # Update the  variable named current to have the right size
@@ -88,7 +90,8 @@ def net_preloaded(vgg_layers, input_image,pooling_type='max',padding='SAME'):
             bias = vgg_layers[i][0][0][2][0][1]
             # matconvnet: weights are [width, height, in_channels, out_channels]
             # tensorflow: weights are [height, width, in_channels, out_channels]
-            kernels = tf.constant(np.transpose(kernels, (1,0 ,2, 3)))
+            #kernels = tf.constant(np.transpose(kernels, (1,0 ,2, 3)))
+            kernels = tf.constant(kernels)
             bias = tf.constant(bias.reshape(-1))
             current = fuco_layer(current, kernels, bias)
         elif(kind=='prob'):
@@ -170,11 +173,14 @@ if __name__ == '__main__':
         input_tensor = tf.placeholder(tf.float32, shape=(None,224,224,3), name='input_image')
         net = net_preloaded(vgg_layers,input_tensor,pooling_type='max',padding='SAME')
         sess = tf.Session()
-        im = cv2.resize(cv2.imread('dog.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
-        im2 = cv2.resize(cv2.imread('cat.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
-#        im = im[...,::-1]
-#        im /= 255
-#        plt.imshow(im)
+        #im = cv2.resize(cv2.imread('dog.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
+        #im2 = cv2.resize(cv2.imread('cat.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
+        im =  np.array(Image.open('dog.jpg').resize((224,224))).astype(np.float32)
+        im2 =  np.array(Image.open('cat.jpg').resize((224,224))).astype(np.float32)
+        
+        im = im[:,:,::-1]
+        im2 = im2[:,:,::-1]
+        
         # Remove train image mean
         im[:,:,0] -= 103.939
         im[:,:,1] -= 116.779
@@ -188,9 +194,10 @@ if __name__ == '__main__':
         ims = np.concatenate((im,im2))
         #ims = im
       
-        predict_values = sess.run(net['prob'], feed_dict={input_tensor: ims})
+        predict_values = sess.run(net['fuco8'], feed_dict={input_tensor: ims})
         print(predict_values.shape)
-        dict = yaml.load(open("imageNet_map.txt").read().replace('\n',''))
+        print(predict_values)
+        dictr = yaml.load(open("imageNet_map.txt").read().replace('\n',''))
          
         
         
@@ -201,5 +208,28 @@ if __name__ == '__main__':
             out_sort_arg = np.argsort(predict_values[j,:])[::-1]
             #out_sort_arg = np.flip(np.argsort(predict_values[j,:]),axis=1)[0]
             for i in range(5):
-                string += str(out_sort_arg[i]) + ' : ' + dict[out_sort_arg[i]] + '\n'
+                string += str(out_sort_arg[i]) + ' : ' + dictr[out_sort_arg[i]] + '\n'
             print(string)
+
+# Avec les kernels non retourner sauf le premier
+#[[-2.73314285  1.09662354 -4.03027868 ..., -1.74038112  1.51331854
+#   4.80882072]
+# [-1.92644882 -3.12641644 -0.26798052 ..., -1.03142285  3.46962547
+#   2.97795534]]
+#Im  0
+#5 first Predicted class : 
+#259 : Pomeranian
+#265 : toy poodle
+#154 : Pekinese, Pekingese, Peke
+#266 : miniature poodle
+#850 : teddy, teddy bear
+#
+#Im  1
+#5 first Predicted class : 
+#285 : Egyptian cat
+#287 : lynx, catamount
+#282 : tiger cat
+#281 : tabby, tabby cat
+#478 : carton
+
+

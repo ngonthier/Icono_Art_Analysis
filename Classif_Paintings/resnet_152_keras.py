@@ -288,6 +288,7 @@ if __name__ == '__main__':
 
   im = cv2.resize(cv2.imread('lyon.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
   im2 = cv2.resize(cv2.imread('cat.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
+  # Need to read image in BGR
   
   # Remove train image mean
   im[:,:,0] -= 103.939

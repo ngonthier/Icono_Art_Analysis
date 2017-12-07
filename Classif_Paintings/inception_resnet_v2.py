@@ -24,7 +24,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import inception_preprocessing
 import tensorflow as tf
 
 slim = tf.contrib.slim
@@ -509,7 +508,7 @@ if __name__ == '__main__':
 #      image_size = 299
 #      processed_image = inception_preprocessing.preprocess_image(testImage, image_size, image_size, is_training=False)
 #      im = sess.run(tf.expand_dims(processed_image, 0))
-#   
+   
       im = Image.open('cat.jpg').resize((299,299))
       im = np.array(im)
       im = im.reshape(-1,299,299,3)
@@ -522,10 +521,10 @@ if __name__ == '__main__':
       predict_values, logit_values = sess.run([end_points['Predictions'], logits], feed_dict={input_tensor: ims})
       print (np.max(predict_values), np.max(logit_values))
       print (np.argmax(predict_values), np.argmax(logit_values))
-      dict = yaml.load(open("imageNet_map.txt").read().replace('\n',''))
+      dictr = yaml.load(open("imageNet_map.txt").read().replace('\n',''))
       
       out_sort_arg = np.flip(np.argsort(predict_values),axis=1)[0]
       string = "5 first Predicted class : \n"
       for i in range(5):
-          string += str(out_sort_arg[i]) + ' : ' + dict[out_sort_arg[i]] + '\n'
+          string += str(out_sort_arg[i]) + ' : ' + dictr[out_sort_arg[i]] + '\n'
       print(string)
