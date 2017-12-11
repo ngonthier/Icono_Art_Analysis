@@ -186,18 +186,18 @@ if __name__ == '__main__':
         input_tensor = tf.placeholder(tf.float32, shape=(None,224,224,3), name='input_image')
         net = net_preloaded(vgg_layers,input_tensor,pooling_type='max',padding='SAME',sess=sess)
 
-        im = Image.open('loulou.jpg').resize((224,224))
+        im = Image.open('loulou.jpg').resize((224,224),Image.NEAREST)
         im = np.array(im).astype(np.float32) 
-        im2 = Image.open('cat.jpg').resize((224,224)) 
+        im2 = Image.open('cat.jpg').resize((224,224),Image.NEAREST) 
         im2 = np.array(im2).astype(np.float32) 
         
         im[:,:,2] -= 103.939
         im[:,:,1] -= 116.779
         im[:,:,0] -= 123.68 
-        #scipy.io.savemat('cat224.mat',im)
+        #im = im[:,:,::-1] 
         im2[:,:,2] -= 103.939
         im2[:,:,1] -= 116.779
-        im2[:,:,2] -= 123.68 
+        im2[:,:,0] -= 123.68 
         #im2 = im2[:,:,::-1] 
         
 #        im = cv2.resize(cv2.imread('dog.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !

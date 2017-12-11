@@ -429,11 +429,12 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
       sess.run(tf.global_variables_initializer())
             
       for i,name_img in  enumerate(df_label['name_img']):
-        if i%250==0:
-            print(i,name_img)
+#        if i%250==0:
+#            print(i,name_img)
         complet_name = path_to_img + name_img + '.jpg'
         im = cv2.imread(complet_name)
-        #im = im[:,:,[2,1,0]] # To shift from BGR to RGB = > VGG take BGR image
+        im = im[:,:,[2,1,0]]
+        # To shift from BGR to RGB = > this implementation of VGG take RGB image
         if(im.shape[0] < im.shape[1]):
             dim = (256, int(im.shape[1] * 256.0 / im.shape[0]),3)
         else:
@@ -443,9 +444,9 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
         resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA) # INTER_AREA
         resizedf = resized.astype(np.float32)
         # Remove train image mean
-        resizedf[:,:,0] -= 103.939
+        resizedf[:,:,2] -= 103.939
         resizedf[:,:,1] -= 116.779
-        resizedf[:,:,2] -= 123.68
+        resizedf[:,:,0] -= 123.68
         
         if(augmentation==True):
             list_im =  np.stack(get_Stretch_augmentation(resizedf,N=N,portion_size = (224, 224)))
@@ -496,24 +497,24 @@ if __name__ == '__main__':
     #Classification_evaluation('1536D',kindnetwork='InceptionResNetv2',database='Paintings',L2=True,augmentation=True)
     
     ## VGG16
-    kind = 'relu7'
-    VGGnum = '16'
-    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=False,augmentation=False)
-    Classification_evaluation(kind=kind,kindnetwork='VGG16',L2=False,augmentation=False)
+#    kind = 'relu7'
+#    VGGnum = '16'
+#    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=False,augmentation=False)
+#    Classification_evaluation(kind=kind,kindnetwork='VGG16',L2=False,augmentation=False)
     
-    kind = 'relu7'
-    VGGnum = '19'
-    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=False,augmentation=False)
-    Classification_evaluation(kind=kind,kindnetwork='VGG19',L2=False,augmentation=False)
-    kind = 'relu6'
-    VGGnum = '19'
-    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=False,augmentation=False)
-    Classification_evaluation(kind=kind,kindnetwork='VGG19',L2=False,augmentation=False)
-      
-    kind = 'relu7'
-    VGGnum = '16'
-    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=True,augmentation=True)
-    Classification_evaluation(kind=kind,kindnetwork='VGG16',L2=True,augmentation=True)
+#    kind = 'relu7'
+#    VGGnum = '19'
+#    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=True,augmentation=True)
+#    Classification_evaluation(kind=kind,kindnetwork='VGG19',L2=True,augmentation=True)
+#    kind = 'relu6'
+#    VGGnum = '19'
+#    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=False,augmentation=False)
+#    Classification_evaluation(kind=kind,kindnetwork='VGG19',L2=False,augmentation=False)
+#      
+#    kind = 'relu7'
+#    VGGnum = '16'
+#    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=True,augmentation=True)
+#    Classification_evaluation(kind=kind,kindnetwork='VGG16',L2=True,augmentation=True)
     
     ## Computation on VOC12
     #Compute_ResNet(kind='2048D',database='VOC12',L2=True,augmentation=False)

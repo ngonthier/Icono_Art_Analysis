@@ -314,10 +314,10 @@ if __name__ == '__main__':
       slim = tf.contrib.slim
       
       input_tensor = tf.placeholder(tf.float32, shape=(None,224,224,3), name='input_image')
-      #checkpoint_file = '/media/HDD/models/vgg_19.ckpt'
-      #logits, end_points = vgg_19(input_tensor, is_training=False)
-      checkpoint_file = '/media/HDD/models/vgg_16.ckpt'
-      logits, end_points = vgg_16(input_tensor, is_training=False)
+      checkpoint_file = '/media/HDD/models/vgg_19.ckpt'
+      logits, end_points = vgg_19(input_tensor, is_training=False)
+      #checkpoint_file = '/media/HDD/models/vgg_16.ckpt'
+      #logits, end_points = vgg_16(input_tensor, is_training=False)
       saver = tf.train.Saver()
       saver.restore(sess, checkpoint_file)
       
@@ -328,7 +328,7 @@ if __name__ == '__main__':
 #      processed_image = inception_preprocessing.preprocess_image(testImage, image_size, image_size, is_training=False)
 #      im = sess.run(tf.expand_dims(processed_image, 0))
 #   
-      im = Image.open('dog.jpg').resize((224,224),Image.NEAREST)
+      im = Image.open('loulou.jpg').resize((224,224),Image.NEAREST)
       im = np.array(im).astype(np.float32) 
       im2 = Image.open('cat.jpg').resize((224,224),Image.NEAREST) 
       im2 = np.array(im2).astype(np.float32) 

@@ -73,11 +73,11 @@ def net_preloaded(vgg_layers, input_image,pooling_type='max',padding='SAME'):
             # tensorflow: weights are [height, width, in_channels, out_channels]
             #kernels = tf.constant(np.transpose(kernels, (1,0 ,2, 3)))
             #kernels = tf.constant(kernels[:,:,::-1,:])
-            if(name=='conv1_1'):
-                kernels = tf.constant(kernels[:,:,::-1,:])
-            else:
-                kernels = tf.constant(kernels)
-            #kernels = tf.constant(kernels)
+#            if(name=='conv1_1'):
+#                kernels = tf.constant(kernels[:,:,::-1,:])
+#            else:
+#                kernels = tf.constant(kernels)
+            kernels = tf.constant(kernels)
             bias = tf.constant(bias.reshape(-1))
             current = conv_layer(current, kernels, bias,name,padding) 
             # Update the  variable named current to have the right size
@@ -175,20 +175,18 @@ if __name__ == '__main__':
         sess = tf.Session()
         #im = cv2.resize(cv2.imread('dog.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
         #im2 = cv2.resize(cv2.imread('cat.jpg'), (224, 224)).astype(np.float32) # Read image in BGR !
-        im =  np.array(Image.open('dog.jpg').resize((224,224))).astype(np.float32)
+        im =  np.array(Image.open('loulou.jpg').resize((224,224))).astype(np.float32)
         im2 =  np.array(Image.open('cat.jpg').resize((224,224))).astype(np.float32)
         
-        im = im[:,:,::-1]
-        im2 = im2[:,:,::-1]
-        
-        # Remove train image mean
-        im[:,:,0] -= 103.939
+        im[:,:,2] -= 103.939
         im[:,:,1] -= 116.779
-        im[:,:,2] -= 123.68
-        
-        im2[:,:,0] -= 103.939
+        im[:,:,0] -= 123.68 
+        #im = im[:,:,::-1] 
+
+        im2[:,:,2] -= 103.939
         im2[:,:,1] -= 116.779
-        im2[:,:,2] -= 123.68
+        im2[:,:,0] -= 123.68 
+        #im2 = im2[:,:,::-1] 
         im = np.expand_dims(im, axis=0)
         im2 = np.expand_dims(im2, axis=0)
         ims = np.concatenate((im,im2))
@@ -198,8 +196,6 @@ if __name__ == '__main__':
         print(predict_values.shape)
         print(predict_values)
         dictr = yaml.load(open("imageNet_map.txt").read().replace('\n',''))
-         
-        
         
         numIm = predict_values.shape[0]
         for j in range(numIm):
@@ -208,7 +204,7 @@ if __name__ == '__main__':
             out_sort_arg = np.argsort(predict_values[j,:])[::-1]
             #out_sort_arg = np.flip(np.argsort(predict_values[j,:]),axis=1)[0]
             for i in range(5):
-                string += str(out_sort_arg[i]) + ' : ' + dictr[out_sort_arg[i]] + '\n'
+                string += str(out_sort_arg[i]) + ' : ' + dictr[out_sort_arg[i]] + ' : ' + str(predict_values[j,out_sort_arg[i]]) + '\n'
             print(string)
 
 # Avec les kernels non retourner sauf le premier
