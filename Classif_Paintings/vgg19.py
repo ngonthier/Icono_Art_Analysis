@@ -51,6 +51,9 @@ def net_preloaded(vgg_layers, input_image,pooling_type='max',padding='SAME'):
     """
     This function read the vgg layers and create the net architecture
     We need the input image to know the dimension of the input layer of the net
+    
+    This Net need images in RGB 
+    
     """
     net = {}
     #_,height, width, numberChannels = input_image.shape # In order to have the right shape of the input

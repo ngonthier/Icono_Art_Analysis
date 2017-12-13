@@ -27,6 +27,33 @@ import vgg16
 import random
 from numpy import linalg as LA
 
+
+def TestPerformanceSurVOC12(kind='2048D',kindnetwork='ResNet152'):
+    """
+    Tester la meanAP en s entrainant sur la partie train de VOC12 et en testant 
+    sur la partie validation
+    """
+    classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    name_pkl = kindnetwork +'_' + kind +'_VOC12_N1.pkl'
+    [X_trainval,y_trainval,_,_,X_test,y_test] = pickle.load(open(name_pkl, 'rb'))
+    classifier = LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True)
+    AP_per_class = []
+    cs = np.logspace(-5, -2, 20)
+    cs = np.hstack((cs,[0.2,1,2]))
+    param_grid = dict(C=cs)
+    for i,classe in enumerate(classes):
+        grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True), param_grid=param_grid,n_jobs=3)
+        grid.fit(X_trainval,y_trainval[:,i])  
+        y_predict_confidence_score = grid.decision_function(X_test)
+        # Warning ! predict provide class labels for samples whereas decision_function provide confidence scores for samples.
+        AP = average_precision_score(y_test[:,i],y_predict_confidence_score,average=None)
+        AP_per_class += [AP]
+        print("Average Precision for",classe," = ",AP)
+    
+    print("mean Average Precision = {0:.3f}".format(np.mean(AP_per_class)))
+    return(0)
+    
+
 def get_Stretch_augmentation(im,N=50,portion_size = (224, 224)):
     """
     N is the number of image that you need to return
@@ -62,12 +89,18 @@ def Classification_evaluation(kind='2048D',kindnetwork='InceptionResNetv2',datab
         extL2 = ''
     
     classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-    name_pkl = kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
-    [X_train,y_train,X_test,y_test,X_val,y_val] = pickle.load(open(name_pkl, 'rb'))
+    if database == 'Paintings':
+        name_pkl = kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
+        [X_train,y_train,X_test,y_test,X_val,y_val] = pickle.load(open(name_pkl, 'rb'))
+    elif database == 'VOC12':
+        name_pkl = kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
+        [X_train,y_train,_,_,X_val,y_val] = pickle.load(open(name_pkl, 'rb'))
+        name_pkl = kindnetwork +'_' + kind +'_Paintings_N'+str(N)+extL2+'.pkl'
+        [_,_,X_test,y_test,_,_] = pickle.load(open(name_pkl, 'rb'))
     print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
     X_trainval = np.append(X_train,X_val,axis=0)
     y_trainval = np.append(y_train,y_val,axis=0)
-
+        
 #    X_trainval =  normalize(X_trainval, axis=1, norm='l2')
 #    X_test =  normalize(X_test, axis=1, norm='l2')
 
@@ -153,7 +186,10 @@ def Compute_ResNet(kind='2048D',database='Paintings',L2=True,augmentation=True):
     ResNet take BGR image as input
     """
     classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    if database=='Paintings':
+        path_to_img = '/media/HDD/data/Painting_Dataset/'
+    elif database=='VOC12':
+        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
     databasetxt = database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
     if augmentation:
@@ -184,7 +220,7 @@ def Compute_ResNet(kind='2048D',database='Paintings',L2=True,augmentation=True):
     classes_vectors = np.zeros((sLength,10))
     
     for i,name_img in  enumerate(df_label['name_img']):
-        if i%250==0:
+        if i%1000==0:
             print(i,name_img)
         complet_name = path_to_img + name_img + '.jpg'
         
@@ -282,7 +318,10 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',L2=True
     Inception ResNet v2 take RGB image as input
     """
     classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    if database=='Paintings':
+        path_to_img = '/media/HDD/data/Painting_Dataset/'
+    elif database=='VOC12':
+        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
     databasetxt = database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
     if augmentation:
@@ -327,7 +366,7 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',L2=True
           saver.restore(sess, checkpoint_file)
  
           for i,name_img in  enumerate(df_label['name_img']):
-            if i%250==0:
+            if i%1000==0:
                 print(i,name_img)
             complet_name = path_to_img + name_img + '.jpg'
             im = cv2.imread(complet_name)
@@ -336,7 +375,7 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',L2=True
             if augmentation:
                 sizeIm = 335
             else:
-                sizeIm = 229
+                sizeIm = 299
             if(im.shape[0] < im.shape[1]):
                 dim = (sizeIm, int(im.shape[1] * sizeIm / im.shape[0]),3)
             else:
@@ -388,7 +427,10 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
     VGG take BGR image as input
     """
     classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    if database=='Paintings':
+        path_to_img = '/media/HDD/data/Painting_Dataset/'
+    elif database=='VOC12':
+        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
     databasetxt = database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
     if augmentation:
@@ -429,8 +471,8 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
       sess.run(tf.global_variables_initializer())
             
       for i,name_img in  enumerate(df_label['name_img']):
-#        if i%250==0:
-#            print(i,name_img)
+        if i%1000==0:
+            print(i,name_img)
         complet_name = path_to_img + name_img + '.jpg'
         im = cv2.imread(complet_name)
         im = im[:,:,[2,1,0]]
@@ -489,28 +531,40 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
 if __name__ == '__main__':
     
     ## ResNet 152
-    #Compute_ResNet(kind='2048D',database='Paintings',L2=True,augmentation=True)
-    #Classification_evaluation('2048D',kindnetwork='ResNet152',database='Paintings',L2=True,augmentation=True)
+    Compute_ResNet(kind='2048D',database='VOC12',L2=True,augmentation=True)
+    print("ResNet")
+    Classification_evaluation('2048D',kindnetwork='ResNet152',database='VOC12',L2=True,augmentation=True)
     
     ## InceptionResnetV2 
-    #compute_InceptionResNetv2_features(kind='1536D',database='Paintings',L2=True,augmentation=True)
-    #Classification_evaluation('1536D',kindnetwork='InceptionResNetv2',database='Paintings',L2=True,augmentation=True)
+    print("InceptionResNet")
+    #compute_InceptionResNetv2_features(kind='1536D',database='VOC12',L2=False,augmentation=False)
+    #Classification_evaluation('1536D',kindnetwork='InceptionResNetv2',database='VOC12',L2=False,augmentation=False)
+    compute_InceptionResNetv2_features(kind='1536D',database='VOC12',L2=True,augmentation=True)
+    Classification_evaluation('1536D',kindnetwork='InceptionResNetv2',database='VOC12',L2=True,augmentation=True)
+    
     
     ## VGG16
-#    kind = 'relu7'
-#    VGGnum = '16'
-#    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=False,augmentation=False)
-#    Classification_evaluation(kind=kind,kindnetwork='VGG16',L2=False,augmentation=False)
+    kind = 'relu7'
+    VGGnum = '16'
+    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=False,augmentation=False)
+    Classification_evaluation(kind=kind,kindnetwork='VGG16',database='VOC12',L2=False,augmentation=False)
+    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=True,augmentation=True)
+    Classification_evaluation(kind=kind,kindnetwork='VGG16',database='VOC12',L2=True,augmentation=True)
     
-#    kind = 'relu7'
-#    VGGnum = '19'
-#    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=True,augmentation=True)
-#    Classification_evaluation(kind=kind,kindnetwork='VGG19',L2=True,augmentation=True)
-#    kind = 'relu6'
-#    VGGnum = '19'
-#    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=False,augmentation=False)
-#    Classification_evaluation(kind=kind,kindnetwork='VGG19',L2=False,augmentation=False)
-#      
+    ## VGG19
+    print("VGG19")
+    kind = 'relu7'
+    VGGnum = '19'
+    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=True,augmentation=True)
+    Classification_evaluation(kind=kind,database='VOC12',kindnetwork='VGG19',L2=True,augmentation=True)
+    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=False,augmentation=False)
+    Classification_evaluation(kind=kind,database='VOC12',kindnetwork='VGG19',L2=False,augmentation=False)
+    
+    kind = 'relu6'
+    VGGnum = '19'
+    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=False,augmentation=False)
+    Classification_evaluation(kind=kind,database='VOC12',kindnetwork='VGG19',L2=False,augmentation=False)
+      
 #    kind = 'relu7'
 #    VGGnum = '16'
 #    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=True,augmentation=True)
