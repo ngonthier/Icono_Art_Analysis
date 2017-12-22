@@ -15,7 +15,7 @@ from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 import pickle
 from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score,label_ranking_average_precision_score,classification_report
-from sklearn.svm import LinearSVC
+from sklearn.svm import LinearSVC, SVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import PredefinedSplit
 from Custom_Metrics import ranking_precision_score,VOCevalaction,computeAveragePrecision
@@ -26,7 +26,9 @@ import vgg19
 import vgg16
 import random
 from numpy import linalg as LA
-
+from utils import result_page_gen
+import webbrowser
+import base64
 
 def TestPerformanceSurVOC12(kind='2048D',kindnetwork='ResNet152'):
     """
@@ -72,6 +74,144 @@ def get_Stretch_augmentation(im,N=50,portion_size = (224, 224)):
         list_im += [im_tmp]
     
     return(list_im)
+
+def HowAreSupport_of_SVM(kind='2048D',kindnetwork='InceptionResNetv2',database='Paintings',L2=True,augmentation=True):
+    """
+    kindnetwork in  [InceptionResNetv2,ResNet152]
+    
+    Cas de la base de Crowley ou il manque le label avion = 'http://ichef.bbci.co.uk/arts/yourpaintings/images/paintings/dpe/624x544/ss_dpe_pcf_04_624x544.jpg'
+
+    
+    """
+    # Multilabel classification assigns to each sample a set of target labels. 
+    # This can be thought as predicting properties of a data-point that are not mutually exclusive
+    if augmentation:
+        N = 50
+    else:
+        N =1
+    if L2:
+        extL2 = '_L2'
+    else:
+        extL2 = ''
+    
+    if database=='Paintings':
+        path_to_img = '/media/HDD/data/Painting_Dataset/'
+    elif database=='VOC12':
+        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+    databasetxt = database + '.txt'
+    df_label = pd.read_csv(databasetxt,sep=",")
+    df_train = df_label[df_label['set']=='train']
+    df_val =  df_label[df_label['set']=='validation']
+    df_trainval =  pd.concat([df_train,df_val])
+    name_trainval_tab = np.array(df_trainval['name_img'])
+    df_test =  df_label[df_label['set']=='test']
+    name_test_tab = np.array(df_test['name_img'])
+    
+    classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    if database == 'Paintings':
+        name_pkl = kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
+        [X_train,y_train,X_test,y_test,X_val,y_val] = pickle.load(open(name_pkl, 'rb'))
+    elif database == 'VOC12':
+        name_pkl = kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
+        [X_train,y_train,_,_,X_val,y_val] = pickle.load(open(name_pkl, 'rb'))
+        name_pkl = kindnetwork +'_' + kind +'_Paintings_N'+str(N)+extL2+'.pkl'
+        [_,_,X_test,y_test,_,_] = pickle.load(open(name_pkl, 'rb'))
+    print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
+    X_trainval = np.append(X_train,X_val,axis=0)
+    y_trainval = np.append(y_train,y_val,axis=0)
+        
+    classifier = SVC(kernel='linear', max_iter=-1)
+    #LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True)
+    AP_per_class = []
+    cs = np.logspace(-5, 7, 40)
+    cs = np.logspace(-5, -2, 20)
+    cs = np.hstack((cs,[0.2,1,2]))
+    param_grid = dict(C=cs)
+    custom_cv = PredefinedSplit(np.hstack((-np.ones((1,X_train.shape[0])),np.zeros((1,X_val.shape[0])))).reshape(-1,1)) # For example, when using a validation set, set the test_fold to 0 for all samples that are part of the validation set, and to -1 for all other samples.
+
+    for i,classe in enumerate(classes):
+        grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True), param_grid=param_grid,n_jobs=3,
+                        cv=custom_cv)
+        grid.fit(X_trainval,y_trainval[:,i])  
+        best_classifier = grid.best_estimator_ 
+        y_predict_confidence_score = best_classifier.decision_function(X_test)
+        y_predict_trainval = best_classifier.predict(X_trainval)
+        y_predict_test = best_classifier.predict(X_test)
+        training_precision = precision_score(y_trainval[:,i],y_predict_trainval)
+        
+        
+        print("Training precision :{0:.2f}".format(training_precision))
+        AP = average_precision_score(y_test[:,i],y_predict_confidence_score,average=None)
+        AP_per_class += [AP]
+        print("Average Precision for",classe," = ",AP)
+        
+        name_html_fp = 'html_output/Training_false_positif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+        message_training_fp = """<html><head></head><body><p>False Positif during training for """ + classe + """ </p></body>""" 
+        f_fp = open(name_html_fp,'w')
+        name_html_fn = 'html_output/Training_false_negatif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+        message_training_fn = """<html><head></head><body><p>False Negatif during training for """ + classe + """ </p></body>""" 
+        f_fn = open(name_html_fn,'w')
+        for j,elt in enumerate(y_trainval[:,i]):
+            if(elt!=y_predict_trainval[j]):
+                name_img = path_to_img + name_trainval_tab[j] + '.jpg'
+                data_uri = base64.b64encode(open(name_img, 'rb').read()).decode('utf-8').replace('\n', '')
+                img_tag = '<img src="data:image/png;base64,%s \n">' % data_uri
+                if(elt==0): # Faux positif
+                     message_training_fp += name_trainval_tab[j] + '\n' + img_tag
+                else:
+                    message_training_fn +=  name_trainval_tab[j] + '\n' + img_tag
+        message_training_fp += """</html>"""
+        message_training_fn += """</html>"""  
+        f_fp.write(message_training_fp)
+        f_fp.close()
+        f_fn.write(message_training_fn)
+        f_fn.close()
+        
+        test_precision = precision_score(y_test[:,i],y_predict_test)
+        test_recall = recall_score(y_test[:,i],y_predict_test)
+        print("Test precision = {0:.2f}, recall = {1:.2f}".format(test_precision,test_recall))
+        support = best_classifier.support_
+        name_html = 'html_output/Support_Vectors_' + kindnetwork + '_' +kind +'_' + classe + '.html'
+        f = open(name_html,'w')
+        message = """<html><head></head><body><p>Support Vectors (""" +str(len(support)) + """) for """ + classe + """ </p></body>""" 
+        for index in support:
+            name_img = path_to_img + name_trainval_tab[index] + '.jpg'
+            data_uri = base64.b64encode(open(name_img, 'rb').read()).decode('utf-8').replace('\n', '')
+            img_tag = '<img src="data:image/png;base64,%s \n">' % data_uri
+            message +=   name_trainval_tab[index] + '\n' + img_tag
+        message += """</html>"""
+
+        f.write(message)
+        f.close()
+
+        name_html_fp = 'html_output/Test_false_positif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+        message_training_fp = """<html><head></head><body><p>False Positif during test for """ + classe + """ </p></body>""" 
+        f_fp = open(name_html_fp,'w')
+        name_html_fn = 'html_output/Test_false_negatif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+        message_training_fn = """<html><head></head><body><p>False Negatif during test for """ + classe + """ </p></body>""" 
+        f_fn = open(name_html_fn,'w')
+        for j,elt in enumerate(y_test[:,i]):
+            if(elt!=y_predict_test[j]):
+                name_img = path_to_img + name_test_tab[j] + '.jpg'
+                data_uri = base64.b64encode(open(name_img, 'rb').read()).decode('utf-8').replace('\n', '')
+                img_tag = '<img src="data:image/png;base64,%s \n">' % data_uri
+                if(elt==0): # Faux positif
+                     message_training_fp += name_test_tab[j] + '\n' + img_tag
+                else:
+                    message_training_fn +=  name_test_tab[j] + '\n' + img_tag
+        message_training_fp += """</html>"""
+        message_training_fn += """</html>"""  
+        f_fp.write(message_training_fp)
+        f_fp.close()
+        f_fn.write(message_training_fn)
+        f_fn.close()
+
+        #webbrowser.open_new_tab(name_html)
+        
+    print("mean Average Precision = {0:.3f}".format(np.mean(AP_per_class)))
+
+    
+    return(0)
 
 def Classification_evaluation(kind='2048D',kindnetwork='InceptionResNetv2',database='Paintings',L2=True,augmentation=True,classifier_name='LinearSVM'):
     """
@@ -531,40 +671,40 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
 if __name__ == '__main__':
     
     ## ResNet 152
-    Compute_ResNet(kind='2048D',database='VOC12',L2=True,augmentation=True)
-    print("ResNet")
-    Classification_evaluation('2048D',kindnetwork='ResNet152',database='VOC12',L2=True,augmentation=True)
-    
-    ## InceptionResnetV2 
-    print("InceptionResNet")
-    #compute_InceptionResNetv2_features(kind='1536D',database='VOC12',L2=False,augmentation=False)
-    #Classification_evaluation('1536D',kindnetwork='InceptionResNetv2',database='VOC12',L2=False,augmentation=False)
-    compute_InceptionResNetv2_features(kind='1536D',database='VOC12',L2=True,augmentation=True)
-    Classification_evaluation('1536D',kindnetwork='InceptionResNetv2',database='VOC12',L2=True,augmentation=True)
-    
-    
-    ## VGG16
-    kind = 'relu7'
-    VGGnum = '16'
-    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=False,augmentation=False)
-    Classification_evaluation(kind=kind,kindnetwork='VGG16',database='VOC12',L2=False,augmentation=False)
-    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=True,augmentation=True)
-    Classification_evaluation(kind=kind,kindnetwork='VGG16',database='VOC12',L2=True,augmentation=True)
-    
-    ## VGG19
-    print("VGG19")
-    kind = 'relu7'
-    VGGnum = '19'
-    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=True,augmentation=True)
-    Classification_evaluation(kind=kind,database='VOC12',kindnetwork='VGG19',L2=True,augmentation=True)
-    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=False,augmentation=False)
-    Classification_evaluation(kind=kind,database='VOC12',kindnetwork='VGG19',L2=False,augmentation=False)
-    
-    kind = 'relu6'
-    VGGnum = '19'
-    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=False,augmentation=False)
-    Classification_evaluation(kind=kind,database='VOC12',kindnetwork='VGG19',L2=False,augmentation=False)
-      
+#    Compute_ResNet(kind='2048D',database='VOC12',L2=True,augmentation=True)
+#    print("ResNet")
+#    Classification_evaluation('2048D',kindnetwork='ResNet152',database='VOC12',L2=True,augmentation=True)
+#    
+#    ## InceptionResnetV2 
+#    print("InceptionResNet")
+#    #compute_InceptionResNetv2_features(kind='1536D',database='VOC12',L2=False,augmentation=False)
+#    #Classification_evaluation('1536D',kindnetwork='InceptionResNetv2',database='VOC12',L2=False,augmentation=False)
+#    compute_InceptionResNetv2_features(kind='1536D',database='VOC12',L2=True,augmentation=True)
+#    Classification_evaluation('1536D',kindnetwork='InceptionResNetv2',database='VOC12',L2=True,augmentation=True)
+#    
+#    
+#    ## VGG16
+#    kind = 'relu7'
+#    VGGnum = '16'
+#    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=False,augmentation=False)
+#    Classification_evaluation(kind=kind,kindnetwork='VGG16',database='VOC12',L2=False,augmentation=False)
+#    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=True,augmentation=True)
+#    Classification_evaluation(kind=kind,kindnetwork='VGG16',database='VOC12',L2=True,augmentation=True)
+#    
+#    ## VGG19
+#    print("VGG19")
+#    kind = 'relu7'
+#    VGGnum = '19'
+#    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=True,augmentation=True)
+#    Classification_evaluation(kind=kind,database='VOC12',kindnetwork='VGG19',L2=True,augmentation=True)
+#    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=False,augmentation=False)
+#    Classification_evaluation(kind=kind,database='VOC12',kindnetwork='VGG19',L2=False,augmentation=False)
+#    
+#    kind = 'relu6'
+#    VGGnum = '19'
+#    compute_VGG_features(VGG=VGGnum,kind=kind,database='VOC12',L2=False,augmentation=False)
+#    Classification_evaluation(kind=kind,database='VOC12',kindnetwork='VGG19',L2=False,augmentation=False)
+#      
 #    kind = 'relu7'
 #    VGGnum = '16'
 #    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=True,augmentation=True)
@@ -573,3 +713,6 @@ if __name__ == '__main__':
     ## Computation on VOC12
     #Compute_ResNet(kind='2048D',database='VOC12',L2=True,augmentation=False)
     #Compute_ResNet(kind='2048D',database='Paintings',L2=True,augmentation=False)
+    
+    # Plot SVM support and error
+    HowAreSupport_of_SVM(kind='2048D',kindnetwork='ResNet152',database='Paintings',L2=False,augmentation=False)
