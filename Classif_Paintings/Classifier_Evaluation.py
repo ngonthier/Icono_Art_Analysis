@@ -29,6 +29,7 @@ from numpy import linalg as LA
 from utils import result_page_gen
 import webbrowser
 import base64
+import os
 
 def TestPerformanceSurVOC12(kind='2048D',kindnetwork='ResNet152'):
     """
@@ -325,18 +326,25 @@ def Compute_ResNet(kind='2048D',database='Paintings',L2=True,augmentation=True):
     """
     ResNet take BGR image as input
     """
-    classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    path_data = 'data/'
     if database=='Paintings':
+        item_name = 'name_img'
         path_to_img = '/media/HDD/data/Painting_Dataset/'
+        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     elif database=='VOC12':
+        item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
-    databasetxt = database + '.txt'
+        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    elif(database=='Wikidata_Paintings'):
+        item_name = 'image'
+        databasetxt = path_data + database + '.txt'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
     df_label = pd.read_csv(databasetxt,sep=",")
     if augmentation:
         N = 50
     else: 
         N=1
-    sLength = len(df_label['name_img'])
+    sLength = len(df_label[item_name])
     #df_label_augmented = df_label.assign(resnet_output=pd.Series(np.ones(sLength)))
     #df_label_augmented = df_label.assign(resnet_output=pd.Series(np.ones(sLength)).values)
     
@@ -352,34 +360,37 @@ def Compute_ResNet(kind='2048D',database='Paintings',L2=True,augmentation=True):
     elif(kind=='2048D'):
         model = resnet_152_keras.resnet152_model_2018output(weights_path)
         size_output = 2048
-    name_pkl = 'ResNet152_'+ kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
-    name_img = df_label['name_img'][0]
+    name_pkl = path_data+'ResNet152_'+ kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
+    name_img = df_label[item_name][0]
     i = 0
     
     features_resnet = np.ones((sLength,size_output))
     classes_vectors = np.zeros((sLength,10))
     
-    for i,name_img in  enumerate(df_label['name_img']):
+    for i,name_img in  enumerate(df_label[item_name]):
         if i%1000==0:
             print(i,name_img)
-        complet_name = path_to_img + name_img + '.jpg'
-        
-        #In all cases the image is first resized
-        #(with aspect ratio preserved) such that its smallest length is 256 pixels. Crops extracted
-        #are ultimately 224 × 224 pixels. The schemes are: none, a single crop (N=1) is taken
-        #from the centre of the image Page 6 The Art of Detection Crowley
-         
-        # To shrink an image, it will generally look best with CV_INTER_AREA interpolation
-        im = cv2.imread(complet_name)
-        if(im.shape[0] < im.shape[1]):
-            dim = (256, int(im.shape[1] * 256.0 / im.shape[0]))
+        if database=='VOC12' or database=='Paintings':
+                complet_name = path_to_img + name_img + '.jpg'
+                im = cv2.imread(complet_name)
+                if augmentation:
+                    sizeIm = 256
+                else:
+                    sizeIm = 224
+                if(im.shape[0] < im.shape[1]):
+                    dim = (sizeIm, int(im.shape[1] * sizeIm / im.shape[0]),3)
+                else:
+                    dim = (int(im.shape[0] * sizeIm / im.shape[1]),sizeIm,3)
+                tmp = (dim[1],dim[0])
+                dim = tmp
+                resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA) # INTER_AREA
         else:
-            dim = (int(im.shape[0] * 256.0 / im.shape[1]),256)
-        # https://stackoverflow.com/questions/21248245/opencv-image-resize-flips-dimensions 
-        # OpenCV Image Resize flips dimensions !!!!     
-        tmp = (dim[1],dim[0])
-        dim = tmp
-        resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA) # INTER_AREA
+            name_sans_ext = os.path.splitext(name_img)[0]
+            complet_name = path_to_img +name_sans_ext + '.jpg'
+            im = Image.open(complet_name)
+            resized = np.array(im) 
+            resized = resized[:,:,[2,1,0]] # To shift from RGB to BGR
+        
         resizedf = resized.astype(np.float32)
         # Remove train image mean
         resizedf[:,:,0] -= 103.939
@@ -431,27 +442,37 @@ def Compute_ResNet(kind='2048D',database='Paintings',L2=True,augmentation=True):
                 out_norm = LA.norm(out) 
                 out /= out_norm
         features_resnet[i,:] = np.array(out)
-        for j in range(10):
-            if( classes[j] in df_label['classe'][i]):
-                classes_vectors[i,j] = 1
+        if database=='VOC12' or database=='Paintings':
+            for j in range(10):
+                if( classes[j] in df_label['classe'][i]):
+                    classes_vectors[i,j] = 1
      
-    X_train = features_resnet[df_label['set']=='train',:]
-    y_train = classes_vectors[df_label['set']=='train',:]
-    
-    X_test= features_resnet[df_label['set']=='test',:]
-    y_test = classes_vectors[df_label['set']=='test',:]
-    
-    X_val = features_resnet[df_label['set']=='validation',:]
-    y_val = classes_vectors[df_label['set']=='validation',:]
+    if database=='VOC12' or database=='Paintings':
 
-    print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
+        X_train = features_resnet[df_label['set']=='train',:]
+        y_train = classes_vectors[df_label['set']=='train',:]
+        
+        X_test= features_resnet[df_label['set']=='test',:]
+        y_test = classes_vectors[df_label['set']=='test',:]
+        
+        X_val = features_resnet[df_label['set']=='validation',:]
+        y_val = classes_vectors[df_label['set']=='validation',:]
+        
+        print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
+        
+        Data = [X_train,y_train,X_test,y_test,X_val,y_val]
+        
+        with open(name_pkl, 'wb') as pkl:
+            pickle.dump(Data,pkl)
+        
+        return(X_train,y_train,X_test,y_test,X_val,y_val,df_label)
     
-    Data = [X_train,y_train,X_test,y_test,X_val,y_val]
-    
-    with open(name_pkl, 'wb') as pkl:
-        pickle.dump(Data,pkl)
-    
-    return(X_train,y_train,X_test,y_test,X_val,y_val,df_label)
+    else:
+        
+        with open(name_pkl, 'wb') as pkl:
+            pickle.dump(features_resnet,pkl)
+        
+        return(features_resnet)
 
 def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',L2=True,augmentation=True):
     """
@@ -484,6 +505,7 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',L2=True
     name_img = df_label[item_name][0]
     i = 0
     classes_vectors = np.zeros((sLength,10))
+    itera = 1000
     
     if(kind=='output'):
         size_output = 1001   
@@ -513,13 +535,14 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',L2=True
           saver.restore(sess, checkpoint_file)
  
           for i,name_img in  enumerate(df_label[item_name]):
-            if i%1000==0:
+            if i%itera==0:
                 print(i,name_img)
-            complet_name = path_to_img + name_img + '.jpg'
-            im = cv2.imread(complet_name)
-            im = im[:,:,[2,1,0]] # To shift from BGR to RGB
-            # normalily it is 299
+            
             if database=='VOC12' or database=='Paintings':
+                complet_name = path_to_img + name_img + '.jpg'
+                im = cv2.imread(complet_name)
+                im = im[:,:,[2,1,0]] # To shift from BGR to RGB
+                # normalily it is 299
                 if augmentation:
                     sizeIm = 335
                 else:
@@ -532,7 +555,10 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',L2=True
                 dim = tmp
                 resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA) # INTER_AREA
             else:
-                resized = im
+                name_sans_ext = os.path.splitext(name_img)[0]
+                complet_name = path_to_img +name_sans_ext + '.jpg'
+                im = Image.open(complet_name)
+                resized = np.array(im)
                 
             if augmentation:
                 list_im = np.stack(get_Stretch_augmentation(resized,N=N,portion_size = (299, 299)))
@@ -542,6 +568,7 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',L2=True
                     out_norm = LA.norm(out_average) # L2 norm 
                     out= out_average/out_norm
             else:
+                # Crop the center
                 im = resized[int(resized.shape[0]/2 - 149):int(resized.shape[0]/2 +150),int(resized.shape[1]/2-149):int(resized.shape[1]/2+150),:]
                 im = im.reshape(-1,299,299,3)
                 net_values, _ = sess.run([net,end_points], feed_dict={input_tensor: im})
@@ -586,12 +613,19 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
     """
     VGG take BGR image as input
     """
-    classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    path_data = 'data/'
     if database=='Paintings':
+        item_name = 'name_img'
         path_to_img = '/media/HDD/data/Painting_Dataset/'
+        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     elif database=='VOC12':
+        item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
-    databasetxt = database + '.txt'
+        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    elif(database=='Wikidata_Paintings'):
+        item_name = 'image'
+        databasetxt = path_data + database + '.txt'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
     df_label = pd.read_csv(databasetxt,sep=",")
     if augmentation:
         N = 50
@@ -601,11 +635,11 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
         extL2 = '_L2'
     else:
         extL2 = ''
-    sLength = len(df_label['name_img'])
-    name_img = df_label['name_img'][0]
+    sLength = len(df_label[item_name])
+    name_img = df_label[item_name][0]
     i = 0
     classes_vectors = np.zeros((sLength,10))
-    name_pkl = 'VGG'+VGG+'_'+ kind +'_'+database +'_N'+str(N)+extL2+'.pkl'
+    name_pkl = path_data+'VGG'+VGG+'_'+ kind +'_'+database +'_N'+str(N)+extL2+'.pkl'
     if(kind=='fuco8'):
         size_output = 1000
     elif(kind in ['fuco6','relu7','relu6','fuco7']):
@@ -630,24 +664,32 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
 
       sess.run(tf.global_variables_initializer())
             
-      for i,name_img in  enumerate(df_label['name_img']):
+      for i,name_img in  enumerate(df_label[item_name]):
         if i%1000==0:
             print(i,name_img)
-        if not('.jpg' in name_img):
-            complet_name = path_to_img + name_img + '.jpg'
+            
+        if database=='VOC12' or database=='Paintings':
+                complet_name = path_to_img + name_img + '.jpg'
+                im = cv2.imread(complet_name)
+                im = im[:,:,[2,1,0]] # To shift from BGR to RGB
+                # normalily it is 299
+                if augmentation:
+                    sizeIm = 256
+                else:
+                    sizeIm = 224
+                if(im.shape[0] < im.shape[1]):
+                    dim = (sizeIm, int(im.shape[1] * sizeIm / im.shape[0]),3)
+                else:
+                    dim = (int(im.shape[0] * sizeIm / im.shape[1]),sizeIm,3)
+                tmp = (dim[1],dim[0])
+                dim = tmp
+                resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA) # INTER_AREA
         else:
-            complet_name = path_to_img + name_img 
-        im = cv2.imread(complet_name)
-        print(im)
-        im = im[:,:,[2,1,0]]
-        # To shift from BGR to RGB = > this implementation of VGG take RGB image
-        if(im.shape[0] < im.shape[1]):
-            dim = (256, int(im.shape[1] * 256.0 / im.shape[0]),3)
-        else:
-            dim = (int(im.shape[0] * 256.0 / im.shape[1]),256,3)
-        tmp = (dim[1],dim[0])
-        dim = tmp
-        resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA) # INTER_AREA
+            name_sans_ext = os.path.splitext(name_img)[0]
+            complet_name = path_to_img +name_sans_ext + '.jpg'
+            im = Image.open(complet_name)
+            resized = np.array(im)
+
         resizedf = resized.astype(np.float32)
         # Remove train image mean
         resizedf[:,:,2] -= 103.939
@@ -670,27 +712,37 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
                 out_norm = LA.norm(out) 
                 out /= out_norm
         features_resnet[i,:] = np.array(out)
-        for j in range(10):
-            if( classes[j] in df_label['classe'][i]):
-                classes_vectors[i,j] = 1
+        if database=='VOC12' or database=='Paintings':
+            for j in range(10):
+                if( classes[j] in df_label['classe'][i]):
+                    classes_vectors[i,j] = 1
         
-    X_train = features_resnet[df_label['set']=='train',:]
-    y_train = classes_vectors[df_label['set']=='train',:]
+    if database=='VOC12' or database=='Paintings':
+
+        X_train = features_resnet[df_label['set']=='train',:]
+        y_train = classes_vectors[df_label['set']=='train',:]
+        
+        X_test= features_resnet[df_label['set']=='test',:]
+        y_test = classes_vectors[df_label['set']=='test',:]
+        
+        X_val = features_resnet[df_label['set']=='validation',:]
+        y_val = classes_vectors[df_label['set']=='validation',:]
+        
+        print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
+        
+        Data = [X_train,y_train,X_test,y_test,X_val,y_val]
+        
+        with open(name_pkl, 'wb') as pkl:
+            pickle.dump(Data,pkl)
+        
+        return(X_train,y_train,X_test,y_test,X_val,y_val,df_label)
     
-    X_test= features_resnet[df_label['set']=='test',:]
-    y_test = classes_vectors[df_label['set']=='test',:]
-    
-    X_val = features_resnet[df_label['set']=='validation',:]
-    y_val = classes_vectors[df_label['set']=='validation',:]
-    
-    print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
-    
-    Data = [X_train,y_train,X_test,y_test,X_val,y_val]
-    
-    with open(name_pkl, 'wb') as pkl:
-        pickle.dump(Data,pkl)
-    
-    return(X_train,y_train,X_test,y_test,X_val,y_val,df_label)
+    else:
+        
+        with open(name_pkl, 'wb') as pkl:
+            pickle.dump(features_resnet,pkl)
+        
+        return(features_resnet)
     
 if __name__ == '__main__':
     
@@ -743,4 +795,7 @@ if __name__ == '__main__':
     
     # Compute bottleNeck for Wikidata
     compute_InceptionResNetv2_features(kind='1536D',database='Wikidata_Paintings',L2=False,augmentation=False)
-    
+    kind = 'relu7'
+    VGGnum = '19'
+    compute_VGG_features(VGG=VGGnum,kind=kind,database='Wikidata_Paintings',L2=False,augmentation=False)
+    Compute_ResNet(kind='2048D',database='Wikidata_Paintings',L2=False,augmentation=False)

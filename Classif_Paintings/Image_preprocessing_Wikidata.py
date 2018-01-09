@@ -27,8 +27,7 @@ def do_mkdir(path):
 		os.mkdir(path)
 	return(0)
 
-def resize(bigger_size_tab=[229],data='Prints'):
-    cv2bool = False
+def resize(bigger_size_tab=[229],data='Prints',cv2bool = True):
     signal.signal(signal.SIGALRM, handler)
     # Define a timeout for my function
     signal.alarm(1200)
@@ -53,11 +52,21 @@ def resize(bigger_size_tab=[229],data='Prints'):
         if (i%itera==0):
             print(i,f)
         ext = os.path.splitext(f)[1]
+        
         if ext.lower() not in valid_images:
-            print('extension problem',f)
-            continue
+            if not(f=='paitings_wikidata.csv'):
+                print('extension problem',f)
+                continue
+            else:
+                continue
         elif ext.lower()==".gif":
-            print("Gif Images, you need to convert it")
+            new_name = ext = os.path.splitext(f)[0] +'.jpg'
+            print(new_name)
+            test = read_path + new_name
+            if os.path.exists(test):
+               f = new_name
+            else:
+                print("Gif Images, you need to convert it")
         to_open = read_path + f
         try:
             already_created = True
@@ -111,10 +120,10 @@ def resize(bigger_size_tab=[229],data='Prints'):
     return(0)
     
 if __name__ == '__main__':
-    bigger_size_tab = [224,256,299,340,600]
+    #bigger_size_tab = [224,256,299,340,600]
     #resize(bigger_size_tab=bigger_size_tab,data='Prints')
-    bigger_size_tab = [299]
-    resize(bigger_size_tab=bigger_size_tab,data='Paintings')
+    bigger_size_tab = [224,229,256,299,340,600]
+    resize(bigger_size_tab=bigger_size_tab,data='Paintings',cv2bool =True) #70993 attendus
     
     # Images too big : 
     # 
