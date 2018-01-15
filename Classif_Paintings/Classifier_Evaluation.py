@@ -31,6 +31,11 @@ import webbrowser
 import base64
 import os
 
+depicts_depictsLabel = {'Q467': 'woman','Q8441' : 'man','Q345': 'Mary','Q527':	'sky','Q10884'	: 'tree','Q942467'	: 'Child Jesus','Q8074':	'cloud','Q3010' :	'boy','Q302':	'Jesus Christ','Q1144593':'sitting','Q10791':	'nudity','Q7569':'child','Q726':	'horse','Q14130':	'long hair','Q7560': 'mother','Q107425':	'landscape','Q144': 'dog','Q8502':'mountain','Q235113':	'angel'}
+depictsAll = ['Q467','Q8441','Q345','Q527','Q10884','Q942467','Q8074','Q3010','Q302','Q1144593','Q10791','Q7569','Q726','Q14130','Q7560','Q107425','Q144','Q8502','Q235113']
+
+
+
 def TestPerformanceSurVOC12(kind='2048D',kindnetwork='ResNet152'):
     """
     Tester la meanAP en s entrainant sur la partie train de VOC12 et en testant 
@@ -319,6 +324,294 @@ def Classification_evaluation(kind='2048D',kindnetwork='InceptionResNetv2',datab
             AP_tab += [AP]
             print("Average Precision for",classe," = ",AP)
         print('Average precision in one VS rest ',np.mean(AP_tab))
+    
+    return(0)
+    
+def plot_exemples(database='Wikidata_Paintings'):
+    return(0)
+    
+def classif_angel_simple():
+    """
+    Plot in a html file the false positive et false negative
+    """
+    database='Wikidata_Paintings'
+    classe = 'Q235113'
+    kindnetwork =  'InceptionResNetv2'
+    kind = '1536D'
+    N =1
+    extL2 = ''
+    path_output = '/media/HDD/output_exp/html_output/'
+    path_data = 'data/'
+    path_to_img= '/media/HDD/data/Wikidata_Paintings/340/'
+    databasetxt = path_data + database + '_sets.txt'
+    df = pd.read_csv(databasetxt,sep=",")
+    name_pkl = path_data + kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
+    X = pickle.load(open(name_pkl, 'rb'))
+    indice_train = df['set']==0
+    #indice_test = abs(df['set'])==1
+    #X_test = X[indice_test,:]
+    X_trainval = X[indice_train,:]
+    depictsMini =['Q467','Q8441','Q345','Q527','Q10884','Q942467','Q8074','Q3010','Q302','Q1144593','Q10791','Q7569','Q726','Q14130','Q7560','Q107425','Q144','Q8502','Q235113']
+    depictsMini =['Q345','Q10884','Q942467','Q3010','Q14130','Q144','Q8502','Q235113']
+    np_classes = df.as_matrix(columns=depictsMini)
+    print("Number of image with one of those",len(depictsMini)," classes :",len(np.where(np.sum(np_classes,axis=1) > 0)[0]))
+    index_image_with_at_least_one_of_the_class = np.setdiff1d(np.where(np.sum(np_classes,axis=1) > 0),np.where(indice_train))
+    y = np.array(df[classe])
+    y_trainval = y[indice_train]
+    classifier = SVC(kernel='linear', max_iter=-1)
+    #LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True)
+    cs = np.logspace(-5, -2, 10)
+    cs = np.hstack((cs,[0.2,1,2]))
+    cs = [0.1,1,2]
+    param_grid = dict(C=cs)
+    grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True), param_grid=param_grid,n_jobs=-1)
+    grid.fit(X_trainval,y_trainval)  
+    print("Number of element in the training set",len(y_trainval),"End of training")
+    best_classifier = grid.best_estimator_ 
+    y_predict_trainval = grid.predict(X_trainval) 
+    training_precision = precision_score(y_trainval,y_predict_trainval)
+    print("Training precision :{0:.2f}".format(training_precision))
+    indice_test_subset = index_image_with_at_least_one_of_the_class
+    print("Number of element in the  minisubset of test",len(indice_test_subset))
+    y_test = y[indice_test_subset]
+    X_test_subset = X[indice_test_subset,:]
+    y_predict_confidence_score = grid.decision_function(X_test_subset)
+    AP = average_precision_score(y_test,y_predict_confidence_score,average=None)
+    print("Average Precision on the data for",depicts_depictsLabel[classe]," = ",AP) 
+    y_predict_test = grid.predict(X_test_subset)
+    
+    name_trainval_tab = np.array(df['image'])[indice_train]
+#    print(len(indice_train),len(y_trainval),len(name_trainval_tab))
+    name_test_tab =  np.array(df['image'])[indice_test_subset]
+    name_html_fp = path_output+'Training_false_positif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+    message_training_fp = """<html><head></head><body><p>False Positif during training for """ + classe + """ </p></body>""" 
+    f_fp = open(name_html_fp,'w')
+    name_html_fn = 'html_output/Training_false_negatif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+    message_training_fn = """<html><head></head><body><p>False Negatif during training for """ + classe + """ </p></body>""" 
+    f_fn = open(name_html_fn,'w')
+    for j,elt in enumerate(y_trainval):
+        if(elt!=y_predict_trainval[j]):
+            name_tab = name_trainval_tab[j].split('.')
+            name_tab[-1] = 'jpg'
+            namejpg = ".".join(name_tab)
+            name_img = path_to_img + namejpg 
+            data_uri = base64.b64encode(open(name_img, 'rb').read()).decode('utf-8').replace('\n', '')
+            img_tag = '<img src="data:image/png;base64,%s \n">' % data_uri
+            if(elt==0): # cad que y_predict_trainval[j]==1 donc on a un Faux positif
+                 message_training_fp += name_trainval_tab[j] + '\n' + img_tag
+            else:
+                message_training_fn +=  name_trainval_tab[j] + '\n' + img_tag
+    message_training_fp += """</html>"""
+    message_training_fn += """</html>"""  
+    f_fp.write(message_training_fp)
+    f_fp.close()
+    f_fn.write(message_training_fn)
+    f_fn.close()
+    
+    test_precision = precision_score(y_test,y_predict_test)
+    test_recall = recall_score(y_test,y_predict_test)
+    print("Test precision = {0:.2f}, recall = {1:.2f}".format(test_precision,test_recall))
+    support = best_classifier.support_
+    name_html = path_output+'Support_Vectors_' + kindnetwork + '_' +kind +'_' + classe + '.html'
+    f = open(name_html,'w')
+    message = """<html><head></head><body><p>Support Vectors (""" +str(len(support)) + """) for """ + classe + """ </p></body>""" 
+    for j in support:
+        name_tab = name_trainval_tab[j].split('.')
+        name_tab[-1] = 'jpg'
+        namejpg = ".".join(name_tab)
+        name_img = path_to_img + namejpg 
+        data_uri = base64.b64encode(open(name_img, 'rb').read()).decode('utf-8').replace('\n', '')
+        img_tag = '<img src="data:image/png;base64,%s \n">' % data_uri
+        message +=   name_trainval_tab[j] + '\n' + img_tag
+    message += """</html>"""
+
+    f.write(message)
+    f.close()
+
+    name_html_fp = path_output+'Test_false_positif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+    message_training_fp = """<html><head></head><body><p>False Positif during test for """ + classe + """ </p></body>""" 
+    f_fp = open(name_html_fp,'w')
+    name_html_fn = path_output+'Test_false_negatif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+    message_training_fn = """<html><head></head><body><p>False Negatif during test for """ + classe + """ </p></body>""" 
+    f_fn = open(name_html_fn,'w')
+    for j,elt in enumerate(y_test):
+        if(elt!=y_predict_test[j]):
+            name_tab = name_test_tab[j].split('.')
+            name_tab[-1] = 'jpg'
+            namejpg = ".".join(name_tab)
+            name_img = path_to_img + namejpg 
+            data_uri = base64.b64encode(open(name_img, 'rb').read()).decode('utf-8').replace('\n', '')
+            img_tag = '<img src="data:image/png;base64,%s \n">' % data_uri
+            if(elt==0): # cad que y_predict_trainval[j]==1 donc on a un Faux positif
+                 message_training_fp += name_test_tab[j] + '\n' + img_tag
+            else:
+                message_training_fn +=  name_test_tab[j] + '\n' + img_tag
+    message_training_fp += """</html>"""
+    message_training_fn += """</html>"""  
+    f_fp.write(message_training_fp)
+    f_fp.close()
+    f_fn.write(message_training_fn)
+    f_fn.close()   
+    
+    return(0)
+    
+    
+def Classification_evaluation_Wikidata(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings',L2=False,augmentation=False):
+    """
+    kindnetwork in  [InceptionResNetv2,ResNet152]
+    """
+    print('===>',kindnetwork,kind)
+    # Multilabel classification assigns to each sample a set of target labels. 
+    # This can be thought as predicting properties of a data-point that are not mutually exclusive
+    if augmentation:
+        N = 50
+    else:
+        N =1
+    if L2:
+        extL2 = '_L2'
+    else:
+        extL2 = ''
+    path_data = 'data/'
+    if(database=='Wikidata_Paintings'):
+        databasetxt = path_data + database + '_sets.txt'
+    df = pd.read_csv(databasetxt,sep=",")
+    name_file_class = '/media/HDD/Wikidata_query/query_Depict_paintings.csv'
+    df_class = pd.read_csv(name_file_class, sep=",")
+    df_class['depicts'] = df_class['depicts'].apply(lambda a: str.split(str(a),'/')[-1]) 
+    number_elt = 500
+    df_reduc = df_class[df_class['count']>number_elt]
+    depicts = df_reduc['depicts'][::-1]
+
+    name_pkl = path_data + kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
+    X = pickle.load(open(name_pkl, 'rb'))
+    indice_train = df['set']==0
+    indice_test = abs(df['set'])==1
+    X_test = X[indice_test,:]
+    X_trainval = X[indice_train,:]
+    print("Number of element in the training set : ",len(X_trainval))
+    
+    k_tab = [5,10,20,50,100]
+    classifier = LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True)
+    AP_per_class = []
+    AP_per_class_subset = []
+    AP_per_class_miniset = []
+    
+    P_per_class = []
+    P_per_class_subset = []
+    P_per_class_miniset = []
+    
+    R_per_class = []
+    R_per_class_subset = []
+    R_per_class_miniset = []
+    
+    P20_per_class = []
+    P20_per_class_subset = []
+    P20_per_class_miniset = []
+    
+    cs = np.logspace(-5, -2, 20)
+    cs = np.hstack((cs,[0.2,1,2]))
+    param_grid = dict(C=cs)  
+    
+    np_classes = df.as_matrix(columns=depictsAll)
+    index_image_with_at_least_one_of_the_class = np.setdiff1d(np.where(np.sum(np_classes,axis=1) > 0),np.where(indice_train))
+    
+    for i,classe in enumerate(depicts):
+        print(classe,depicts_depictsLabel[classe])
+        grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True), param_grid=param_grid,n_jobs=-1)
+        y = np.array(df[classe])
+        #print(y)
+        y_trainval = y[indice_train]
+        y_test= y[indice_test]
+        y_test[y_test < 0] = 0 # Put to 0 the image where we don't know
+        print("Number of training exemple :",len(y_trainval),"number of positive ones :",np.sum(y_trainval))
+        print("Number of test exemple :",len(y_test),"number of positive ones :",np.sum(y_test))
+        grid.fit(X_trainval,y_trainval)  
+        y_predict_confidence_score = grid.decision_function(X_test)
+        y_predict_test = grid.predict(X_test) 
+        y_predict_trainval = grid.predict(X_trainval) 
+        training_precision = precision_score(y_trainval,y_predict_trainval)
+        print("Training precision :{0:.2f}".format(training_precision))
+        # Warning ! predict provide class labels for samples whereas decision_function provide confidence scores for samples.
+        AP = average_precision_score(y_test,y_predict_confidence_score,average=None)
+        AP_per_class += [AP]
+        print("Average Precision on all the data for",depicts_depictsLabel[classe]," = ",AP)       
+        test_precision = precision_score(y_test,y_predict_test)
+        test_recall = recall_score(y_test,y_predict_test)
+        R_per_class += [test_recall]
+        P_per_class += [test_precision]
+        print("Test on all the data precision = {0:.2f}, recall = {1:.2f}".format(test_precision,test_recall))
+        #precision_at_k_tab = []
+        for k in k_tab:
+            precision_at_k = ranking_precision_score(y_test, y_predict_confidence_score,k)
+            if k==20:
+                P20_per_class += [precision_at_k]
+            print("Precision on all the data @ ",k,":",precision_at_k)
+            
+        # For a subset :
+        indice_test_subset = np.setdiff1d(np.where(y >= 0),np.where(indice_train))
+        print("Number of element in the subset of test",len(indice_test_subset))
+        y_test_subset = y[indice_test_subset]
+        X_test_subset = X[indice_test_subset,:]
+        y_predict_confidence_score = grid.decision_function(X_test_subset)
+        y_predict_test = grid.predict(X_test_subset)
+        AP = average_precision_score(y_test_subset,y_predict_confidence_score,average=None)
+        AP_per_class_subset += [AP]
+        print("Average Precision on subset for",depicts_depictsLabel[classe]," = ",AP)       
+        test_precision = precision_score(y_test_subset,y_predict_test)
+        test_recall = recall_score(y_test_subset,y_predict_test)
+        R_per_class_subset += [test_recall]
+        P_per_class_subset += [test_precision]
+        print("Test on subset precision = {0:.2f}, recall = {1:.2f}".format(test_precision,test_recall))
+        #precision_at_k_tab = []
+        for k in k_tab:
+            precision_at_k = ranking_precision_score(y_test_subset, y_predict_confidence_score,k)
+            if k==20:
+                P20_per_class_subset += [precision_at_k]
+            print("Precision on subset @ ",k,":",precision_at_k)
+            
+        # For an other subset :
+        
+        indice_test_subset = index_image_with_at_least_one_of_the_class
+        print("Number of element in the  minisubset of test",len(indice_test_subset))
+        y_test_subset = y[indice_test_subset]
+        X_test_subset = X[indice_test_subset,:]
+        y_predict_confidence_score = grid.decision_function(X_test_subset)
+        y_predict_test = grid.predict(X_test_subset)
+        AP = average_precision_score(y_test_subset,y_predict_confidence_score,average=None)
+        AP_per_class_miniset += [AP]
+        print("Average Precision on minisubset for",depicts_depictsLabel[classe]," = ",AP)       
+        test_precision = precision_score(y_test_subset,y_predict_test)
+        test_recall = recall_score(y_test_subset,y_predict_test)
+        R_per_class_miniset += [test_recall]
+        P_per_class_miniset += [test_precision]
+        print("Test on minisubset precision = {0:.2f}, recall = {1:.2f}".format(test_precision,test_recall))
+        #precision_at_k_tab = []
+        for k in k_tab:
+            precision_at_k = ranking_precision_score(y_test_subset, y_predict_confidence_score,k)
+            if k==20:
+                P20_per_class_miniset += [precision_at_k]
+            print("Precision on minisubset @ ",k,":",precision_at_k)
+        
+    
+    print("mean Average Precision for all the data = {0:.3f}".format(np.mean(AP_per_class)))    
+    print("mean Precision for all the data = {0:.3f}".format(np.mean(P_per_class)))  
+    print("mean Recall for all the data = {0:.3f}".format(np.mean(R_per_class)))  
+    print("mean Precision @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
+    
+    print(AP_per_class)
+    
+    print("mean Average Precision for subset of the data = {0:.3f}".format(np.mean(AP_per_class_subset)))       
+    print("mean Precision for subset of the data = {0:.3f}".format(np.mean(P_per_class_subset)))  
+    print("mean Recall for subset of the data = {0:.3f}".format(np.mean(R_per_class_subset)))  
+    print("mean Precision @ 20 for subset of the data = {0:.3f}".format(np.mean(P20_per_class_subset))) 
+    
+    print(AP_per_class_subset)
+    
+    print("mean Average Precision for minisubset of the data = {0:.3f}".format(np.mean(AP_per_class_miniset)))       
+    print("mean Precision for minisubset of the data = {0:.3f}".format(np.mean(P_per_class_miniset)))  
+    print("mean Recall for  minisubset of  the data = {0:.3f}".format(np.mean(R_per_class_miniset)))  
+    print("mean Precision @ 20 for minisubset of  the data = {0:.3f}".format(np.mean(P20_per_class_miniset))) 
+    print(AP_per_class_miniset)
     
     return(0)
    
@@ -794,8 +1087,14 @@ if __name__ == '__main__':
     #HowAreSupport_of_SVM(kind='2048D',kindnetwork='ResNet152',database='Paintings',L2=False,augmentation=False)
     
     # Compute bottleNeck for Wikidata
-    compute_InceptionResNetv2_features(kind='1536D',database='Wikidata_Paintings',L2=False,augmentation=False)
-    kind = 'relu7'
-    VGGnum = '19'
-    compute_VGG_features(VGG=VGGnum,kind=kind,database='Wikidata_Paintings',L2=False,augmentation=False)
-    Compute_ResNet(kind='2048D',database='Wikidata_Paintings',L2=False,augmentation=False)
+#    compute_InceptionResNetv2_features(kind='1536D',database='Wikidata_Paintings',L2=False,augmentation=False)
+#    kind = 'relu7'
+#    VGGnum = '19'
+#    compute_VGG_features(VGG=VGGnum,kind=kind,database='Wikidata_Paintings',L2=False,augmentation=False)
+#    Compute_ResNet(kind='2048D',database='Wikidata_Paintings',L2=False,augmentation=False)
+#   
+#    Classification_evaluation_Wikidata('1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings')
+#    Classification_evaluation_Wikidata('2048D',kindnetwork='ResNet152',database='Wikidata_Paintings')
+#    Classification_evaluation_Wikidata('relu7',kindnetwork='VGG19',database='Wikidata_Paintings')
+#    
+    classif_angel_simple()
