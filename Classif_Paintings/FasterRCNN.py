@@ -10,15 +10,21 @@ Be careful it was a necessity to modify all the script of the library with stuff
 like ..lib etc
 It is a convertion for Python 3
 
+Faster RCNN re-scale  the  images  such  that  their  shorter  side  = 600 pixels  
 
 @author: gonthier
 """
-
+import pickle
 import tensorflow as tf
 import matplotlib
+from sklearn import svm
+from sklearn.ensemble import IsolationForest
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.covariance import EllipticEnvelope
+from sklearn.linear_model import SGDClassifier
 from tf_faster_rcnn.lib.nets.vgg16 import vgg16
 from tf_faster_rcnn.lib.nets.resnet_v1 import resnetv1
-from tf_faster_rcnn.lib.model.test import im_detect
+from tf_faster_rcnn.lib.model.test import im_detect,TL_im_detect,TL_im_detect_end
 from tf_faster_rcnn.lib.model.nms_wrapper import nms
 import matplotlib.pyplot as plt
 #from tf_faster_rcnn.tools.demo import vis_detections
@@ -26,6 +32,8 @@ import numpy as np
 import os,cv2
 import pandas as pd
 from sklearn.metrics import average_precision_score
+from Classifier_Evaluation import Classification_evaluation
+import os.path
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -63,7 +71,10 @@ NETS_Pretrained = {'vgg16_VOC07' :'vgg16_faster_rcnn_iter_70000.ckpt',
 CLASSES_SET ={'VOC' : CLASSESVOC,
               'COCO' : CLASSESCOCO }
 
-def compute_FasterRCNN_Perf_Paintings():
+def compute_FasterRCNN_Perf_Paintings(TL = True):
+    """
+    Compute the performance on the Your Paintings subset ie Crowley on the output but also the best case on feature fc7 of the best proposal part
+    """
     classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     path_to_img = '/media/HDD/data/Painting_Dataset/'
     database = 'Paintings'
@@ -71,13 +82,13 @@ def compute_FasterRCNN_Perf_Paintings():
     df_label = pd.read_csv(databasetxt,sep=",")
     df_test = df_label[df_label['set']=='test']
     sLength = len(df_test['name_img'])
+    sLength_all = len(df_label['name_img'])
     name_img = df_test['name_img'][0]
     i = 0
     y_test = np.zeros((sLength,10))
-
-    NETS_Pretrained = {'vgg16_COCO' :'vgg16_faster_rcnn_iter_1190000.ckpt',
-                   'res101_COCO' :'res101_faster_rcnn_iter_1190000.ckpt',
-                   'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'
+    NETS_Pretrained = {'res101_COCO' :'res101_faster_rcnn_iter_1190000.ckpt',
+                   'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt',
+                   'vgg16_COCO' :'vgg16_faster_rcnn_iter_1190000.ckpt'
                    }
 
     for demonet in NETS_Pretrained.keys():
@@ -89,7 +100,7 @@ def compute_FasterRCNN_Perf_Paintings():
             anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
         elif 'COCO'in demonet:
             CLASSES = CLASSES_SET['COCO']
-            anchor_scales = [4, 8, 16, 32]
+            anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
         nbClasses = len(CLASSES)
         path_to_model = '/media/HDD/models/tf-faster-rcnn/'
         tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
@@ -112,40 +123,95 @@ def compute_FasterRCNN_Perf_Paintings():
         else:
           raise NotImplementedError
           
-        net.create_architecture("TEST", nbClasses,
-                              tag='default', anchor_scales=anchor_scales)
-        saver = tf.train.Saver()
-        saver.restore(sess, tfmodel)
-        
-        scores_all_image = np.zeros((len(df_test),nbClasses))
-        
-        for i,name_img in  enumerate(df_test['name_img']):
-            if i%1000==0:
-                print(i,name_img)
-            complet_name = path_to_img + name_img + '.jpg'
-            im = cv2.imread(complet_name)
-            scores, boxes = im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
-            scores_max = np.max(scores,axis=0)
-            scores_all_image[i,:] = scores_max
-            for j in range(10):
-                if(classes_paitings[j] in list(df_test['classe'][df_test['name_img']==name_img])[0]):
-                    y_test[i,j] = 1
+        if not(TL):  
+            net.create_architecture("TEST", nbClasses,
+                                  tag='default', anchor_scales=anchor_scales)
+            saver = tf.train.Saver()
+            saver.restore(sess, tfmodel)
             
-        AP_per_class = []
-        for k,classe in enumerate(classes_paitings):
-            index_classe = np.where(np.array(CLASSES)==classe)[0][0]
-            scores_per_class = scores_all_image[:,index_classe]
-            #print(scores_per_class)
-            #print(y_test[:,k],np.sum(y_test[:,k]))
-            AP = average_precision_score(y_test[:,k],scores_per_class,average=None)
-            AP_per_class += [AP]
-            print("Average Precision for",classe," = ",AP)
-        print(demonet," mean Average Precision = {0:.3f}".format(np.mean(AP_per_class)))
-        
-        sess.close()
-        
-        
-        
+            scores_all_image = np.zeros((len(df_test),nbClasses))
+            
+            for i,name_img in  enumerate(df_test['name_img']):
+                if i%1000==0:
+                    print(i,name_img)
+                complet_name = path_to_img + name_img + '.jpg'
+                im = cv2.imread(complet_name)
+                scores, boxes = im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+                scores_max = np.max(scores,axis=0)
+                scores_all_image[i,:] = scores_max
+                for j in range(10):
+                    if(classes_paitings[j] in list(df_test['classe'][df_test['name_img']==name_img])[0]):
+                        y_test[i,j] = 1
+                
+            AP_per_class = []
+            for k,classe in enumerate(classes_paitings):
+                index_classe = np.where(np.array(CLASSES)==classe)[0][0]
+                scores_per_class = scores_all_image[:,index_classe]
+                #print(scores_per_class)
+                #print(y_test[:,k],np.sum(y_test[:,k]))
+                AP = average_precision_score(y_test[:,k],scores_per_class,average=None)
+                AP_per_class += [AP]
+                print("Average Precision for",classe," = ",AP)
+            print(demonet," mean Average Precision = {0:.3f}".format(np.mean(AP_per_class)))
+            
+            sess.close()
+        else:
+            if database=='Paintings':
+                item_name = 'name_img'
+                path_to_img = '/media/HDD/data/Painting_Dataset/'
+                classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+            path_data = 'data/'
+            N = 1
+            extL2 = ''
+            name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'.pkl'
+            if demonet == 'vgg16_COCO':
+                size_output = 4096
+            elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
+                size_output = 2048
+            features_resnet = np.ones((sLength_all,size_output))
+            classes_vectors = np.zeros((sLength_all,10))
+            # Use the output of fc7 
+            net.create_architecture("TEST", nbClasses,
+                                  tag='default', anchor_scales=anchor_scales,modeTL= True)
+            saver = tf.train.Saver()
+            saver.restore(sess, tfmodel)
+            
+            scores_all_image = np.zeros((len(df_test),nbClasses))
+            
+            for i,name_img in  enumerate(df_label[item_name]):
+                if i%1000==0:
+                    print(i,name_img)
+                complet_name = path_to_img + name_img + '.jpg'
+                im = cv2.imread(complet_name)
+                cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+                # Normally argmax roi_scores is 0
+                out = fc7[np.argmax(roi_scores),:]
+                features_resnet[i,:] = np.array(out)
+                if database=='VOC12' or database=='Paintings':
+                    for j in range(10):
+                        if( classes[j] in df_label['classe'][i]):
+                            classes_vectors[i,j] = 1
+                
+            X_train = features_resnet[df_label['set']=='train',:]
+            y_train = classes_vectors[df_label['set']=='train',:]
+            
+            X_test= features_resnet[df_label['set']=='test',:]
+            y_test = classes_vectors[df_label['set']=='test',:]
+            
+            X_val = features_resnet[df_label['set']=='validation',:]
+            y_val = classes_vectors[df_label['set']=='validation',:]
+            
+            print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
+            
+            Data = [X_train,y_train,X_test,y_test,X_val,y_val]
+            
+            with open(name_pkl, 'wb') as pkl:
+                pickle.dump(Data,pkl)
+            
+            sess.close()
+            
+            # Compute the metric
+            Classification_evaluation(kind=demonet,kindnetwork='FasterRCNN',database='Paintings',L2=False,augmentation=False,classifier_name='LinearSVM')       
         
 def compute_FasterRCNN_demo():
     
@@ -204,7 +270,7 @@ def compute_FasterRCNN_demo():
             imfile = os.path.join(DATA_DIR, im_name)
             im = cv2.imread(imfile)
             scores, boxes = im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
-           # Only single-image batch implemented !
+            # Only single-image batch implemented !
             print(scores.shape)
             #print(scores)
     
@@ -340,7 +406,7 @@ def FasterRCNN_bigImage():
     im = cv2.imread(imfile)
     scores, boxes = im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
    # Only single-image batch implemented !
-    print(scores.shape)
+    print('scores.shape',scores.shape)
     #print(scores)
 
     CONF_THRESH = 0.8
@@ -355,7 +421,321 @@ def FasterRCNN_bigImage():
         dets = dets[keep, :]
         inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
         if(len(inds)>0):
-            print(CLASSES[cls_ind])
+            print('CLASSES[cls_ind]',CLASSES[cls_ind])
+        vis_detections(im, cls, dets, thresh=CONF_THRESH)
+    plt.show()
+    sess.close()
+    
+def FasterRCNN_TransferLearning():
+    """
+    Compute the performance on the Your Paintings subset ie Crowley
+    on the fc7 output but with an outlier detection vision
+    """
+    reDo = False
+    classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    database = 'Paintings'
+    databasetxt = database + '.txt'
+    df_label = pd.read_csv(databasetxt,sep=",")
+    df_test = df_label[df_label['set']=='test']
+    sLength = len(df_test['name_img'])
+    sLength_all = len(df_label['name_img'])
+    name_img = df_test['name_img'][0]
+    i = 0
+    y_test = np.zeros((sLength,10))
+    NETS_Pretrained = {'res101_COCO' :'res101_faster_rcnn_iter_1190000.ckpt',
+                   'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt',
+                   'vgg16_COCO' :'vgg16_faster_rcnn_iter_1190000.ckpt'
+                   }
+    NETS_Pretrained = {'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'}
+
+    for demonet in NETS_Pretrained.keys():
+        #demonet = 'res101_COCO'
+        tf.reset_default_graph() # Needed to use different nets one after the other
+        print(demonet)
+        if 'VOC'in demonet:
+            CLASSES = CLASSES_SET['VOC']
+            anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+        elif 'COCO'in demonet:
+            CLASSES = CLASSES_SET['COCO']
+            anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
+        nbClasses = len(CLASSES)
+        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+        tfconfig = tf.ConfigProto(allow_soft_placement=True)
+        tfconfig.gpu_options.allow_growth=True
+        # init session
+        sess = tf.Session(config=tfconfig)
+        
+        # load network
+        if  'vgg16' in demonet:
+          net = vgg16()
+        elif demonet == 'res50':
+          raise NotImplementedError
+        elif 'res101' in demonet:
+          net = resnetv1(num_layers=101)
+        elif 'res152' in demonet:
+          net = resnetv1(num_layers=152)
+        elif demonet == 'mobile':
+          raise NotImplementedError
+        else:
+          raise NotImplementedError
+          
+        if database=='Paintings':
+            item_name = 'name_img'
+            path_to_img = '/media/HDD/data/Painting_Dataset/'
+            classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+        path_data = 'data/'
+        N = 1
+        extL2 = ''
+        
+        name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'.pkl'
+        name_pkl = path_data + 'testTL.pkl'
+        
+        if not(os.path.isfile(name_pkl)) or reDo:
+            print('Start computing image region proposal')
+            if demonet == 'vgg16_COCO':
+                size_output = 4096
+            elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
+                size_output = 2048
+            features_resnet_dict= {}
+            features_resnet = np.ones((sLength_all,size_output))
+            classes_vectors = np.zeros((sLength_all,10))
+            # Use the output of fc7 
+            net.create_architecture("TEST", nbClasses,
+                                  tag='default', anchor_scales=anchor_scales,modeTL= True)
+            saver = tf.train.Saver()
+            saver.restore(sess, tfmodel)
+            
+            scores_all_image = np.zeros((len(df_test),nbClasses))
+            
+    
+            for i,name_img in  enumerate(df_label[item_name]):
+                if i%1000==0:
+                    print(i,name_img)
+                complet_name = path_to_img + name_img + '.jpg'
+                im = cv2.imread(complet_name)
+                cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+                features_resnet_dict[name_img] = fc7
+    #            out = fc7[np.argmax(roi_scores),:]
+    #            features_resnet[i,:] = np.array(out)
+    #            if database=='VOC12' or database=='Paintings':
+    #                for j in range(10):
+    #                    if( classes[j] in df_label['classe'][i]):
+    #                        classes_vectors[i,j] = 1
+                 # We work on the class 0
+#                if( classes[j] in df_label['classe'][i]):
+#                    classes_vectors[i,j] = 1
+        
+            with open(name_pkl, 'wb') as pkl:
+                pickle.dump(features_resnet_dict,pkl)
+        
+        print("Load data")
+        features_resnet_dict = pickle.load(open(name_pkl, 'rb'))
+        
+        print("Learning of the normal distribution")
+        j=0   
+        normalDistrib =  [] # Each time you change the size of the array, it needs to be resized and every element needs to be copied. This is happening here too. 
+        ElementsInClassTrain = []
+        
+        # Maximum size possible 
+        
+        normalDistrib = np.zeros((144508,2048))
+        ElementsInClassTrain = np.zeros((3340, 2048))
+        ElementsInClassTrainFirstElement = np.zeros((87, 2048))
+        normalDistrib_i = 0
+        ElementsInClassTrain_i = 0
+        i = 0
+        for index,row in df_label.iterrows():
+            name_img = row[item_name]
+            inClass = classes[j] in row['classe']
+            inTest = row['set']=='test'
+            if index%1000==0:
+                print(index,name_img)
+            if not(inTest):
+                f = features_resnet_dict[name_img]
+                if not(inClass):
+                    normalDistrib[normalDistrib_i:normalDistrib_i+len(f),:] = f
+                    normalDistrib_i += len(f)
+                else:
+                    ElementsInClassTrain[ElementsInClassTrain_i:ElementsInClassTrain_i+len(f),:] = f
+                    ElementsInClassTrain_i += len(f)
+                    ElementsInClassTrainFirstElement[i:i+1] = f[0,:]
+                    i += 1
+                    
+        # I do not have anything to add that has not been said here. I just want to post a link the sklearn page about SVC which clarifies what is going on:
+        # The implementation is based on libsvm. The fit time complexity is more than quadratic with the number of samples which makes it hard to scale to dataset with more than a couple of 10000 samples.
+        # Kernelized SVMs require the computation of a distance function between each point in the dataset, which is the dominating cost of O(nfeatures×n2observations).          
+          
+        # Outlier detection 
+#        numberOfExemple = 1508
+#        subsetNegativeExemple =  np.random.choice(len(normalDistrib),numberOfExemple)
+#        subsetnormalDistrib = normalDistrib[subsetNegativeExemple,:]
+#        #clf = LocalOutlierFactor(n_jobs=-1) # BCP + rapide que les autres méthodes
+#        clf = svm.OneClassSVM(kernel="linear") # With numberOfExemple = 1500 we get AP for aeroplane  =  0.0265245509492
+#        #clf = IsolationForest(n_estimators=100, max_samples='auto', contamination=0.1, max_features=1.0, bootstrap=False, n_jobs=-1)
+#        #clf = EllipticEnvelope()
+#        print('Shape of normalDistrib :',normalDistrib.shape)
+#        print('Shape of subsetnormalDistrib :',subsetnormalDistrib.shape)
+#        print('Shape of ElementsInClassTrain :',ElementsInClassTrain.shape)
+##        Shape of normalDistrib : (144508, 2048)
+##        Shape of ElementsInClassTrain : (3340, 2048)
+#        clf.fit(subsetnormalDistrib)
+#        print('End of training anomaly detector')
+        
+        # Detection of the outlier in the positive exemple images        
+        
+        # Classification version 
+        numberOfExemple = 144508 #144508
+#        subsetNegativeExemple =  np.random.choice(len(normalDistrib),numberOfExemple)
+#        subsetnormalDistrib = normalDistrib[subsetNegativeExemple,:]
+        subsetnormalDistrib = normalDistrib
+        normalDistrib_class = np.zeros((numberOfExemple,1))
+        ElementsInClassTrainFirstElement_class = np.ones((87,1))
+        y_training = np.vstack((normalDistrib_class,ElementsInClassTrainFirstElement_class)).ravel()
+        X_training = np.vstack((subsetnormalDistrib,ElementsInClassTrainFirstElement))
+        classifier = svm.LinearSVC() # class_weight={1: 100000} doesn't improve at all
+        classifier.fit(X_training,y_training)
+        print("End training in a SVM one class versus one class manner")
+        
+        print("Test on image")
+        
+        numberOfTestEx = np.sum(df_label['set']=='test')
+        y_predict_confidence_score = np.zeros((numberOfTestEx,1))
+        y_predict_confidence_score_classifier= np.zeros((numberOfTestEx,1))
+        y_test = np.zeros((numberOfTestEx,1)).ravel()
+        numberImageTested = 0
+        numberOfPositiveExemples = 0
+        i = 0
+        for index,row in df_label.iterrows():
+            name_img = row[item_name]
+            inClass = classes[j] in row['classe']
+            inTest = row['set']=='test'
+            if index%1000==0:
+                print(index,name_img)
+            if inTest:
+#                y_pred_train_outlier = clf.decision_function(features_resnet_dict[name_img])
+#                max_outlier_value = np.max(y_pred_train_outlier)
+#                y_predict_confidence_score[i] = max_outlier_value
+                
+                #SVM version Average Precision for aeroplane  =  0.661635821571
+#                y_pred_train = classifier.decision_function(features_resnet_dict[name_img]) 
+#                max_value = np.max(y_pred_train)
+                 # SVM version Average Precision for aeroplane  =  0.602695774327
+#                data = features_resnet_dict[name_img][0,:].reshape(1, -1)
+#                max_value = classifier.decision_function(data) 
+                
+                data = features_resnet_dict[name_img] # SVM version Average Precision for aeroplane  =  0.602695774327
+                max_value = np.max(classifier.decision_function(data))
+                
+                y_predict_confidence_score_classifier[i] = max_value
+                numberImageTested += 1
+                if inClass:
+                    numberOfPositiveExemples += 1
+                    y_test[i] = 1
+                i += 1
+#        print(y_predict_confidence_score,y_test)
+#        print(numberImageTested,"Images tested",numberOfPositiveExemples,"possible examples")   
+#        print("Compute metric")
+#        AP_outlier = average_precision_score(y_test,y_predict_confidence_score,average=None)
+#        #AP_per_class += [AP]
+#        print("Outlier version Average Precision for",classes[j]," = ",AP_outlier)
+        AP_svm = average_precision_score(y_test,y_predict_confidence_score_classifier,average=None)
+        print("SVM version Average Precision for",classes[j]," = ",AP_svm)  
+               
+        sess.close()
+    
+    #input('WAit for end')
+    
+def FasterRCNN_TransferLearning_Test_Bidouille():
+    DATA_DIR =  '/media/HDD/data/Art Paintings from Web/'
+    demonet = 'res152_COCO'
+    tf.reset_default_graph() # Needed to use different nets one after the other
+    print(demonet)
+    if 'VOC'in demonet:
+        CLASSES = CLASSES_SET['VOC']
+        anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+    elif 'COCO'in demonet:
+        CLASSES = CLASSES_SET['COCO']
+        anchor_scales = [4, 8, 16, 32]
+    nbClasses = len(CLASSES)
+    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+    
+    #tfmodel = os.path.join(path_to_model,DATASETS[dataset][0],NETS[demonet][0])
+    print(tfmodel)
+#    tfmodel = os.path.join('output', demonet, DATASETS[dataset][0], 'default',
+#                              NETS[demonet][0])
+    
+    tfconfig = tf.ConfigProto(allow_soft_placement=True)
+    tfconfig.gpu_options.allow_growth=True
+
+    # init session
+    sess = tf.Session(config=tfconfig)
+    
+    # load network
+    if  'vgg16' in demonet:
+      net = vgg16()
+    elif demonet == 'res50':
+      raise NotImplementedError
+    elif 'res101' in demonet:
+      net = resnetv1(num_layers=101)
+    elif 'res152' in demonet:
+      net = resnetv1(num_layers=152)
+    elif demonet == 'mobile':
+      raise NotImplementedError
+    else:
+      raise NotImplementedError
+      
+    net.create_architecture('TEST', nbClasses,
+                          tag='default', anchor_scales=anchor_scales,modeTL = True)
+#    {'bbox_pred': <tf.Tensor 'add:0' shape=(?, 324) dtype=float32>,
+# 'cls_pred': <tf.Tensor 'resnet_v1_152_5/cls_pred:0' shape=(?,) dtype=int64>,
+# 'cls_prob': <tf.Tensor 'resnet_v1_152_5/cls_prob:0' shape=(?, 81) dtype=float32>,
+# 'cls_score': <tf.Tensor 'resnet_v1_152_5/cls_score/BiasAdd:0' shape=(?, 81) dtype=float32>,
+# 'rois': <tf.Tensor 'resnet_v1_152_3/rois/proposal:0' shape=(?, 5) dtype=float32>,
+# 'rpn_bbox_pred': <tf.Tensor 'resnet_v1_152_3/rpn_bbox_pred/BiasAdd:0' shape=(1, ?, ?, 48) dtype=float32>,
+# 'rpn_cls_pred': <tf.Tensor 'resnet_v1_152_3/rpn_cls_pred:0' shape=(?,) dtype=int64>,
+# 'rpn_cls_prob': <tf.Tensor 'resnet_v1_152_3/rpn_cls_prob/transpose_1:0' shape=(1, ?, ?, 24) dtype=float32>,
+# 'rpn_cls_score': <tf.Tensor 'resnet_v1_152_3/rpn_cls_score/BiasAdd:0' shape=(1, ?, ?, 24) dtype=float32>,
+# 'rpn_cls_score_reshape': <tf.Tensor 'resnet_v1_152_3/rpn_cls_score_reshape/transpose_1:0' shape=(1, ?, ?, 2) dtype=float32>}
+
+    
+    saver = tf.train.Saver()
+    saver.restore(sess, tfmodel)
+    print('Loaded network {:s}'.format(tfmodel))
+    im_name = 'L Adoration des mages - Jan Mabuse - 1515.jpg'
+    print('Demo for data/demo/{}'.format(im_name))
+    imfile = os.path.join(DATA_DIR, im_name)
+    im = cv2.imread(imfile)
+    
+    
+    
+    # If we use the top detection we have the 300 first case
+    
+    cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+    #print(cls_score, cls_prob, bbox_pred, rois, fc7,pool5)
+    print(cls_score.shape, cls_prob.shape, bbox_pred.shape, rois.shape,roi_scores.shape, fc7.shape,pool5.shape)
+    #(300, 81) (300, 81) (300, 324) (300, 5) (300, 2048) (300, 7, 7, 1024)
+    
+    #cls_prob = cls_prob[np.argmax(roi_scores),:]
+    #bbox_pred = bbox_pred[np.argmax(roi_scores),:]
+    
+    # Only single-image batch implemented !
+    scores, boxes = TL_im_detect_end(cls_prob, bbox_pred, rois,im)
+    CONF_THRESH = 0.1 # Plot if the score for this class is superior to CONF_THRESH
+    NMS_THRESH = 0.7 # non max suppression
+    for cls_ind, cls in enumerate(CLASSES[1:]):
+        cls_ind += 1 # because we skipped background
+        cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
+        cls_scores = scores[:, cls_ind]
+        dets = np.hstack((cls_boxes,
+                      cls_scores[:, np.newaxis])).astype(np.float32)
+        keep = nms(dets, NMS_THRESH)
+        dets = dets[keep, :]
+        inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
+        if(len(inds)>0):
+            print('CLASSES[cls_ind]',CLASSES[cls_ind])
         vis_detections(im, cls, dets, thresh=CONF_THRESH)
     plt.show()
     sess.close()
@@ -446,7 +826,11 @@ def FasterRCNN_ImagesObject():
         
         
 if __name__ == '__main__':
-    FasterRCNN_ImagesObject()
+    ## Faster RCNN re-scale  the  images  such  that  their  shorter  side  = 600 pixels  
+    
+    #compute_FasterRCNN_Perf_Paintings()
+    FasterRCNN_TransferLearning()
+    #FasterRCNN_ImagesObject()
     #compute_FasterRCNN_demo()
     #compute_FasterRCNN_Perf_Paintings()
     # List des nets a tester : VGG16-VOC12

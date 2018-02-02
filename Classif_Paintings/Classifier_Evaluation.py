@@ -223,6 +223,7 @@ def Classification_evaluation(kind='2048D',kindnetwork='InceptionResNetv2',datab
     """
     kindnetwork in  [InceptionResNetv2,ResNet152]
     """
+    path_data = 'data/'
     # Multilabel classification assigns to each sample a set of target labels. 
     # This can be thought as predicting properties of a data-point that are not mutually exclusive
     if augmentation:
@@ -236,12 +237,12 @@ def Classification_evaluation(kind='2048D',kindnetwork='InceptionResNetv2',datab
     
     classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     if database == 'Paintings':
-        name_pkl = kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
+        name_pkl = path_data + kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
         [X_train,y_train,X_test,y_test,X_val,y_val] = pickle.load(open(name_pkl, 'rb'))
     elif database == 'VOC12':
-        name_pkl = kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
+        name_pkl =path_data + kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
         [X_train,y_train,_,_,X_val,y_val] = pickle.load(open(name_pkl, 'rb'))
-        name_pkl = kindnetwork +'_' + kind +'_Paintings_N'+str(N)+extL2+'.pkl'
+        name_pkl = path_data + kindnetwork +'_' + kind +'_Paintings_N'+str(N)+extL2+'.pkl'
         [_,_,X_test,y_test,_,_] = pickle.load(open(name_pkl, 'rb'))
     print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
     X_trainval = np.append(X_train,X_val,axis=0)

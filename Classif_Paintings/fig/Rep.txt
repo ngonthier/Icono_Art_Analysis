@@ -1,0 +1,12 @@
+We have  5473 images
+For  angel/Cupidon  , we have  1269.0 positive exemples
+132.0 elements with na year
+For  Mary , we have  2336.0 positive exemples
+407.0 elements with na year
+For  nudity or breast , we have  890.0 positive exemples
+69.0 elements with na year
+For  ruins , we have  459.0 positive exemples
+51.0 elements with na year
+For  Jesus Child , we have  1605 positive exemples
+344 elements with na year
+

@@ -14,6 +14,10 @@ import random
 from shutil import copyfile
 import os.path
 import os
+
+depictsAll = ['Q467','Q8441','Q345','Q527','Q10884','Q942467','Q8074','Q3010','Q302','Q1144593','Q10791','Q7569','Q726','Q14130','Q7560','Q107425','Q144','Q8502','Q235113']
+
+
 def do_mkdir(path):
 	if not(os.path.isdir(path)):
 		os.mkdir(path)
@@ -202,6 +206,23 @@ def prepareWikiData():
     
     return(0)
     
+def prepare_Dates_WikiData():
+    name_file= '/media/HDD/Wikidata_query/Dates_Artists.csv'
+    df = pd.read_csv(name_file, sep=",",encoding='utf-8')
+    print(df.head(3))    
+    df_drop = df.drop_duplicates(subset='peintre', keep="last")
+    list_column_to_change = ['peintre','prenom','nom','famillenom']
+    for elt  in list_column_to_change:
+        #print(elt)
+        df_drop[elt] = df_drop[elt].apply(lambda a: str.split(str(a),'/')[-1])
+        
+    year = Series(df_drop.mean(axis=1, skipna=True, level=None, numeric_only=True))
+    df_drop['year_merge']= year
+    print(df_drop.head(3)) 
+    df_drop.to_csv('data/Dates_Artists_rewied.csv')
+    
+    return(0)
+    
 def prepareWikiDataWithSubSet():
     already = False
     
@@ -259,6 +280,14 @@ def prepareWikiDataWithSubSet():
 
     
     Labels = ['Q345','Q942467','Q302','Q10791','Q235113','Q109607','Q63070','Q40662','Q179718','Q1698874','Q47652','Q183332','Q328804','Q83772','Q998','Q44015','Q51636','Q15223957','Q81710','Q13147','Q35500','Q488841','Q132543','Q618057','Q80513']
+    # Number of image in this subset  5491 
+    Labels = ['Q107425', 'Q10791', 'Q10884', 'Q109607', 'Q1144593', 'Q13147',
+       'Q132543', 'Q14130', 'Q144', 'Q15223957', 'Q1698874', 'Q179718',
+       'Q183332', 'Q235113', 'Q3010', 'Q302', 'Q328804', 'Q345', 'Q35500',
+       'Q40662', 'Q44015', 'Q467', 'Q47652', 'Q488841', 'Q51636', 'Q527',
+       'Q618057', 'Q63070', 'Q726', 'Q7560', 'Q7569', 'Q80513', 'Q8074',
+       'Q81710', 'Q83772', 'Q8441', 'Q8502', 'Q942467', 'Q998'] # Number of image in this subset 14738 
+    # Et  9247dans ce qui reste ! 
     number_paitings = len(df_copy2['image'])
     print("Number of Paintings : ",number_paitings)
     list_image_with_it = []
@@ -279,7 +308,7 @@ def prepareWikiDataWithSubSet():
     list_image_with_it = np.unique(list_image_with_it) 
     df_new = df_copy2.loc[list_image_with_it]
     print("Number of image in this subset",len(df_new['image_url']))
-    df_new.to_csv('data/Wikidata_Paintings_subset.txt', index=None, sep=',', mode='w') 
+    df_new.to_csv('data/Wikidata_Paintings_subset2.txt', index=None, sep=',', mode='w') 
     #df_new['image_url']
     
 #    np_classes = df_copy2.as_matrix(columns=Labels)
@@ -383,11 +412,81 @@ def prepareWikidataSetsPaitings():
     
     return(0)
     
+def MiseDeCote2():
+    path_data = 'data/'
+    database='Wikidata_Paintings'
+    databasetxt = path_data +  'Wikidata_Paintings_subset2.txt'
+    minisubset = False
+    df = pd.read_csv(databasetxt,sep=",")
+    #df = df.drop_duplicates(subset='image', keep="last")
+    #print(df)
+    Labels = ['Q107425', 'Q10791', 'Q10884', 'Q109607', 'Q1144593', 'Q13147',
+       'Q132543', 'Q14130', 'Q144', 'Q15223957', 'Q1698874', 'Q179718',
+       'Q183332', 'Q235113', 'Q3010', 'Q302', 'Q328804', 'Q345', 'Q35500',
+       'Q40662', 'Q44015', 'Q467', 'Q47652', 'Q488841', 'Q51636', 'Q527',
+       'Q618057', 'Q63070', 'Q726', 'Q7560', 'Q7569', 'Q80513', 'Q8074',
+       'Q81710', 'Q83772', 'Q8441', 'Q8502', 'Q942467', 'Q998']
+    if not (minisubset):
+        minisubset_labels =  ['Q345','Q942467','Q302','Q10791','Q235113','Q109607','Q63070','Q40662','Q179718','Q1698874','Q47652','Q183332','Q328804','Q83772','Q998','Q44015','Q51636','Q15223957','Q81710','Q13147','Q35500','Q488841','Q132543','Q618057','Q80513']
+        np_classes_depictsAll = df.as_matrix(columns=minisubset_labels)
+        np_classes_Labels = df.as_matrix(columns=Labels)
+        #print(np_classes.shape)
+        index_to_remove_becauseAlready_inMiniset = np.where(np.sum(np_classes_depictsAll,axis=1) > 0)
+        index_image_with_at_least_one_of_the_class = np.where(np.sum(np_classes_Labels,axis=1) > 0)
+        print("Number of image in Labels :",len(index_image_with_at_least_one_of_the_class[0]))
+        print("Number of image in depictsAll :",len(index_to_remove_becauseAlready_inMiniset[0]))
+        name_tab_index = np.setdiff1d(index_image_with_at_least_one_of_the_class[0],index_to_remove_becauseAlready_inMiniset[0])
+        print("Number of image :",len(name_tab_index))
+        print("Number of image :",len(np.unique(name_tab_index)))
+    else:
+        name_tab_index = np.array(df.index)
+    folder=database +'/'
+    target_path = '/media/HDD/data/'
+    write_data = target_path + folder 
+    bigger_size = 600
+    read_data = write_data + str(bigger_size) + '/'
+    dstfolder=  write_data + 'Subset1/'
+    numberIm = 0
+    do_mkdir(dstfolder)
+    list_of_im  =[]
+    diff_folder = False
+    if diff_folder:
+        numberOfFolder = 0
+        numberOfFolder_str = str(0)+ '/'
+    else:
+        numberOfFolder_str = ''
+    for i in name_tab_index:
+        if numberIm%500 == 0:
+            print("numberIm",numberIm)
+            dstfoldernew = dstfolder + numberOfFolder_str 
+            print(dstfoldernew)
+            do_mkdir(dstfoldernew)
+            if diff_folder:
+                numberOfFolder_str = str(numberOfFolder)+ '/'
+                numberOfFolder += 1
+        name = df['image'][i]
+        if name in list_of_im:
+            print(name," already read! indice = ",i,"Q index = ",df['item'][i])
+            print(df[df['image']==name])
+            #print(df[df['item']==df['item'][i]])
+        list_of_im += [name]
+        name_tab = name.split('.')
+        name_tab[-1] = 'jpg'
+        namejpg = ".".join(name_tab)
+        src = read_data + namejpg
+        dst = dstfoldernew + namejpg
+        copyfile(src, dst)
+        if os.path.exists(dst):
+            numberIm +=1 
+        else:
+            print("Image not copied",dst)
+    print("Number of image copied",numberIm)
+
 def MiseDeCote():
     path_data = 'data/'
     database='Wikidata_Paintings'
     databasetxt = path_data +  'Wikidata_Paintings_subset.txt'
-    allelt = True
+    allelt = False
     df = pd.read_csv(databasetxt,sep=",")
     #df = df.drop_duplicates(subset='image', keep="last")
     #print(df)
@@ -411,13 +510,21 @@ def MiseDeCote():
     do_mkdir(dstfolder)
     list_of_im  =[]
     numberOfFolder = 0
+    diff_folder = False
+    if diff_folder:
+        numberOfFolder = 0
+        numberOfFolder_str = str(0)+ '/'
+    else:
+        numberOfFolder_str = ''
     for i in name_tab_index:
         if numberIm%500 == 0:
             print("numberIm",numberIm)
-            dstfoldernew = dstfolder + str(numberOfFolder) + '/'
+            dstfoldernew = dstfolder + numberOfFolder_str 
             print(dstfoldernew)
             do_mkdir(dstfoldernew)
-            numberOfFolder += 1
+            if diff_folder:
+                numberOfFolder_str = str(numberOfFolder)+ '/'
+                numberOfFolder += 1
         name = df['image'][i]
         if name in list_of_im:
             print(name," already read! indice = ",i,"Q index = ",df['item'][i])
@@ -436,7 +543,178 @@ def MiseDeCote():
             print("Image not copied",dst)
     print("Number of image copied",numberIm)
     
+def MiseDeCotePourAnnotationRapideBadPhoto():
+    path_data = 'data/'
+    database='Wikidata_Paintings'
+    databasetxt = path_data +  'Wikidata_Paintings_subset.txt'
+    df = pd.read_csv(databasetxt,sep=",")
+    #df = df.drop_duplicates(subset='image', keep="last")
+    #print(df)
+    classe_a_annotee = 'BadPhoto'
+    print(df.head(2))
+    name_tab_index =  df.index
+
+    folder=database +'/'
+    target_path = '/media/HDD/data/'
+    write_data = target_path + folder 
+    bigger_size = 600
+    read_data = write_data + str(bigger_size) + '/'
+    dstfolder=  write_data + 'Not_' + classe_a_annotee + '/'
+    numberIm = 0
+    do_mkdir(dstfolder)
+    list_of_im  =[]
+    for i in name_tab_index:
+        name = df['image'][i]
+        nameoutput = df['item'][i]
+        #if name in list_of_im:
+            #print(name," already read! indice = ",i,"Q index = ",df['item'][i])
+            #print(df[df['image']==name])
+            #print(df[df['item']==df['item'][i]])
+        
+        name_tab = name.split('.')
+        name_tab[-1] = 'jpg'
+        namejpg = ".".join(name_tab)
+        list_of_im += [namejpg]
+        src = read_data + namejpg
+        dst = dstfolder + nameoutput + '.jpg'
+        copyfile(src, dst)
+        if os.path.exists(dst):
+            numberIm +=1 
+        else:
+            print("Image not copied",dst)
+    print("Number of image copied",numberIm)
+    
+    input("Press input when you have remove all the image containing this class...")
+    
+    name_tab_index = np.array(df.index)
+    classe_a_annotee_verif = classe_a_annotee
+    list_elt= os.listdir(dstfolder)
+    #print(list_elt)
+    number_paitings = len(df['image'])
+    df[classe_a_annotee_verif] = Series(np.ones(number_paitings), index=df.index)
+    for name in list_elt:
+        #print(name_tab)
+        name_tab = name.split('.') 
+        item_name = name_tab[0]
+        df.loc[df['item']==item_name,classe_a_annotee_verif] = 0
+    print('Number of ',classe_a_annotee,' element',np.sum(df[classe_a_annotee_verif]))
+            
+    print(df.head(2))
+    namefile = 'data/Wikidata_Paintings_'+classe_a_annotee+'_.txt'
+    df.to_csv(namefile, index=None, sep=',', mode='w') 
+  
+def stringInOtherList(list_a,list_b):
+    for a in list_a:
+        for b in list_b:
+            if(a in b):
+                return(True)
+    return(False)
+
+def AnnotationJesusChild():
+    path_data = 'data/'
+    databasetxt = path_data +  'Wikidata_Paintings_Q345_.txt'
+    df = pd.read_csv(databasetxt,sep=",")
+    classe_a_annotee = 'Q942467'
+    classe_a_annotee_verif = classe_a_annotee + '_verif'
+    number_paitings = len(df['image'])
+    df[classe_a_annotee_verif] = Series(np.zeros(number_paitings), index=df.index)
+    np_classes = df.as_matrix(columns=[classe_a_annotee])
+    print("Number of images in this class :",len(np.where(np.sum(np_classes,axis=1) > 0)[0]))
+    list_elt = df.as_matrix(columns=['item'])
+    elementDescriptif = ['child','enfant','holy family','sainte famille','adoration des rois mages','adoration of the kings','nativity of jesus','nativité']
+    for item_name in list_elt:
+        row = df[df['item']==item_name[0]] 
+        if row.iloc[0]['Q942467'] > 0:
+            df.loc[df['item']==item_name[0],classe_a_annotee_verif] = 1
+        elif row.iloc[0]['Q345_verif']> 0:
+             # They are Mary
+             name_im = str.lower(str(row.iloc[0]['image']))
+             descrip = str.lower(str(row.iloc[0]['itemDescription']))
+             list_dec = [name_im,descrip]
+             if stringInOtherList(elementDescriptif,list_dec):
+                 df.loc[df['item']==item_name[0],classe_a_annotee_verif] = 1
+    
+    print('Number of ',classe_a_annotee,' element',np.sum(df[classe_a_annotee_verif]))
+            
+    print(df.head(2))
+    namefile = 'data/Wikidata_Paintings_'+classe_a_annotee+'_.txt'
+    df.to_csv(namefile, index=None, sep=',', mode='w') 
+    
 def MiseDeCotePourAnnotationRapide():
+    path_data = 'data/'
+    database='Wikidata_Paintings'
+    databasetxt = path_data +  'Wikidata_Paintings_subset.txt'
+    allelt = True
+    df = pd.read_csv(databasetxt,sep=",")
+    #df = df.drop_duplicates(subset='image', keep="last")
+    #print(df)
+    classe_a_annotee = 'Q235113'
+    classe_a_annotee = 'Q345'
+    classe_a_annotee = 'Q10791'
+    classe_a_annotee = 'Q109607'
+    print(df.head(2))
+    if not (allelt):
+        depictsAll = ['Q467','Q8441','Q345','Q527','Q10884','Q942467','Q8074','Q3010','Q302','Q1144593','Q10791','Q7569','Q726','Q14130','Q7560','Q107425','Q144','Q8502','Q235113']
+        np_classes = df.as_matrix(columns=depictsAll)
+        print(np_classes.shape)
+        index_image_with_at_least_one_of_the_class = np.where(np.sum(np_classes,axis=1) > 0)
+        name_tab_index =  index_image_with_at_least_one_of_the_class[0]
+        print("Number of image :",len(name_tab_index),'==?',len(np.unique(name_tab_index)))
+    else:
+        np_classes = df.as_matrix(columns=[classe_a_annotee])
+        print(np_classes.shape)
+        name_tab_index = np.where(np.sum(np_classes,axis=1) <= 0)[0]
+
+    folder=database +'/'
+    target_path = '/media/HDD/data/'
+    write_data = target_path + folder 
+    bigger_size = 600
+    read_data = write_data + str(bigger_size) + '/'
+    dstfolder=  write_data + 'Not_' + classe_a_annotee + '/'
+    numberIm = 0
+    do_mkdir(dstfolder)
+    list_of_im  =[]
+    for i in name_tab_index:
+        name = df['image'][i]
+        nameoutput = df['item'][i]
+        #if name in list_of_im:
+            #print(name," already read! indice = ",i,"Q index = ",df['item'][i])
+            #print(df[df['image']==name])
+            #print(df[df['item']==df['item'][i]])
+        
+        name_tab = name.split('.')
+        name_tab[-1] = 'jpg'
+        namejpg = ".".join(name_tab)
+        list_of_im += [namejpg]
+        src = read_data + namejpg
+        dst = dstfolder + nameoutput + '.jpg'
+        copyfile(src, dst)
+        if os.path.exists(dst):
+            numberIm +=1 
+        else:
+            print("Image not copied",dst)
+    print("Number of image copied",numberIm)
+    
+    input("Press input when you have remove all the image containing this class...")
+    
+    name_tab_index = np.array(df.index)
+    classe_a_annotee_verif = classe_a_annotee + '_verif'
+    list_elt= os.listdir(dstfolder)
+    #print(list_elt)
+    number_paitings = len(df['image'])
+    df[classe_a_annotee_verif] = Series(np.ones(number_paitings), index=df.index)
+    for name in list_elt:
+        #print(name_tab)
+        name_tab = name.split('.') 
+        item_name = name_tab[0]
+        df.loc[df['item']==item_name,classe_a_annotee_verif] = 0
+    print('Number of ',classe_a_annotee,' element',np.sum(df[classe_a_annotee_verif]))
+            
+    print(df.head(2))
+    namefile = 'data/Wikidata_Paintings_'+classe_a_annotee+'_.txt'
+    df.to_csv(namefile, index=None, sep=',', mode='w') 
+    
+def createSubset2():
     path_data = 'data/'
     database='Wikidata_Paintings'
     databasetxt = path_data +  'Wikidata_Paintings_subset.txt'
@@ -505,9 +783,7 @@ def MiseDeCotePourAnnotationRapide():
             
     print(df.head(2))
     namefile = 'data/Wikidata_Paintings_'+classe_a_annotee+'_.txt'
-    df.to_csv(namefile, index=None, sep=',', mode='w') 
-    
-    
+    df.to_csv(namefile, index=None, sep=',', mode='w')     
         
 if __name__ == '__main__':
     #prepareVOC12()
@@ -516,9 +792,11 @@ if __name__ == '__main__':
     #prepareWikidataSetsPaitings()
     #MiseDeCote()
     #prepareWikiDataWithSubSet()
-    
-    MiseDeCotePourAnnotationRapide()
-    
+    #MiseDeCote()
+    #MiseDeCote2()
+#    MiseDeCotePourAnnotationRapide()
+#    MiseDeCotePourAnnotationRapideBadPhoto()
+    AnnotationJesusChild()
 #Number of Images in the training set  2878
 #Number of exemple for Q467 1284.0
 #Number of exemple for Q8441 790.0
