@@ -38,6 +38,49 @@ Classif_Paintings/__pycache/*
 Classif_Paintings/data/* 
 *.html
 
+# For Darkflow #
+################
+# Weight files
+Classif_Paintings/darkflow/bin/
+
+# Sample image data
+Classif_Paintings/darkflow/sample_img/out/*
+
+# Annotated test results
+Classif_Paintings/darkflow/results/
+
+# Intermediate training data
+Classif_Paintings/darkflow/backup/
+Classif_Paintings/darkflow/tfnet/yolo/parse-history.txt
+Classif_Paintings/darkflow/tfnet/yolo/*.parsed
+Classif_Paintings/darkflow/*.txt
+Classif_Paintings/darkflow/requirements*.txt
+Classif_Paintings/darkflow/*.pb
+Classif_Paintings/darkflow/profile
+Classif_Paintings/darkflow/test.py
+
+# Built cython files
+Classif_Paintings/darkflow/darkflow/cython_utils/*.pyd
+Classif_Paintings/darkflow/darkflow/cython_utils/*.c
+
+#egg-info
+Classif_Paintings/darkflow/darkflow.egg-info/
+
+#Other build stuff
+Classif_Paintings/darkflow/build/
+
+#TensorBoard logs
+Classif_Paintings/darkflow/summary/
+
+#Built graphs
+Classif_Paintings/darkflow/built_graph/
+
+#Training checkpoints
+Classif_Paintings/darkflow/ckpt/*
+
+#pytest cache
+Classif_Paintings/darkflow/.cache/
+
 
 
 
