@@ -1,0 +1,3 @@
+[submodule "Classif_Paintings/tf_faster_rcnn"]
+	path = Classif_Paintings/tf_faster_rcnn
+	url = git@github.com:endernewton/tf-faster-rcnn.git
