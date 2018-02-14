@@ -13,6 +13,12 @@ It is a convertion for Python 3
 Faster RCNN re-scale  the  images  such  that  their  shorter  side  = 600 pixels  
 
 @author: gonthier
+
+You can find the weight here : https://partage.mines-telecom.fr/index.php/s/ep52PPAxSI932zY
+You will have to modify the static path to the weights/models in each function : Sorry :( 
+TODO : change that
+
+
 """
 import pickle
 import tensorflow as tf
@@ -579,7 +585,7 @@ def FasterRCNN_TransferLearning():
 #        print('Shape of subsetnormalDistrib :',subsetnormalDistrib.shape)
 #        print('Shape of ElementsInClassTrain :',ElementsInClassTrain.shape)
 ##        Shape of normalDistrib : (144508, 2048)
-##        Shape of ElementsInClassTrain : (3340, 2048)
+##        Shape of ElementsInClassTrain : (https://partage.mines-telecom.fr/index.php/s/ep52PPAxSI932zY3340, 2048)
 #        clf.fit(subsetnormalDistrib)
 #        print('End of training anomaly detector')
         
