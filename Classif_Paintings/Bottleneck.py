@@ -852,6 +852,65 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     
     
     return(0)
+    
+def TransferLearning_onRawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings',L2=False,augmentation=False):
+    """
+    kindnetwork in  [InceptionResNetv2,ResNet152]
+    """
+    print('===>',kindnetwork,kind)
+    # Multilabel classification assigns to each sample a set of target labels. 
+    # This can be thought as predicting properties of a data-point that are not mutually exclusive
+    if augmentation:
+        N = 50
+    else:
+        N =1
+    if L2:
+        extL2 = '_L2'
+    else:
+        extL2 = ''
+    path_data = 'data/'
+    database_verif = 'Wikidata_Paintings_miniset_verif' # TODO changer cela
+
+    databasetxt = path_data + database_verif + '.txt'
+
+    df = pd.read_csv(databasetxt,sep=',')
+    depicts = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
+    colums_selected = ['image','BadPhoto']+depicts
+    df_reduc = df[colums_selected]
+    name_pkl_values = path_data+'Values_' +kindnetwork+'_'+ kind +'_'+database +'_N'+str(N)+extL2+'.pkl'
+    name_pkl_im =   path_data+'Name_' +kindnetwork+'_'+ kind +'_'+database +'_N'+str(N)+extL2+'.pkl'
+   
+    X_brut = pd.DataFrame(pickle.load(open(name_pkl_values, 'rb')))
+    name_im_order = pickle.load(open(name_pkl_im, 'rb'))
+    name_im_order_df = pd.DataFrame(pd.Series(name_im_order),columns=['image'])
+    df_reduc = df_reduc[df_reduc['BadPhoto'] <= 0.0]
+    index = index_place(df_reduc,name_im_order_df)
+    X = X_brut.loc[index,:]
+    print(len(df_reduc['image']),'images gardees')
+    classifier = LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True)
+    AP_per_class = []
+
+    cs = np.logspace(-5, -2, 20)
+    cs = np.hstack((cs,[0.2,1.,2.]))
+    param_grid = dict(C=cs)  
+
+    for i,classe in enumerate(depicts):
+        classestr = depicts_depictsLabel[classe]
+        print(classe,classestr)
+        grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True), param_grid=param_grid,n_jobs=-1)
+        y = df_reduc[classe]
+        random_state = 0
+        X_trainval, X_test, y_trainval, y_test = train_test_split(X, y, test_size=0.6, random_state=random_state)
+        number_of_positif_train_exemple = np.sum(y_trainval)
+        print("Number of training exemple :",len(y_trainval),"number of positive ones :",number_of_positif_train_exemple)
+        print("Number of test exemple :",len(y_test),"number of positive ones :",np.sum(y_test))
+        grid.fit(X_trainval.copy(), y_trainval.copy())  
+        y_predict_confidence_score = grid.decision_function(X_test)
+        AP = average_precision_score(y_test,y_predict_confidence_score,average=None)
+        AP_per_class += [AP]  
+        print(classe,AP)
+    print('MeanAP',np.mean(AP_per_class))    
+    return(0)
 
 def vision_of_data():
     import math
@@ -947,11 +1006,17 @@ if __name__ == '__main__':
     #Compute_ResNet(kind='2048D',database='Wikidata_Paintings',L2=False,augmentation=False)
     #compute_VGG_features(VGG='19',kind='fuco7',database='Wikidata_Paintings',L2=False,augmentation=False)
     #TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
+    TransferLearning_onRawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
+    #TransferLearning_onRawFeatures_JustAP(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
+    #TransferLearning_onRawFeatures_JustAP(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
+
+
 #    TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
 #    TransferLearning_onRawFeatures_protocol(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
 #    TransferLearning_onRawFeatures_protocol(kind='fuco7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
     #compute_VGG_features(VGG='19',kind='relu7',database='Wikidata_Paintings',concate = False,L2=False,augmentation=False)
-    TransferLearning_onRawFeatures_protocol(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
+    #TransferLearning_onRawFeatures_protocol(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
 #    vision_of_data()
     # TODO plot 
     # TODO test with FasterRCNN 
+    
