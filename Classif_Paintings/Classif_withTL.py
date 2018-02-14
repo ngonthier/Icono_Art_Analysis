@@ -893,14 +893,15 @@ def TransferLearning_onRawFeatures_JustAP(kind='1536D',kindnetwork='InceptionRes
     cs = np.logspace(-5, -2, 20)
     cs = np.hstack((cs,[0.2,1.,2.]))
     param_grid = dict(C=cs)  
-
+    indices = np.arange(len(df_reduc['image']))
     for i,classe in enumerate(depicts):
         classestr = depicts_depictsLabel[classe]
         print(classe,classestr)
         grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True), param_grid=param_grid,n_jobs=-1)
         y = df_reduc[classe]
         random_state = 0
-        X_trainval, X_test, y_trainval, y_test = train_test_split(X, y, test_size=0.6, random_state=random_state)
+        X_trainval, X_test, y_trainval, y_test, id_trainval,id_test = train_test_split(X, y,indices, test_size=0.6, random_state=random_state)
+        print(df['image'][id_trainval][0:10])
         number_of_positif_train_exemple = np.sum(y_trainval)
         print("Number of training exemple :",len(y_trainval),"number of positive ones :",number_of_positif_train_exemple)
         print("Number of test exemple :",len(y_test),"number of positive ones :",np.sum(y_test))
