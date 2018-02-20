@@ -923,14 +923,16 @@ def vision_of_data():
     df = pd.read_csv(databasetxt,sep=',')
     depicts = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
     df_reduc = df[df['BadPhoto'] <= 0.0]
+    indices = np.arange(len(df_reduc['image']))
     print("We have ",len(df_reduc['image']),"images")
     depicts_dict = {}
     for classe in depicts:
         depicts_dict[classe] = []
     depicts_dict['None'] = []
     im_w_na = 0
+    im_wt_class = 0
     for index, image in df_reduc.iterrows():
-        isInOneClass = True
+        isInOneClass = False
         Add = True
         date = image['year']
         if math.isnan(date):
@@ -952,8 +954,46 @@ def vision_of_data():
                  tab = depicts_dict['None']
                  tab += [date]
                  depicts_dict['None'] = tab
+        isInOneClass = False
+        for classe in depicts:
+            if (image[classe]==1.0):
+                isInOneClass = True
+        if not(isInOneClass):
+            im_wt_class += 1
+        
     
     print("We have ",im_w_na," images without date")
+    print("We have ",im_wt_class,"images without class")
+    random_state = 0
+    id_trainval,id_test = train_test_split(indices, test_size=0.6, random_state=random_state)
+      
+    for j,classe in enumerate(depicts):
+        print("==>",depicts_depictsLabel[classe])
+        itera = 0
+        for index, image in df_reduc.iterrows():
+            if itera < 6 and index in id_trainval:
+                stringtext = image['image'] + " " + depicts_depictsLabel[classe]
+                isInOneClass = False
+                if (image[classe]==1.0):
+                    itera += 1
+                    for jj,classe2 in enumerate(depicts):
+                        if not(classe2==classe):
+                            if (image[classe2]==1.0):
+                                stringtext += " " + depicts_depictsLabel[classe2]
+                    print(stringtext)
+    print("==>",'None')
+    itera = 0
+    for index, image in df_reduc.iterrows():
+        if itera < 6 and index in id_trainval:
+            stringtext = image['image']
+            isInOneClass = False
+            for jj,classe2 in enumerate(depicts):
+                if (image[classe2]==1.0):
+                    isInOneClass = True
+            if not(isInOneClass):
+                print(stringtext)
+                itera +=1
+                    
     plt.ion()
     fig = plt.figure()
     legends = []
@@ -1007,7 +1047,7 @@ if __name__ == '__main__':
     #Compute_ResNet(kind='2048D',database='Wikidata_Paintings',L2=False,augmentation=False)
     #compute_VGG_features(VGG='19',kind='fuco7',database='Wikidata_Paintings',L2=False,augmentation=False)
     #TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
-    TransferLearning_onRawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
+    #TransferLearning_onRawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
     #TransferLearning_onRawFeatures_JustAP(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
     #TransferLearning_onRawFeatures_JustAP(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
 
@@ -1017,7 +1057,7 @@ if __name__ == '__main__':
 #    TransferLearning_onRawFeatures_protocol(kind='fuco7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
     #compute_VGG_features(VGG='19',kind='relu7',database='Wikidata_Paintings',concate = False,L2=False,augmentation=False)
     #TransferLearning_onRawFeatures_protocol(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
-#    vision_of_data()
+    vision_of_data()
     # TODO plot 
     # TODO test with FasterRCNN 
     

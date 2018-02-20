@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 # individuellement
 
 #%% Variables communes 
-n=1000
+n=2048
 k=30
 # la classe p1
 np1=200
