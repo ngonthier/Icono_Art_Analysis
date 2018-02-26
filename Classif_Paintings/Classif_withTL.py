@@ -491,8 +491,8 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
         test_recall = recall_score(y_test,y_predict_test)
         R_per_class += [test_recall]
         P_per_class += [test_precision]
-        F1 = 2 * (test_precision * test_recall) / (test_precision + test_recall)
-        print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {1:.2f}".format(test_precision,test_recall,F1))
+        F1 = f1_score(y_test,y_predict_test)
+        print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}".format(test_precision,test_recall,F1))
         #precision_at_k_tab = []
         for k in k_tab:
             precision_at_k = ranking_precision_score(np.array(y_test), y_predict_confidence_score,k)
@@ -579,9 +579,20 @@ def index_place(a,b):
         index = b.index[b['image'] == elt_a].tolist()
         tab += [index[0]]
     return(tab)
+  
+def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings',L2=False,augmentation=False):
+    """
+    Cette fonction trace les courbes de performances en fonction de 
+    kindnetwork in  [InceptionResNetv2,ResNet152]
+    """
+    # TODO : faire une courbe de performance en fonction du nombre de positif exemples mais avec les none en exemples négatifs
+    # TODO : faire une courbe de performance en fonction du nombre de positif exemples mais avec d'autres negatifs exemples du neme ordre que precedement
+    
+    return(0)
     
 def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings',L2=False,augmentation=False):
     """
+    Cette fonction trace les courbes de performances en fonction de 
     kindnetwork in  [InceptionResNetv2,ResNet152]
     """
     print('===>',kindnetwork,kind)
@@ -633,6 +644,8 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     dict_increase_per ={}
     dict_noisy_per = {}
     
+    min_num_of_posEx = len(df_reduc['image'])
+    
     for i,classe in enumerate(depicts):
         classestr = depicts_depictsLabel[classe]
         print(classe,classestr)
@@ -641,6 +654,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
         random_state = 0
         X_trainval, X_test, y_trainval, y_test = train_test_split(X, y, test_size=0.6, random_state=random_state)
         number_of_positif_train_exemple = np.sum(y_trainval)
+        min_num_of_posEx = np.min([min_num_of_posEx,number_of_positif_train_exemple])
         print("Number of training exemple :",len(y_trainval),"number of positive ones :",number_of_positif_train_exemple)
         print("Number of test exemple :",len(y_test),"number of positive ones :",np.sum(y_test))
        
@@ -684,7 +698,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
         f1_tab = []
         MCC_tab= []
         number_of_train_exemple = number_of_positif_train_exemple
-        percentages = np.arange(0.1,0.9,0.1)
+        percentages = np.concatenate(([0.05],np.arange(0.1,1.0,0.1),[0.95]))
         for per in percentages:
             number_of_pos_Ex = int(per*number_of_train_exemple)
             #print(len(index_posEx_keep))
@@ -715,7 +729,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
         f1_tab = []
         MCC_tab= []
         number_of_train_exemple = number_of_positif_train_exemple
-        percentages = np.arange(0.0,0.9,0.1)
+        percentages = np.arange(0.0,1.,0.1)
         for per in percentages:
             number_of_pos_Ex_shift = int(per*number_of_train_exemple)
             index_posEx_keep_shift = random.sample(list(index_posEx),number_of_pos_Ex_shift)
@@ -742,7 +756,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     for i,classe in enumerate(depicts):
         classestr = depicts_depictsLabel[classe]
         (AP_tab,tab_values_tmp,f1_tab,MCC_tab)   = dict_increase_posEx[classestr]
-        plt.plot(tab_values_tmp, AP_tab)
+        plt.plot(tab_values_tmp, AP_tab,linestyle='--', marker='o')
     plt.title('AP function of number of positive exemples')
     plt.xlabel('Number of positive exemples')
     plt.ylabel('AP')
@@ -754,7 +768,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     for i,classe in enumerate(depicts):
         classestr = depicts_depictsLabel[classe]
         (AP_tab,tab_values_tmp,f1_tab,MCC_tab) = dict_increase_per[classestr]
-        plt.plot(tab_values_tmp, AP_tab)
+        plt.plot(tab_values_tmp, AP_tab,linestyle='--', marker='o')
     plt.title('AP function of percentage of positive exemples')
     plt.xlabel('Percentage of positive exemples')
     plt.ylabel('AP')
@@ -766,7 +780,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     for i,classe in enumerate(depicts):
         classestr = depicts_depictsLabel[classe]
         (AP_tab,tab_values_tmp,f1_tab,MCC_tab)  = dict_noisy_per[classestr]
-        plt.plot(tab_values_tmp, AP_tab)
+        plt.plot(tab_values_tmp, AP_tab,linestyle='--', marker='o')
     plt.title('AP function of percentage of noisy positive exemples')
     plt.xlabel('Percentage of noisy positive exemples')
     plt.ylabel('AP')
@@ -779,7 +793,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     for i,classe in enumerate(depicts):
         classestr = depicts_depictsLabel[classe]
         (AP_tab,tab_values_tmp,f1_tab,MCC_tab)  = dict_noisy_per[classestr]
-        plt.plot(tab_values_tmp, f1_tab)
+        plt.plot(tab_values_tmp, f1_tab,linestyle='--', marker='o')
     plt.title('F1 function of percentage of noisy positive exemples')
     plt.xlabel('Percentage of noisy positive exemples')
     plt.ylabel('F1')
@@ -791,7 +805,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     for i,classe in enumerate(depicts):
         classestr = depicts_depictsLabel[classe]
         (AP_tab,tab_values_tmp,f1_tab,MCC_tab)   = dict_increase_posEx[classestr]
-        plt.plot(tab_values_tmp, f1_tab)
+        plt.plot(tab_values_tmp, f1_tab,linestyle='--', marker='o')
     plt.title('F1 function of number of positive exemples')
     plt.xlabel('Number of positive exemples')
     plt.ylabel('F1')
@@ -803,7 +817,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     for i,classe in enumerate(depicts):
         classestr = depicts_depictsLabel[classe]
         (AP_tab,tab_values_tmp,f1_tab,MCC_tab) = dict_increase_per[classestr]
-        plt.plot(tab_values_tmp, f1_tab)
+        plt.plot(tab_values_tmp, f1_tab,linestyle='--', marker='o')
     plt.title('F1 function of percentage of positive exemples')
     plt.xlabel('Percentage of positive exemples')
     plt.ylabel('F1')
@@ -816,7 +830,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     for i,classe in enumerate(depicts):
         classestr = depicts_depictsLabel[classe]
         (AP_tab,tab_values_tmp,f1_tab,MCC_tab)   = dict_increase_posEx[classestr]
-        plt.plot(tab_values_tmp, MCC_tab)
+        plt.plot(tab_values_tmp, MCC_tab,linestyle='--', marker='o')
     plt.title('MCC function of number of positive exemples')
     plt.xlabel('Number of positive exemples')
     plt.ylabel('MCC')
@@ -828,7 +842,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     for i,classe in enumerate(depicts):
         classestr = depicts_depictsLabel[classe]
         (AP_tab,tab_values_tmp,f1_tab,MCC_tab) = dict_increase_per[classestr]
-        plt.plot(tab_values_tmp, MCC_tab)
+        plt.plot(tab_values_tmp, MCC_tab,linestyle='--', marker='o')
     plt.title('MCC function of percentage of positive exemples')
     plt.xlabel('Percentage of positive exemples')
     plt.ylabel('MCC')
@@ -840,7 +854,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     for i,classe in enumerate(depicts):
         classestr = depicts_depictsLabel[classe]
         (AP_tab,tab_values_tmp,f1_tab,MCC_tab)  = dict_noisy_per[classestr]
-        plt.plot(tab_values_tmp, MCC_tab)
+        plt.plot(tab_values_tmp, MCC_tab,linestyle='--', marker='o')
     plt.title('MCC function of percentage of noisy positive exemples')
     plt.xlabel('Percentage of noisy positive exemples')
     plt.ylabel('MCC')
@@ -1052,12 +1066,12 @@ if __name__ == '__main__':
     #TransferLearning_onRawFeatures_JustAP(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
 
 
-#    TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
-#    TransferLearning_onRawFeatures_protocol(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
+    TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
+    TransferLearning_onRawFeatures_protocol(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
 #    TransferLearning_onRawFeatures_protocol(kind='fuco7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
     #compute_VGG_features(VGG='19',kind='relu7',database='Wikidata_Paintings',concate = False,L2=False,augmentation=False)
-    #TransferLearning_onRawFeatures_protocol(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
-    vision_of_data()
+    TransferLearning_onRawFeatures_protocol(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
+    #vision_of_data()
     # TODO plot 
     # TODO test with FasterRCNN 
     

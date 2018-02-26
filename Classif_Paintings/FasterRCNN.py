@@ -22,8 +22,8 @@ TODO : change that
 """
 import pickle
 import tensorflow as tf
-import matplotlib
 from sklearn import svm
+from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.covariance import EllipticEnvelope
@@ -33,13 +33,16 @@ from tf_faster_rcnn.lib.nets.resnet_v1 import resnetv1
 from tf_faster_rcnn.lib.model.test import im_detect,TL_im_detect,TL_im_detect_end
 from tf_faster_rcnn.lib.model.nms_wrapper import nms
 import matplotlib.pyplot as plt
+from nltk.classify.scikitlearn import SklearnClassifier
 #from tf_faster_rcnn.tools.demo import vis_detections
 import numpy as np
 import os,cv2
 import pandas as pd
-from sklearn.metrics import average_precision_score
+from sklearn.metrics import average_precision_score,recall_score,precision_score,make_scorer,f1_score
+from Custom_Metrics import ranking_precision_score
 from Classifier_Evaluation import Classification_evaluation
 import os.path
+import misvm # Library to do Multi Instance Learning with SVM
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -77,14 +80,18 @@ NETS_Pretrained = {'vgg16_VOC07' :'vgg16_faster_rcnn_iter_70000.ckpt',
 CLASSES_SET ={'VOC' : CLASSESVOC,
               'COCO' : CLASSESCOCO }
 
-def compute_FasterRCNN_Perf_Paintings(TL = True):
+def compute_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
     """
     Compute the performance on the Your Paintings subset ie Crowley on the output but also the best case on feature fc7 of the best proposal part
+    TL : use the features maps of the best object score detection
+    reDO : recompute the features maps
     """
+    
     classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     path_to_img = '/media/HDD/data/Painting_Dataset/'
+    path = 'data/'
     database = 'Paintings'
-    databasetxt = database + '.txt'
+    databasetxt = path +database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
     df_test = df_label[df_label['set']=='test']
     sLength = len(df_test['name_img'])
@@ -170,51 +177,52 @@ def compute_FasterRCNN_Perf_Paintings(TL = True):
             N = 1
             extL2 = ''
             name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'.pkl'
-            if demonet == 'vgg16_COCO':
-                size_output = 4096
-            elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
-                size_output = 2048
-            features_resnet = np.ones((sLength_all,size_output))
-            classes_vectors = np.zeros((sLength_all,10))
-            # Use the output of fc7 
-            net.create_architecture("TEST", nbClasses,
-                                  tag='default', anchor_scales=anchor_scales,modeTL= True)
-            saver = tf.train.Saver()
-            saver.restore(sess, tfmodel)
-            
-            scores_all_image = np.zeros((len(df_test),nbClasses))
-            
-            for i,name_img in  enumerate(df_label[item_name]):
-                if i%1000==0:
-                    print(i,name_img)
-                complet_name = path_to_img + name_img + '.jpg'
-                im = cv2.imread(complet_name)
-                cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
-                # Normally argmax roi_scores is 0
-                out = fc7[np.argmax(roi_scores),:]
-                features_resnet[i,:] = np.array(out)
-                if database=='VOC12' or database=='Paintings':
-                    for j in range(10):
-                        if( classes[j] in df_label['classe'][i]):
-                            classes_vectors[i,j] = 1
+            if not(os.path.isfile(name_pkl)) or reDo:
+                if demonet == 'vgg16_COCO':
+                    size_output = 4096
+                elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
+                    size_output = 2048
+                features_resnet = np.ones((sLength_all,size_output))
+                classes_vectors = np.zeros((sLength_all,10))
+                # Use the output of fc7 
+                net.create_architecture("TEST", nbClasses,
+                                      tag='default', anchor_scales=anchor_scales,modeTL= True)
+                saver = tf.train.Saver()
+                saver.restore(sess, tfmodel)
                 
-            X_train = features_resnet[df_label['set']=='train',:]
-            y_train = classes_vectors[df_label['set']=='train',:]
-            
-            X_test= features_resnet[df_label['set']=='test',:]
-            y_test = classes_vectors[df_label['set']=='test',:]
-            
-            X_val = features_resnet[df_label['set']=='validation',:]
-            y_val = classes_vectors[df_label['set']=='validation',:]
-            
-            print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
-            
-            Data = [X_train,y_train,X_test,y_test,X_val,y_val]
-            
-            with open(name_pkl, 'wb') as pkl:
-                pickle.dump(Data,pkl)
-            
-            sess.close()
+                scores_all_image = np.zeros((len(df_test),nbClasses))
+                
+                for i,name_img in  enumerate(df_label[item_name]):
+                    if i%1000==0:
+                        print(i,name_img)
+                    complet_name = path_to_img + name_img + '.jpg'
+                    im = cv2.imread(complet_name)
+                    cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+                    # Normally argmax roi_scores is 0
+                    out = fc7[np.argmax(roi_scores),:]
+                    features_resnet[i,:] = np.array(out)
+                    if database=='VOC12' or database=='Paintings':
+                        for j in range(10):
+                            if( classes[j] in df_label['classe'][i]):
+                                classes_vectors[i,j] = 1
+                    
+                X_train = features_resnet[df_label['set']=='train',:]
+                y_train = classes_vectors[df_label['set']=='train',:]
+                
+                X_test= features_resnet[df_label['set']=='test',:]
+                y_test = classes_vectors[df_label['set']=='test',:]
+                
+                X_val = features_resnet[df_label['set']=='validation',:]
+                y_val = classes_vectors[df_label['set']=='validation',:]
+                
+                print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
+                
+                Data = [X_train,y_train,X_test,y_test,X_val,y_val]
+                
+                with open(name_pkl, 'wb') as pkl:
+                    pickle.dump(Data,pkl)
+                
+                sess.close()
             
             # Compute the metric
             Classification_evaluation(kind=demonet,kindnetwork='FasterRCNN',database='Paintings',L2=False,augmentation=False,classifier_name='LinearSVM')       
@@ -432,10 +440,10 @@ def FasterRCNN_bigImage():
     plt.show()
     sess.close()
     
-def FasterRCNN_TransferLearning():
+def FasterRCNN_TransferLearning_outlier():
     """
     Compute the performance on the Your Paintings subset ie Crowley
-    on the fc7 output but with an outlier detection vision
+    on the fc7 output but with an outlier detection version 
     """
     reDo = False
     classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
@@ -651,7 +659,192 @@ def FasterRCNN_TransferLearning():
                
         sess.close()
     
-    #input('WAit for end')
+    
+def FasterRCNN_TransferLearning_misvm():
+    """
+    Compute the performance on the Your Paintings subset ie Crowley
+    on the fc7 output but with an Multi Instance SVM classifier for classifier the
+    bag 
+    """
+    reDo = False
+    classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    path = 'data/'
+    database = 'Paintings'
+    databasetxt =path + database + '.txt'
+    df_label = pd.read_csv(databasetxt,sep=",")
+    df_test = df_label[df_label['set']=='test']
+    sLength = len(df_test['name_img'])
+    sLength_all = len(df_label['name_img'])
+    name_img = df_test['name_img'][0]
+    i = 0
+    y_test = np.zeros((sLength,10))
+    NETS_Pretrained = {'res101_COCO' :'res101_faster_rcnn_iter_1190000.ckpt',
+                   'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt',
+                   'vgg16_COCO' :'vgg16_faster_rcnn_iter_1190000.ckpt'
+                   }
+    NETS_Pretrained = {'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'}
+
+    for demonet in NETS_Pretrained.keys():
+        #demonet = 'res101_COCO'
+        tf.reset_default_graph() # Needed to use different nets one after the other
+        print(demonet)
+        if 'VOC'in demonet:
+            CLASSES = CLASSES_SET['VOC']
+            anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+        elif 'COCO'in demonet:
+            CLASSES = CLASSES_SET['COCO']
+            anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
+        nbClasses = len(CLASSES)
+        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+        tfconfig = tf.ConfigProto(allow_soft_placement=True)
+        tfconfig.gpu_options.allow_growth=True
+        # init session
+        sess = tf.Session(config=tfconfig)
+        
+        # load network
+        if  'vgg16' in demonet:
+          net = vgg16()
+        elif demonet == 'res50':
+          raise NotImplementedError
+        elif 'res101' in demonet:
+          net = resnetv1(num_layers=101)
+        elif 'res152' in demonet:
+          net = resnetv1(num_layers=152)
+        elif demonet == 'mobile':
+          raise NotImplementedError
+        else:
+          raise NotImplementedError
+          
+        if database=='Paintings':
+            item_name = 'name_img'
+            path_to_img = '/media/HDD/data/Painting_Dataset/'
+            classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+        path_data = 'data/'
+        N = 1
+        extL2 = ''
+        
+        name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL.pkl'
+        name_pkl = path_data + 'testTL.pkl'
+        
+        if not(os.path.isfile(name_pkl)) or reDo:
+            print('Start computing image region proposal')
+            if demonet == 'vgg16_COCO':
+                size_output = 4096
+            elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
+                size_output = 2048
+            features_resnet_dict= {}
+            features_resnet = np.ones((sLength_all,size_output))
+            # Use the output of fc7 
+            net.create_architecture("TEST", nbClasses,
+                                  tag='default', anchor_scales=anchor_scales,modeTL= True)
+            saver = tf.train.Saver()
+            saver.restore(sess, tfmodel)
+
+            for i,name_img in  enumerate(df_label[item_name]):
+                if i%1000==0:
+                    print(i,name_img)
+                complet_name = path_to_img + name_img + '.jpg'
+                im = cv2.imread(complet_name)
+                cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+                features_resnet_dict[name_img] = fc7
+        
+            with open(name_pkl, 'wb') as pkl:
+                pickle.dump(features_resnet_dict,pkl)
+        
+        print("Load data")
+        features_resnet_dict = pickle.load(open(name_pkl, 'rb'))
+        
+        print("preparing data fro learning")
+        AP_per_class = []
+        P_per_class = []
+        R_per_class = []
+        P20_per_class = []
+        testMode = True
+        jtest = 9
+        for j,classe in enumerate(classes):
+            if testMode and not(j==jtest):
+                continue
+            list_training_ex = []
+            list_training_label = []
+            list_test_ex = []
+            y_test = []
+            for index,row in df_label.iterrows():
+                name_img = row[item_name]
+                inClass = classes[j] in row['classe']
+                inTest = row['set']=='test'
+                f = features_resnet_dict[name_img]
+                if index%1000==0:
+                    print(index,name_img)
+                if not(inTest):
+                    #list_training_ex += [f]
+                    if not(inClass):
+                       list_training_ex += [f[0:5,:]]
+                       list_training_label += [-1] # Label must be -1 or  1 
+                    else:
+                        list_training_ex += [f]
+                        list_training_label += [1]
+                else:
+                    list_test_ex += [f]
+                    if not(inClass):
+                       y_test += [-1]
+                    else:
+                        y_test += [1]
+                        
+            print("Learning of the Multiple Instance Learning SVM")
+            #classifier = misvm.SIL(kernel='linear', C=1.0) #SIL
+#            cs = np.logspace(-5, -1, 5)
+#            cs = np.hstack((cs,[0.2,1.,2.,10.]))
+#            param_grid = dict(C=cs)
+            # Construct classifiers
+            classifiers = {}
+            #classifiers['sbMIL'] = misvm.sbMIL(kernel='linear', eta=0.1, C=1.0,scale_C=False)
+            #classifiers['SIL'] = misvm.SIL(kernel='linear', C=1.0)
+
+            classifiers['MISVM'] = misvm.MISVM(kernel='linear', C=1.0, max_iters=10,verbose=False,restarts=0)
+#            from sklearn.svm import SVC
+#            classifiermisvm = SVC(kernel='linear', max_iter=-1) 
+#            classifiers['miSVM'] = misvm.miSVM(kernel='linear', C=1.0, max_iters=10)
+            #classifiers['MISVM'] = misvm.MISVM(kernel='linear', C=1.0, max_iters=2,verbose=False)
+            #classifiermisvm = SklearnClassifier(misvm.MISVM(kernel='linear', C=1.0, max_iters=10))
+#            classifiers['grid'] = GridSearchCV(classifiermisvm, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True), param_grid=param_grid,n_jobs=-1)
+            
+            #classifier = misvm.miSVM(kernel='linear', C=1.0, max_iters=5)
+            #classifier = misvm.sbMIL(kernel='linear', eta=0.1, C=1.0)
+            print("len list_training_ex",len(list_training_ex))
+            APlist = {}
+            for algorithm, classifier in classifiers.items():
+                if (len(classifiers.items())> 1):
+                    print(algorithm)
+                classifier.fit(list_training_ex, list_training_label)
+                y_predict_confidence_score_classifier = classifier.predict(list_test_ex) # Return value between -1 and 1 : score
+                labels_test_predited = np.sign(y_predict_confidence_score_classifier) # numpy.sign(labels) to get -1/+1 class predictions
+                y_predict_confidence_score_classifier = (y_predict_confidence_score_classifier + 1.)/2.
+                print("number of test exemples",len(y_test),len(labels_test_predited))
+                #print(y_test,labels_test_predited)
+                test_precision = precision_score(y_test,labels_test_predited)
+                test_recall = recall_score(y_test,labels_test_predited)
+                F1 = f1_score(y_test,labels_test_predited)
+                print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}".format(test_precision,test_recall,F1))
+                AP = average_precision_score(y_test,y_predict_confidence_score_classifier,average=None)
+                print("SVM version Average Precision for",classes[j]," = ",AP)
+                precision_at_k = ranking_precision_score(np.array(y_test), y_predict_confidence_score_classifier,20)
+                P20_per_class += [precision_at_k]
+                AP_per_class += [AP]
+                R_per_class += [test_recall]
+                P_per_class += [test_precision]
+                APlist[algorithm] = AP
+            # For aeroplan we have with res152_COCO Average Precision for aeroplane  =  0.68
+            # and Test precision = 0.97, recall = 0.55
+            # Avec [f[0:5,:]] et MISVM C=1.0 on a AP de aeroplane de 0.71 
+        print("mean Average Precision for all the data = {0:.3f}".format(np.mean(AP_per_class)))    
+        print("mean Precision for all the data = {0:.3f}".format(np.mean(P_per_class)))  
+        print("mean Recall for all the data = {0:.3f}".format(np.mean(R_per_class)))  
+        print("mean Precision @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
+    
+        print(AP_per_class)
+        sess.close()
     
 def FasterRCNN_TransferLearning_Test_Bidouille():
     DATA_DIR =  '/media/HDD/data/Art Paintings from Web/'
@@ -835,7 +1028,7 @@ if __name__ == '__main__':
     ## Faster RCNN re-scale  the  images  such  that  their  shorter  side  = 600 pixels  
     
     #compute_FasterRCNN_Perf_Paintings()
-    FasterRCNN_TransferLearning()
+    FasterRCNN_TransferLearning_misvm()
     #FasterRCNN_ImagesObject()
     #compute_FasterRCNN_demo()
     #compute_FasterRCNN_Perf_Paintings()
