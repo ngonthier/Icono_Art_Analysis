@@ -669,7 +669,7 @@ def FasterRCNN_TransferLearning_misvm():
     reDo = False
     classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     path_to_img = '/media/HDD/data/Painting_Dataset/'
-    path = 'data/'
+    path = '/media/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt =path + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -721,12 +721,15 @@ def FasterRCNN_TransferLearning_misvm():
             item_name = 'name_img'
             path_to_img = '/media/HDD/data/Painting_Dataset/'
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-        path_data = 'data/'
+        path_data = path
         N = 1
         extL2 = ''
         
-        name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL.pkl'
-        name_pkl = path_data + 'testTL.pkl'
+        nms_thresh = 0.0
+        
+        name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+'.pkl'
+        name_pkl = path_data + 'testTL_withNMSthresholdProposal03.pkl'
+        #name_py =path_data + 'testTL_withNMSthresholdProposal03.py'
         
         if not(os.path.isfile(name_pkl)) or reDo:
             print('Start computing image region proposal')
@@ -737,24 +740,32 @@ def FasterRCNN_TransferLearning_misvm():
             features_resnet_dict= {}
             features_resnet = np.ones((sLength_all,size_output))
             # Use the output of fc7 
+            # Parameter important 
+            
             net.create_architecture("TEST", nbClasses,
-                                  tag='default', anchor_scales=anchor_scales,modeTL= True)
+                                  tag='default', anchor_scales=anchor_scales,
+                                  modeTL= True,nms_thresh=nms_thresh)
             saver = tf.train.Saver()
             saver.restore(sess, tfmodel)
-
+            numberOfRegion = 0
             for i,name_img in  enumerate(df_label[item_name]):
                 if i%1000==0:
                     print(i,name_img)
                 complet_name = path_to_img + name_img + '.jpg'
                 im = cv2.imread(complet_name)
                 cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
-                features_resnet_dict[name_img] = fc7
+                features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
+                numberOfRegion += len(fc7)
+                
+            print("We have ",numberOfRegion,"regions proposol")
+            # Avec un threshold a 0.1 dans le NMS de RPN on a 712523 regions
+            #with open(name_pkl, 'wb') as pkl:
+            #    pickle.dump(features_resnet_dict,pkl)
+            #np.save(name_py,features_resnet_dict)
         
-            with open(name_pkl, 'wb') as pkl:
-                pickle.dump(features_resnet_dict,pkl)
-        
-        print("Load data")
-        features_resnet_dict = pickle.load(open(name_pkl, 'rb'))
+        #print("Load data")
+        #features_resnet_dict = pickle.load(open(name_pkl, 'rb'))
+        #features_resnet_dict = np.load(name_py)
         
         print("preparing data fro learning")
         AP_per_class = []
@@ -762,7 +773,7 @@ def FasterRCNN_TransferLearning_misvm():
         R_per_class = []
         P20_per_class = []
         testMode = True
-        jtest = 9
+        jtest = 0
         for j,classe in enumerate(classes):
             if testMode and not(j==jtest):
                 continue

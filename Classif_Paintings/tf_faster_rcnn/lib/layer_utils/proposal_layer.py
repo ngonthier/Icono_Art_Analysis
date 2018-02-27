@@ -55,7 +55,7 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, 
 
   return blob, scores
   
-def proposal_layerTL(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, anchors, num_anchors):
+def proposal_layerTL(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, anchors, num_anchors,nms_thresh = 0.7):
   """A simplified version compared to fast/er RCNN
      For details please see the technical report
   """
@@ -82,7 +82,7 @@ def proposal_layerTL(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride
   # Non-maximal suppression
   # nms_thresh = 0.7 by default
   #print("nms_thresh = 0.01 # by Nicolas for the moment for TL testing")
-  nms_thresh = 0.0 # by Nicolas for the moment for TL testing
+  #nms_thresh = 0.7 # by Nicolas for the moment for TL testing
   keep = nms(np.hstack((proposals, scores)), nms_thresh)
 
   # Pick th top region proposals after NMS

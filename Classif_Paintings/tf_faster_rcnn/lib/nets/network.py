@@ -112,7 +112,7 @@ class Network(object):
     with tf.variable_scope(name) as scope:
       rois, rpn_scores = tf.py_func(proposal_layerTL,
                                     [rpn_cls_prob, rpn_bbox_pred, self._im_info, self._mode,
-                                     self._feat_stride, self._anchors, self._num_anchors],
+                                     self._feat_stride, self._anchors, self._num_anchors,self._nms_thresh],
                                     [tf.float32, tf.float32], name="proposal") # cfg_key = self._mode
       rois.set_shape([None, 5])
       rpn_scores.set_shape([None, 1])
@@ -210,7 +210,7 @@ class Network(object):
       self._anchors = anchors
       self._anchor_length = anchor_length
 
-  def _build_network_TL(self,is_training):
+  def _build_network_TL(self,is_training,nms_thresh=0.7):
     # select initializers
     if cfg.TRAIN.TRUNCATED:
       initializer = tf.truncated_normal_initializer(mean=0.0, stddev=0.01)
@@ -443,7 +443,7 @@ class Network(object):
     raise NotImplementedError
 
   def create_architecture(self, mode, num_classes, tag=None,
-                          anchor_scales=(8, 16, 32), anchor_ratios=(0.5, 1, 2),modeTL = False):
+                          anchor_scales=(8, 16, 32), anchor_ratios=(0.5, 1, 2),modeTL = False,nms_thresh = 0.7):
     self._image = tf.placeholder(tf.float32, shape=[1, None, None, 3])
     self._im_info = tf.placeholder(tf.float32, shape=[3])
     self._gt_boxes = tf.placeholder(tf.float32, shape=[None, 5])
@@ -518,6 +518,7 @@ class Network(object):
                         weights_regularizer=weights_regularizer,
                         biases_regularizer=biases_regularizer, 
                         biases_initializer=tf.constant_initializer(0.0)): 
+          self._nms_thresh = nms_thresh
           rois,roi_scores, pool5, fc7, cls_prob, bbox_pred = self._build_network_TL(training)
 
         layers_to_output = {'rois': rois, 'pool5': pool5, 'fc7': fc7}
