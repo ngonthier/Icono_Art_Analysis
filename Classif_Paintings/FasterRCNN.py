@@ -43,6 +43,7 @@ from Custom_Metrics import ranking_precision_score
 from Classifier_Evaluation import Classification_evaluation
 import os.path
 import misvm # Library to do Multi Instance Learning with SVM
+from trouver_classes_parmi_K import MILSVM
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -675,7 +676,6 @@ def FasterRCNN_TransferLearning_misvm():
     df_label = pd.read_csv(databasetxt,sep=",")
     df_test = df_label[df_label['set']=='test']
     sLength = len(df_test['name_img'])
-    sLength_all = len(df_label['name_img'])
     name_img = df_test['name_img'][0]
     i = 0
     y_test = np.zeros((sLength,10))
@@ -725,11 +725,10 @@ def FasterRCNN_TransferLearning_misvm():
         N = 1
         extL2 = ''
         
-        nms_thresh = 0.0
+        nms_thresh = 0.5
         
         name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+'.pkl'
-        name_pkl = path_data + 'testTL_withNMSthresholdProposal03.pkl'
-        #name_py =path_data + 'testTL_withNMSthresholdProposal03.py'
+        #name_pkl = path_data + 'testTL_withNMSthresholdProposal03.pkl'
         
         if not(os.path.isfile(name_pkl)) or reDo:
             print('Start computing image region proposal')
@@ -738,7 +737,6 @@ def FasterRCNN_TransferLearning_misvm():
             elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
                 size_output = 2048
             features_resnet_dict= {}
-            features_resnet = np.ones((sLength_all,size_output))
             # Use the output of fc7 
             # Parameter important 
             
@@ -751,22 +749,26 @@ def FasterRCNN_TransferLearning_misvm():
             for i,name_img in  enumerate(df_label[item_name]):
                 if i%1000==0:
                     print(i,name_img)
+#                    with open(name_pkl, 'wb') as pkl:
+#                        pickle.dump(features_resnet_dict,pkl)
+#                    features_resnet_dict= {}
                 complet_name = path_to_img + name_img + '.jpg'
                 im = cv2.imread(complet_name)
                 cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
-                features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
+                #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
+                features_resnet_dict[name_img] = fc7
                 numberOfRegion += len(fc7)
                 
             print("We have ",numberOfRegion,"regions proposol")
             # Avec un threshold a 0.1 dans le NMS de RPN on a 712523 regions
-            #with open(name_pkl, 'wb') as pkl:
-            #    pickle.dump(features_resnet_dict,pkl)
-            #np.save(name_py,features_resnet_dict)
+            
+            sess.close()
+            with open(name_pkl, 'wb') as pkl:
+                pickle.dump(features_resnet_dict,pkl)
         
-        #print("Load data")
-        #features_resnet_dict = pickle.load(open(name_pkl, 'rb'))
-        #features_resnet_dict = np.load(name_py)
-        
+        print("Load data")
+        features_resnet_dict = pickle.load(open(name_pkl, 'rb'))
+        return(0)
         print("preparing data fro learning")
         AP_per_class = []
         P_per_class = []
@@ -855,7 +857,203 @@ def FasterRCNN_TransferLearning_misvm():
         print("mean Precision @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
     
         print(AP_per_class)
-        sess.close()
+        
+def FasterRCNN_TransferLearning_MILSVM():
+    """
+    Compute the performance on the Your Paintings subset ie Crowley
+    on the fc7 output but with an Multi Instance SVM classifier for classifier the
+    bag with the Said method
+    """
+    reDo = False
+    classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    path = '/media/HDD/output_exp/ClassifPaintings/'
+    database = 'Paintings'
+    databasetxt =path + database + '.txt'
+    df_label = pd.read_csv(databasetxt,sep=",")
+    df_test = df_label[df_label['set']=='test']
+    sLength = len(df_test['name_img'])
+    sLength_all = len(df_label['name_img'])
+    name_img = df_test['name_img'][0]
+    i = 0
+    y_test = np.zeros((sLength,10))
+    NETS_Pretrained = {'res101_COCO' :'res101_faster_rcnn_iter_1190000.ckpt',
+                   'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt',
+                   'vgg16_COCO' :'vgg16_faster_rcnn_iter_1190000.ckpt'
+                   }
+    NETS_Pretrained = {'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'}
+
+    for demonet in NETS_Pretrained.keys():
+        #demonet = 'res101_COCO'
+        tf.reset_default_graph() # Needed to use different nets one after the other
+        print(demonet)
+        if 'VOC'in demonet:
+            CLASSES = CLASSES_SET['VOC']
+            anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+        elif 'COCO'in demonet:
+            CLASSES = CLASSES_SET['COCO']
+            anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
+        nbClasses = len(CLASSES)
+        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+        tfconfig = tf.ConfigProto(allow_soft_placement=True)
+        tfconfig.gpu_options.allow_growth=True
+        # init session
+        sess = tf.Session(config=tfconfig)
+        
+        # load network
+        if  'vgg16' in demonet:
+          net = vgg16()
+        elif demonet == 'res50':
+          raise NotImplementedError
+        elif 'res101' in demonet:
+          net = resnetv1(num_layers=101)
+        elif 'res152' in demonet:
+          net = resnetv1(num_layers=152)
+        elif demonet == 'mobile':
+          raise NotImplementedError
+        else:
+          raise NotImplementedError
+          
+        if database=='Paintings':
+            item_name = 'name_img'
+            path_to_img = '/media/HDD/data/Painting_Dataset/'
+            classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+        path_data = path
+        N = 1
+        extL2 = ''
+        
+        nms_thresh = 0.0
+        
+        name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+'.pkl'
+        #name_pkl = path_data + 'testTL_withNMSthresholdProposal03.pkl'
+        
+        if not(os.path.isfile(name_pkl)) or reDo:
+            print('Start computing image region proposal')
+            if demonet == 'vgg16_COCO':
+                size_output = 4096
+            elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
+                size_output = 2048
+            features_resnet_dict= {}
+            # Use the output of fc7 
+            
+            net.create_architecture("TEST", nbClasses,
+                                  tag='default', anchor_scales=anchor_scales,
+                                  modeTL= True,nms_thresh=nms_thresh)
+            saver = tf.train.Saver()
+            saver.restore(sess, tfmodel)
+            numberOfRegion = 0
+            for i,name_img in  enumerate(df_label[item_name]):
+                if i%1000==0:
+                    print(i,name_img)
+#                    with open(name_pkl, 'wb') as pkl:
+#                        pickle.dump(features_resnet_dict,pkl)
+#                    features_resnet_dict= {}
+                complet_name = path_to_img + name_img + '.jpg'
+                im = cv2.imread(complet_name)
+                cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+                #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
+                features_resnet_dict[name_img] = fc7
+                numberOfRegion += len(fc7)
+                return(0)
+                
+            print("We have ",numberOfRegion,"regions proposol")
+            # Avec un threshold a 0.1 dans le NMS de RPN on a 712523 regions
+            
+            sess.close()
+            with open(name_pkl, 'wb') as pkl:
+                pickle.dump(features_resnet_dict,pkl)
+        
+        print("Load data")
+        features_resnet_dict = {}
+        for i,name_img in  enumerate(df_label[item_name]):
+            if i%1000==0:
+                with open(name_pkl, 'rb') as pkl:
+                    features_resnet_dict_tmp = pickle.load(pkl)
+                    features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+        
+        return(0)
+        print("preparing data fro learning")
+        k_per_bag = 5
+        AP_per_class = []
+        P_per_class = []
+        R_per_class = []
+        P20_per_class = []
+        testMode = True
+        jtest = 0
+        for j,classe in enumerate(classes):
+            if testMode and not(j==jtest):
+                continue
+            list_training_ex = []
+            list_training_label = []
+            list_test_ex = []
+            y_test = []
+            pos_ex = None
+            neg_ex = None
+            for index,row in df_label.iterrows():
+                name_img = row[item_name]
+                inClass = classes[j] in row['classe']
+                inTest = row['set']=='test'
+                f = features_resnet_dict[name_img]
+                if index%1000==0:
+                    print(index,name_img)
+                if not(inTest):
+                    if(len(f) >= k_per_bag):
+                        bag = f[0:k_per_bag,:]
+                    else:
+                        number_repeat = k_per_bag // len(f)  
+                        f_repeat = np.repeat(f,number_repeat)
+                        bag = f_repeat[0:k_per_bag,:]
+                    if not(inClass):
+                        if neg_ex == None:
+                            neg_ex = bag
+                        else:
+                            neg_ex = np.vstack(neg_ex,bag)
+                    else:
+                         if pos_ex == None:
+                            pos_ex = bag
+                         else:
+                            pos_ex = np.vstack(pos_ex,bag)
+                else:
+                    list_test_ex += [f]
+                    if not(inClass):
+                       y_test += [0]
+                    else:
+                        y_test += [1]
+                        
+            print("Learning of the Multiple Instance Learning SVM")
+            classifierMILSVM = MILSVM()
+            print("len list_training_ex",len(list_training_ex))
+
+            classifier = classifierMILSVM.fit(pos_ex, neg_ex)
+            
+            y_predict_confidence_score_classifier = np.zeros_like(y_test)
+            
+            for i,elt in enumerate(list_test_ex):
+                y_predict_confidence_score_classifier[i] = np.max(classifier.predict(elt))
+            y_predict_confidence_score_classifier = classifier.predict(list_test_ex) # Return value between -1 and 1 : score
+            labels_test_predited = np.sign(y_predict_confidence_score_classifier) # numpy.sign(labels) to get -1/+1 class predictions
+            y_predict_confidence_score_classifier = (y_predict_confidence_score_classifier + 1.)/2.
+            print("number of test exemples",len(y_test),len(labels_test_predited))
+            #print(y_test,labels_test_predited)
+            test_precision = precision_score(y_test,labels_test_predited)
+            test_recall = recall_score(y_test,labels_test_predited)
+            F1 = f1_score(y_test,labels_test_predited)
+            print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}".format(test_precision,test_recall,F1))
+            AP = average_precision_score(y_test,y_predict_confidence_score_classifier,average=None)
+            print("SVM version Average Precision for",classes[j]," = ",AP)
+            precision_at_k = ranking_precision_score(np.array(y_test), y_predict_confidence_score_classifier,20)
+            P20_per_class += [precision_at_k]
+            AP_per_class += [AP]
+            R_per_class += [test_recall]
+            P_per_class += [test_precision]
+
+        print("mean Average Precision for all the data = {0:.3f}".format(np.mean(AP_per_class)))    
+        print("mean Precision for all the data = {0:.3f}".format(np.mean(P_per_class)))  
+        print("mean Recall for all the data = {0:.3f}".format(np.mean(R_per_class)))  
+        print("mean Precision @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
+    
+        print(AP_per_class)
     
 def FasterRCNN_TransferLearning_Test_Bidouille():
     DATA_DIR =  '/media/HDD/data/Art Paintings from Web/'
@@ -1039,7 +1237,8 @@ if __name__ == '__main__':
     ## Faster RCNN re-scale  the  images  such  that  their  shorter  side  = 600 pixels  
     
     #compute_FasterRCNN_Perf_Paintings()
-    FasterRCNN_TransferLearning_misvm()
+#    FasterRCNN_TransferLearning_misvm()
+    FasterRCNN_TransferLearning_MILSVM()
     #FasterRCNN_ImagesObject()
     #compute_FasterRCNN_demo()
     #compute_FasterRCNN_Perf_Paintings()

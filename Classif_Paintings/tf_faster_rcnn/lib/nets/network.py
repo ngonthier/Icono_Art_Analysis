@@ -110,6 +110,8 @@ class Network(object):
     
   def _proposal_layerTL(self, rpn_cls_prob, rpn_bbox_pred, name):
     with tf.variable_scope(name) as scope:
+      print("_proposal_layerTL_proposal_layerTL",self._nms_thresh)
+      print(rpn_cls_prob, rpn_bbox_pred, self._im_info, self._mode,self._feat_stride, self._anchors, self._num_anchors,self._nms_thresh)
       rois, rpn_scores = tf.py_func(proposal_layerTL,
                                     [rpn_cls_prob, rpn_bbox_pred, self._im_info, self._mode,
                                      self._feat_stride, self._anchors, self._num_anchors,self._nms_thresh],

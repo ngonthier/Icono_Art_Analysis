@@ -55,15 +55,16 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, 
 
   return blob, scores
   
-def proposal_layerTL(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, anchors, num_anchors,nms_thresh = 0.7):
+def proposal_layerTL(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, anchors, num_anchors,nms_thresh):
   """A simplified version compared to fast/er RCNN
      For details please see the technical report
   """
+  print(nms_thresh)
   if type(cfg_key) == bytes:
       cfg_key = cfg_key.decode('utf-8')
   pre_nms_topN = cfg[cfg_key].RPN_PRE_NMS_TOP_N
   post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N
-  nms_thresh = cfg[cfg_key].RPN_NMS_THRESH
+  #nms_thresh = cfg[cfg_key].RPN_NMS_THRESH
 
   # Get the scores and bounding boxes
   scores = rpn_cls_prob[:, :, :, num_anchors:]
@@ -83,7 +84,7 @@ def proposal_layerTL(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride
   # nms_thresh = 0.7 by default
   #print("nms_thresh = 0.01 # by Nicolas for the moment for TL testing")
   #nms_thresh = 0.7 # by Nicolas for the moment for TL testing
-  keep = nms(np.hstack((proposals, scores)), nms_thresh)
+  keep = nms(np.hstack((proposals, scores)), float(nms_thresh))
 
   # Pick th top region proposals after NMS
   if post_nms_topN > 0:
