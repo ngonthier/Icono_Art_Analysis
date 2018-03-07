@@ -57,6 +57,13 @@ def _get_image_blob(im):
 
   return blob, np.array(im_scale_factors)
 
+def get_blobs(im):
+  """Convert an image and RoIs within that image into network inputs."""
+  blobs = {}
+  blobs['data'], im_scale_factors = _get_image_blob(im)
+
+  return blobs, im_scale_factors
+
 def _get_blobs(im):
   """Convert an image and RoIs within that image into network inputs."""
   blobs = {}

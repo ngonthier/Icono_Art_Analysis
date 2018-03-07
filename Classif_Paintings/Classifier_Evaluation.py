@@ -219,11 +219,11 @@ def HowAreSupport_of_SVM(kind='2048D',kindnetwork='InceptionResNetv2',database='
     
     return(0)
 
-def Classification_evaluation(kind='2048D',kindnetwork='InceptionResNetv2',database='Paintings',L2=True,augmentation=True,classifier_name='LinearSVM'):
+def Classification_evaluation(kind='1536D',kindnetwork='InceptionResNetv2',database='Paintings',L2=True,augmentation=True,classifier_name='LinearSVM',CV_Crowley=True):
     """
     kindnetwork in  [InceptionResNetv2,ResNet152]
     """
-    path_data = 'data/'
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
     # Multilabel classification assigns to each sample a set of target labels. 
     # This can be thought as predicting properties of a data-point that are not mutually exclusive
     if augmentation:
@@ -255,7 +255,7 @@ def Classification_evaluation(kind='2048D',kindnetwork='InceptionResNetv2',datab
     if classifier_name=='LinearSVM':
         classifier = LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True)
         AP_per_class = []
-        cs = np.logspace(-5, 7, 40)
+        #cs = np.logspace(-5, 7, 40)
         cs = np.logspace(-5, -2, 20)
         cs = np.hstack((cs,[0.2,1,2]))
         #cs = np.logspace(-10,0,40)
@@ -271,8 +271,12 @@ def Classification_evaluation(kind='2048D',kindnetwork='InceptionResNetv2',datab
         
         
         for i,classe in enumerate(classes):
-            grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True), param_grid=param_grid,n_jobs=3,
-                            cv=custom_cv)
+            if CV_Crowley:  
+                grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True),
+                                    param_grid=param_grid,n_jobs=-1,cv=custom_cv)
+            else:
+                grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True),
+                                    param_grid=param_grid,n_jobs=-1)
             grid.fit(X_trainval,y_trainval[:,i])  
             y_predict_confidence_score = grid.decision_function(X_test)
             y_predict_test = grid.predict(X_test) 

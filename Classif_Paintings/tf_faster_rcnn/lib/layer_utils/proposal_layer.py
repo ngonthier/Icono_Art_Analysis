@@ -59,7 +59,6 @@ def proposal_layerTL(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride
   """A simplified version compared to fast/er RCNN
      For details please see the technical report
   """
-  print(nms_thresh)
   if type(cfg_key) == bytes:
       cfg_key = cfg_key.decode('utf-8')
   pre_nms_topN = cfg[cfg_key].RPN_PRE_NMS_TOP_N
@@ -84,6 +83,7 @@ def proposal_layerTL(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride
   # nms_thresh = 0.7 by default
   #print("nms_thresh = 0.01 # by Nicolas for the moment for TL testing")
   #nms_thresh = 0.7 # by Nicolas for the moment for TL testing
+  #print(float(nms_thresh))
   keep = nms(np.hstack((proposals, scores)), float(nms_thresh))
 
   # Pick th top region proposals after NMS

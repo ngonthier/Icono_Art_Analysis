@@ -30,9 +30,12 @@ from sklearn.covariance import EllipticEnvelope
 from sklearn.linear_model import SGDClassifier
 from tf_faster_rcnn.lib.nets.vgg16 import vgg16
 from tf_faster_rcnn.lib.nets.resnet_v1 import resnetv1
-from tf_faster_rcnn.lib.model.test import im_detect,TL_im_detect,TL_im_detect_end
+from tf_faster_rcnn.lib.model.test import im_detect,TL_im_detect,TL_im_detect_end,get_blobs
 from tf_faster_rcnn.lib.model.nms_wrapper import nms
 import matplotlib.pyplot as plt
+from sklearn.svm import LinearSVC, SVC
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import PredefinedSplit
 from nltk.classify.scikitlearn import SklearnClassifier
 #from tf_faster_rcnn.tools.demo import vis_detections
 import numpy as np
@@ -90,7 +93,7 @@ def compute_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
     
     classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     path_to_img = '/media/HDD/data/Painting_Dataset/'
-    path = 'data/'
+    path = '/media/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt = path +database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -104,6 +107,7 @@ def compute_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
                    'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt',
                    'vgg16_COCO' :'vgg16_faster_rcnn_iter_1190000.ckpt'
                    }
+    NETS_Pretrained = {'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'}
 
     for demonet in NETS_Pretrained.keys():
         #demonet = 'res101_COCO'
@@ -174,10 +178,12 @@ def compute_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
                 item_name = 'name_img'
                 path_to_img = '/media/HDD/data/Painting_Dataset/'
                 classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-            path_data = 'data/'
+            path_data = path
             N = 1
             extL2 = ''
+            nms_thresh = 0.0
             name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'.pkl'
+            name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+'.pkl'
             if not(os.path.isfile(name_pkl)) or reDo:
                 if demonet == 'vgg16_COCO':
                     size_output = 4096
@@ -187,18 +193,26 @@ def compute_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
                 classes_vectors = np.zeros((sLength_all,10))
                 # Use the output of fc7 
                 net.create_architecture("TEST", nbClasses,
-                                      tag='default', anchor_scales=anchor_scales,modeTL= True)
+                                      tag='default', anchor_scales=anchor_scales,
+                                      modeTL= True,nms_thresh=nms_thresh) # default nms_thresh = 0.7
                 saver = tf.train.Saver()
                 saver.restore(sess, tfmodel)
                 
                 scores_all_image = np.zeros((len(df_test),nbClasses))
+                features_resnet_dict= {}
+                pkl = open(name_pkl_all_features, 'wb')
                 
                 for i,name_img in  enumerate(df_label[item_name]):
                     if i%1000==0:
                         print(i,name_img)
+                        if not(i==0):
+                            pickle.dump(features_resnet_dict,pkl)
+                            features_resnet_dict= {}
                     complet_name = path_to_img + name_img + '.jpg'
                     im = cv2.imread(complet_name)
                     cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+                    features_resnet_dict[name_img] = fc7
+                    
                     # Normally argmax roi_scores is 0
                     out = fc7[np.argmax(roi_scores),:]
                     features_resnet[i,:] = np.array(out)
@@ -220,14 +234,134 @@ def compute_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
                 
                 Data = [X_train,y_train,X_test,y_test,X_val,y_val]
                 
+                pickle.dump(features_resnet_dict,pkl)
+                pkl.close()
+                
                 with open(name_pkl, 'wb') as pkl:
                     pickle.dump(Data,pkl)
                 
                 sess.close()
             
             # Compute the metric
-            Classification_evaluation(kind=demonet,kindnetwork='FasterRCNN',database='Paintings',L2=False,augmentation=False,classifier_name='LinearSVM')       
+            print("CV_Crowley = True") 
+            Classification_evaluation(kind=demonet,kindnetwork='FasterRCNN',
+                                      database='Paintings',L2=False,augmentation=False,
+                                      classifier_name='LinearSVM',CV_Crowley=True)
+            print("CV_Crowley = False") 
+            Classification_evaluation(kind=demonet,kindnetwork='FasterRCNN',
+                                      database='Paintings',L2=False,augmentation=False,
+                                      classifier_name='LinearSVM',CV_Crowley=False)
+ 
+def read_features_computePerfPaintings():
+    """ Function to test if you can refind the same AP metric by reading the saved CNN features """
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    database = 'Paintings'
+    databasetxt =path_data + database + '.txt'
+    df_label = pd.read_csv(databasetxt,sep=",")
+    classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    N = 1
+    extL2 = ''
+    nms_thresh = 0.7
+    demonet = 'res152_COCO'
+    item_name = 'name_img'
+    name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+'.pkl'
+    features_resnet_dict = {}
+    sLength_all = len(df_label['name_img'])
+    if demonet == 'vgg16_COCO':
+        size_output = 4096
+    elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
+        size_output = 2048
+    features_resnet = np.ones((sLength_all,size_output))
+    classes_vectors = np.zeros((sLength_all,10))
+    with open(name_pkl, 'rb') as pkl:
+        for i,name_img in  enumerate(df_label[item_name]):
+            if i%1000==0 and not(i==0):
+                print(i,name_img)
+                features_resnet_dict_tmp = pickle.load(pkl)
+                if i==1000:
+                    features_resnet_dict = features_resnet_dict_tmp
+                else:
+                    features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+        features_resnet_dict_tmp = pickle.load(pkl)
+        features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+    print(len(features_resnet_dict))
+    
+    for i,name_img in  enumerate(df_label[item_name]):
+        if i%1000==0 and not(i==0):
+            print(i,name_img)
+        fc7 = features_resnet_dict[name_img]
+        out = fc7[0,:]
+        features_resnet[i,:] = np.array(out)
+        if database=='VOC12' or database=='Paintings':
+            for j in range(10):
+                if(classes[j] in df_label['classe'][i]):
+                    classes_vectors[i,j] = 1
+    
+    restarts = 0
+    max_iters = 300
+    #from trouver_classes_parmi_K import MILSVM
+    X_train = features_resnet[df_label['set']=='train',:]
+    y_train = classes_vectors[df_label['set']=='train',:]
+    X_test= features_resnet[df_label['set']=='test',:]
+    y_test = classes_vectors[df_label['set']=='test',:]
+    X_val = features_resnet[df_label['set']=='validation',:]
+    y_val = classes_vectors[df_label['set']=='validation',:]
+    X_trainval = np.append(X_train,X_val,axis=0)
+    y_trainval = np.append(y_train,y_val,axis=0)
+    for j,classe in enumerate(classes):
         
+#        y_test = label_classe[df_label['set']=='test',:]
+#        X_test= features_resnet[df_label['set']=='test',:]   
+        neg_ex = np.expand_dims(X_trainval[y_trainval[:,j]==0,:],axis=1)
+        print(neg_ex.shape)
+        pos_ex =  np.expand_dims(X_trainval[y_trainval[:,j]==1,:],axis=1)
+        print(pos_ex.shape)
+        
+        classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+                                      max_iters=max_iters,symway=True,
+                                      all_notpos_inNeg=False,gridSearch=True,
+                                      verbose=True)     
+        classifier = classifierMILSVM.fit(pos_ex, neg_ex)
+        
+        decision_function_output = classifier.decision_function(X_test)
+        y_predict_confidence_score_classifier  = decision_function_output
+        AP = average_precision_score(y_test[:,j],y_predict_confidence_score_classifier,average=None)
+        print("MIL-SVM version Average Precision for",classes[j]," = ",AP)
+           
+    
+    #del(features_resnet_dict) 
+    X_train = features_resnet[df_label['set']=='train',:]
+    y_train = classes_vectors[df_label['set']=='train',:]
+    
+    X_test= features_resnet[df_label['set']=='test',:]
+    y_test = classes_vectors[df_label['set']=='test',:]
+    
+    X_val = features_resnet[df_label['set']=='validation',:]
+    y_val = classes_vectors[df_label['set']=='validation',:]
+   
+    X_trainval = np.append(X_train,X_val,axis=0)
+    y_trainval = np.append(y_train,y_val,axis=0)
+
+    classifier = LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True)
+    AP_per_class = []
+    cs = np.logspace(-5, -2, 20)
+    cs = np.hstack((cs,[0.2,1,2]))
+    param_grid = dict(C=cs)
+    custom_cv = PredefinedSplit(np.hstack((-np.ones((1,X_train.shape[0])),np.zeros((1,X_val.shape[0])))).reshape(-1,1)) # For example, when using a validation set, set the test_fold to 0 for all samples that are part of the validation set, and to -1 for all other samples.
+    for i,classe in enumerate(classes):
+        grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True),
+                                param_grid=param_grid,n_jobs=-1,cv=custom_cv)
+        grid.fit(X_trainval,y_trainval[:,i])  
+        y_predict_confidence_score = grid.decision_function(X_test)
+        y_predict_test = grid.predict(X_test) 
+        AP = average_precision_score(y_test[:,i],y_predict_confidence_score,average=None)
+        AP_per_class += [AP]
+        print("Average Precision for",classe," = ",AP)
+        test_precision = precision_score(y_test[:,i],y_predict_test)
+        test_recall = recall_score(y_test[:,i],y_predict_test)
+        print("Test precision = {0:.2f}, recall = {1:.2f}".format(test_precision,test_recall))
+    print("mean Average Precision = {0:.3f}".format(np.mean(AP_per_class)))             
+       
 def compute_FasterRCNN_demo():
     
     for demonet in NETS_Pretrained.keys():
@@ -858,25 +992,131 @@ def FasterRCNN_TransferLearning_misvm():
     
         print(AP_per_class)
         
-def FasterRCNN_TransferLearning_MILSVM():
+def FasterRCNN_NMS_threshold_test():
+    """
+    The goal of this function is to test the modification of the NMS threshold 
+    on the output provide by the algo 
+    """ 
+    NETS_Pretrained = {'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'}
+
+    demonet = 'res152_COCO'
+    tf.reset_default_graph() # Needed to use different nets one after the other
+    print(demonet)
+    if 'VOC'in demonet:
+        CLASSES = CLASSES_SET['VOC']
+        anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+    elif 'COCO'in demonet:
+        CLASSES = CLASSES_SET['COCO']
+        anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
+    nbClasses = len(CLASSES)
+    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+    tfconfig = tf.ConfigProto(allow_soft_placement=True)
+    tfconfig.gpu_options.allow_growth=True
+    # init session
+    
+    
+    # load network
+    if  'vgg16' in demonet:
+      net = vgg16()
+    elif demonet == 'res50':
+      raise NotImplementedError
+    elif 'res101' in demonet:
+      net = resnetv1(num_layers=101)
+    elif 'res152' in demonet:
+      net = resnetv1(num_layers=152)
+    elif demonet == 'mobile':
+      raise NotImplementedError
+    else:
+      raise NotImplementedError
+      
+    # List des images a test 
+    path_to_img = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/'
+    list_name_img = ['dog','acc_acc_ac_5289_624x544','not_ncmg_1941_23_624x544',
+                     'Albertinelli Franciabigio Vièrge et saints','1979.18 01 p01',
+                     'abd_aag_003796_624x544',
+                     'Accademia - The Mystic Marriage of St. Catherine by Veronese'] # First come from Your Paintings and second from Wikidata
+    list_nms_thresh = [0.0,0.1,0.7]
+    nms_thresh = list_nms_thresh[0]
+    # First we test with a high threshold !!!
+    plt.ion()
+    for nms_thresh in list_nms_thresh:
+        sess = tf.Session(config=tfconfig)
+        print("nms_thresh",nms_thresh)
+        net.create_architecture("TEST", nbClasses,
+                                      tag='default', anchor_scales=anchor_scales,
+                                      modeTL= True,nms_thresh=nms_thresh)
+        saver = tf.train.Saver()
+        saver.restore(sess, tfmodel)
+        name_img = list_name_img[0]
+        i=0
+        for i,name_img in  enumerate(list_name_img):
+            print(i,name_img)
+            complet_name = path_to_img + name_img + '.jpg'
+            im = cv2.imread(complet_name)
+            print("Image shape",im.shape)
+            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im)  # This call net.TL_image 
+            best_RPN_score_ROI = np.argmax(roi_scores)
+            blobs, im_scales = get_blobs(im)
+            print("best_RPN_score_ROI must be 0, and it is equal to ",best_RPN_score_ROI,"the score is",roi_scores[best_RPN_score_ROI]) # It must be 0
+            if not(nms_thresh==0.0):
+                best_roi = rois[best_RPN_score_ROI,:]
+                #print(best_roi)
+                #best_bbox_pred = bbox_pred[best_RPN_score_ROI,:]
+                #print(bbox_pred.shape)
+                #boxes = rois[:, 1:5] / im_scales[0]
+                best_roi_boxes =  best_roi[1:5] / im_scales[0]
+                best_roi_boxes_and_score = np.expand_dims(np.concatenate((best_roi_boxes,roi_scores[best_RPN_score_ROI])),axis=0)
+                cls = ['best_object']
+                #print(best_roi_boxes)
+                vis_detections_list(im, cls, [best_roi_boxes_and_score], thresh=0.0)
+                name_output = path_to_img + name_img + '_threshold_'+str(nms_thresh)+'.jpg'
+                plt.savefig(name_output)
+            else:
+                roi_boxes =  rois[:,1:5] / im_scales[0]
+                roi_boxes_and_score = np.concatenate((roi_boxes,roi_scores),axis=1)
+                cls = ['object']*len(roi_boxes_and_score)
+                #print(best_roi_boxes)
+                vis_detections_list(im, cls, [roi_boxes_and_score], thresh=0.0)
+                name_output = path_to_img + name_img + '_threshold_'+str(nms_thresh)+'.jpg'
+                plt.savefig(name_output)
+            if(nms_thresh==0.7):
+                roi_boxes =  rois[:,1:5] / im_scales[0]
+                roi_boxes_and_score = np.concatenate((roi_boxes,roi_scores),axis=1)
+                cls = ['object']*len(roi_boxes_and_score)
+                #print(best_roi_boxes)
+                vis_detections_list(im, cls, [roi_boxes_and_score], thresh=0.0)
+                name_output = path_to_img + name_img + '_threshold_'+str(nms_thresh)+'_allBoxes.jpg'
+                plt.savefig(name_output)
+        tf.reset_default_graph()
+        sess.close()
+    
+    return(0) # Not really necessary indead
+        
+def FasterRCNN_TL_MILSVM(reDo = False,normalisation=False):
     """
     Compute the performance on the Your Paintings subset ie Crowley
     on the fc7 output but with an Multi Instance SVM classifier for classifier the
     bag with the Said method
+    @param reDo : recompute the feature even if it exists saved on the disk and erases the old one
+    @param normalisation : normalisation of the date before doing the MILSVM from Said
+    Attention cette fonction ne fonctionne pas et je n'ai pas trouver le bug, il ne 
+    faut pas utiliser cette fonction mais plutot aller voir TL_MILSVM
     """
-    reDo = False
+    print("Attention cette fonction ne fonctionne pas et je n'ai pas trouver le bug, il ne faut pas utiliser cette fonction mais plutot aller voir TL_MILSVM")
+    TestMode_ComparisonWithBestObjectScoreKeep = True
     classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     path_to_img = '/media/HDD/data/Painting_Dataset/'
     path = '/media/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt =path + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
-    df_test = df_label[df_label['set']=='test']
-    sLength = len(df_test['name_img'])
-    sLength_all = len(df_label['name_img'])
-    name_img = df_test['name_img'][0]
-    i = 0
-    y_test = np.zeros((sLength,10))
+    #df_test = df_label[df_label['set']=='test']
+    #sLength = len(df_test['name_img'])
+    #sLength_all = len(df_label['name_img'])
+    #name_img = df_test['name_img'][0]
+    #i = 0
+    #y_test = np.zeros((sLength,10))
     NETS_Pretrained = {'res101_COCO' :'res101_faster_rcnn_iter_1190000.ckpt',
                    'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt',
                    'vgg16_COCO' :'vgg16_faster_rcnn_iter_1190000.ckpt'
@@ -923,7 +1163,7 @@ def FasterRCNN_TransferLearning_MILSVM():
         N = 1
         extL2 = ''
         
-        nms_thresh = 0.0
+        nms_thresh = 0.7
         
         name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+'.pkl'
         #name_pkl = path_data + 'testTL_withNMSthresholdProposal03.pkl'
@@ -943,55 +1183,61 @@ def FasterRCNN_TransferLearning_MILSVM():
             saver = tf.train.Saver()
             saver.restore(sess, tfmodel)
             numberOfRegion = 0
-            for i,name_img in  enumerate(df_label[item_name]):
-                if i%1000==0:
-                    print(i,name_img)
-#                    with open(name_pkl, 'wb') as pkl:
-#                        pickle.dump(features_resnet_dict,pkl)
-#                    features_resnet_dict= {}
-                complet_name = path_to_img + name_img + '.jpg'
-                im = cv2.imread(complet_name)
-                cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
-                #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
-                features_resnet_dict[name_img] = fc7
-                numberOfRegion += len(fc7)
-                return(0)
-                
-            print("We have ",numberOfRegion,"regions proposol")
-            # Avec un threshold a 0.1 dans le NMS de RPN on a 712523 regions
-            
-            sess.close()
             with open(name_pkl, 'wb') as pkl:
+                for i,name_img in  enumerate(df_label[item_name]):
+                    if i%1000==0:
+                        print(i,name_img)
+                        if not(i==0):
+                            pickle.dump(features_resnet_dict,pkl)
+                            features_resnet_dict= {}
+                    complet_name = path_to_img + name_img + '.jpg'
+                    im = cv2.imread(complet_name)
+                    cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+                    features_resnet_dict[name_img] = fc7
+                    numberOfRegion += len(fc7)
+                
+                print("We have ",numberOfRegion,"regions proposol")
+                # We have  292081 regions proposol avec un threshold a 0.0
+                # Avec un threshold a 0.1 dans le NMS de RPN on a 712523 regions
                 pickle.dump(features_resnet_dict,pkl)
+            sess.close()
         
         print("Load data")
         features_resnet_dict = {}
-        for i,name_img in  enumerate(df_label[item_name]):
-            if i%1000==0:
-                with open(name_pkl, 'rb') as pkl:
+        with open(name_pkl, 'rb') as pkl:
+            for i,name_img in  enumerate(df_label[item_name]):
+                if i%1000==0 and not(i==0):
                     features_resnet_dict_tmp = pickle.load(pkl)
-                    features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
-        
-        return(0)
-        print("preparing data fro learning")
-        k_per_bag = 5
+                    if i==1000:
+                        features_resnet_dict = features_resnet_dict_tmp
+                    else:
+                        features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+            features_resnet_dict_tmp = pickle.load(pkl)
+            features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+               
+        print("preparing data fpr learning")
+        print("Number of element in the base",len(features_resnet_dict))
+        k_per_bag = 1
         AP_per_class = []
         P_per_class = []
         R_per_class = []
         P20_per_class = []
         testMode = True
         jtest = 0
+        j = 0
+        # TODO normaliser les donnees en moyenne variance, normaliser selon les features 
         for j,classe in enumerate(classes):
             if testMode and not(j==jtest):
                 continue
             list_training_ex = []
-            list_training_label = []
             list_test_ex = []
             y_test = []
             pos_ex = None
             neg_ex = None
+            print(j,classe)
             for index,row in df_label.iterrows():
                 name_img = row[item_name]
+#                print(classes[j],row['classe'])
                 inClass = classes[j] in row['classe']
                 inTest = row['set']=='test'
                 f = features_resnet_dict[name_img]
@@ -999,49 +1245,77 @@ def FasterRCNN_TransferLearning_MILSVM():
                     print(index,name_img)
                 if not(inTest):
                     if(len(f) >= k_per_bag):
-                        bag = f[0:k_per_bag,:]
+                        bag = np.expand_dims(f[0:k_per_bag,:],axis=0)
                     else:
-                        number_repeat = k_per_bag // len(f)  
-                        f_repeat = np.repeat(f,number_repeat)
-                        bag = f_repeat[0:k_per_bag,:]
+                        print("pourquoi t es la")
+                        number_repeat = k_per_bag // len(f)  +1
+                        #print(number_repeat)
+                        f_repeat = np.repeat(f,number_repeat,axis=0)
+                        #print(f_repeat.shape)
+                        bag = np.expand_dims(f_repeat[0:k_per_bag,:],axis=0)
                     if not(inClass):
-                        if neg_ex == None:
+                        if neg_ex is None:
                             neg_ex = bag
                         else:
-                            neg_ex = np.vstack(neg_ex,bag)
+                            neg_ex = np.vstack((neg_ex,bag))
                     else:
-                         if pos_ex == None:
+                         if pos_ex is None:
                             pos_ex = bag
                          else:
-                            pos_ex = np.vstack(pos_ex,bag)
+                            pos_ex = np.vstack((pos_ex,bag))
                 else:
                     list_test_ex += [f]
                     if not(inClass):
-                       y_test += [0]
+                        y_test += [0]
                     else:
                         y_test += [1]
+            #del(features_resnet_dict) # Try to free the memory
+            
+            if normalisation == True:
+                mean_training_ex = np.mean(np.vstack((pos_ex,neg_ex)),axis=(0,1))
+                std_training_ex = np.std(np.vstack((pos_ex,neg_ex)),axis=(0,1))
+#                if std_training_ex==0.0: std_training_ex=1.0
+                neg_ex_norm = (neg_ex - mean_training_ex)/std_training_ex
+                pos_ex_norm = (pos_ex - mean_training_ex)/std_training_ex
                         
             print("Learning of the Multiple Instance Learning SVM")
-            classifierMILSVM = MILSVM()
-            print("len list_training_ex",len(list_training_ex))
-
-            classifier = classifierMILSVM.fit(pos_ex, neg_ex)
-            
+            restarts = 0
+            max_iters = 300
+            #from trouver_classes_parmi_K import MILSVM
+            classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+                                      max_iters=max_iters,symway=True,
+                                      all_notpos_inNeg=False,gridSearch=True,
+                                      verbose=True)
+            if normalisation == True:
+                classifier = classifierMILSVM.fit(pos_ex_norm, neg_ex_norm)
+            else:
+                classifier = classifierMILSVM.fit(pos_ex, neg_ex)
+            print("End training")
             y_predict_confidence_score_classifier = np.zeros_like(y_test)
+            labels_test_predited  =  np.zeros_like(y_test)
             
             for i,elt in enumerate(list_test_ex):
-                y_predict_confidence_score_classifier[i] = np.max(classifier.predict(elt))
-            y_predict_confidence_score_classifier = classifier.predict(list_test_ex) # Return value between -1 and 1 : score
-            labels_test_predited = np.sign(y_predict_confidence_score_classifier) # numpy.sign(labels) to get -1/+1 class predictions
-            y_predict_confidence_score_classifier = (y_predict_confidence_score_classifier + 1.)/2.
-            print("number of test exemples",len(y_test),len(labels_test_predited))
-            #print(y_test,labels_test_predited)
+                if normalisation == True:
+                    elt = (elt - mean_training_ex)/std_training_ex # TODO check if it is the right way to do
+                try:
+                    if not(TestMode_ComparisonWithBestObjectScoreKeep):
+                        decision_function_output = classifier.decision_function(elt)
+                    else:
+                        # We only keep the best score object box
+                        decision_function_output = classifier.decision_function(elt[0,:].reshape(1,-1))
+                    y_predict_confidence_score_classifier[i] = np.max(decision_function_output) # Confidence on the result
+                    if np.max(decision_function_output) > 0:
+                        labels_test_predited[i] = 1 
+                    else: 
+                        labels_test_predited[i] =  0 # Label of the class 0 or 1
+                except ValueError:
+                    print('ValueError',i,elt.shape)
             test_precision = precision_score(y_test,labels_test_predited)
             test_recall = recall_score(y_test,labels_test_predited)
             F1 = f1_score(y_test,labels_test_predited)
             print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}".format(test_precision,test_recall,F1))
             AP = average_precision_score(y_test,y_predict_confidence_score_classifier,average=None)
-            print("SVM version Average Precision for",classes[j]," = ",AP)
+            print("MIL-SVM version Average Precision for",classes[j]," = ",AP)
             precision_at_k = ranking_precision_score(np.array(y_test), y_predict_confidence_score_classifier,20)
             P20_per_class += [precision_at_k]
             AP_per_class += [AP]
@@ -1236,9 +1510,11 @@ def FasterRCNN_ImagesObject():
 if __name__ == '__main__':
     ## Faster RCNN re-scale  the  images  such  that  their  shorter  side  = 600 pixels  
     
-    #compute_FasterRCNN_Perf_Paintings()
+    compute_FasterRCNN_Perf_Paintings(TL = True,reDo=True)
+#    FasterRCNN_TL_MILSVM(reDo = False,normalisation=False)
+#    read_features_computePerfPaintings()
 #    FasterRCNN_TransferLearning_misvm()
-    FasterRCNN_TransferLearning_MILSVM()
+#    FasterRCNN_TL_MILSVM()
     #FasterRCNN_ImagesObject()
     #compute_FasterRCNN_demo()
     #compute_FasterRCNN_Perf_Paintings()
