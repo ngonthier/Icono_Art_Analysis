@@ -451,6 +451,7 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
     
     
     k_tab = [5,10,20,50,100]
+    k_tab = [20]
     classifier = LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True)
     AP_per_class = []
     P_per_class = []
@@ -458,7 +459,7 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
     P20_per_class = []
 
     cs = np.logspace(-5, -2, 20)
-    cs = np.hstack((cs,[0.2,1.,2.]))
+    cs = np.hstack((cs,[0.2,1.,2.,10.,100.]))
     param_grid = dict(C=cs)  
     
     #np_classes = df.as_matrix(columns=depictsAll)
@@ -509,10 +510,10 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
 #    print(len(indice_train),len(y_trainval),len(name_trainval_tab))
             name_test_tab = name_im_order
             
-            name_html_fp = path_output+'Training_false_positif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+            name_html_fp = path_output+'Training_false_positif_' + kindnetwork + '_' +kind +'_' + classe + '.html'
             message_training_fp = """<html><head></head><body><p>False Positif during training for """ + classe + """ </p></body>""" 
             f_fp = open(name_html_fp,'w')
-            name_html_fn = path_output+'Training_false_negatif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+            name_html_fn = path_output+'Training_false_negatif_' + kindnetwork + '_' +kind +'_' + classe + '.html'
             message_training_fn = """<html><head></head><body><p>False Negatif during training for """ + classe + """ </p></body>""" 
             f_fn = open(name_html_fn,'w')
             index= y_trainval.index
@@ -536,10 +537,10 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
             f_fn.close()
             
                     
-            name_html_fp = path_output+'Test_false_positif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+            name_html_fp = path_output+'Test_false_positif_' + kindnetwork + '_' +kind +'_' + classe + '.html'
             message_training_fp = """<html><head></head><body><p>False Positif during test for """ + classe + """ </p></body>""" 
             f_fp = open(name_html_fp,'w')
-            name_html_fn = path_output+'Test_false_negatif' + kindnetwork + '_' +kind +'_' + classe + '.html'
+            name_html_fn = path_output+'Test_false_negatif_' + kindnetwork + '_' +kind +'_' + classe + '.html'
             message_training_fn = """<html><head></head><body><p>False Negatif during test for """ + classe + """ </p></body>""" 
             f_fn = open(name_html_fn,'w')
             index= y_test.index
@@ -580,13 +581,17 @@ def index_place(a,b):
         tab += [index[0]]
     return(tab)
   
-def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings',L2=False,augmentation=False):
+def TL_RawFeat(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings',L2=False,augmentation=False):
     """
     Cette fonction trace les courbes de performances en fonction de 
     kindnetwork in  [InceptionResNetv2,ResNet152]
+    fonction proche de TransferLearning_onRawFeatures_protocol
+    pour calculer d'autres types de courbes
     """
-    # TODO : faire une courbe de performance en fonction du nombre de positif exemples mais avec les none en exemples négatifs
-    # TODO : faire une courbe de performance en fonction du nombre de positif exemples mais avec d'autres negatifs exemples du neme ordre que precedement
+    # TODO : faire une courbe de performance en fonction du nombre de positif 
+    # exemples mais avec les none en exemples négatifs
+    # TODO : faire une courbe de performance en fonction du nombre de positif 
+    # exemples mais avec d'autres negatifs exemples du neme ordre que precedement : visage etc
     
     return(0)
     
@@ -867,7 +872,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
     
     return(0)
     
-def TransferLearning_onRawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings',L2=False,augmentation=False):
+def TL_RawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings',L2=False,augmentation=False):
     """
     kindnetwork in  [InceptionResNetv2,ResNet152]
     """
@@ -903,9 +908,12 @@ def TransferLearning_onRawFeatures_JustAP(kind='1536D',kindnetwork='InceptionRes
     print(len(df_reduc['image']),'images gardees')
     classifier = LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True)
     AP_per_class = []
-
+    P20_per_class = []
+    R_per_class = []
+    P_per_class = []
+        
     cs = np.logspace(-5, -2, 20)
-    cs = np.hstack((cs,[0.2,1.,2.]))
+    cs = np.hstack((cs,[0.2,1.,2.,10.,100.]))
     param_grid = dict(C=cs)  
     indices = np.arange(len(df_reduc['image']))
     for i,classe in enumerate(depicts):
@@ -923,8 +931,25 @@ def TransferLearning_onRawFeatures_JustAP(kind='1536D',kindnetwork='InceptionRes
         y_predict_confidence_score = grid.decision_function(X_test)
         AP = average_precision_score(y_test,y_predict_confidence_score,average=None)
         AP_per_class += [AP]  
+        labels_test_predited = grid.predict(X_test)
+        print("MIL-SVM version Average Precision for",classe," = ",AP)
+        test_precision = precision_score(y_test,labels_test_predited)
+        test_recall = recall_score(y_test,labels_test_predited)
+        F1 = f1_score(y_test[:,j],labels_test_predited)
+        print("Test on all the data precision = {0:.2f}, recall = {1:.2f},F1 = {2:.2f}".format(test_precision,test_recall,F1))
         print(classe,AP)
-    print('MeanAP',np.mean(AP_per_class))    
+        precision_at_k = ranking_precision_score(np.array(y_test), y_predict_confidence_score,20)
+        P20_per_class += [precision_at_k]
+        AP_per_class += [AP]
+        R_per_class += [test_recall]
+        P_per_class += [test_precision]
+
+    print("mean Average Precision for all the data = {0:.3f}".format(np.mean(AP_per_class)))    
+    print("mean Precision for all the data = {0:.3f}".format(np.mean(P_per_class)))  
+    print("mean Recall for all the data = {0:.3f}".format(np.mean(R_per_class)))  
+    print("mean Precision @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
+    
+    print(AP_per_class)    
     return(0)
 
 def vision_of_data():
@@ -1061,17 +1086,20 @@ if __name__ == '__main__':
     #Compute_ResNet(kind='2048D',database='Wikidata_Paintings',L2=False,augmentation=False)
     #compute_VGG_features(VGG='19',kind='fuco7',database='Wikidata_Paintings',L2=False,augmentation=False)
     #TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
-    #TransferLearning_onRawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
-    #TransferLearning_onRawFeatures_JustAP(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
-    #TransferLearning_onRawFeatures_JustAP(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
+    #TL_RawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
+    #TL_RawFeatures_JustAP(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
+    #TL_RawFeatures_JustAP(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
+    
+    TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
+    TransferLearning_onRawFeatures(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
+    TransferLearning_onRawFeatures(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
 
-
-    TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
-    TransferLearning_onRawFeatures_protocol(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
-#    TransferLearning_onRawFeatures_protocol(kind='fuco7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
-    #compute_VGG_features(VGG='19',kind='relu7',database='Wikidata_Paintings',concate = False,L2=False,augmentation=False)
-    TransferLearning_onRawFeatures_protocol(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
-    #vision_of_data()
+#    TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
+#    TransferLearning_onRawFeatures_protocol(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
+##    TransferLearning_onRawFeatures_protocol(kind='fuco7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
+#    #compute_VGG_features(VGG='19',kind='relu7',database='Wikidata_Paintings',concate = False,L2=False,augmentation=False)
+#    TransferLearning_onRawFeatures_protocol(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
+#    #vision_of_data()
     # TODO plot 
     # TODO test with FasterRCNN 
     

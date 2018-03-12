@@ -147,7 +147,9 @@ class MILSVM():
         
         gr=tf.gradients(loss,[W,b])
         #print("Grad defined")
-        sess=tf.InteractiveSession()
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        sess=tf.Session(config=config)
         
         bestloss=-1
         for essai in range(self.restarts+1): #on fait 5 essais et on garde la meilleur loss
@@ -177,94 +179,122 @@ class MILSVM():
                 dicobest={W:W_best,b:b_best} 
                 #Record of the best SVM         
 
-        sor=sess.run([Prod1],feed_dict=dicobest)
+        sor1=sess.run([Prod1],feed_dict=dicobest)
+        sor2=sess.run([Prod2],feed_dict=dicobest)
         sess.close()
         tf.reset_default_graph()
         
-        pr1=sor[0]
+        pr1=sor1[0]
         mei=pr1.argmax(axis=1) # Indexes of the element that below to the right class normally
         score_mei=pr1.max(axis=1) # Indexes of the element that below to the right class normally
-        
         self.PositiveRegions = mei
         self.PositiveRegionsScore = score_mei
-        full_positives =  np.zeros((np1,n))   
-        if self.all_notpos_inNeg:
-            if self.verbose : print("All element that are not the positive example are considered as negative")
-            full_neg = np.zeros((np1*(k-1),n))
-            for i in range(np1):
-                 index = mei[i]
-                 data = data_pos[i,index,:] 
-                 full_positives[i,:] = data     
-                 data = np.concatenate([data_pos[i,0:index,:],data_pos[i,index:-1,:]])
-                 full_neg[i*(k-1):(i+1)*(k-1),:] = data
-            data_p2_reshaped =  np.reshape(data_neg,(np2*k,n))
-            print(data_p2_reshaped.shape)
-            print(full_neg.shape)
-            full_neg_all = np.vstack([full_neg,data_p2_reshaped])
-            print(full_neg_all.shape)
-        else:     
-            if self.verbose : print("All element that are not the positive example are not considered as negative,they are ignored")
-            full_neg_all =  np.reshape(data_neg,(np2*k,n))
-            for i in range(np1):
-                 index = mei[i]
-                 data = data_pos[i,index,:] 
-                 full_positives[i,:] = data
-                 
-        X = np.vstack((full_positives,full_neg_all))
-        y_pos = np.ones((np1,1))
-        y_neg = np.zeros((len(full_neg_all),1))
-        y = np.vstack((y_pos,y_neg)).ravel()
+          
+        pr2=sor2[0]
+        mei=pr2.argmax(axis=1) # Indexes of the element that below to the right class normally
+        score_mei=pr2.max(axis=1) # Indexes of the element that below to the right class normally
+        self.NegativeRegions = mei
+        self.NegativeRegionsScore = score_mei
         
-        if len(X) > 30000 and self.verbose and self.final_clf == 'LinearSVC':
-            print("We advise you to use an online classification method as SGD")
-        
-        n_jobs = self.n_jobs
-        if self.gridSearch:
-            if self.verbose : print("Grid Search")
-            cs = np.logspace(-5, -2, 20)
-            cs = np.hstack((cs,[0.01,0.2,1.,2.,10.,100.]))
-            param_grid = dict(C=cs)
-            # TODO  class_weight='balanced' TODO add this parameter ! 
-            if self.final_clf == 'LinearSVC':
-                clf = LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True)
-                param_grid = dict(C=cs)
-            elif self.final_clf == 'defaultSGD':
-                clf = SGDClassifier(max_iter=1000, tol=0.0001)
-                param_grid = dict(alpha=cs)
-            elif self.final_clf == 'SGDsquared_hinge':
-                clf = SGDClassifier(max_iter=1000, tol=0.0001,loss='squared_hinge')
-                param_grid = dict(alpha=cs)
-
-            classifier = GridSearchCV(clf, refit=True,
-                                      scoring =make_scorer(average_precision_score,needs_threshold=True),
-                                      param_grid=param_grid,n_jobs=n_jobs)
+        if (self.final_clf is None) or (self.final_clf == 'None'):
+            # We don t return a final classifier
+             if self.verbose : print("We don't return a final classifier !!!")
+             return(None)
         else:
-            # ,class_weight='balanced'
-            if self.final_clf == 'LinearSVC':
-                classifier = LinearSVC(penalty='l2', loss='squared_hinge',max_iter=1000,dual=True,C=self.C_finalSVM)
-            elif self.final_clf == 'defaultSGD':
-                classifier = SGDClassifier()
-            elif self.final_clf == 'SGDsquared_hinge':
-                classifier = SGDClassifier(max_iter=1000, tol=0.0001,loss='squared_hinge')
-        if self.verbose : 
-            print("Shape of X",X.shape)
-            print("number of positive examples :",len(y_pos),"number of negative example :",len(y_neg))
-        if self.verbose : print("Retrain a new SVM")
-        classifier.fit(X,y)
-        if self.verbose :
-            labels_test_predited = classifier.predict(X)
-            print('Number of positive prediction :',np.sum(labels_test_predited))
-            training_precision = precision_score(y,labels_test_predited)
-            y_predict_confidence_score_classifier = classifier.decision_function(X)
-            AP = average_precision_score(y,y_predict_confidence_score_classifier,average=None)
-            print("Training precision of the final LinearSVC",training_precision,'training AP:',AP)
-        return(classifier)
+            full_positives =  np.zeros((np1,n))
+            if self.all_notpos_inNeg:
+                if self.verbose : print("All element that are not the positive example are considered as negative")
+                full_neg = np.zeros((np1*(k-1),n))
+                for i in range(np1):
+                     index = mei[i]
+                     data = data_pos[i,index,:] 
+                     full_positives[i,:] = data     
+                     data = np.concatenate([data_pos[i,0:index,:],data_pos[i,index:-1,:]])
+                     full_neg[i*(k-1):(i+1)*(k-1),:] = data
+                data_p2_reshaped =  np.reshape(data_neg,(np2*k,n))
+                print(data_p2_reshaped.shape)
+                print(full_neg.shape)
+                full_neg_all = np.vstack([full_neg,data_p2_reshaped])
+                print(full_neg_all.shape)
+            else:     
+                if self.verbose : print("All element that are not the positive example are not considered as negative,they are ignored")
+                full_neg_all =  np.reshape(data_neg,(np2*k,n))
+                for i in range(np1):
+                     index = mei[i]
+                     data = data_pos[i,index,:] 
+                     full_positives[i,:] = data
+                     
+            X = np.vstack((full_positives,full_neg_all))
+            y_pos = np.ones((np1,1))
+            y_neg = np.zeros((len(full_neg_all),1))
+            y = np.vstack((y_pos,y_neg)).ravel()
+            
+            if len(X) > 30000 and self.verbose and self.final_clf == 'LinearSVC':
+                print("We advise you to use an online classification method as SGD")
+            
+            if self.verbose : 
+                print("Shape of X",X.shape)
+                print("number of positive examples :",len(y_pos),"number of negative example :",len(y_neg))
+            if self.verbose : print("Retrain a new SVM")
+                
+            classifier = TrainClassif(X,y,clf='LinearSVC',gridSearch=self.gridSearch,n_jobs=self.n_jobs
+                     ,C_finalSVM=self.C_finalSVM)
+            if self.verbose :
+                labels_test_predited = classifier.predict(X)
+                print('Number of positive prediction :',np.sum(labels_test_predited))
+                training_precision = precision_score(y,labels_test_predited)
+                y_predict_confidence_score_classifier = classifier.decision_function(X)
+                AP = average_precision_score(y,y_predict_confidence_score_classifier,average=None)
+                print("Training precision of the final LinearSVC",training_precision,'training AP:',AP)
+            return(classifier)
+
   
     def get_PositiveRegions(self):
         return(self.PositiveRegions.copy())
      
     def get_PositiveRegionsScore(self):
         return(self.PositiveRegionsScore.copy())
+        
+    def get_NegativeRegions(self):
+        return(self.NegativeRegions.copy())
+     
+    def get_NegativeRegionsScore(self):
+        return(self.NegativeRegionsScore.copy())
+  
+def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1,C_finalSVM=1):
+    cs = np.logspace(-5, -2, 20)
+    cs = np.hstack((cs,[0.01,0.2,1.,2.,10.,100.]))
+    param_grid = dict(C=cs)
+    # TODO  class_weight='balanced' TODO add this parameter ! 
+    if gridSearch:
+        if clf == 'LinearSVC':
+            clf = LinearSVC(penalty='l2',class_weight=class_weight, 
+                            loss='squared_hinge',max_iter=1000,dual=True)
+            param_grid = dict(C=cs)
+        elif clf == 'defaultSGD':
+            clf = SGDClassifier(max_iter=1000, tol=0.0001)
+            param_grid = dict(alpha=cs)
+        elif clf == 'SGDsquared_hinge':
+            clf = SGDClassifier(max_iter=1000, tol=0.0001,loss='squared_hinge')
+            param_grid = dict(alpha=cs)
+    
+        classifier = GridSearchCV(clf, refit=True,
+                                  scoring =make_scorer(average_precision_score,
+                                                       needs_threshold=True),
+                                  param_grid=param_grid,n_jobs=n_jobs)
+    else:
+        # ,class_weight='balanced'
+        if clf == 'LinearSVC':
+            classifier = LinearSVC(penalty='l2',class_weight=class_weight,
+                                   loss='squared_hinge',max_iter=1000,dual=True,C=C_finalSVM)
+        elif clf == 'defaultSGD':
+            classifier = SGDClassifier()
+        elif clf == 'SGDsquared_hinge':
+            classifier = SGDClassifier(max_iter=1000, tol=0.0001,loss='squared_hinge')
+    
+    classifier.fit(X,y)
+    
+    return(classifier)
     
 def test_classif():
     print('Start Test')

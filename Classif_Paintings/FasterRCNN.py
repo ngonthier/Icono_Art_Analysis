@@ -84,7 +84,7 @@ NETS_Pretrained = {'vgg16_VOC07' :'vgg16_faster_rcnn_iter_70000.ckpt',
 CLASSES_SET ={'VOC' : CLASSESVOC,
               'COCO' : CLASSESCOCO }
 
-def compute_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
+def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
     """
     Compute the performance on the Your Paintings subset ie Crowley on the output but also the best case on feature fc7 of the best proposal part
     TL : use the features maps of the best object score detection
@@ -362,7 +362,7 @@ def read_features_computePerfPaintings():
         print("Test precision = {0:.2f}, recall = {1:.2f}".format(test_precision,test_recall))
     print("mean Average Precision = {0:.3f}".format(np.mean(AP_per_class)))             
        
-def compute_FasterRCNN_demo():
+def run_FasterRCNN_demo():
     
     for demonet in NETS_Pretrained.keys():
         #demonet = 'res101_COCO'
@@ -481,6 +481,7 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5):
     fig, ax = plt.subplots(figsize=(12, 12))
     ax.imshow(im, aspect='equal')
     for class_name,dets in zip(class_name_list,dets_list):
+        print(class_name,dets)
         inds = np.where(dets[:, -1] >= thresh)[0]
         if not(len(inds) == 0):
             color = list_colors[i_color]
@@ -992,13 +993,119 @@ def FasterRCNN_TransferLearning_misvm():
     
         print(AP_per_class)
         
-def FasterRCNN_NMS_threshold_test():
+def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
+                                 augmentation=False,L2 =False,
+                                 saved='all',verbose=True):
+    """
+    @param : demonet : teh kind of inside network used it can be 'vgg16_VOC07',
+        'vgg16_VOC12','vgg16_COCO','res101_VOC12','res101_COCO','res152_COCO'
+    @param : nms_thresh : the nms threshold on the Region Proposal Network
+    
+    """
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    
+    if database=='Paintings':
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/Painting_Dataset/' 
+    elif database=='VOC12':
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+    elif(database=='Wikidata_Paintings'):
+        item_name = 'image'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+    else:
+        item_name = 'image'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+    databasetxt = path_data + database + '.txt'
+    df_label = pd.read_csv(databasetxt,sep=",")
+    if augmentation:
+        raise NotImplementedError
+        N = 50
+    else: 
+        N=1
+    if L2:
+        raise NotImplementedError
+        extL2 = '_L2'
+    else:
+        extL2 = ''
+    if saved=='all':
+        savedstr = '_all'
+    elif saved=='fc7':
+        savedstr = ''
+    elif saved=='pool5':
+        savedstr = '_pool5'
+    
+    df_label = pd.read_csv(databasetxt,sep=",")
+    
+    tf.reset_default_graph() # Needed to use different nets one after the other
+    if verbose: print(demonet)
+    if 'VOC'in demonet:
+        CLASSES = CLASSES_SET['VOC']
+        anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+    elif 'COCO'in demonet:
+        CLASSES = CLASSES_SET['COCO']
+        anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
+    nbClasses = len(CLASSES)
+    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+    tfconfig = tf.ConfigProto(allow_soft_placement=True)
+    tfconfig.gpu_options.allow_growth=True
+    # init session
+    sess = tf.Session(config=tfconfig)
+    
+    # load network
+    if  'vgg16' in demonet:
+      net = vgg16()
+    elif demonet == 'res50':
+      raise NotImplementedError
+    elif 'res101' in demonet:
+      net = resnetv1(num_layers=101)
+    elif 'res152' in demonet:
+      net = resnetv1(num_layers=152)
+    elif demonet == 'mobile':
+      raise NotImplementedError
+    else:
+      raise NotImplementedError
+      
+    name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'
+    +str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
+    #name_pkl = path_data + 'testTL_withNMSthresholdProposal03.pkl'
+    
+    net.create_architecture("TEST", nbClasses,
+                          tag='default', anchor_scales=anchor_scales,
+                          modeTL= True,nms_thresh=nms_thresh)
+    saver = tf.train.Saver()
+    saver.restore(sess, tfmodel)
+    features_resnet_dict= {}
+    pkl = open(name_pkl_all_features, 'wb')
+    for i,name_img in  enumerate(df_label[item_name]):
+        if i%1000==0:
+            if verbose : print(i,name_img)
+            if not(i==0):
+                pickle.dump(features_resnet_dict,pkl) # Save the data
+                features_resnet_dict= {}
+        complet_name = path_to_img + name_img + '.jpg'
+        im = cv2.imread(complet_name)
+        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+        #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
+        if saved=='fc7':
+            features_resnet_dict[name_img] = fc7
+        elif saved=='pool5':
+            features_resnet_dict[name_img] = pool5
+        elif saved=='all':
+            features_resnet_dict[name_img] = rois,roi_scores,fc7
+
+    pickle.dump(features_resnet_dict,pkl)
+    pkl.close()
+        
+def Illus_NMS_threshold_test():
     """
     The goal of this function is to test the modification of the NMS threshold 
     on the output provide by the algo 
+    And plot the zone considered as the best by the Faster RCNN 
     """ 
     NETS_Pretrained = {'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'}
-
+    path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/'
     demonet = 'res152_COCO'
     tf.reset_default_graph() # Needed to use different nets one after the other
     print(demonet)
@@ -1032,10 +1139,13 @@ def FasterRCNN_NMS_threshold_test():
       
     # List des images a test 
     path_to_img = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/'
+    path_to_imgARTUK =  '/media/HDD/data/Painting_Dataset/'
     list_name_img = ['dog','acc_acc_ac_5289_624x544','not_ncmg_1941_23_624x544',
                      'Albertinelli Franciabigio Vièrge et saints','1979.18 01 p01',
                      'abd_aag_003796_624x544',
                      'Accademia - The Mystic Marriage of St. Catherine by Veronese'] # First come from Your Paintings and second from Wikidata
+    list_dog = ['ny_yag_yorag_326_624x544', 'dur_dbm_770_624x544', 'ntii_skh_1196043_624x544', 'nti_ldk_884912_624x544', 'syo_bha_90009742_624x544', 'tate_tate_t00888_10_624x544', 'ntii_lyp_500458_624x544', 'ny_yag_yorag_37_b_624x544', 'ngs_ngs_ng_1193_f_624x544', 'dur_dbm_533_624x544']
+    list_name_img += list_dog
     list_nms_thresh = [0.0,0.1,0.7]
     nms_thresh = list_nms_thresh[0]
     # First we test with a high threshold !!!
@@ -1052,9 +1162,12 @@ def FasterRCNN_NMS_threshold_test():
         i=0
         for i,name_img in  enumerate(list_name_img):
             print(i,name_img)
-            complet_name = path_to_img + name_img + '.jpg'
+            if name_img in list_dog:
+                complet_name = path_to_imgARTUK + name_img + '.jpg'
+            else:
+                complet_name = path_to_img + name_img + '.jpg'
             im = cv2.imread(complet_name)
-            print("Image shape",im.shape)
+            #print("Image shape",im.shape)
             cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im)  # This call net.TL_image 
             best_RPN_score_ROI = np.argmax(roi_scores)
             blobs, im_scales = get_blobs(im)
@@ -1070,7 +1183,7 @@ def FasterRCNN_NMS_threshold_test():
                 cls = ['best_object']
                 #print(best_roi_boxes)
                 vis_detections_list(im, cls, [best_roi_boxes_and_score], thresh=0.0)
-                name_output = path_to_img + name_img + '_threshold_'+str(nms_thresh)+'.jpg'
+                name_output = path_to_output + name_img + '_threshold_'+str(nms_thresh)+'.jpg'
                 plt.savefig(name_output)
             else:
                 roi_boxes =  rois[:,1:5] / im_scales[0]
@@ -1078,7 +1191,7 @@ def FasterRCNN_NMS_threshold_test():
                 cls = ['object']*len(roi_boxes_and_score)
                 #print(best_roi_boxes)
                 vis_detections_list(im, cls, [roi_boxes_and_score], thresh=0.0)
-                name_output = path_to_img + name_img + '_threshold_'+str(nms_thresh)+'.jpg'
+                name_output = path_to_output + name_img + '_threshold_'+str(nms_thresh)+'.jpg'
                 plt.savefig(name_output)
             if(nms_thresh==0.7):
                 roi_boxes =  rois[:,1:5] / im_scales[0]
@@ -1086,10 +1199,25 @@ def FasterRCNN_NMS_threshold_test():
                 cls = ['object']*len(roi_boxes_and_score)
                 #print(best_roi_boxes)
                 vis_detections_list(im, cls, [roi_boxes_and_score], thresh=0.0)
-                name_output = path_to_img + name_img + '_threshold_'+str(nms_thresh)+'_allBoxes.jpg'
+                name_output = path_to_output + name_img + '_threshold_'+str(nms_thresh)+'_allBoxes.jpg'
                 plt.savefig(name_output)
+                
+            # Plot the k first score zone  
+            k = 5
+            roi_boxes =  rois[:,1:5] / im_scales[0]
+            roi_boxes_and_score = np.concatenate((roi_boxes,roi_scores),axis=1)
+            roi_boxes_and_score = roi_boxes_and_score[0:k,:]
+            cls = ['object']*len(roi_boxes_and_score)
+            #print(best_roi_boxes)
+            vis_detections_list(im, cls, [roi_boxes_and_score], thresh=0.0)
+            name_output = path_to_output + name_img + '_threshold_'+str(nms_thresh)+'_'+str(k)+'Boxes.jpg'
+            plt.savefig(name_output)
+            
+        plt.close('all')
         tf.reset_default_graph()
         sess.close()
+        
+    
     
     return(0) # Not really necessary indead
         
@@ -1509,17 +1637,20 @@ def FasterRCNN_ImagesObject():
         
 if __name__ == '__main__':
     ## Faster RCNN re-scale  the  images  such  that  their  shorter  side  = 600 pixels  
-    
-    compute_FasterRCNN_Perf_Paintings(TL = True,reDo=True)
+#    Illus_NMS_threshold_test()
+#    run_FasterRCNN_Perf_Paintings(TL = True,reDo=True)
 #    FasterRCNN_TL_MILSVM(reDo = False,normalisation=False)
 #    read_features_computePerfPaintings()
 #    FasterRCNN_TransferLearning_misvm()
 #    FasterRCNN_TL_MILSVM()
     #FasterRCNN_ImagesObject()
-    #compute_FasterRCNN_demo()
-    #compute_FasterRCNN_Perf_Paintings()
+    #run_FasterRCNN_demo()
+    #run_FasterRCNN_Perf_Paintings()
     # List des nets a tester : VGG16-VOC12
     #  VGG16-VOC07
     # RESNET152 sur COCO
     # VGG16 sur COCO
     # RES101 sur VOC12
+    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
+                                 augmentation=False,L2 =False,
+                                 saved='all',verbose=True)    

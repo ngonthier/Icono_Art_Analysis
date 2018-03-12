@@ -14,6 +14,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 import pickle
+from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score,label_ranking_average_precision_score,classification_report
 from sklearn.svm import LinearSVC, SVC
 from sklearn.model_selection import GridSearchCV
