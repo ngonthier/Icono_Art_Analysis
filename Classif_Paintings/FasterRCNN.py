@@ -35,7 +35,7 @@ from tf_faster_rcnn.lib.model.nms_wrapper import nms
 import matplotlib.pyplot as plt
 from sklearn.svm import LinearSVC, SVC
 from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import PredefinedSplit
+from sklearn.model_selection import PredefinedSplit,train_test_split
 from nltk.classify.scikitlearn import SklearnClassifier
 #from tf_faster_rcnn.tools.demo import vis_detections
 import numpy as np
@@ -84,25 +84,53 @@ NETS_Pretrained = {'vgg16_VOC07' :'vgg16_faster_rcnn_iter_70000.ckpt',
 CLASSES_SET ={'VOC' : CLASSESVOC,
               'COCO' : CLASSESCOCO }
 
-def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
+def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxObject',
+                                  nms_thresh = 0.0,CV_Crowley=True,database='Paintings'):
     """
     Compute the performance on the Your Paintings subset ie Crowley on the output but also the best case on feature fc7 of the best proposal part
-    TL : use the features maps of the best object score detection
-    reDO : recompute the features maps
+    @param : TL : use the features maps of the best object score detection
+    @param : reDO : recompute the features maps
+    @param : feature_selection : 'MaxObject' or 'meanObject' mean on all regions or only keep the max
+    @param : nms_thresh : Threshold in the RPN 
+    @param : CV_Crowley : boolean, use the same CV splitting that crowley or use a 3 fold otherwise for the gridsearch of the C param in the LinearSVM
+    @param : database : the name of the database to use 
     """
     
-    classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    if database=='Paintings':
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/Painting_Dataset/'
+        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    elif database=='VOC12':
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+    elif(database=='Wikidata_Paintings'):
+        item_name = 'image'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        raise NotImplemented # TODO implementer cela !!! 
+    elif(database=='Wikidata_Paintings_miniset_verif'):
+        item_name = 'image'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
     path = '/media/HDD/output_exp/ClassifPaintings/'
-    database = 'Paintings'
     databasetxt = path +database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
-    df_test = df_label[df_label['set']=='test']
-    sLength = len(df_test['name_img'])
-    sLength_all = len(df_label['name_img'])
-    name_img = df_test['name_img'][0]
-    i = 0
-    y_test = np.zeros((sLength,10))
+    
+    if database=='Paintings':
+        df_test = df_label[df_label['set']=='test']
+        sLength = len(df_test[item_name])
+        sLength_all = len(df_label[item_name])
+        name_img = df_test[item_name][0]
+        i = 0
+        y_test = np.zeros((sLength,10))
+        classes_vectors = np.zeros((sLength_all,10))
+    elif database=='Wikidata_Paintings_miniset_verif':
+        random_state = 0
+        sLength_all = len(df_label[item_name])
+        index = np.arange(0,sLength_all)
+        index_trainval, index_test = train_test_split(index, test_size=0.6, random_state=random_state)
+        classes_vectors = df_label.as_matrix(columns=classes)
+        
+    
     NETS_Pretrained = {'res101_COCO' :'res101_faster_rcnn_iter_1190000.ckpt',
                    'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt',
                    'vgg16_COCO' :'vgg16_faster_rcnn_iter_1190000.ckpt'
@@ -112,7 +140,7 @@ def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
     for demonet in NETS_Pretrained.keys():
         #demonet = 'res101_COCO'
         tf.reset_default_graph() # Needed to use different nets one after the other
-        print(demonet)
+        print(database,demonet,feature_selection)
         if 'VOC'in demonet:
             CLASSES = CLASSES_SET['VOC']
             anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
@@ -141,7 +169,10 @@ def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
         else:
           raise NotImplementedError
           
-        if not(TL):  
+        if not(TL):
+            if not(database=='Paintings'):
+                print("That is impossible.")
+                raise NotImplementedError
             net.create_architecture("TEST", nbClasses,
                                   tag='default', anchor_scales=anchor_scales)
             saver = tf.train.Saver()
@@ -158,11 +189,11 @@ def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
                 scores_max = np.max(scores,axis=0)
                 scores_all_image[i,:] = scores_max
                 for j in range(10):
-                    if(classes_paitings[j] in list(df_test['classe'][df_test['name_img']==name_img])[0]):
+                    if(classes[j] in list(df_test['classe'][df_test['name_img']==name_img])[0]):
                         y_test[i,j] = 1
                 
             AP_per_class = []
-            for k,classe in enumerate(classes_paitings):
+            for k,classe in enumerate(classes):
                 index_classe = np.where(np.array(CLASSES)==classe)[0][0]
                 scores_per_class = scores_all_image[:,index_classe]
                 #print(scores_per_class)
@@ -174,23 +205,24 @@ def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
             
             sess.close()
         else:
-            if database=='Paintings':
-                item_name = 'name_img'
-                path_to_img = '/media/HDD/data/Painting_Dataset/'
-                classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
             path_data = path
-            N = 1
+            if feature_selection =='meanObject':
+                N = 'mean'
+            else:
+                N = 1
+            if feature_selection=='MaxObject':
+                strnmsthreshold = ''
+            elif feature_selection =='meanObject':
+                strnmsthreshold = '_'+str(nms_thresh)
             extL2 = ''
-            nms_thresh = 0.0
-            name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'.pkl'
+            name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+strnmsthreshold+'.pkl'
             name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+'.pkl'
-            if not(os.path.isfile(name_pkl)) or reDo:
+            if not(os.path.isfile(name_pkl)) or reDo or not(os.path.isfile(name_pkl_all_features)):
                 if demonet == 'vgg16_COCO':
                     size_output = 4096
                 elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
                     size_output = 2048
                 features_resnet = np.ones((sLength_all,size_output))
-                classes_vectors = np.zeros((sLength_all,10))
                 # Use the output of fc7 
                 net.create_architecture("TEST", nbClasses,
                                       tag='default', anchor_scales=anchor_scales,
@@ -198,7 +230,6 @@ def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
                 saver = tf.train.Saver()
                 saver.restore(sess, tfmodel)
                 
-                scores_all_image = np.zeros((len(df_test),nbClasses))
                 features_resnet_dict= {}
                 pkl = open(name_pkl_all_features, 'wb')
                 
@@ -208,50 +239,72 @@ def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False):
                         if not(i==0):
                             pickle.dump(features_resnet_dict,pkl)
                             features_resnet_dict= {}
-                    complet_name = path_to_img + name_img + '.jpg'
+                    if database=='VOC12' or database=='Paintings':
+                        complet_name = path_to_img + name_img + '.jpg'
+                        name_sans_ext = name_img
+                    elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                        name_sans_ext = os.path.splitext(name_img)[0]
+                        complet_name = path_to_img +name_sans_ext + '.jpg'       
                     im = cv2.imread(complet_name)
-                    cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+                    
+                    cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, 
+                                                                                              net, im) # Arguments: im (ndarray): a color image in BGR order
                     features_resnet_dict[name_img] = fc7
                     
                     # Normally argmax roi_scores is 0
-                    out = fc7[np.argmax(roi_scores),:]
-                    features_resnet[i,:] = np.array(out)
+                    if feature_selection == 'MaxObject':
+                        out = fc7[np.argmax(roi_scores),:]
+                        features_resnet[i,:] = np.array(out)
+                    elif feature_selection =='meanObject':
+                        out = np.mean(fc7,axis=0)
+                        features_resnet[i,:] = np.array(out)
+                        
                     if database=='VOC12' or database=='Paintings':
                         for j in range(10):
                             if( classes[j] in df_label['classe'][i]):
                                 classes_vectors[i,j] = 1
-                    
-                X_train = features_resnet[df_label['set']=='train',:]
-                y_train = classes_vectors[df_label['set']=='train',:]
-                
-                X_test= features_resnet[df_label['set']=='test',:]
-                y_test = classes_vectors[df_label['set']=='test',:]
-                
-                X_val = features_resnet[df_label['set']=='validation',:]
-                y_val = classes_vectors[df_label['set']=='validation',:]
-                
-                print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
-                
-                Data = [X_train,y_train,X_test,y_test,X_val,y_val]
-                
+                 
                 pickle.dump(features_resnet_dict,pkl)
                 pkl.close()
-                
+                    
+                if database=='VOC12' or database=='Paintings':
+                    X_train = features_resnet[df_label['set']=='train',:]
+                    y_train = classes_vectors[df_label['set']=='train',:]
+                    X_test= features_resnet[df_label['set']=='test',:]
+                    y_test = classes_vectors[df_label['set']=='test',:]
+                    X_val = features_resnet[df_label['set']=='validation',:]
+                    y_val = classes_vectors[df_label['set']=='validation',:]
+                    #print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
+                    Data = [X_train,y_train,X_test,y_test,X_val,y_val]
+                elif database=='Wikidata_Paintings_miniset_verif':
+                    X_test= features_resnet[index_test,:]
+                    y_test = classes_vectors[index_test,:]
+                    X_trainval =features_resnet[index_trainval,:]
+                    y_trainval =  classes_vectors[index_trainval,:]
+                    Data = [X_trainval,y_trainval,X_test,y_test]
+                    
                 with open(name_pkl, 'wb') as pkl:
                     pickle.dump(Data,pkl)
-                
+
                 sess.close()
             
             # Compute the metric
-            print("CV_Crowley = True") 
+            if CV_Crowley :
+                print("CV_Crowley = True") 
+            else:
+                print("CV_Crowley = False")
+            if CV_Crowley and not(database == 'Paintings'):
+                print("This is not possible !!!")
+                CV_Crowley = False
+            if feature_selection=='MaxObject':
+                nms_thresh = None
+                
             Classification_evaluation(kind=demonet,kindnetwork='FasterRCNN',
-                                      database='Paintings',L2=False,augmentation=False,
-                                      classifier_name='LinearSVM',CV_Crowley=True)
-            print("CV_Crowley = False") 
-            Classification_evaluation(kind=demonet,kindnetwork='FasterRCNN',
-                                      database='Paintings',L2=False,augmentation=False,
-                                      classifier_name='LinearSVM',CV_Crowley=False)
- 
+                                      database=database,L2=False,augmentation=False,
+                                      classifier_name='LinearSVM',CV_Crowley=CV_Crowley,
+                                      feature_selection =feature_selection,nms_thresh=nms_thresh)
+             
+            
 def read_features_computePerfPaintings():
     """ Function to test if you can refind the same AP metric by reading the saved CNN features """
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
@@ -481,7 +534,7 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5):
     fig, ax = plt.subplots(figsize=(12, 12))
     ax.imshow(im, aspect='equal')
     for class_name,dets in zip(class_name_list,dets_list):
-        print(class_name,dets)
+        #print(class_name,dets)
         inds = np.where(dets[:, -1] >= thresh)[0]
         if not(len(inds) == 0):
             color = list_colors[i_color]
@@ -1010,7 +1063,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
-    elif(database=='Wikidata_Paintings'):
+    elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
     else:
@@ -1067,9 +1120,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     else:
       raise NotImplementedError
       
-    name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'
-    +str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
-    #name_pkl = path_data + 'testTL_withNMSthresholdProposal03.pkl'
+    name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
     
     net.create_architecture("TEST", nbClasses,
                           tag='default', anchor_scales=anchor_scales,
@@ -1078,13 +1129,18 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     saver.restore(sess, tfmodel)
     features_resnet_dict= {}
     pkl = open(name_pkl_all_features, 'wb')
+    Itera = 1000
     for i,name_img in  enumerate(df_label[item_name]):
-        if i%1000==0:
+        if i%Itera==0:
             if verbose : print(i,name_img)
             if not(i==0):
                 pickle.dump(features_resnet_dict,pkl) # Save the data
                 features_resnet_dict= {}
-        complet_name = path_to_img + name_img + '.jpg'
+        if database=='VOC12' or database=='Paintings':
+            complet_name = path_to_img + name_img + '.jpg'
+        elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+            name_sans_ext = os.path.splitext(name_img)[0]
+            complet_name = path_to_img +name_sans_ext + '.jpg'
         im = cv2.imread(complet_name)
         cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
         #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
@@ -1233,18 +1289,11 @@ def FasterRCNN_TL_MILSVM(reDo = False,normalisation=False):
     """
     print("Attention cette fonction ne fonctionne pas et je n'ai pas trouver le bug, il ne faut pas utiliser cette fonction mais plutot aller voir TL_MILSVM")
     TestMode_ComparisonWithBestObjectScoreKeep = True
-    classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     path_to_img = '/media/HDD/data/Painting_Dataset/'
     path = '/media/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt =path + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
-    #df_test = df_label[df_label['set']=='test']
-    #sLength = len(df_test['name_img'])
-    #sLength_all = len(df_label['name_img'])
-    #name_img = df_test['name_img'][0]
-    #i = 0
-    #y_test = np.zeros((sLength,10))
     NETS_Pretrained = {'res101_COCO' :'res101_faster_rcnn_iter_1190000.ckpt',
                    'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt',
                    'vgg16_COCO' :'vgg16_faster_rcnn_iter_1190000.ckpt'
@@ -1287,6 +1336,17 @@ def FasterRCNN_TL_MILSVM(reDo = False,normalisation=False):
             item_name = 'name_img'
             path_to_img = '/media/HDD/data/Painting_Dataset/'
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+        elif database=='VOC12':
+            item_name = 'name_img'
+            path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        elif(database=='Wikidata_Paintings'):
+            item_name = 'image'
+            path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+            raise NotImplemented # TODO implementer cela !!! 
+        elif(database=='Wikidata_Paintings_miniset_verif'):
+            item_name = 'image'
+            path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+            classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
         path_data = path
         N = 1
         extL2 = ''
@@ -1651,6 +1711,16 @@ if __name__ == '__main__':
     # RESNET152 sur COCO
     # VGG16 sur COCO
     # RES101 sur VOC12
-    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
-                                 augmentation=False,L2 =False,
-                                 saved='all',verbose=True)    
+#    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
+#                                 augmentation=False,L2 =False,
+#                                 saved='all',verbose=True)   
+    
+    # Test pour calculer les performances en prenant la moyenne des regions retournees par le réseau
+#    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',nms_thresh = 0.0)
+#    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxObject',
+#                                  nms_thresh = 0.7,database='Paintings') # Pour calculer les performances sur les paintings de Crowley 
+    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxObject',CV_Crowley=False,
+                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
+    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',CV_Crowley=False,
+                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
+    

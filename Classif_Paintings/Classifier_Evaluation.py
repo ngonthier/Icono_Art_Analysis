@@ -34,6 +34,7 @@ import os
 
 depicts_depictsLabel = {'Q467': 'woman','Q8441' : 'man','Q345': 'Mary','Q527':	'sky','Q10884'	: 'tree','Q942467'	: 'Child Jesus','Q8074':	'cloud','Q3010' :	'boy','Q302':	'Jesus Christ','Q1144593':'sitting','Q10791':	'nudity','Q7569':'child','Q726':	'horse','Q14130':	'long hair','Q7560': 'mother','Q107425':	'landscape','Q144': 'dog','Q8502':'mountain','Q235113':	'angel'}
 depictsAll = ['Q467','Q8441','Q345','Q527','Q10884','Q942467','Q8074','Q3010','Q302','Q1144593','Q10791','Q7569','Q726','Q14130','Q7560','Q107425','Q144','Q8502','Q235113']
+depicts_depictsLabel_miniset = {'Q942467_verif': 'Jesus_Child','Q235113_verif':'angel_Cupidon ','Q345_verif' :'Mary','Q109607_verif':'ruins','Q10791_verif': 'nudity'}
 
 
 
@@ -220,7 +221,9 @@ def HowAreSupport_of_SVM(kind='2048D',kindnetwork='InceptionResNetv2',database='
     
     return(0)
 
-def Classification_evaluation(kind='1536D',kindnetwork='InceptionResNetv2',database='Paintings',L2=True,augmentation=True,classifier_name='LinearSVM',CV_Crowley=True):
+def Classification_evaluation(kind='1536D',kindnetwork='InceptionResNetv2',database='Paintings',
+                              L2=True,augmentation=True,classifier_name='LinearSVM',CV_Crowley=True,
+                              feature_selection =None,nms_thresh=None):
     """
     kindnetwork in  [InceptionResNetv2,ResNet152]
     """
@@ -229,25 +232,43 @@ def Classification_evaluation(kind='1536D',kindnetwork='InceptionResNetv2',datab
     # This can be thought as predicting properties of a data-point that are not mutually exclusive
     if augmentation:
         N = 50
+    elif feature_selection =='meanObject':
+        N = 'mean'
     else:
         N =1
     if L2:
         extL2 = '_L2'
     else:
         extL2 = ''
+        
+    if nms_thresh is None:
+        str_nms_thresh = ''
+    else:
+        str_nms_thresh = '_' +str(nms_thresh)
     
-    classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    
+    if CV_Crowley and not(database == 'Paintings'):
+        CV_Crowley= False
+    
     if database == 'Paintings':
-        name_pkl = path_data + kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
+        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+        name_pkl = path_data + kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+str_nms_thresh+'.pkl'
         [X_train,y_train,X_test,y_test,X_val,y_val] = pickle.load(open(name_pkl, 'rb'))
+        print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
+        X_trainval = np.append(X_train,X_val,axis=0)
+        y_trainval = np.append(y_train,y_val,axis=0)
     elif database == 'VOC12':
+        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
         name_pkl =path_data + kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
         [X_train,y_train,_,_,X_val,y_val] = pickle.load(open(name_pkl, 'rb'))
         name_pkl = path_data + kindnetwork +'_' + kind +'_Paintings_N'+str(N)+extL2+'.pkl'
         [_,_,X_test,y_test,_,_] = pickle.load(open(name_pkl, 'rb'))
-    print(X_train.shape,y_train.shape,X_test.shape,y_test.shape,X_val.shape,y_val.shape)
-    X_trainval = np.append(X_train,X_val,axis=0)
-    y_trainval = np.append(y_train,y_val,axis=0)
+    elif(database=='Wikidata_Paintings_miniset_verif') or (database=='Wikidata_Paintings'):
+        classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
+        name_pkl = path_data + kindnetwork +'_' + kind +'_'+database+'_N'+str(N)+extL2+str_nms_thresh+'.pkl'
+        [X_trainval,y_trainval,X_test,y_test] = pickle.load(open(name_pkl, 'rb'))
+        print(X_trainval.shape,y_trainval.shape,X_test.shape,y_test.shape)
+    
         
 #    X_trainval =  normalize(X_trainval, axis=1, norm='l2')
 #    X_test =  normalize(X_test, axis=1, norm='l2')
@@ -261,7 +282,10 @@ def Classification_evaluation(kind='1536D',kindnetwork='InceptionResNetv2',datab
         cs = np.hstack((cs,[0.2,1,2]))
         #cs = np.logspace(-10,0,40)
         param_grid = dict(C=cs)
-        custom_cv = PredefinedSplit(np.hstack((-np.ones((1,X_train.shape[0])),np.zeros((1,X_val.shape[0])))).reshape(-1,1)) # For example, when using a validation set, set the test_fold to 0 for all samples that are part of the validation set, and to -1 for all other samples.
+        if CV_Crowley:
+            custom_cv = PredefinedSplit(np.hstack((-np.ones((1,X_train.shape[0])),np.zeros((1,X_val.shape[0])))).reshape(-1,1)) # For example, when using a validation set, set the test_fold to 0 for all samples that are part of the validation set, and to -1 for all other samples.
+        
+        
         ###custom_cv = PredefinedSplit(np.hstack((np.zeros((1,X_train.shape[0])),np.ones((1,X_val.shape[0])))).reshape(-1,1)) # For example, when using a validation set, set the test_fold to 0 for all samples that are part of the validation set, and to -1 for all other samples.
         #custom_cv = None
         # For custom_cv = zip(train_indices, test_indices) that's is used by Crowley but a better cross validation method is possible 
@@ -285,7 +309,10 @@ def Classification_evaluation(kind='1536D',kindnetwork='InceptionResNetv2',datab
             # Warning ! predict provide class labels for samples whereas decision_function provide confidence scores for samples.
             AP = average_precision_score(y_test[:,i],y_predict_confidence_score,average=None)
             AP_per_class += [AP]
-            print("Average Precision for",classe," = ",AP)
+            if (database=='Wikidata_Paintings_miniset_verif'):
+                print("Average Precision for",depicts_depictsLabel_miniset[classe]," = ",AP)
+            else:
+                print("Average Precision for",classe," = ",AP)
             
 #            recalls, precisions = VOCevalaction(y_test[:,i], y_predict_confidence_score) # To compare the AP computation
 #            AP_VOC12 = computeAveragePrecision(recalls, precisions, use_07_metric=False)

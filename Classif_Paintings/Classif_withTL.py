@@ -34,7 +34,7 @@ import base64
 import os
 import Classifier_Evaluation
 
-depicts_depictsLabel = {'Q942467_verif': 'Jesus Child','Q235113_verif':'angel/Cupidon ','Q345_verif' :'Mary','Q109607_verif':'ruins','Q10791_verif': 'nudity or breast'}
+depicts_depictsLabel = {'Q942467_verif': 'Jesus Child','Q235113_verif':'angel/Cupidon ','Q345_verif' :'Mary','Q109607_verif':'ruins','Q10791_verif': 'nudity'}
 
 def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',concate = True,L2=True,augmentation=True):
     """

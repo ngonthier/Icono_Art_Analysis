@@ -187,6 +187,7 @@ class MILSVM():
         pr1=sor1[0]
         mei=pr1.argmax(axis=1) # Indexes of the element that below to the right class normally
         score_mei=pr1.max(axis=1) # Indexes of the element that below to the right class normally
+        self.PositiveExScoreAll = pr1
         self.PositiveRegions = mei
         self.PositiveRegionsScore = score_mei
           
@@ -254,6 +255,9 @@ class MILSVM():
      
     def get_PositiveRegionsScore(self):
         return(self.PositiveRegionsScore.copy())
+     
+    def get_PositiveExScoreAll(self):
+        return(self.PositiveExScoreAll.copy())
         
     def get_NegativeRegions(self):
         return(self.NegativeRegions.copy())
