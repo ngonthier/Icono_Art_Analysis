@@ -124,6 +124,9 @@ def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxO
         y_test = np.zeros((sLength,10))
         classes_vectors = np.zeros((sLength_all,10))
     elif database=='Wikidata_Paintings_miniset_verif':
+        df_label = df_label[df_label['BadPhoto'] <= 0.0]
+#        5491 images avant
+#        5473 images gardees
         random_state = 0
         sLength_all = len(df_label[item_name])
         index = np.arange(0,sLength_all)
@@ -1069,8 +1072,12 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     else:
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+    
     databasetxt = path_data + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
+    if database=='Wikidata_Paintings_miniset_verif':
+        df_label = df_label[df_label['BadPhoto'] <= 0.0]
+    
     if augmentation:
         raise NotImplementedError
         N = 50
@@ -1087,8 +1094,6 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         savedstr = ''
     elif saved=='pool5':
         savedstr = '_pool5'
-    
-    df_label = pd.read_csv(databasetxt,sep=",")
     
     tf.reset_default_graph() # Needed to use different nets one after the other
     if verbose: print(demonet)
@@ -1719,8 +1724,8 @@ if __name__ == '__main__':
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',nms_thresh = 0.0)
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxObject',
 #                                  nms_thresh = 0.7,database='Paintings') # Pour calculer les performances sur les paintings de Crowley 
-    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxObject',CV_Crowley=False,
-                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
+#    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxObject',CV_Crowley=False,
+#                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
     run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',CV_Crowley=False,
                                   nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
     

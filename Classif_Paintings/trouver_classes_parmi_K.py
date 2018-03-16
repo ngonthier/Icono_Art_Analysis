@@ -124,7 +124,7 @@ class MILSVM():
         LR = self.LR # Regularisation loss
         np1,k,n = data_pos.shape
         np2,_,_ = data_neg.shape
-        if self.verbose :print(np1,k,n,np2)
+        if self.verbose :print("Shapes :",np1,k,n,np2)
         X1=tf.constant(data_pos,dtype=tft)
         X2=tf.constant(data_neg,dtype=tft)
         W=tf.placeholder(tft,[n])
@@ -133,18 +133,20 @@ class MILSVM():
         W1=tf.reshape(W,(1,1,n))
         
         Prod1=tf.reduce_sum(tf.multiply(W1,X1),axis=2)+b
-        Max1=tf.reduce_max(Prod1,axis=1)
-        Tan1=tf.reduce_sum(tf.tanh(Max1))/np1
+        Max1=tf.reduce_max(Prod1,axis=1) # We take the max because we have at least one element of the bag that is positive
+        Tan1=tf.reduce_sum(tf.tanh(Max1))/np1 # Sum onall the positive exemples 
         
         Prod2=tf.reduce_sum(tf.multiply(W1,X2),axis=2)+b
         if self.symway :
             Max2=tf.reduce_max(Prod2,axis=1)
         else:
-            Max2=tf.reduce_mean(Prod2,axis=1)
+            Max2=tf.reduce_mean(Prod2,axis=1) # TODO Il faut que tu check cela avec Said quand meme
         Tan2=tf.reduce_sum(tf.tanh(Max2))/np2
         
-        loss=Tan1-Tan2-self.C*tf.reduce_sum(W*W)
+        # TODO ne faudait il pas faire reduce_min pour le cas negative pour forcer a etre eloigne de tous ?
         
+        loss=Tan1-Tan2-self.C*tf.reduce_sum(W*W)  #ceci peut se résoudre par la methode classique des multiplicateurs de Lagrange
+         
         gr=tf.gradients(loss,[W,b])
         #print("Grad defined")
         config = tf.ConfigProto()

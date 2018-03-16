@@ -226,6 +226,7 @@ def Classification_evaluation(kind='1536D',kindnetwork='InceptionResNetv2',datab
                               feature_selection =None,nms_thresh=None):
     """
     kindnetwork in  [InceptionResNetv2,ResNet152]
+    Evaluation on Wikidata miniset or YourPaintings 
     """
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     # Multilabel classification assigns to each sample a set of target labels. 

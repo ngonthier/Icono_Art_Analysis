@@ -640,6 +640,8 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     databasetxt =path_data + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
+    if database=='Wikidata_Paintings_miniset_verif':
+        df_label = df_label[df_label['BadPhoto'] <= 0.0]
     N = 1
     extL2 = ''
     nms_thresh = 0.7
@@ -659,7 +661,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                                      saved='all',verbose=verbose)
         
     
-    if verbose: print("Start loading data")
+    if verbose: print("Start loading data",name_pkl)
     with open(name_pkl, 'rb') as pkl:
         for i,name_img in  enumerate(df_label[item_name]):
             if i%1000==0 and not(i==0):
@@ -694,7 +696,9 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
         random_state = 0
         index = np.arange(0,len(features_resnet_dict))
         index_trainval, index_test = train_test_split(index, test_size=0.6, random_state=random_state)
-    
+        index_trainval = np.sort(index_trainval)
+        index_test = np.sort(index_test)
+
     len_fc7 = []
     roi_test = {}
     roi_train = {}
@@ -891,7 +895,6 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                         name_sans_ext = name_img
                     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                         name_sans_ext = os.path.splitext(name_img)[0]
-                        print(name_sans_ext)
                         complet_name = path_to_img +name_sans_ext + '.jpg'
                     if verbose: print(k,name_sans_ext)
                     im = cv2.imread(complet_name)
@@ -911,9 +914,6 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                     vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
                     name_output = path_to_output2 +'Test/' + name_sans_ext  + '_Regions.jpg'
                     plt.savefig(name_output)
-                    plt.show()
-                    print("y_test[k,j",y_test[k,j])
-                    input("Wait input")
                     plt.close()
             else: 
                 labels_test_predited[k] =  0 # Label of the class 0 or 1
@@ -1238,5 +1238,5 @@ if __name__ == '__main__':
 #                                          PlotRegions = True)
     FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',
                                           database = 'Wikidata_Paintings_miniset_verif', 
-                                          verbose = True,testMode = False,jtest = 0,
+                                          verbose = False,testMode = False,jtest = 0,
                                           PlotRegions = True)

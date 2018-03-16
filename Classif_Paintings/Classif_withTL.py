@@ -427,6 +427,7 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
     databasetxt = path_data + database_verif + '.txt'
 
     df = pd.read_csv(databasetxt,sep=',')
+    print(len(df['image']),'images a la base')
     depicts = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
     colums_selected = ['image','BadPhoto']+depicts
     df_reduc = df[colums_selected]
