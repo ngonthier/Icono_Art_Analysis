@@ -138,7 +138,7 @@ class MILSVM():
         
         Prod2=tf.reduce_sum(tf.multiply(W1,X2),axis=2)+b
         if self.symway :
-            Max2=tf.reduce_max(Prod2,axis=1)
+            Max2=tf.reduce_max(Prod2,axis=1) # TODO attention tu as mis min au lieu de max ici
         else:
             Max2=tf.reduce_mean(Prod2,axis=1) # TODO Il faut que tu check cela avec Said quand meme
         Tan2=tf.reduce_sum(tf.tanh(Max2))/np2

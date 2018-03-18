@@ -1233,10 +1233,10 @@ if __name__ == '__main__':
 #    FasterRCNN_TL_MILSVM_ClassifOutMILSVM()
 #    petitTestIllustratif_RefineRegions()
 #    PlotRegionsLearnByMILSVM()
-#    FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Paintings', 
-#                                          verbose = True,testMode = True,jtest = 8,
+    FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Paintings', 
+                                          verbose = True,testMode = True,jtest = 6,
+                                          PlotRegions = False)
+#    FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',
+#                                          database = 'Wikidata_Paintings_miniset_verif', 
+#                                          verbose = False,testMode = False,jtest = 0,
 #                                          PlotRegions = True)
-    FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',
-                                          database = 'Wikidata_Paintings_miniset_verif', 
-                                          verbose = False,testMode = False,jtest = 0,
-                                          PlotRegions = True)
