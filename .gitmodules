@@ -1,3 +1,0 @@
-[submodule "Classif_Paintings/misvm"]
-	path = Classif_Paintings/misvm
-	url = git@github.com:garydoranjr/misvm.git
