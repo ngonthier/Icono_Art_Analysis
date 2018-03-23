@@ -47,6 +47,7 @@ from Classifier_Evaluation import Classification_evaluation
 import os.path
 import misvm # Library to do Multi Instance Learning with SVM
 from trouver_classes_parmi_K import MILSVM
+import pathlib
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -1291,8 +1292,10 @@ def FasterRCNN_TL_MILSVM(reDo = False,normalisation=False):
     @param normalisation : normalisation of the date before doing the MILSVM from Said
     Attention cette fonction ne fonctionne pas et je n'ai pas trouver le bug, il ne 
     faut pas utiliser cette fonction mais plutot aller voir TL_MILSVM
+    Cette fonction ne marche pas
     """
     print("Attention cette fonction ne fonctionne pas et je n'ai pas trouver le bug, il ne faut pas utiliser cette fonction mais plutot aller voir TL_MILSVM")
+    raise NotImplemented # TODO remove this function !
     TestMode_ComparisonWithBestObjectScoreKeep = True
     path_to_img = '/media/HDD/data/Painting_Dataset/'
     path = '/media/HDD/output_exp/ClassifPaintings/'
@@ -1617,6 +1620,9 @@ def FasterRCNN_TransferLearning_Test_Bidouille():
     
 def FasterRCNN_ImagesObject():
     DATA_DIR =  '/media/HDD/data/Art Paintings from Web/'
+    DATA_DIR =  '/media/HDD/data/Fondazione_Zeri/Selection_Olivier/'
+    output_DIR = '/media/HDD/output_exp/ClassifPaintings/Zeri/'
+    pathlib.Path(output_DIR).mkdir(parents=True, exist_ok=True)
     demonet = 'res152_COCO'
     tf.reset_default_graph() # Needed to use different nets one after the other
     print(demonet)
@@ -1676,8 +1682,8 @@ def FasterRCNN_ImagesObject():
         print(scores.shape)
         #print(scores)
         
-        CONF_THRESH = 0.5
-        NMS_THRESH = 0.3 # non max suppression
+        CONF_THRESH = 0.75
+        NMS_THRESH = 0.5 # non max suppression
         cls_list = []
         dets_list = []
         for cls_ind, cls in enumerate(CLASSES[1:]):
@@ -1694,7 +1700,7 @@ def FasterRCNN_ImagesObject():
             if(len(inds)>0):
                 print(CLASSES[cls_ind])
         vis_detections_list(im, cls_list, dets_list, thresh=CONF_THRESH)
-        name_output = 'output_FasterRCNN/' + im_name_wt_ext + '_FasterRCNN.jpg'
+        name_output = output_DIR + im_name_wt_ext + '_FasterRCNN.jpg'
         plt.savefig(name_output)
     plt.show()
     sess.close()
@@ -1708,7 +1714,7 @@ if __name__ == '__main__':
 #    read_features_computePerfPaintings()
 #    FasterRCNN_TransferLearning_misvm()
 #    FasterRCNN_TL_MILSVM()
-    #FasterRCNN_ImagesObject()
+    FasterRCNN_ImagesObject()
     #run_FasterRCNN_demo()
     #run_FasterRCNN_Perf_Paintings()
     # List des nets a tester : VGG16-VOC12
@@ -1726,6 +1732,6 @@ if __name__ == '__main__':
 #                                  nms_thresh = 0.7,database='Paintings') # Pour calculer les performances sur les paintings de Crowley 
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxObject',CV_Crowley=False,
 #                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
-    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',CV_Crowley=False,
-                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
-    
+#    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',CV_Crowley=False,
+#                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
+#    
