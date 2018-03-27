@@ -40,19 +40,24 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',concate
     """
     Inception ResNet v2 take RGB image as input
     """
-    path_data = 'data/'
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
     if database=='Paintings':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/Painting_Dataset/' 
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
-    elif(database=='Wikidata_Paintings'):
+    elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/299/'
+        if not(augmentation):
+            path_to_img = '/media/HDD/data/Wikidata_Paintings/299/'
+        else:
+            path_to_img = '/media/HDD/data/Wikidata_Paintings/340/'
     else:
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/299/'
+
+        
     databasetxt = path_data + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
     if augmentation:
@@ -112,7 +117,7 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',concate
                     im = im[:,:,[2,1,0]] # To shift from BGR to RGB
                     # normalily it is 299
                     if augmentation:
-                        sizeIm = 335
+                        sizeIm = 340
                     else:
                         sizeIm = 299
                     if(im.shape[0] < im.shape[1]):
@@ -135,8 +140,9 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',concate
                     if L2:
                         out_norm = LA.norm(out_average) # L2 norm 
                         out= out_average/out_norm
-                else:
-                    # Crop the center
+                    else:
+                        out = out_average
+                else: # Without augmentation
                     im = resized[int(resized.shape[0]/2 - 149):int(resized.shape[0]/2 +150),int(resized.shape[1]/2-149):int(resized.shape[1]/2+150),:]
                     im = im.reshape(-1,299,299,3)
                     net_values, _ = sess.run([net,end_points], feed_dict={input_tensor: im})
@@ -161,21 +167,24 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',concate
         
     return(features_resnet)
     
-def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',concate = True,L2=False,augmentation=False):
+def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',concate = False,L2=False,augmentation=False):
     """
     Inception ResNet v2 take RGB image as input
     """
     
-    path_data = 'data/'
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
     if database=='Paintings':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/Painting_Dataset/' 
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
-    elif(database=='Wikidata_Paintings'):
+    elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
+        if not(augmentation):
+            path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
+        else:
+            path_to_img = '/media/HDD/data/Wikidata_Paintings/256/'
     else:
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
@@ -265,6 +274,8 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',concate = Tr
                     if L2:
                         out_norm = LA.norm(out_average) # L2 norm 
                         out= out_average/out_norm
+                    else:
+                        out = out_average
                 else:
                     crop = resizedf[int(resized.shape[0]/2 - 112):int(resized.shape[0]/2 +112),int(resized.shape[1]/2-112):int(resized.shape[1]/2+112),:]        
                     ims = np.expand_dims(crop, axis=0)
@@ -290,21 +301,24 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',concate = Tr
         
     return(features_resnet)
     
-def Compute_ResNet(kind='2048D',database='Paintings',concate = True,L2=False,augmentation=False):
+def Compute_ResNet(kind='2048D',database='Paintings',concate = False,L2=False,augmentation=False):
     """
     Inception ResNet v2 take RGB image as input
     """
 
-    path_data = 'data/'
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
     if database=='Paintings':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/Painting_Dataset/' 
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
-    elif(database=='Wikidata_Paintings'):
+    elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
+        if not(augmentation):
+            path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
+        else:
+            path_to_img = '/media/HDD/data/Wikidata_Paintings/256/'
     else:
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
@@ -381,6 +395,8 @@ def Compute_ResNet(kind='2048D',database='Paintings',concate = True,L2=False,aug
                 if L2:
                     out_norm = LA.norm(out_average) # L2 norm 
                     out= out_average/out_norm
+                else:
+                    out = out_average
             else:
                 crop = resizedf[int(resized.shape[0]/2 - 112):int(resized.shape[0]/2 +112),int(resized.shape[1]/2-112):int(resized.shape[1]/2+112),:]        
                 crop = np.expand_dims(crop, axis=0)
@@ -405,9 +421,11 @@ def Compute_ResNet(kind='2048D',database='Paintings',concate = True,L2=False,aug
         
     return(features_resnet)
     
-def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings',L2=False,augmentation=False):
+def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings',L2=False,augmentation=False, database_verif = 'Wikidata_Paintings_miniset_verif'):
     """
     kindnetwork in  [InceptionResNetv2,ResNet152]
+    @param database_verif = 'Wikidata_Paintings_subset_verif'
+    
     """
     plot_fp_fn = True
     print('===>',kindnetwork,kind)
@@ -421,11 +439,8 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
         extL2 = '_L2'
     else:
         extL2 = ''
-    path_data = 'data/'
-    database_verif = 'Wikidata_Paintings_subset_verif' # TODO changer cela
-
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
     databasetxt = path_data + database_verif + '.txt'
-
     df = pd.read_csv(databasetxt,sep=',')
     print(len(df['image']),'images a la base')
     depicts = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
@@ -612,7 +627,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
         extL2 = '_L2'
     else:
         extL2 = ''
-    path_data = 'data/'
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
     database_verif = 'Wikidata_Paintings_miniset_verif' # TODO changer cela
 
     databasetxt = path_data + database_verif + '.txt'
@@ -888,7 +903,7 @@ def TL_RawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database=
         extL2 = '_L2'
     else:
         extL2 = ''
-    path_data = 'data/'
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
     database_verif = 'Wikidata_Paintings_miniset_verif' # TODO changer cela
 
     databasetxt = path_data + database_verif + '.txt'
@@ -956,7 +971,7 @@ def TL_RawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database=
 def vision_of_data():
     import math
     database_verif = 'Wikidata_Paintings_miniset_verif' # TODO changer cela
-    path_data = 'data/'
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
     databasetxt = path_data + database_verif + '.txt'
     databaseArtist = path_data +'Dates_Artists_rewied.csv'
     df_artists = pd.read_csv(databaseArtist)
@@ -1083,17 +1098,18 @@ def vision_of_data():
     
 if __name__ == '__main__':
     
-    #compute_InceptionResNetv2_features(kind='1536D',database='Paintings',concate = False,L2=False,augmentation=False)
-    #Compute_ResNet(kind='2048D',database='Wikidata_Paintings',L2=False,augmentation=False)
-    #compute_VGG_features(VGG='19',kind='fuco7',database='Wikidata_Paintings',L2=False,augmentation=False)
-    #TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
+    #compute_InceptionResNetv2_features(kind='1536D',database='Wikidata_Paintings_miniset',concate = False,L2=False,augmentation=True)
+   #TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
     #TL_RawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
     #TL_RawFeatures_JustAP(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
     #TL_RawFeatures_JustAP(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
     
-    TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
-    TransferLearning_onRawFeatures(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
-    TransferLearning_onRawFeatures(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings',L2=False,augmentation=False)
+    #TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
+    #Compute_ResNet(kind='2048D',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
+    #TransferLearning_onRawFeatures(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
+    compute_VGG_features(VGG='19',kind='relu7',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
+    
+    TransferLearning_onRawFeatures(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
 
 #    TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
 #    TransferLearning_onRawFeatures_protocol(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)

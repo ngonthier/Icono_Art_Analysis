@@ -48,6 +48,7 @@ import os.path
 import misvm # Library to do Multi Instance Learning with SVM
 from trouver_classes_parmi_K import MILSVM
 import pathlib
+from tool_on_Regions import reduce_to_k_regions
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -1205,14 +1206,16 @@ def Illus_NMS_threshold_test():
     list_name_img = ['dog','acc_acc_ac_5289_624x544','not_ncmg_1941_23_624x544',
                      'Albertinelli Franciabigio Vièrge et saints','1979.18 01 p01',
                      'abd_aag_003796_624x544',
+                     'Adam Elsheimer - Il Contento - WGA7492',
                      'Accademia - The Mystic Marriage of St. Catherine by Veronese'] # First come from Your Paintings and second from Wikidata
     list_dog = ['ny_yag_yorag_326_624x544', 'dur_dbm_770_624x544', 'ntii_skh_1196043_624x544', 'nti_ldk_884912_624x544', 'syo_bha_90009742_624x544', 'tate_tate_t00888_10_624x544', 'ntii_lyp_500458_624x544', 'ny_yag_yorag_37_b_624x544', 'ngs_ngs_ng_1193_f_624x544', 'dur_dbm_533_624x544']
     list_name_img += list_dog
-    list_nms_thresh = [0.0,0.1,0.7]
+    list_nms_thresh = [0.7,0.0,0.1]
     nms_thresh = list_nms_thresh[0]
     # First we test with a high threshold !!!
     plt.ion()
     for nms_thresh in list_nms_thresh:
+        plt.close('all')
         sess = tf.Session(config=tfconfig)
         print("nms_thresh",nms_thresh)
         net.create_architecture("TEST", nbClasses,
@@ -1257,13 +1260,30 @@ def Illus_NMS_threshold_test():
                 plt.savefig(name_output)
             if(nms_thresh==0.7):
                 roi_boxes =  rois[:,1:5] / im_scales[0]
+                print(roi_boxes.shape,roi_scores.shape)
                 roi_boxes_and_score = np.concatenate((roi_boxes,roi_scores),axis=1)
                 cls = ['object']*len(roi_boxes_and_score)
                 #print(best_roi_boxes)
                 vis_detections_list(im, cls, [roi_boxes_and_score], thresh=0.0)
                 name_output = path_to_output + name_img + '_threshold_'+str(nms_thresh)+'_allBoxes.jpg'
                 plt.savefig(name_output)
-                
+                k = 30
+                new_nms_thresh = 0.0
+                score_threshold = 0.1
+                minimal_surface = 36*36
+                fc7 = np.zeros_like(roi_scores)
+                rois,roi_scores, _ = reduce_to_k_regions(k,rois,roi_scores, fc7,new_nms_thresh,score_threshold,minimal_surface)
+                roi_boxes =  rois[:,1:5] / im_scales[0]
+                roi_scores = np.expand_dims(roi_scores,axis=1)
+                print(roi_boxes.shape,roi_scores.shape)
+                roi_boxes_and_score = np.concatenate((roi_boxes,roi_scores),axis=1)
+                cls = ['object']*len(roi_boxes_and_score)
+                #print(best_roi_boxes)
+                vis_detections_list(im, cls, [roi_boxes_and_score], thresh=0.0)
+                name_output = path_to_output + name_img + '_threshold_'+str(nms_thresh)+'_reduceBoxes.jpg'
+                plt.savefig(name_output)
+                plt.show()
+
             # Plot the k first score zone  
             k = 5
             roi_boxes =  rois[:,1:5] / im_scales[0]
@@ -1275,13 +1295,13 @@ def Illus_NMS_threshold_test():
             name_output = path_to_output + name_img + '_threshold_'+str(nms_thresh)+'_'+str(k)+'Boxes.jpg'
             plt.savefig(name_output)
             
+            
+            
         plt.close('all')
         tf.reset_default_graph()
         sess.close()
-        
-    
-    
     return(0) # Not really necessary indead
+         
         
 def FasterRCNN_TL_MILSVM(reDo = False,normalisation=False):
     """
@@ -1708,13 +1728,13 @@ def FasterRCNN_ImagesObject():
         
 if __name__ == '__main__':
     ## Faster RCNN re-scale  the  images  such  that  their  shorter  side  = 600 pixels  
-#    Illus_NMS_threshold_test()
+    Illus_NMS_threshold_test()
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=True)
 #    FasterRCNN_TL_MILSVM(reDo = False,normalisation=False)
 #    read_features_computePerfPaintings()
 #    FasterRCNN_TransferLearning_misvm()
 #    FasterRCNN_TL_MILSVM()
-    FasterRCNN_ImagesObject()
+    #FasterRCNN_ImagesObject()
     #run_FasterRCNN_demo()
     #run_FasterRCNN_Perf_Paintings()
     # List des nets a tester : VGG16-VOC12

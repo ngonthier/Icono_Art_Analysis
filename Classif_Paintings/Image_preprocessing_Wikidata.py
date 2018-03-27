@@ -32,7 +32,7 @@ def resize(bigger_size_tab=[229],data='Prints',cv2bool = True):
     # Define a timeout for my function
     signal.alarm(1200)
     print(data,str(bigger_size_tab))
-    origin_path = '/media/gonthier/Lacie Grey Gonthier/data/'
+    origin_path = '/media/HDD/dataRaw/'
     folder = 'Wikidata_'+data+'/'
     read_path= origin_path + folder
     target_path = '/media/HDD/data/'
@@ -60,13 +60,17 @@ def resize(bigger_size_tab=[229],data='Prints',cv2bool = True):
             else:
                 continue
         elif ext.lower()==".gif":
-            new_name = ext = os.path.splitext(f)[0] +'.jpg'
-            print(new_name)
+            to_open = read_path + f
+            new_name = os.path.splitext(f)[0] +'.jpg'
+            print('Gif !!',new_name)
             test = read_path + new_name
-            if os.path.exists(test):
-               f = new_name
-            else:
-                print("Gif Images, you need to convert it")
+            if not(os.path.exists(test)):
+                Image.open(to_open).convert('RGB').save(test)
+            os.remove(to_open)
+            f = new_name
+            print("Gif Images, have been modified")
+            input('wait !!!')
+                
         to_open = read_path + f
         try:
             already_created = True
