@@ -86,6 +86,15 @@ NETS_Pretrained = {'vgg16_VOC07' :'vgg16_faster_rcnn_iter_70000.ckpt',
 CLASSES_SET ={'VOC' : CLASSESVOC,
               'COCO' : CLASSESCOCO }
 
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+def _int64_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+def _floats_feature(value):
+  return tf.train.Feature(float_list=tf.train.FloatList(value=value.reshape(-1)))
+
 def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxObject',
                                   nms_thresh = 0.0,CV_Crowley=True,database='Paintings'):
     """
@@ -1053,7 +1062,7 @@ def FasterRCNN_TransferLearning_misvm():
         
 def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
                                  augmentation=False,L2 =False,
-                                 saved='all',verbose=True):
+                                 saved='all',verbose=True,filesave='pkl'):
     """
     @param : demonet : teh kind of inside network used it can be 'vgg16_VOC07',
         'vgg16_VOC12','vgg16_COCO','res101_VOC12','res101_COCO','res152_COCO'
@@ -1127,39 +1136,107 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     else:
       raise NotImplementedError
       
-    name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
-    
+   
     net.create_architecture("TEST", nbClasses,
                           tag='default', anchor_scales=anchor_scales,
                           modeTL= True,nms_thresh=nms_thresh)
     saver = tf.train.Saver()
     saver.restore(sess, tfmodel)
     features_resnet_dict= {}
-    pkl = open(name_pkl_all_features, 'wb')
+    
+    sets = ['train','val','trainval','test']
+    
+    if filesave == 'pkl':
+        name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
+        pkl = open(name_pkl_all_features, 'wb')
+    elif filesave =='tfrecords':
+        dict_writers = {}
+        for set_str in sets:
+            name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
+            dict_writers[set_str] = tf.python_io.TFRecordWriter(name_pkl_all_features)
+        if database=='Paintings':
+            item_name = 'name_img'
+            classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    
+        
+        
     Itera = 1000
     for i,name_img in  enumerate(df_label[item_name]):
-        if i%Itera==0:
-            if verbose : print(i,name_img)
-            if not(i==0):
-                pickle.dump(features_resnet_dict,pkl) # Save the data
-                features_resnet_dict= {}
-        if database=='VOC12' or database=='Paintings':
-            complet_name = path_to_img + name_img + '.jpg'
-        elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
-            name_sans_ext = os.path.splitext(name_img)[0]
-            complet_name = path_to_img +name_sans_ext + '.jpg'
-        im = cv2.imread(complet_name)
-        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
-        #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
-        if saved=='fc7':
-            features_resnet_dict[name_img] = fc7
-        elif saved=='pool5':
-            features_resnet_dict[name_img] = pool5
-        elif saved=='all':
-            features_resnet_dict[name_img] = rois,roi_scores,fc7
+        if filesave=='pkl':
+            if i%Itera==0:
+                if verbose : print(i,name_img)
+                if not(i==0):
+                    pickle.dump(features_resnet_dict,pkl) # Save the data
+                    features_resnet_dict= {}
+            if database=='VOC12' or database=='Paintings':
+                complet_name = path_to_img + name_img + '.jpg'
+            elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                name_sans_ext = os.path.splitext(name_img)[0]
+                complet_name = path_to_img +name_sans_ext + '.jpg'
+            im = cv2.imread(complet_name)
+            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+            #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
+            if saved=='fc7':
+                features_resnet_dict[name_img] = fc7
+            elif saved=='pool5':
+                features_resnet_dict[name_img] = pool5
+            elif saved=='all':
+                features_resnet_dict[name_img] = rois,roi_scores,fc7
+                
+        elif filesave=='tfrecords':
+            if i%Itera==0:
+                if verbose : print(i,name_img)
+            if database=='VOC12' or database=='Paintings':
+                complet_name = path_to_img + name_img + '.jpg'
+                name_sans_ext = name_img
+            elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                name_sans_ext = os.path.splitext(name_img)[0]
+                complet_name = path_to_img +name_sans_ext + '.jpg'
+            im = cv2.imread(complet_name)
+            height = im.shape[0]
+            width = im.shape[1]
+            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+            num_regions = fc7.shape[0]
+            num_features = fc7.shape[1]
+            dim1_rois = rois.shape[1]
+            classes_vectors = np.zeros((10,1))
+            if database=='Paintings':
+                for j in range(10):
+                    if(classes[j] in df_label['classe'][i]):
+                        classes_vectors[j] = 1
+            
+            #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
+            if saved=='fc7':
+                raise(NotImplemented)
+            elif saved=='pool5':
+                raise(NotImplemented)
+            elif saved=='all':
+                example = tf.train.Example(features=tf.train.Features(feature={
+                    'height': _int64_feature(height),
+                    'width': _int64_feature(width),
+                    'num_regions': _int64_feature(num_regions),
+                    'num_features': _int64_feature(num_features),
+                    'dim1_rois': _int64_feature(dim1_rois),
+                    'rois': _floats_feature(rois),
+                    'roi_scores': _floats_feature(roi_scores),
+                    'fc7': _floats_feature(fc7),
+                    'label' : _bytes_feature(classes_vectors.tostring()),
+                    'name_img' : _bytes_feature(str.encode(name_sans_ext))}))
+                if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
+                    dict_writers['train'].write(example.SerializeToString())
+                    dict_writers['trainval'].write(example.SerializeToString())
+                elif (df_label.loc[df_label[item_name]==name_img]['set']=='validation').any():
+                    dict_writers['val'].write(example.SerializeToString())
+                    dict_writers['trainval'].write(example.SerializeToString())
+                elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
+                    dict_writers['test'].write(example.SerializeToString())
 
-    pickle.dump(features_resnet_dict,pkl)
-    pkl.close()
+    if filesave=='pkl':
+        pickle.dump(features_resnet_dict,pkl)
+        pkl.close()
+    elif filesave=='tfrecords':
+        for set_str  in sets:
+            dict_writers[set_str].close()
         
 def Illus_NMS_threshold_test():
     """
@@ -1728,7 +1805,7 @@ def FasterRCNN_ImagesObject():
         
 if __name__ == '__main__':
     ## Faster RCNN re-scale  the  images  such  that  their  shorter  side  = 600 pixels  
-    Illus_NMS_threshold_test()
+#    Illus_NMS_threshold_test()
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=True)
 #    FasterRCNN_TL_MILSVM(reDo = False,normalisation=False)
 #    read_features_computePerfPaintings()
@@ -1742,9 +1819,9 @@ if __name__ == '__main__':
     # RESNET152 sur COCO
     # VGG16 sur COCO
     # RES101 sur VOC12
-#    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
-#                                 augmentation=False,L2 =False,
-#                                 saved='all',verbose=True)   
+    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
+                                 augmentation=False,L2 =False,
+                                 saved='all',verbose=True,filesave='tfrecords')   
     
     # Test pour calculer les performances en prenant la moyenne des regions retournees par le réseau
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',nms_thresh = 0.0)

@@ -55,10 +55,11 @@ class MISVM(SIL):
             if issparse(mx):
                 return mx.todense()
             return np.asmatrix(mx)
-
+        input("Enter")
         self._bags = [transform(bag) for bag in bags]
+        #self._bags = bags
         y = np.asmatrix(y).reshape((-1, 1))
-
+        input("here -1") 
         bs = BagSplitter(self._bags, y)
         best_obj = float('inf')
         best_svm = None
@@ -71,8 +72,10 @@ class MISVM(SIL):
                 if self.verbose:
                     print('Random restart %d of %d...' % (rr, self.restarts))
                 pos_bag_avgs = np.vstack([rand_convex(len(bag)) * bag for bag in bs.pos_bags])
-
+            input("here 1") 
             intial_instances = np.vstack([bs.neg_instances, pos_bag_avgs])
+            print("here")
+            input("here")
             classes = np.vstack([-np.ones((bs.L_n, 1)),
                                  np.ones((bs.X_p, 1))])
 
@@ -82,8 +85,8 @@ class MISVM(SIL):
             else:
                 C = self.C
 #            setup = self._setup_svm(intial_instances, classes, C) 
-            print(intial_instances.shape)
-            print(classes.shape)
+            #print(intial_instances.shape)
+            #print(classes.shape)
             setup = self.fit(intial_instances, classes) 
             K = setup[0]
             qp = IterativeQP(*setup[1:])

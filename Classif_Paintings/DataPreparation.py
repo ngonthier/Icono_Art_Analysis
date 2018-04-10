@@ -46,7 +46,7 @@ def fusion_wikidata(x):
                         country = x['country'].min(),
                         year = x['year'].min(),depictsLabel =  "%s" % ' '.join(x['depictsLabel'])
                         ))
-depicts_depictsLabel = {'Q18281':'embroidery','Q148993':'broad_leaved_tree','Q10884':'tree','Q193893':'capital','Q4817':'column','Q12511':'stairs','Q3289701':'step','Q42804':'beard','Q3575260':'jewellery','Q467': 'woman','Q8441' : 'man','Q345': 'Mary','Q527':	'sky','Q10884'	: 'tree','Q942467'	: 'Child Jesus','Q8074':	'cloud','Q3010' :	'boy','Q302':	'Jesus Christ','Q1144593':'sitting','Q10791':	'nudity','Q7569':'child','Q726':	'horse','Q14130':	'long hair','Q7560': 'mother','Q107425':	'landscape','Q144': 'dog','Q8502':'mountain','Q235113':	'angel'}
+depicts_depictsLabel = {'Q109607':'ruins','Q3039121':'drapery','Q18281':'embroidery','Q148993':'broad_leaved_tree','Q10884':'tree','Q193893':'capital','Q4817':'column','Q12511':'stairs','Q3289701':'step','Q42804':'beard','Q3575260':'jewellery','Q467': 'woman','Q8441' : 'man','Q345': 'Mary','Q527':	'sky','Q10884'	: 'tree','Q942467'	: 'Child Jesus','Q8074':	'cloud','Q3010' :	'boy','Q302':	'Jesus Christ','Q1144593':'sitting','Q10791':	'nudity','Q7569':'child','Q726':	'horse','Q14130':	'long hair','Q7560': 'mother','Q107425':	'landscape','Q144': 'dog','Q8502':'mountain','Q235113':	'angel'}
 
 
 # Chercher des chapitaux dans stairs et steps, column 
@@ -534,12 +534,12 @@ def CreationMiniSet10C():
     """
     Creation du Miniset 10 classes
     Les classes seront Mary, Jesus Child, Ruins, nudite, ange,
-    barbe, Chapiteau, bijou,arbre feuillu, broderie
+    barbe, Chapiteau, bijou,arbre feuillu, drapery
     
     
     """
     
-    LabelsFor10c = ['Q3575260','Q42804','Q3289701','Q12511','Q4817','Q193893',
+    LabelsFor10c = ['Q3039121','Q3575260','Q42804','Q3289701','Q12511','Q4817','Q193893',
                     'Q148993','Q18281','Q345','Q942467','Q302','Q10791','Q235113',
                     'Q109607','Q63070','Q40662','Q179718','Q1698874','Q47652',
                     'Q183332','Q328804','Q83772','Q998','Q44015','Q51636','Q15223957',
@@ -598,7 +598,12 @@ def CreationMiniSet10C():
     #print("Wikidata Paintings")
     print(df_copy2.head(2))
     number_paitings = len(df_copy2['image'])
-    print("Number of Paintings : ",number_paitings)
+    print("Number of Paintings : ",number_paitings) # 88323 au 30 mars 2018
+    
+    # Need to merge with Wikidata_Paintings_miniset_verif
+    name_file_verif = '/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset_verif.txt'
+    df_verif = pd.read_csv(name_file_verif, sep=",")
+    
     list_image_with_it = []
     for depict in LabelsFor10c:
         df_copy2[depict] = Series(np.zeros(number_paitings), index=df_copy2.index)
@@ -606,6 +611,7 @@ def CreationMiniSet10C():
         # Create the list of the image with the depict elt
         for i in range(number_paitings):
             depicts_elts = df_copy2.iloc[i]['depicts']
+#            name_img = df_copy2.iloc[i]['image']
             #print(depicts_elts)
             if not('nan' in str(depicts_elts)):
                 if contains_word(depicts_elts,depict):
@@ -617,25 +623,28 @@ def CreationMiniSet10C():
     list_image_with_it = np.unique(list_image_with_it) 
     df_new = df_copy2.loc[list_image_with_it]
     print("Number of image in this subset",len(df_new['image_url']))
-    df_new.to_csv('/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset10c.txt', index=None, sep=',', mode='w')
+    df_new.to_csv('/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset10cRaw.csv', index=None, sep=',', mode='w')
     
-    # TODO finir ici 
+    # Merge
+    df_merge = df_new.merge(df_verif,how='outer')
+    df_merge.to_csv('/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset10cMerge.csv', index=None, sep=',', mode='w')
+   
+    df22 = df_merge.sort_values('Q109607_verif',ascending=False)
+    df222 = df22.drop_duplicates(subset=['item'],keep='first')
+    df2 = df222.drop_duplicates(subset=['image'],keep='first')
+    databasetxt2 = '/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset10cMerge3.csv'
+    df2.to_csv(databasetxt2)
+    
+    
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    database='Wikidata_Paintings'
+    databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge3.csv'  #6576 images
+    df = pd.read_csv(databasetxt,sep=",")
+    df = df[df['BadPhoto'] <= 0.0]
+    print(len(df))
     
     database='Wikidata_Paintings'
-    allelt = False
-    df = df_new.copy()
-    #df = df.drop_duplicates(subset='image', keep="last")
-    #print(df)
-    if not (allelt):
-        depictsAll = ['Q467','Q8441','Q345','Q527','Q10884','Q942467','Q8074','Q3010','Q302','Q1144593','Q10791','Q7569','Q726','Q14130','Q7560','Q107425','Q144','Q8502','Q235113']
-        np_classes = df.as_matrix(columns=depictsAll)
-        print(np_classes.shape)
-        index_image_with_at_least_one_of_the_class = np.where(np.sum(np_classes,axis=1) > 0)
-        name_tab_index =  index_image_with_at_least_one_of_the_class[0]
-        print("Number of image :",len(name_tab_index))
-        print("Number of image :",len(np.unique(name_tab_index)))
-    else:
-        name_tab_index = np.array(df.index)
+    name_tab_index = np.array(df.index)
     folder=database +'/'
     target_path = '/media/HDD/data/'
     write_data = target_path + folder 
@@ -645,44 +654,120 @@ def CreationMiniSet10C():
     numberIm = 0
     do_mkdir(dstfolder)
     list_of_im  =[]
-    numberOfFolder = 0
-    diff_folder = False
-    if diff_folder:
-        numberOfFolder = 0
-        numberOfFolder_str = str(0)+ '/'
-    else:
-        numberOfFolder_str = ''
     for i in name_tab_index:
         if numberIm%500 == 0:
             print("numberIm",numberIm)
-            dstfoldernew = dstfolder + numberOfFolder_str 
-            print(dstfoldernew)
-            do_mkdir(dstfoldernew)
-            if diff_folder:
-                numberOfFolder_str = str(numberOfFolder)+ '/'
-                numberOfFolder += 1
         name = df['image'][i]
-        if name in list_of_im:
-            print(name," already read! indice = ",i,"Q index = ",df['item'][i])
-            print(df[df['image']==name])
-            #print(df[df['item']==df['item'][i]])
         list_of_im += [name]
         name_tab = name.split('.')
         name_tab[-1] = 'jpg'
         namejpg = ".".join(name_tab)
         src = read_data + namejpg
-        dst = dstfoldernew + namejpg
+        dst = dstfolder + namejpg
         copyfile(src, dst)
         if os.path.exists(dst):
             numberIm +=1 
         else:
             print("Image not copied",dst)
-    print("Number of image copied",numberIm)
+    print("Number of image copied",numberIm) # 6554  ici
     
     
     
     
     return(0)
+
+def MiseDeCote10c():
+    """
+    Creation du MiniSet10c
+    """
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    database='Wikidata_Paintings'
+    databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge3.csv'  #6528 images
+    allelt = True
+    df = pd.read_csv(databasetxt,sep=",")
+    print(df.head(5))
+    df = df[df['BadPhoto'] <= 0.0]
+    df = df.replace(np.nan,-1)
+    print(df.head(5))
+    #df = df.drop_duplicates(subset='image', keep="last")
+    print(len(df))
+    copyMode = True
+    classes10c = ['Q3039121','Q235113','Q148993','Q193893','Q3575260','Q345','Q42804','Q942467','Q10791','Q109607']
+    oldclasses = ['Q942467','Q235113','Q345','Q109607','Q10791']
+
+    for classe_a_annotee in classes10c:
+        print(classe_a_annotee,depicts_depictsLabel[classe_a_annotee])
+        if copyMode:
+            if not (allelt):
+                depictsAll = ['Q467','Q8441','Q345','Q527','Q10884','Q942467','Q8074','Q3010','Q302','Q1144593','Q10791','Q7569','Q726','Q14130','Q7560','Q107425','Q144','Q8502','Q235113']
+                np_classes = df.as_matrix(columns=depictsAll)
+                print(np_classes.shape)
+                index_image_with_at_least_one_of_the_class = np.where(np.sum(np_classes,axis=1) > 0)
+                name_tab_index =  index_image_with_at_least_one_of_the_class[0]
+                print("Number of image :",len(name_tab_index),'==?',len(np.unique(name_tab_index)))
+            else:
+                if classe_a_annotee in oldclasses:
+                    classe_a_annotee_verif = classe_a_annotee + '_verif'
+                    np_classes = df.as_matrix(columns=[classe_a_annotee_verif])
+                    name_tab_index = np.where(np_classes <= -1)[0]
+                else:
+                    np_classes = df.as_matrix(columns=[classe_a_annotee])
+                    name_tab_index = np.where(np_classes <= 0.0)[0]
+                print(np_classes.shape)
+                
+                print(depicts_depictsLabel[classe_a_annotee],"len(name_tab_index)",len(name_tab_index))
+                if classe_a_annotee in oldclasses:
+                    name_tab_index2 = np.where(np_classes > 0)[0]
+                    print("et len(name_tab_index2)",len(name_tab_index2))
+    
+            folder=database +'/'
+            target_path = '/media/HDD/data/'
+            write_data = target_path + folder 
+            bigger_size = 600
+            read_data = write_data + str(bigger_size) + '/'
+            dstfolder=  write_data + 'Not_' + classe_a_annotee +'_'+depicts_depictsLabel[classe_a_annotee]+ '/'
+            numberIm = 0
+            do_mkdir(dstfolder)
+            list_of_im  =[]
+            for i in name_tab_index:
+                name = df.iloc[i]['image']
+                nameoutput = df.iloc[i]['item']
+                #if name in list_of_im:
+                    #print(name," already read! indice = ",i,"Q index = ",df['item'][i])
+                    #print(df[df['image']==name])
+                    #print(df[df['item']==df['item'][i]])
+                
+                name_tab = name.split('.')
+                name_tab[-1] = 'jpg'
+                namejpg = ".".join(name_tab)
+                list_of_im += [namejpg]
+                src = read_data + namejpg
+                dst = dstfolder + nameoutput + '.jpg'
+                copyfile(src, dst)
+                if os.path.exists(dst):
+                    numberIm +=1 
+                else:
+                    print("Image not copied",dst)
+            print(depicts_depictsLabel[classe_a_annotee],"Number of image copied",numberIm)
+            
+            #input("Press input when you have remove all the image containing this class...")
+        else:
+        
+        
+            name_tab_index = np.array(df.index)
+            classe_a_annotee_verif = classe_a_annotee + '_verif'
+            list_elt= os.listdir(dstfolder)
+            #print(list_elt)
+            number_paitings = len(df['image'])
+            df[classe_a_annotee_verif] = Series(np.ones(number_paitings), index=df.index)
+            for name in list_elt:
+                #print(name_tab)
+                name_tab = name.split('.') 
+                item_name = name_tab[0]
+                df.loc[df['item']==item_name,classe_a_annotee_verif] = 0
+            print('Number of ',classe_a_annotee,' element',np.sum(df[classe_a_annotee_verif]))
+        
+
 
 def MiseDeCote():
     """
@@ -747,7 +832,97 @@ def MiseDeCote():
         else:
             print("Image not copied",dst)
     print("Number of image copied",numberIm)
+ 
     
+def BadPhoto2():
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    database='Wikidata_Paintings'
+    databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge.csv'  #6576 images
+    allelt = True
+    df = pd.read_csv(databasetxt,sep=",")
+    print(df.head(5))
+    df = df.replace(np.nan,-1)
+#    df = df[df['BadPhoto'] <= 0.0] # Keep the not bad photo and the unknown 
+    df2 = df[df['BadPhoto'] < .0]  # Keep only the unknown 
+    print(df2.head(5))
+    #df = df.drop_duplicates(subset='image', keep="last")
+    print(len(df))
+    classes10c = ['Q3039121','Q235113','Q148993','Q193893','Q3575260','Q345','Q42804','Q942467','Q10791','Q109607']
+    oldclasses = ['Q942467','Q235113','Q345','Q109607','Q10791']
+
+
+    classe_a_annotee = 'BadPhoto'
+    folder=database +'/'
+    target_path = '/media/HDD/data/'
+    write_data = target_path + folder 
+    bigger_size = 600
+    read_data = write_data + str(bigger_size) + '/'
+    dstfolder=  write_data + 'Not_' + classe_a_annotee + '/'
+    numberIm = 0
+    do_mkdir(dstfolder)
+    list_of_im  =[]
+    name_tab_index = np.array(df2.index)
+    for i in name_tab_index:
+        name = df2['image'][i]
+        nameoutput = df2['item'][i]
+        
+        name_tab = name.split('.')
+        name_tab[-1] = 'jpg'
+        namejpg = ".".join(name_tab)
+        list_of_im += [namejpg]
+        src = read_data + namejpg
+        dst = dstfolder + nameoutput + '.jpg'
+        copyfile(src, dst)
+        if os.path.exists(dst):
+            numberIm +=1 
+        else:
+            print("Image not copied",dst)
+    print("Number of image copied",numberIm)
+    
+    input("Press input when you have remove all the image containing this class...")
+
+    classe_a_annotee_verif = classe_a_annotee
+    #list_elt= os.listdir(dstfolder)
+    #print(list_elt)
+    number_paitings = len(df['image'])
+    classe_a_annotee = 'BadPhoto'
+    #df2[classe_a_annotee_verif] = Series(np.ones(number_paitings), index=df.index)
+    for name in list_elt:
+        #print(name_tab)
+        name_tab = name.split('.') 
+        item_name = name_tab[0]
+        df.loc[df['item']==item_name,classe_a_annotee_verif] = 0
+    print('Number of ',classe_a_annotee,' element',np.sum(df2[classe_a_annotee_verif]))
+    listBadPhoto = df[df['BadPhoto']==-1]['item']
+    for name in listBadPhoto:
+        #print(name_tab)
+        name_tab = name.split('.') 
+        item_name = name_tab[0]
+        df.loc[df['item']==item_name,classe_a_annotee_verif] = 1
+    #df[df['BadPhoto']==-1]['BadPhoto'] = 1 # Replace the -1 by 1 
+    print(df.head(2))
+    namefile = '/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_'+classe_a_annotee+'_.txt'
+    df.to_csv(namefile, index=None, sep=',', mode='w') #  26.0
+
+    input("Need to remove the bad Photo from other folder ")
+    dfBad = pd.read_csv(namefile,sep=",")
+    listBadPhoto = dfBad[dfBad['BadPhoto']==1]['item']
+    write_data = '/home/gonthier/owncloud/Miniset10c/'
+    for classe_a_annotee in classes10c:
+            dstfolder=  write_data + 'Not_' + classe_a_annotee +'_'+depicts_depictsLabel[classe_a_annotee]+ '/'
+            for name_img in listBadPhoto:
+                name_sans_ext = os.path.splitext(name_img)[0]
+                name_complet = dstfolder + name_sans_ext + '.jpg'
+                print(name_complet)
+                try:
+                    os.remove(name_complet)
+                except:
+                    pass
+    databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge2.csv' 
+    df.to_csv(databasetxt, index=None, sep=',', mode='w') 
+        
+        
+
 def MiseDeCotePourAnnotationRapideBadPhoto():
     path_data = 'data/'
     database='Wikidata_Paintings'
@@ -1063,7 +1238,8 @@ def createSubset2():
 if __name__ == '__main__':
     #prepareVOC12()
     #preparePaintings()
-    prepareWikiData()
+    MiseDeCote10c()
+    #prepareWikiData()
     #prepareWikidataSetsPaitings()
     #MiseDeCote()
     #prepareWikiDataWithSubSet()

@@ -33,13 +33,14 @@ from Classifier_Evaluation import Classification_evaluation
 import os.path
 import misvm # Library to do Multi Instance Learning with SVM
 from sklearn.preprocessing import StandardScaler
-from trouver_classes_parmi_K import MILSVM,TrainClassif
+from trouver_classes_parmi_K import MILSVM,TrainClassif,tf_MILSVM
 from LatexOuput import arrayToLatex
 from FasterRCNN import vis_detections_list,Compute_Faster_RCNN_features
 import pathlib
 from milsvm import mi_linearsvm # Version de nicolas avec LinearSVC et TODO SGD 
 from sklearn.externals import joblib # To save the classifier
 from tool_on_Regions import reduce_to_k_regions
+import tables
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -405,7 +406,10 @@ def petitTestIllustratif_RefineRegions():
     
 
 def FasterRCNN_TL_MILSVM_newVersion():
-    """ Function to test if you can refind the same AP metric by reading the saved CNN features """
+    """ Function to test if you can refind the same AP metric by reading the saved 
+    CNN features 
+    Older version of the function than FasterRCNN_TL_MILSVM_ClassifOutMILSVM
+    """
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt =path_data + database + '.txt'
@@ -545,11 +549,11 @@ def FasterRCNN_TL_MILSVM_newVersion():
 def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Paintings', 
                                           verbose = True,testMode = True,jtest = 0,
                                           PlotRegions = True,saved_clf=False,RPN=False,
-                                          CompBest=True):
+                                          CompBest=True,Stocha=False,k_per_bag=30):
     """ 
     15 mars 2017
     Classifier based on CNN features with Transfer Learning on Faster RCNN output
-    
+    This one use pickle precomputed saved data
     In this function we train an SVM only on the positive element returned by 
     the algo
     
@@ -560,9 +564,11 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
     @param : testMode : boolean True we only run on one class
     @param : jtest : the class on which we run the test
     @param : PlotRegions : plot the regions used for learn and the regions in the positive output response
-    @param : saved_clf : True [default] Too sva ethe classifier 
+    @param : saved_clf : [default : True] Too sva ethe classifier 
     @param : RPN=False trace la boite autour de l'element ayant le plus haut score du RPN object
     @param : CompBest : Comparaison with the CompBest classifier trained
+    @param : Stocha : Use of a SGD for the MIL SVM SAID [default : False]
+    @param : k_per_bag : number of element per batch in the slection phase [defaut : 30]
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -571,6 +577,14 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
     option on  scaling : sklearn.preprocessing.StandardScaler
     option : add a wieghted balanced of the SVM because they are really unbalanced classes
     TODO : mine hard negative exemple ! 
+    
+    Cette fonction permet de calculer les performances AP pour les differents dataset 
+    Wikidata et Your Paintings avec l'algo de selection de Said et l'entrainement du SVM final 
+    en dehors du code de Said trouver_classes_parmi_k
+    
+    FasterRCNN_TL_MISVM est sense etre la meme chose avec en utilisant les algos MISVM et miSVm de Andrews
+    
+    
     """
     # TODO be able to train on background 
     if database=='Paintings':
@@ -601,8 +615,13 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
     N = 1
     extL2 = ''
     nms_thresh = 0.7
-    name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+'_all.pkl'
-        
+    savedstr = '_all'
+    
+    # TODO improve that 
+    
+
+    name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
+       
     features_resnet_dict = {}
     sLength_all = len(df_label[item_name])
     if demonet == 'vgg16_COCO':
@@ -615,10 +634,14 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
         if verbose: print("We will computer the CNN features")
         Compute_Faster_RCNN_features(demonet=demonet,nms_thresh =nms_thresh,
                                      database=database,augmentation=False,L2 =False,
-                                     saved='all',verbose=verbose)
+                                     saved='all',verbose=verbose,filesave=filesave)
         
     
     if verbose: print("Start loading data",name_pkl)
+        
+    if (k_per_bag*len(df_label[item_name]) > 30*9000):
+        print("You risk Memory Error, good luck. You should use tfrecord")
+
     with open(name_pkl, 'rb') as pkl:
         for i,name_img in  enumerate(df_label[item_name]):
             if i%1000==0 and not(i==0):
@@ -633,8 +656,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
     if verbose: print("Data loaded",len(features_resnet_dict))
     
     
-    k_per_bag = 30
-    features_resnet = np.ones((sLength_all,k_per_bag,size_output))
+    features_resnet = np.empty((sLength_all,k_per_bag,size_output))  
     classes_vectors = np.zeros((sLength_all,10))
     if database=='Wikidata_Paintings_miniset_verif':
         classes_vectors = df_label.as_matrix(columns=classes)
@@ -647,7 +669,6 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
     new_nms_thresh = 0.0
     score_threshold = 0.1
     minimal_surface = 36*36
-    
     # In the case of Wikidata
     if database=='Wikidata_Paintings_miniset_verif':
         random_state = 0
@@ -666,20 +687,19 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
             if verbose: print(i,name_img)
         rois,roi_scores,fc7 = features_resnet_dict[name_img]
         #print(rois.shape,roi_scores.shape)
-        
         rois_reduce,roi_scores,fc7_reduce =  reduce_to_k_regions(k_per_bag,rois,roi_scores, fc7,
                                                    new_nms_thresh,
                                                    score_threshold,minimal_surface)
-    
         len_fc7 += [len(fc7_reduce)]
         if(len(fc7_reduce) >= k_per_bag):
             bag = np.expand_dims(fc7_reduce[0:k_per_bag,:],axis=0)
         else:
             number_repeat = k_per_bag // len(fc7_reduce)  +1
             f_repeat = np.repeat(fc7_reduce,number_repeat,axis=0)
-            bag = np.expand_dims(f_repeat[0:k_per_bag,:],axis=0)
-        
+            bag = np.expand_dims(f_repeat[0:k_per_bag,:],axis=0)  
+            
         features_resnet[i,:,:] = np.array(bag)
+        
         if database=='VOC12' or database=='Paintings':
             for j in range(10):
                 if(classes[j] in df_label['classe'][i]):
@@ -752,10 +772,14 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
             continue
         if verbose : print(j,classes[j])
         if PlotRegions:
-            if database=='Wikidata_Paintings_miniset_verif':
-                path_to_output2  = path_data + '/MILSVMRegion/'+depicts_depictsLabel[classes[j]]
+            if Stocha:
+                extensionStocha = 'Stocha/'
             else:
-                path_to_output2  = path_data + '/MILSVMRegion/'+classes[j]
+                extensionStocha = ''
+            if database=='Wikidata_Paintings_miniset_verif':
+                path_to_output2  = path_data + '/MILSVMRegion/'+extensionStocha+depicts_depictsLabel[classes[j]]
+            else:
+                path_to_output2  = path_data + '/MILSVMRegion/'+extensionStocha+classes[j]
             if RPN:
                 path_to_output2 += '_RPNetMISVM/'
             elif CompBest:
@@ -772,11 +796,33 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
         pos_name = name_trainval[y_trainval[:,j]==1]
         
         if verbose: print("Start train the MILSVM")
-        classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+
+        
+        if Stocha:
+            bags = np.vstack((neg_ex,pos_ex))
+            y_pos = np.ones((len(neg_ex),1))
+            y_neg = np.zeros((len(pos_ex),1))
+            labels = np.vstack((y_pos,y_neg)).ravel()
+            max_iters_wt_minibatch = 300
+            max_supported_by_gpu = 30*9000
+            N,k,d = bags.shape
+            mini_batch_size = max_supported_by_gpu // k
+            n_batch = N // mini_batch_size + (N % mini_batch_size != 0)
+            max_iters = n_batch*max_iters_wt_minibatch
+            Optimizer='GradientDescent'
+            optimArg=None
+            classifierMILSVM = tf_MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
                max_iters=max_iters,symway=True,n_jobs=n_jobs,
                all_notpos_inNeg=False,gridSearch=True,
-               verbose=False,final_clf=final_clf)     
-        classifierMILSVM.fit(pos_ex, neg_ex)
+               verbose=True,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
+               mini_batch_size=mini_batch_size) 
+            classifierMILSVM.fit_Stocha(bags,labels,shuffle=True)
+        else:
+            classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+               max_iters=max_iters,symway=True,n_jobs=n_jobs,
+               all_notpos_inNeg=False,gridSearch=True,
+               verbose=False,final_clf=final_clf)   
+            classifierMILSVM.fit(pos_ex, neg_ex)
         
         PositiveRegions = classifierMILSVM.get_PositiveRegions()
         get_PositiveRegionsScore = classifierMILSVM.get_PositiveRegionsScore()
@@ -921,7 +967,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
             print("MIL-SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
         else:
             print("MIL-SVM version Average Precision for",classes[j]," = ",AP)
-        if CompBest:  print("Best Score version Average Precision for",depicts_depictsLabel[classes[j]]," = ",APbS)
+        if CompBest and (database=='Wikidata_Paintings_miniset_verif'):  print("Best Score version Average Precision for",depicts_depictsLabel[classes[j]]," = ",APbS)
         test_precision = precision_score(y_test[:,j],labels_test_predited)
         test_recall = recall_score(y_test[:,j],labels_test_predited)
         F1 = f1_score(y_test[:,j],labels_test_predited)
@@ -1030,6 +1076,416 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                 name_output = path_to_output2  + name_sans_ext  + '_1RegionsPerClass.jpg'
                 plt.savefig(name_output)
                 plt.close()
+    
+def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings', 
+                                  verbose = True,testMode = True,jtest = 0,
+                                  PlotRegions = True,saved_clf=False,RPN=False,
+                                  CompBest=True,Stocha=True,k_per_bag=30):
+    """ 
+    10 avril 2017
+    This function used TFrecords file !!! 
+    
+    Classifier based on CNN features with Transfer Learning on Faster RCNN output
+    
+    In this function we train an SVM only on the positive element returned by 
+    the algo
+    
+    @param : demonet : the kind of inside network used it can be 'vgg16_VOC07',
+        'vgg16_VOC12','vgg16_COCO','res101_VOC12','res101_COCO','res152_COCO'
+    @param : database : the database used for the classification task
+    @param : verbose : Verbose option classical
+    @param : testMode : boolean True we only run on one class
+    @param : jtest : the class on which we run the test
+    @param : PlotRegions : plot the regions used for learn and the regions in the positive output response
+    @param : saved_clf : [default : True] Too sva ethe classifier 
+    @param : RPN=False trace la boite autour de l'element ayant le plus haut score du RPN object
+    @param : CompBest : Comparaison with the CompBest classifier trained
+    @param : Stocha : Use of a SGD for the MIL SVM SAID [default : False]
+    @param : k_per_bag : number of element per batch in the slection phase [defaut : 30]
+    The idea of thi algo is : 
+        1/ Compute CNN features
+        2/ Do NMS on the regions 
+    
+    option to train on background part also
+    option on  scaling : sklearn.preprocessing.StandardScaler
+    option : add a wieghted balanced of the SVM because they are really unbalanced classes
+    TODO : mine hard negative exemple ! 
+    
+    Cette fonction permet de calculer les performances AP pour les differents dataset 
+    Wikidata et Your Paintings avec l'algo de selection de Said et l'entrainement du SVM final 
+    en dehors du code de Said trouver_classes_parmi_k
+    
+    FasterRCNN_TL_MISVM est sense etre la meme chose avec en utilisant les algos MISVM et miSVm de Andrews
+    
+    
+    """
+    # TODO be able to train on background 
+    if database=='Paintings':
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/Painting_Dataset/'
+        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    elif database=='VOC12':
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+    elif(database=='Wikidata_Paintings'):
+        item_name = 'image'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        raise NotImplemented # TODO implementer cela !!! 
+    elif(database=='Wikidata_Paintings_miniset_verif'):
+        item_name = 'image'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
+    
+    if(jtest>len(classes)) and testMode:
+       print("We are in test mode but jtest>len(classes), we will use jtest =0" )
+       jtest =0
+    
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    databasetxt =path_data + database + '.txt'
+    df_label = pd.read_csv(databasetxt,sep=",")
+    if database=='Wikidata_Paintings_miniset_verif':
+        df_label = df_label[df_label['BadPhoto'] <= 0.0]
+    N = 1
+    extL2 = ''
+    nms_thresh = 0.7
+    savedstr = '_all'
+    
+    sets = ['train','val','trainval','test']
+    dict_name_file = {}
+    data_precomputeed= True
+    for set_str in sets:
+        name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
+        dict_name_file[set_str] = name_pkl_all_features
+        if not(os.path.isfile(name_pkl_all_features)):
+            data_precomputeed = False
+
+    sLength_all = len(df_label[item_name])
+    if demonet == 'vgg16_COCO':
+        size_output = 4096
+    elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
+        size_output = 2048
+    
+    if not(data_precomputeed):
+        # Compute the features
+        if verbose: print("We will computer the CNN features")
+        Compute_Faster_RCNN_features(demonet=demonet,nms_thresh =nms_thresh,
+                                     database=database,augmentation=False,L2 =False,
+                                     saved='all',verbose=verbose,filesave='tfrecords')
+           
+    # Data for the MILSVM Latent SVM
+    restarts = 20 
+    n_jobs = -1
+    
+    AP_per_class = []
+    P_per_class = []
+    R_per_class = []
+    P20_per_class = []
+    AP_per_classbS = []
+    final_clf = None
+    class_weight = None
+    for j,classe in enumerate(classes):
+        if testMode and not(j==jtest):
+            continue
+        if verbose : print(j,classes[j])
+        if PlotRegions:
+            if Stocha:
+                extensionStocha = 'Stocha/'
+            else:
+                extensionStocha = ''
+            if database=='Wikidata_Paintings_miniset_verif':
+                path_to_output2  = path_data + '/MILSVMRegion/'+extensionStocha+depicts_depictsLabel[classes[j]]
+            else:
+                path_to_output2  = path_data + '/MILSVMRegion/'+extensionStocha+classes[j]
+            if RPN:
+                path_to_output2 += '_RPNetMISVM/'
+            elif CompBest:
+                 path_to_output2 += '_BestObject/'
+            else:
+                path_to_output2 += '/'
+            path_to_output2_bis = path_to_output2 + 'Train'
+            path_to_output2_ter = path_to_output2 + 'Test'
+            pathlib.Path(path_to_output2_bis).mkdir(parents=True, exist_ok=True) 
+            pathlib.Path(path_to_output2_ter).mkdir(parents=True, exist_ok=True)         
+        if verbose: print("Start train the MILSVM")
+
+        
+        if Stocha:
+            max_iters_wt_minibatch = 300
+            max_supported_by_gpu = 30*9000
+            N,k,d = bags.shape
+            mini_batch_size = max_supported_by_gpu // k
+            n_batch = N // mini_batch_size + (N % mini_batch_size != 0)
+            max_iters = n_batch*max_iters_wt_minibatch
+            Optimizer='GradientDescent'
+            optimArg=None
+            classifierMILSVM = tf_MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+               max_iters=max_iters,symway=True,n_jobs=n_jobs,
+               all_notpos_inNeg=False,gridSearch=True,
+               verbose=True,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
+               mini_batch_size=mini_batch_size) 
+            classifierMILSVM.fit_Stocha(bags,labels,shuffle=True)
+        else:
+            classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+               max_iters=max_iters,symway=True,n_jobs=n_jobs,
+               all_notpos_inNeg=False,gridSearch=True,
+               verbose=False,final_clf=final_clf)   
+            classifierMILSVM.fit(pos_ex, neg_ex)
+        
+        PositiveRegions = classifierMILSVM.get_PositiveRegions()
+        get_PositiveRegionsScore = classifierMILSVM.get_PositiveRegionsScore()
+        PositiveExScoreAll =  classifierMILSVM.get_PositiveExScoreAll()
+        
+        if PlotRegions:
+            # Just des verifications
+            a = np.argmax(PositiveExScoreAll,axis=1)
+            assert((a==PositiveRegions).all())
+            assert(len(pos_name)==len(PositiveRegions))
+        
+        if verbose: print("End training the MILSVM")
+        
+        pos_ex_after_MILSVM = np.zeros((len(pos_ex),size_output))
+        neg_ex_keep = np.zeros((len(neg_ex),size_output))
+        for k,name_imgtab in enumerate(pos_name):
+            pos_ex_after_MILSVM[k,:] = pos_ex[k,PositiveRegions[k],:] # We keep the positive exemple according to the MILSVM from Said
+            
+            if PlotRegions:
+                if verbose: print(k,name_img)
+                name_img = name_imgtab[0]
+                if database=='VOC12' or database=='Paintings':
+                    complet_name = path_to_img + name_img + '.jpg'
+                    name_sans_ext = name_img
+                elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                    name_sans_ext = os.path.splitext(name_img)[0]
+                    complet_name = path_to_img +name_sans_ext + '.jpg'
+                im = cv2.imread(complet_name)
+                blobs, im_scales = get_blobs(im)
+                rois = roi_train[name_img]
+                roi_with_object_of_the_class = PositiveRegions[k] % len(rois) # Because we have repeated some rois
+                roi = rois[roi_with_object_of_the_class,:]
+                roi_scores = [get_PositiveRegionsScore[k]]
+                roi_boxes =  roi[1:5] / im_scales[0]   
+                roi_boxes_score = np.expand_dims(np.expand_dims(np.concatenate((roi_boxes,roi_scores)),axis=0),axis=0)
+                if RPN:
+                    best_RPN_roi = rois[0,:]
+                    best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
+                    best_RPN_roi_scores = [PositiveExScoreAll[k,0]]
+                    assert((get_PositiveRegionsScore[k] >= PositiveExScoreAll[k,0]).all())
+                    cls = ['RPN','MILSVM']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                    best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
+                    roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
+                else:
+                    cls = ['MILSVM']
+                    roi_boxes_and_score = roi_boxes_score
+                vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
+                name_output = path_to_output2 +'Train/' + name_sans_ext + '_Regions.jpg'
+                plt.savefig(name_output)
+                plt.close()
+        
+        neg_ex_keep = neg_ex.reshape(-1,size_output)
+        
+        X = np.vstack((pos_ex_after_MILSVM,neg_ex_keep))
+        y_pos = np.ones((len(pos_ex_after_MILSVM),1))
+        y_neg = np.zeros((len(neg_ex_keep),1))
+        y = np.vstack((y_pos,y_neg)).ravel()
+        if verbose: print('Start Learning Final Classifier X.shape,y.shape',X.shape,y.shape)
+        classifier = TrainClassif(X,y,clf='LinearSVC',class_weight=class_weight,
+                                  gridSearch=True,n_jobs=1)
+        
+        if saved_clf:
+            name_clf_pkl = path_data+'clf_FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+'_'+str(classe)+'.pkl'
+            joblib.dump(classifier,name_clf_pkl) 
+        
+        if CompBest:
+            if verbose : print("Start Learning the Best Score object classif")
+            pos_ex_bestScore = pos_ex[:,0,:]
+            XbestScore = np.vstack((pos_ex_bestScore,neg_ex_keep))
+            classifierBest = TrainClassif(XbestScore,y,clf='LinearSVC',class_weight=class_weight,
+                                  gridSearch=True,n_jobs=1)
+            name_clf_pkl = path_data+'clf_FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_bestObject_'+str(nms_thresh)+'_'+str(classe)+'.pkl'
+            joblib.dump(classifierBest,name_clf_pkl) 
+        
+        if verbose: print("End training the SVM")
+        
+        y_predict_confidence_score_classifier = np.zeros_like(y_test[:,j])
+        y_predict_confidence_score_classifierbS = np.zeros_like(y_test[:,j])
+        labels_test_predited = np.zeros_like(y_test[:,j])
+        
+        for k in range(len(X_test)): 
+            if Test_on_k_bag: 
+                decision_function_output = classifier.decision_function(X_test[k,:,:])
+            else:
+                if normalisation:
+                    elt_k =  scaler.transform(f_test[k])
+                else:
+                    elt_k = f_test[k]
+                decision_function_output = classifier.decision_function(elt_k)
+                if CompBest:
+                    decision_function_output_bS = classifierBest.decision_function(elt_k)
+                    y_predict_confidence_score_classifierbS[k]  = np.max(decision_function_output_bS)
+                    
+            y_predict_confidence_score_classifier[k]  = np.max(decision_function_output)
+            roi_with_object_of_the_class = np.argmax(decision_function_output)
+            if np.max(decision_function_output) > 0:
+                labels_test_predited[k] = 1 
+                if PlotRegions: # We predict a n element of the class we will plot  
+                    name_img = name_test[k]
+                    if database=='VOC12' or database=='Paintings':
+                        complet_name = path_to_img + name_img + '.jpg'
+                        name_sans_ext = name_img
+                    elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                        name_sans_ext = os.path.splitext(name_img)[0]
+                        complet_name = path_to_img +name_sans_ext + '.jpg'
+                    if verbose: print(k,name_sans_ext)
+                    im = cv2.imread(complet_name)
+                    blobs, im_scales = get_blobs(im)
+                    rois = roi_test[k]
+                    roi = rois[roi_with_object_of_the_class,:]
+                    roi_boxes =  roi[1:5] / im_scales[0]
+                    roi_scores =  [np.max(decision_function_output)]
+                    roi_boxes_score = np.expand_dims(np.expand_dims(np.concatenate((roi_boxes,roi_scores)),axis=0),axis=0)
+                    if RPN:
+                        best_RPN_roi = rois[0,:]
+                        best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
+                        best_RPN_roi_scores = [decision_function_output[0]]
+                        assert((np.max(decision_function_output) >= decision_function_output[0]).all())
+                        cls = ['RPN','Classif']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                        best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
+                        roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
+                    elif CompBest:
+                        roi_with_object_of_the_class = np.argmax(decision_function_output_bS)
+                        roi2 = rois[roi_with_object_of_the_class,:]
+                        roi_boxes2 =  roi2[1:5] / im_scales[0]
+                        roi_scores2 =  [np.max(decision_function_output_bS)]
+                        roi_boxes_score2 = np.expand_dims(np.expand_dims(np.concatenate((roi_boxes2,roi_scores2)),axis=0),axis=0)
+                        cls = ['BestObject','Classif']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                        roi_boxes_and_score = np.vstack((roi_boxes_score2,roi_boxes_score))
+                    else:
+                        cls = ['Classif']
+                        roi_boxes_and_score = roi_boxes_score
+                    vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
+                    name_output = path_to_output2 +'Test/' + name_sans_ext  + '_Regions.jpg'
+                    plt.savefig(name_output)
+                    plt.close()
+            else: 
+                labels_test_predited[k] =  0 # Label of the class 0 or 1
+        AP = average_precision_score(y_test[:,j],y_predict_confidence_score_classifier,average=None)
+        if CompBest: APbS = average_precision_score(y_test[:,j],y_predict_confidence_score_classifierbS,average=None)
+        if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+            print("MIL-SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
+        else:
+            print("MIL-SVM version Average Precision for",classes[j]," = ",AP)
+        if CompBest and (database=='Wikidata_Paintings_miniset_verif'):  print("Best Score version Average Precision for",depicts_depictsLabel[classes[j]]," = ",APbS)
+        test_precision = precision_score(y_test[:,j],labels_test_predited)
+        test_recall = recall_score(y_test[:,j],labels_test_predited)
+        F1 = f1_score(y_test[:,j],labels_test_predited)
+        print("Test on all the data precision = {0:.2f}, recall = {1:.2f},F1 = {2:.2f}".format(test_precision,test_recall,F1))
+        precision_at_k = ranking_precision_score(np.array(y_test), y_predict_confidence_score_classifier,20)
+        P20_per_class += [precision_at_k]
+        AP_per_class += [AP]
+        R_per_class += [test_recall]
+        P_per_class += [test_precision]
+        if CompBest: AP_per_classbS += [APbS]
+    print("mean Average Precision for all the data = {0:.3f}".format(np.mean(AP_per_class)))    
+    if CompBest: print("mean Average Precision for BEst Score = {0:.3f}".format(np.mean(AP_per_classbS))) 
+    print("mean Precision for all the data = {0:.3f}".format(np.mean(P_per_class)))  
+    print("mean Recall for all the data = {0:.3f}".format(np.mean(R_per_class)))  
+    print("mean Precision @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
+    
+    print(AP_per_class)
+    print(arrayToLatex(AP_per_class))
+    
+    plot_Test_illust_bol = False
+    if plot_Test_illust_bol:
+        
+        dict_clf = {}
+        classe_str = []
+        for classe in classes:
+            name_clf_pkl = path_data+'clf_FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+'_'+str(classe)+'.pkl'
+            classifier = joblib.load(name_clf_pkl) 
+            dict_clf[classe] = classifier
+            classe_str += depicts_depictsLabel[classe]
+            
+        path_to_output2  = path_data + '/MILSVMRegion/TestIllust/'
+        pathlib.Path(path_to_output2).mkdir(parents=True, exist_ok=True)
+        CONF_THRESH = 0.7
+        NMS_THRESH = 0.3 # non max suppression
+        for k in range(len(X_test)):
+            name_img = name_test[k]
+            if database=='VOC12' or database=='Paintings':
+                complet_name = path_to_img + name_img + '.jpg'
+                name_sans_ext = name_img
+            elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                name_sans_ext = os.path.splitext(name_img)[0]
+                complet_name = path_to_img +name_sans_ext + '.jpg'
+            im = cv2.imread(complet_name)
+            blobs, im_scales = get_blobs(im)
+            rois = roi_test[k]
+            #print(rois.shape)
+            cls_boxes =  rois[:,1:5] / im_scales[0]
+            #print(cls_boxes.shape)
+            elt_k = f_test[k]
+            cls_list = []
+            dets_list= []
+            for j,classe in enumerate(classes):
+                classifier = dict_clf[classe]
+                decision_function_output = classifier.decision_function(elt_k)
+                # TODO Il faudra changer cela pour mettre une proba et non une distance 
+                # TODO gerer le cas ou l on normalise les donnees
+                cls_scores = decision_function_output
+                dets = np.hstack((cls_boxes,
+                          cls_scores[:, np.newaxis])).astype(np.float32)
+                keep = nms(dets, NMS_THRESH)
+                dets = dets[keep, :]
+                #inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
+                cls_list += [depicts_depictsLabel[classe]]
+                dets_list += [dets]
+            #print(dets_list[0].shape)
+            vis_detections_list(im, cls_list, dets_list, thresh=CONF_THRESH)
+            name_output = path_to_output2  + name_sans_ext  + '_NMSRegions.jpg'
+            plt.savefig(name_output)
+            plt.close()
+            
+            path_to_output2  = path_data + '/MILSVMRegion/TestIllust2/'
+            pathlib.Path(path_to_output2).mkdir(parents=True, exist_ok=True)
+            CONF_THRESH = 0.7
+            NMS_THRESH = 0.3 # non max suppression
+            for k in range(len(X_test)):
+                name_img = name_test[k]
+                if database=='VOC12' or database=='Paintings':
+                    complet_name = path_to_img + name_img + '.jpg'
+                    name_sans_ext = name_img
+                elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                    name_sans_ext = os.path.splitext(name_img)[0]
+                    complet_name = path_to_img +name_sans_ext + '.jpg'
+                im = cv2.imread(complet_name)
+                blobs, im_scales = get_blobs(im)
+                rois = roi_test[k]
+                #print(rois.shape)
+                cls_boxes =  rois[:,1:5] / im_scales[0]
+                #print(cls_boxes.shape)
+                elt_k = f_test[k]
+                cls_list = []
+                dets_list= []
+                for j,classe in enumerate(classes):
+                    classifier = dict_clf[classe]
+                    decision_function_output = classifier.decision_function(elt_k)
+                    index = np.argmax(decision_function_output)
+                    cls_scores = np.array([np.max(decision_function_output)])
+                    dets = np.hstack((cls_boxes[np.newaxis,index,:],
+                              cls_scores[:, np.newaxis])).astype(np.float32)
+                    #keep = nms(dets, NMS_THRESH)
+                    #dets = dets[keep, :]
+                    #inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
+                    cls_list += [depicts_depictsLabel[classe]]
+                    dets_list += [dets]
+                #print(dets_list[0].shape)
+                vis_detections_list(im, cls_list, dets_list, thresh=0.0)
+                name_output = path_to_output2  + name_sans_ext  + '_1RegionsPerClass.jpg'
+                plt.savefig(name_output)
+                plt.close()
+        
+        
+#        sizeMax = 30*9000 // k_per_bag
 
 def detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Paintings_miniset_verif'):
     if database=='Paintings':
@@ -1146,6 +1602,9 @@ def FasterRCNN_TL_MISVM(demonet = 'res152_COCO',database = 'Paintings',
     """ 
     15 mars 2017
     Classifier based on CNN features with Transfer Learning on Faster RCNN output
+    
+    Le but de cette fonction est de tester pour voir si l on peut utiliser les algos 
+    MISVM et miSVM
     
     In this function we train an SVM only on the positive element returned by 
     the algo
@@ -1728,9 +2187,15 @@ if __name__ == '__main__':
 #                                          verbose = True,testMode = True,jtest = 6,
 #                                          PlotRegions = False)
     FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',
-                                          database = 'Wikidata_Paintings_miniset_verif', 
-                                          verbose = True,testMode = True,jtest = 4,
-                                          PlotRegions = True,RPN=False)
+                                          database = 'Paintings', 
+                                          verbose = True,testMode = True,jtest = 6,
+                                          PlotRegions = False,RPN=False,Stocha=False,
+                                          k_per_bag=30)
+
+#    FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',
+#                                          database = 'Wikidata_Paintings_miniset_verif', 
+#                                          verbose = True,testMode = True,jtest = 4,
+#                                          PlotRegions = True,RPN=False)
 #    FasterRCNN_TL_MISVM(demonet = 'res152_COCO',database = 'Paintings', 
 #                                          verbose = True,testMode = True,jtest = 0,
 #                                          PlotRegions = False,misvm_type='LinearMISVC')
