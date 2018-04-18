@@ -3,7 +3,7 @@
 """
 Created on Tue Dec 12 13:42:41 2017
 
-Based on the Tensorflow implementation of Faster-RCNNN 
+Based on the Tensorflow implementation of Faster-RCNNN but it has been modified a lot
 https://github.com/endernewton/tf-faster-rcnn
 
 Be careful it was a necessity to modify all the script of the library with stuff 
@@ -91,6 +91,9 @@ def _bytes_feature(value):
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+def _int64_feature_reshape(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=value.reshape(-1)))
 
 def _floats_feature(value):
   return tf.train.Feature(float_list=tf.train.FloatList(value=value.reshape(-1)))
@@ -1074,12 +1077,15 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     if database=='Paintings':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/Painting_Dataset/' 
+        num_classes = 10
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        num_classes = 20
     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        num_classes = 5
     else:
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
@@ -1114,7 +1120,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     elif 'COCO'in demonet:
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
-    nbClasses = len(CLASSES)
+    nbClassesDemoNet = len(CLASSES)
     path_to_model = '/media/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
@@ -1125,19 +1131,22 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     # load network
     if  'vgg16' in demonet:
       net = vgg16()
+      size_output = 4096
     elif demonet == 'res50':
       raise NotImplementedError
     elif 'res101' in demonet:
       net = resnetv1(num_layers=101)
+      size_output = 2048
     elif 'res152' in demonet:
       net = resnetv1(num_layers=152)
+      size_output = 2048
     elif demonet == 'mobile':
       raise NotImplementedError
     else:
       raise NotImplementedError
       
    
-    net.create_architecture("TEST", nbClasses,
+    net.create_architecture("TEST", nbClassesDemoNet,
                           tag='default', anchor_scales=anchor_scales,
                           modeTL= True,nms_thresh=nms_thresh)
     saver = tf.train.Saver()
@@ -1158,8 +1167,11 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             item_name = 'name_img'
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     
-        
-        
+    
+    # Important variable : number of regions !   
+    k_regions = 300    
+    
+    
     Itera = 1000
     for i,name_img in  enumerate(df_label[item_name]):
         if filesave=='pkl':
@@ -1199,19 +1211,38 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             num_regions = fc7.shape[0]
             num_features = fc7.shape[1]
             dim1_rois = rois.shape[1]
-            classes_vectors = np.zeros((10,1))
+            classes_vectors = np.zeros((num_classes,1))
+            
+            # We will 
+            rois_tmp = np.zeros((k_regions,5))
+            roi_scores_tmp = np.zeros((k_regions,1))
+            fc7_tmp = np.zeros((k_regions,size_output))
+            rois_tmp[0:rois.shape[0],0:rois.shape[1]] = rois
+            roi_scores_tmp[0:roi_scores.shape[0],0:roi_scores.shape[1]] = roi_scores
+            fc7_tmp[0:fc7.shape[0],0:fc7.shape[1]] = fc7           
+            rois = rois_tmp
+            roi_scores =roi_scores_tmp
+            fc7 = fc7_tmp
+            
             if database=='Paintings':
-                for j in range(10):
+                for j in range(num_classes):
                     if(classes[j] in df_label['classe'][i]):
                         classes_vectors[j] = 1
             
             #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
             if saved=='fc7':
-                raise(NotImplemented)
+                features=tf.train.Features(feature={
+                    'height': _int64_feature(height),
+                    'width': _int64_feature(width),
+                    'num_regions': _int64_feature(num_regions),
+                    'num_features': _int64_feature(num_features),
+                    'fc7': _bytes_feature(tf.compat.as_bytes(fc7.tostring())),
+                    'label' : _bytes_feature(tf.compat.as_bytes(classes_vectors.tostring())),
+                    'name_img' : _bytes_feature(str.encode(name_sans_ext))})
             elif saved=='pool5':
                 raise(NotImplemented)
             elif saved=='all':
-                example = tf.train.Example(features=tf.train.Features(feature={
+                features=tf.train.Features(feature={
                     'height': _int64_feature(height),
                     'width': _int64_feature(width),
                     'num_regions': _int64_feature(num_regions),
@@ -1220,16 +1251,17 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     'rois': _floats_feature(rois),
                     'roi_scores': _floats_feature(roi_scores),
                     'fc7': _floats_feature(fc7),
-                    'label' : _bytes_feature(classes_vectors.tostring()),
-                    'name_img' : _bytes_feature(str.encode(name_sans_ext))}))
-                if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
-                    dict_writers['train'].write(example.SerializeToString())
-                    dict_writers['trainval'].write(example.SerializeToString())
-                elif (df_label.loc[df_label[item_name]==name_img]['set']=='validation').any():
-                    dict_writers['val'].write(example.SerializeToString())
-                    dict_writers['trainval'].write(example.SerializeToString())
-                elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
-                    dict_writers['test'].write(example.SerializeToString())
+                    'label' : _floats_feature(classes_vectors),
+                    'name_img' : _bytes_feature(str.encode(name_sans_ext))})
+            example = tf.train.Example(features=features)    
+            if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
+                dict_writers['train'].write(example.SerializeToString())
+                dict_writers['trainval'].write(example.SerializeToString())
+            elif (df_label.loc[df_label[item_name]==name_img]['set']=='validation').any():
+                dict_writers['val'].write(example.SerializeToString())
+                dict_writers['trainval'].write(example.SerializeToString())
+            elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
+                dict_writers['test'].write(example.SerializeToString())
 
     if filesave=='pkl':
         pickle.dump(features_resnet_dict,pkl)

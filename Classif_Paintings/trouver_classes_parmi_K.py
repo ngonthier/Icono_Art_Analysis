@@ -7,6 +7,7 @@ Created on Sun Feb  4 09:47:54 2018
 """
 
 import tensorflow as tf
+import tf_old
 import numpy as np
 npt=np.float32
 tft=np.float32
@@ -18,6 +19,8 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import KFold
 from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score
+import time
+import multiprocessing
 # On genere des vecteurs selon deux distributions p1 et p2 dans R^n
 # On les regroupe par paquets de k vecteurs
 # Un paquet est positif si il contient un vecteur p1
@@ -34,6 +37,17 @@ from sklearn.metrics import average_precision_score,recall_score,make_scorer,pre
 # individuellement
 
 
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+def _int64_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+def _int64_feature_reshape(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=value.reshape(-1)))
+
+def _floats_feature(value):
+  return tf.train.Feature(float_list=tf.train.FloatList(value=value.reshape(-1)))
 
 class MILSVM():
     """
@@ -124,6 +138,7 @@ class MILSVM():
         bestloss=-1
         for essai in range(self.restarts+1): #on fait 5 essais et on garde la meilleur loss
             if self.verbose : print("essai",essai)
+            if self.verbose : t0 = time.time()
             sess.run(tf.global_variables_initializer())
             W_init=npt(np.random.randn(n))
             W_init=W_init/np.linalg.norm(W_init)
@@ -145,7 +160,9 @@ class MILSVM():
                 if self.verbose : print("bestloss",bestloss) # La loss est maximale a 2 
                 dicobest={W:W_best,b:b_best} 
                 #Record of the best SVM         
-
+            if self.verbose:
+                t1 = time.time()
+                print("durations :",str(t1-t0))
         sor1=sess.run([Prod1],feed_dict=dicobest)
         sor2=sess.run([Prod2],feed_dict=dicobest)
         sess.close()
@@ -243,9 +260,10 @@ class tf_MILSVM():
     def __init__(self,LR=0.01,C=1.0,C_finalSVM=1.0,restarts=0, max_iters=300,
                  symway=True,all_notpos_inNeg=True,gridSearch=False,n_jobs=-1,
                  final_clf='LinearSVC',verbose=True,Optimizer='GradientDescent',
-                  optimArg=None,mini_batch_size=200):
+                  optimArg=None,mini_batch_size=200,buffer_size=10000,num_features=2048,
+                  num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False):
+        # TODOD enelver les trucs inutiles ici
         """
-        
         @param LR : Learning rate : pas de gradient de descente [default: 0.01]
         @param C : the loss/regularization tradeoff constant [default: 1.0]
         @param C_finalSVM : the loss/regularization  term fo the final SVM training [default: 1.0]
@@ -262,12 +280,23 @@ class tf_MILSVM():
         @param final_clf : final classifier used after the determination of the 
             element [choice : defaultSGD, linearSVC] [default : linearSVC]
         @param verbose : print optimization status messages [default: True]
+        @param mini_batch_size : taille des mini_batch_size
+        @param buffer_size : taille du buffer
+        @param num_features : pnumbre de features
+        @param num_rois : nombre de regions d interet
+        @param num_classes : numbre de classes dans la base
+        @param max_iters_sgdc : Nombre d iterations pour la descente de gradient stochastique classification
+        @param debug : default False : if we want to debug 
         """
         self.LR = LR
         self.C = C
         self.C_finalSVM = C_finalSVM
         self.restarts = restarts
         self.max_iters = max_iters
+        if max_iters_sgdc is None:
+            self.max_iters_sgdc = max_iters
+        else:
+            self.max_iters_sgdc = max_iters_sgdc
         self.verbose = verbose
         self.symway= symway
         self.all_notpos_inNeg = all_notpos_inNeg
@@ -281,150 +310,375 @@ class tf_MILSVM():
         self.Optimizer = Optimizer
         self.optimArg =  optimArg# GradientDescent, 
         self.mini_batch_size = mini_batch_size
+        self.buffer_size = buffer_size
+        self.num_features = num_features
+        self.num_rois = num_rois
+        self.num_classes = num_classes
+        self.debug = debug 
      
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 
         kf.get_n_splits(data_pos) # returns the number of splitting iterations in the cross-validator
         return(0)
         
-    def fit_LatentSVM_tfrecords(self,data_path,class_indice,shuffle=True):
+    def fit_MILSVM_tfrecords(self,data_path,class_indice,shuffle=True):
         """" This function run per batch on the tfrecords data folder """
         # From http://www.machinelearninguru.com/deep_learning/tensorflow/basics/tfrecord/tfrecord.html
-        feature={
-                    'height': tf.FixedLenFeature([], tf.int64),
-                    'width': tf.FixedLenFeature([], tf.int64),
-                    'num_regions':  tf.FixedLenFeature([], tf.int64),
-                    'num_features':  tf.FixedLenFeature([], tf.int64),
-                    'dim1_rois':  tf.FixedLenFeature([], tf.int64),
-                    'rois': _floats_feature(rois),
-                    'roi_scores':tf.VarLenFeature(tf.float32),
-                    'fc7': tf.VarLenFeature(tf.float32),
-                    'label' : tf.FixedLenFeature([],tf.string),
-                    'name_img' : tf.FixedLenFeature([],tf.string)}
-        # Create a list of filenames and pass it to a queue
-        filename_queue = tf.train.string_input_producer([data_path], num_epochs=1)
-        # Define a reader and read the next record
-        reader = tf.TFRecordReader()
-        _, serialized_example = reader.read(filename_queue)
-        # Decode the record read by the reader
-        features = tf.parse_single_example(serialized_example, features=feature)
-        # Convert the image data from string back to the numbers
-        fc7 = tf.decode_raw(features['fc7'], tf.float32)
-        
-        # Cast label data into int32
-        label = tf.cast(features['label'], tf.int32)
-        label = tf.slice(label,class_indice,1)
-        num_regions = tf.cast(features['num_regions'], tf.int64)
-        num_features = tf.cast(features['num_features'], tf.int64)
-        # Reshape image data into the original shape
-        fc7 = tf.reshape(fc7, [-1,num_features])
-        
-        # Any preprocessing here ...
-        
-        # Creates batches by randomly shuffling tensors
-        fc7s, labels = tf.train.shuffle_batch([fc7, label], batch_size=batch_size, capacity=30, num_threads=4, min_after_dequeue=10)
+        def parser(record):
+            # Perform additional preprocessing on the parsed data.
+            keys_to_features={
+                        'height': tf.FixedLenFeature([], tf.int64),
+                        'width': tf.FixedLenFeature([], tf.int64),
+                        'num_regions':  tf.FixedLenFeature([], tf.int64),
+                        'num_features':  tf.FixedLenFeature([], tf.int64),
+                        'dim1_rois':  tf.FixedLenFeature([], tf.int64),
+                        'rois': tf.FixedLenFeature([5*self.num_rois],tf.float32),
+                        'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),
+                        'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
+                        'label' : tf.FixedLenFeature([self.num_classes],tf.float32),
+                        'name_img' : tf.FixedLenFeature([],tf.string)}
+            parsed = tf.parse_single_example(record, keys_to_features)
             
-        init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+            # Cast label data into int32
+            label = parsed['label']
+            #tf.Print(label,[label])
+            label = tf.slice(label,[class_indice],[1])
+            label = tf.squeeze(label) # To get a vector one dimension
+            fc7 = parsed['fc7']
+            fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
+            return fc7, label
+        
+        def parser_w_rois(record):
+            # Perform additional preprocessing on the parsed data.
+            keys_to_features={
+                        'height': tf.FixedLenFeature([], tf.int64),
+                        'width': tf.FixedLenFeature([], tf.int64),
+                        'num_regions':  tf.FixedLenFeature([], tf.int64),
+                        'num_features':  tf.FixedLenFeature([], tf.int64),
+                        'dim1_rois':  tf.FixedLenFeature([], tf.int64),
+                        'rois': tf.FixedLenFeature([5*self.num_rois],tf.float32),
+                        'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),
+                        'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
+                        'label' : tf.FixedLenFeature([self.num_classes],tf.float32),
+                        'name_img' : tf.FixedLenFeature([],tf.string)}
+            parsed = tf.parse_single_example(record, keys_to_features)
+            
+            # Cast label data into int32
+            label = parsed['label']
+            name_img = parsed['name_img']
+            label = tf.slice(label,[class_indice],[1])
+            label = tf.squeeze(label) # To get a vector one dimension
+            fc7 = parsed['fc7']
+            fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
+            rois = parsed['rois']
+            rois = tf.reshape(rois, [self.num_rois,5])           
+            return fc7,rois, label,name_img
+
+        def parser_w_mei(record):
+            # Perform additional preprocessing on the parsed data.
+            keys_to_features={
+                        'score_mei': tf.FixedLenFeature([1], tf.float32),
+                        'mei': tf.FixedLenFeature([1], tf.int64),
+                        'rois': tf.FixedLenFeature([self.num_rois*5],tf.float32),
+                        'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
+                        'fc7_selected': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
+                        'label' : tf.FixedLenFeature([1],tf.float32),
+                        'name_img' : tf.FixedLenFeature([],tf.string)}
+            parsed = tf.parse_single_example(record, keys_to_features)
+            
+            # Cast label data into int32
+            label = parsed['label']
+            label_300 = tf.tile(label,[self.num_rois])
+            mei = parsed['mei']
+            fc7 = parsed['fc7']
+            fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
+            fc7_selected = parsed['fc7_selected']
+            fc7_selected = tf.reshape(fc7_selected, [300,self.num_features])
+            rois = parsed['rois']
+            rois = tf.reshape(rois, [self.num_rois,5])           
+            return fc7_selected,fc7,mei,label_300
+        
+        def parser_w_mei_reduce(record):
+            # Perform additional preprocessing on the parsed data.
+            keys_to_features={
+                        'score_mei': tf.FixedLenFeature([1], tf.float32),
+                        'mei': tf.FixedLenFeature([1], tf.int64),
+                        'rois': tf.FixedLenFeature([self.num_rois*5],tf.float32),
+                        'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
+                        'fc7_selected': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
+                        'label' : tf.FixedLenFeature([1],tf.float32),
+                        'name_img' : tf.FixedLenFeature([],tf.string)}
+            parsed = tf.parse_single_example(record, keys_to_features)
+            
+            # Cast label data into int32
+            label = parsed['label']
+            label_300 = tf.tile(label,[self.num_rois])
+            fc7_selected = parsed['fc7_selected']
+            fc7_selected = tf.reshape(fc7_selected, [self.num_rois,self.num_features])         
+            return fc7_selected,label_300
+        
+        #iterator = tf.data.Iterator.from_structure(tf.float32, tf.TensorShape([]))
+        train_dataset = tf.data.TFRecordDataset(data_path)
+        train_dataset = train_dataset.map(parser,
+                                          num_parallel_calls=multiprocessing.cpu_count())
+        dataset_batch = train_dataset.batch(self.mini_batch_size)
+        dataset_batch = dataset_batch.prefetch(1)
+#TODO update and use if        dataset_batch = train_dataset.apply(tf.contrib.data.map_and_batch(parser,self.mini_batch_size,4))
+        iterator_batch = dataset_batch.make_initializable_iterator()
+        X_batch, label_batch = iterator_batch.get_next()
+        
+        # Calcul preliminaire a la definition de la fonction de cout 
+        config = tf.ConfigProto()
+        config.intra_op_parallelism_threads = 16
+        config.inter_op_parallelism_threads = 16
+        config.gpu_options.allow_growth = True
+        
+        minus_1 = tf.constant(-1.)
+        #label_batch=tf.placeholder(tf.float32, shape=[None], name='label_batch')
+        add_np_pos = tf.reduce_sum(label_batch)
+        add_np_neg = -tf.reduce_sum(tf.add(label_batch,minus_1))
        
+        np_pos_value = 0.
+        np_neg_value = 0.
+        with tf.Session(config=config) as sess:
+            sess.run(tf.global_variables_initializer())
+            sess.run(tf.local_variables_initializer())
+            sess.run(iterator_batch.initializer)
+            while True:
+              try:
+#                  np_pos_value += sess.run(add_np_pos,feed_dict={label_batch: batch1_batch})
+#                  np_neg_value += sess.run(add_np_neg,feed_dict={label_batch: batch1_batch})
+                  np_pos_value += sess.run(add_np_pos)
+                  np_neg_value += sess.run(add_np_neg)
+              except tf.errors.OutOfRangeError:
+                break
+        if self.verbose:print("Finished to compute the proportion of each label")
 #        LR = self.LR # Regularisation loss
 #        optimArg = self.optimArg
-#        #k = 
-#        N,k,d = bags.shape
-#        
-#        
-#        mini_batch_size = self.mini_batch_size
-#        n_batch = N // mini_batch_size + (N % mini_batch_size != 0)
-#        X_=tf.placeholder(tf.float32, shape=[None,k, d], name='X_')
+        
+        
+# TODO after updateing tf         dataset_shuffle = dataset_shuffle.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=self.buffer_size))
+
+        
+        train_dataset2 = tf.data.TFRecordDataset(data_path)
+        train_dataset2 = train_dataset2.map(parser,
+                                            num_parallel_calls=multiprocessing.cpu_count())
+        if shuffle:
+            dataset_shuffle = train_dataset2.shuffle(buffer_size=self.buffer_size,
+                                                     reshuffle_each_iteration=True) 
+        else:
+            dataset_shuffle = train_dataset2
+        dataset_shuffle = dataset_shuffle.batch(self.mini_batch_size)
+        dataset_shuffle = dataset_shuffle.repeat() # ? self.max_iters
+        
+        
+#        dataset_shuffle = train_dataset.repeat()
+#        dataset_shuffle = dataset_shuffle.shuffle(buffer_size=self.buffer_size) 
+#        dataset_shuffle = dataset_shuffle.batch(self.mini_batch_size)
+        #
+        dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) # https://stackoverflow.com/questions/46444018/meaning-of-buffer-size-in-dataset-map-dataset-prefetch-and-dataset-shuffle/47025850#47025850
+#        In other words, the former (repeat before shuffle) provides better 
+#       performance, while the latter (shuffle before repeat) provides stronger 
+#       ordering guarantees.
+        shuffle_iterator = dataset_shuffle.make_initializable_iterator()
+        #shuffle_iterator = dataset_shuffle.make_one_shot_iterator()
+        X_, y_ = shuffle_iterator.get_next()
+
+        # Definition of the graph
+        # TODO change the 300 by the size
+#        X_=tf.placeholder(tf.float32, shape=[None,self.num_rois,self.num_features], name='X_')
 #        y_=tf.placeholder(tf.float32, shape=[None], name='y_')
-#        
-#
-#        
-#        W=tf.Variable(tf.random_normal([d], stddev=1.),name="weights")
-#        b=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
-#        
-#        normalize_W = W.assign(tf.nn.l2_normalize(W,dim = 0))
-#        W=tf.reshape(W,(1,1,d))
-#        Prod=tf.reduce_sum(tf.multiply(W,X_),axis=2)+b
-#        Max=tf.reduce_max(Prod,axis=1) # We take the max because we have at least one element of the bag that is positive
-#        np_pos = np.sum(bags_label)
-#        np_neg = -np.sum(bags_label-1)
-#        weights_bags_ratio = -tf.divide(y_,(np_pos)) + tf.divide(-tf.add(y_,-1),(np_neg)) # Need to add 1 to avoid the case 
-#        Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio)) # Sum on all the positive exemples 
-#        loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
-#        
-#        if(self.Optimizer == 'GradientDescent'):
-#            optimizer = tf.train.GradientDescentOptimizer(LR) 
-#        if(self.Optimizer == 'Momentum'):
-#            optimizer = tf.train.MomentumOptimizer(optimArg['learning_rate'],optimArg['momentum']) 
-#        if(self.Optimizer == 'Adam'):
-#            optimizer = tf.train.AdamOptimizer(LR) 
-#        if(self.Optimizer == 'Adagrad'):
-#            optimizer = tf.train.AdagradOptimizer(LR) 
-#            
-#        config = tf.ConfigProto()
-#        config.gpu_options.allow_growth = True
-#        sess=tf.Session(config=config)
-#        train = optimizer.minimize(loss)
-##        init_op = tf.global_variables_initializer()
-#        
-#        sess.run(init_op)
-#        # Create a coordinator and run all QueueRunner objects
-#        coord = tf.train.Coordinator()
-#        threads = tf.train.start_queue_runners(coord=coord)
-#        
-#        bestloss=0
-#        for essai in range(self.restarts+1): #on fait 5 essais et on garde la meilleur loss
-#            if self.verbose : print("essai",essai)
-#            # To do need to reinitialiszed
-#            sess.run(normalize_W)
-#            indices = np.arange(bags.shape[0])
-#            if shuffle: # Stochastics case
-#                np.random.shuffle(indices) # Do we have to shuffle every time
-#                
-#                
-#            # InternalError: Dst tensor is not initialized. arrive when an other program is running with tensorflow ! 
-#            for step in range(self.max_iters):
-#                i_batch = (step % n_batch)*mini_batch_size
-#                #print(i_batch,i_batch+mini_batch_size)
-#                excerpt = indices[i_batch:i_batch+mini_batch_size]
-#                batch0 = bags[excerpt,:,:].astype('float32')
-#                batch1 = bags_label[excerpt].astype('float32')
-#                sess.run(train, feed_dict={X_: batch0, y_: batch1})
-#                    #if step % 200 == 0 and self.verbose: print(step, sess.run([Prod,Max,weights_bags_ratio,Tan,loss], feed_dict={X_: batch0, y_: batch1})) 
-#
-#            loss_value = 0
-#            for step in range(n_batch):
-#                 i_batch = (step % n_batch)*mini_batch_size
-#                 batch0 = bags[i_batch:i_batch+mini_batch_size].astype('float32')
-#                 batch1 = bags_label[i_batch:i_batch+mini_batch_size].astype('float32')
-#                 loss_value += sess.run(loss, feed_dict={X_: batch0, y_: batch1})
-#                
-#            if (essai==0) | (loss_value<bestloss):
-#                W_best=sess.run(W)
-#                b_best=sess.run(b)
-#                bestloss= loss_value
-#                if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
-#                dicobest={W:W_best,b:b_best} 
-#            
-##        sess.run(tf.assign(W,W_best))
-##        sess.run(tf.assign(b,b_best))
-#        
-#        Pos_elt = tf.constant(bags[np.where(bags_label==1)],dtype=tft)
-#        Prod1 = tf.reduce_sum(tf.multiply(W_best,Pos_elt),axis=2)+b_best
-#        sor1=sess.run([Prod1])
-#        #sor2=sess.run([Prod2])
-#        sess.close()
-#        tf.reset_default_graph()
-#        
-#        pr1=sor1[0]
-#        mei=pr1.argmax(axis=1) # Indexes of the element that below to the right class normally
-#        score_mei=pr1.max(axis=1) # Indexes of the element that below to the right class normally
-#        self.PositiveExScoreAll = pr1
-#        self.PositiveRegions = mei
-#        self.PositiveRegionsScore = score_mei
+   
+        W=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights")
+        b=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
+        normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0)) # TODO Need to check it in the future
+        W=tf.reshape(W,(1,1,self.num_features))
+         # rq tu as changer cette ligne !
+        Prod=tf.reduce_sum(tf.multiply(W,X_),axis=2)+b
+        Max=tf.reduce_max(Prod,axis=1) # We take the max because we have at least one element of the bag that is positive
+        weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value) # Need to add 1 to avoid the case 
+        Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio)) # Sum on all the positive exemples 
+        loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
+        
+        Prod_batch=tf.reduce_sum(tf.multiply(W,X_batch),axis=2)+b
+        Max_batch=tf.reduce_max(Prod_batch,axis=1) # We take the max because we have at least one element of the bag that is positive
+        weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
+        Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch)) # Sum on all the positive exemples 
+        loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
+        
+        if(self.Optimizer == 'GradientDescent'):
+            optimizer = tf.train.GradientDescentOptimizer(self.LR) 
+        elif(self.Optimizer == 'Momentum'):
+            optimizer = tf.train.MomentumOptimizer(self.optimArg['learning_rate'],self.optimArg['momentum']) 
+        elif(self.Optimizer == 'Adam'):
+            optimizer = tf.train.AdamOptimizer(self.LR) 
+        elif(self.Optimizer == 'Adagrad'):
+            optimizer = tf.train.AdagradOptimizer(self.LR) 
+        else:
+            print("The optimizer is unknown",self.Optimizer)
+
+        train = optimizer.minimize(loss)   
+        sess = tf.Session(config=config)
+        
+        bestloss=0.
+        for essai in range(self.restarts+1): #on fait 5 essais et on garde la meilleur loss
+            if self.verbose : 
+                t0 = time.time()
+                print("essai",essai)
+            # To do need to reinitialiszed
+            sess.run(tf.global_variables_initializer())
+            sess.run(tf.local_variables_initializer())
+            sess.run(shuffle_iterator.initializer)
+            sess.run(normalize_W)
+            
+            # InternalError: Dst tensor is not initialized. arrive when an other program is running with tensorflow ! 
+            
+            for step in range(self.max_iters):
+                if self.debug: t2 = time.time()
+#                batch0, batch1 = sess.run(shuffle_next_element)
+                sess.run(train)
+                if self.debug:
+                    t3 = time.time()
+                    print(step,"durations :",str(t3-t2))
+                #loss_value = sess.run(loss, feed_dict={X_: batch0, y_: batch1})
+
+            loss_value = 0.
+            sess.run(iterator_batch.initializer)
+            while True:
+                try:
+                    loss_value += sess.run(loss_batch)
+                    break
+                except tf.errors.OutOfRangeError:
+                    break
+            
+            if (essai==0) | (loss_value<bestloss):
+                W_best=sess.run(W)
+                b_best=sess.run(b)
+                bestloss= loss_value
+                if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
+            if self.verbose:
+                t1 = time.time()
+                print("durations :",str(t1-t0))
+        sess.close()
+        
+        # TODO could be possible to select all the positive element of the positive 
+        # group for the learning of the next step
+        
+        train_dataset_w_rois = tf.data.TFRecordDataset(data_path)
+        train_dataset_w_rois = train_dataset_w_rois.map(parser_w_rois,num_parallel_calls=4)
+        dataset_batch = train_dataset_w_rois.batch(self.mini_batch_size)
+        dataset_batch = dataset_batch.prefetch(1)
+        iterator = dataset_batch.make_initializable_iterator()
+        next_element = iterator.get_next()
+        
+        # Definition des operations pour determiner les elements max de chaque cas
+        # positif
+        Prod_best=tf.reduce_sum(tf.multiply(W_best,X_),axis=2)+b_best
+        mei = tf.argmax(Prod_best,axis=1)
+        score_mei = tf.reduce_max(Prod_best,axis=1)
+        
+        # Create a tfRecords for the output
+        data_path_output_tab= data_path.split('.')
+        data_path_output = ('.').join(data_path.split('.')[:-1]) +'_mei_c'+str(class_indice)+'.'+data_path_output_tab[-1]
+        writer = tf.python_io.TFRecordWriter(data_path_output)
+        if self.verbose : print("Starting of best regions determination")
+        # TODO trouver une maniere d acceler cela 
+        with tf.Session(config=config) as sess:
+            sess.run(tf.global_variables_initializer())
+            sess.run(tf.local_variables_initializer())
+            sess.run(iterator.initializer)
+            while True:
+                try:
+                    fc7,rois, label,name_img = sess.run(next_element)
+                    mei_values,score_mei_values = sess.run([mei,score_mei], feed_dict={X_: fc7, y_: label})
+                    for i in range(len(mei_values)):
+                        fc7_value = fc7[i,:,:]
+                        mei_value = mei_values[i]
+                        score_mei_value = score_mei_values[i]
+                        if label[i] ==1.:
+                            fc7_selected = np.zeros_like(fc7_value)
+                            fc7_selected[mei_value,:] = fc7_value[mei_value,:]
+                        else:
+                            fc7_selected = fc7_value
+                        features=tf.train.Features(feature={
+                            'score_mei': _floats_feature(score_mei_value),
+                            'mei': _int64_feature(mei_value),
+                            'rois': _floats_feature(rois[i,:,:]),
+                            'fc7': _floats_feature(fc7_value),
+                            'fc7_selected': _floats_feature(fc7_selected),
+                            'label' : _floats_feature(label[i]),
+                            'name_img' : _bytes_feature(name_img[i])})
+                        example = tf.train.Example(features=features)
+                        writer.write(example.SerializeToString())
+                except tf.errors.OutOfRangeError:
+                        break
+            writer.close()
+        if self.verbose : print("End of best regions determination")
+        # Train an hinge loss with SGD for the final classifier
+        # TODO add a validation step for the parameter
+        
+#        X=tf.placeholder(tf.float32, shape=[None,self.num_rois,self.num_features], name='X')
+#        y=tf.placeholder(tf.float32, shape=[None,self.num_rois], name='y')
         
         
-        return(0)
+        train_dataset_sgdc = tf.data.TFRecordDataset(data_path_output)
+        train_dataset_sgdc = train_dataset_sgdc.map(parser_w_mei_reduce,num_parallel_calls=4)
+        if shuffle:
+            dataset_sgdc = train_dataset_sgdc.shuffle(buffer_size=self.buffer_size)
+        else:
+            dataset_sgdc = train_dataset_sgdc
+        dataset_sgdc = dataset_sgdc.batch(self.mini_batch_size)
+        dataset_sgdc = dataset_sgdc.repeat()
+        dataset_sgdc = dataset_sgdc.prefetch(1)
+        shuffle_iterator_sgdc = dataset_sgdc.make_initializable_iterator()
+        X_shuffle_sgdc,y_shuffle_sgdc = shuffle_iterator_sgdc.get_next()
+        
+        X_shuffle_sgdc = tf.identity(X_shuffle_sgdc, name="X")
+        y_shuffle_sgdc = tf.identity(y_shuffle_sgdc, name="X")
+        w_estimator = False
+        
+        if w_estimator:
+            return(0)
+        else:
+            W_sgdc=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights_sgdc")
+            b_sgdc=tf.Variable(tf.random_normal([1], stddev=1.), name="bias_sgdc")
+            normalize_W_sgdc = W_sgdc.assign(tf.nn.l2_normalize(W_sgdc,dim=0)) 
+            # TODO Need to check it in the future
+            
+            W_sgdc=tf.reshape(W_sgdc,(1,1,self.num_features))
+            logits = tf.add(tf.reduce_sum(tf.multiply(W_sgdc,X_shuffle_sgdc),axis=2),b_sgdc,name='logits')
+            logits_squeeze=tf.squeeze(logits) # Dim size_batch * 300
+            labels_plus_minus_1 = tf.add(tf.multiply(2.,tf.squeeze(y_shuffle_sgdc)),minus_1) # Dim size_batch
+            hinge_loss = tf.losses.hinge_loss(labels_plus_minus_1,logits_squeeze)
+            
+            train = optimizer.minimize(hinge_loss)   
+            if self.verbose : print("Start SGDC training")
+            saver = tf.train.Saver()
+            sess = tf.Session(config=config)
+            sess.run(tf.global_variables_initializer())
+            sess.run(tf.local_variables_initializer())
+            sess.run(shuffle_iterator_sgdc.initializer)
+            sess.run(normalize_W_sgdc)
+            # InternalError: Dst tensor is not initialized. arrive when an other program is running with tensorflow ! 
+            for step in range(self.max_iters_sgdc):
+                if self.debug: t2 = time.time()
+    #            batch0,batch1 = sess.run(shuffle_next_element_sgdc)
+                sess.run(train)
+                if self.debug:
+                    t3 = time.time()
+                    print(step,"durations :",str(t3-t2))
+            
+            export_dir = ('/').join(data_path.split('/')[:-1])
+            export_dir += '/FinalClassifierModels' + str(time.time())
+            name_model = export_dir + '/model'
+            saver.save(sess,name_model)
+            # http://cv-tricks.com/tensorflow-tutorial/save-restore-tensorflow-models-quick-complete-tutorial/
+            
+            sess.close()
+            if self.verbose : print("End SGDC training")
+            return(name_model)
+        
+        
     def fit_Stocha(self,bags,bags_label,shuffle=True):
         """
         bags_label = 1 or 0 
