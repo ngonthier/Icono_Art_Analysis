@@ -11,7 +11,7 @@ from __future__ import print_function
 import os
 from ..datasets.imdb import imdb
 #from ..datasets.ds_utils import unique_boxes,
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET 
 import numpy as np
 import scipy.sparse
 import scipy.io as sio
@@ -24,15 +24,21 @@ from ..model.config import cfg
 
 
 class pascal_voc(imdb):
-  def __init__(self, image_set, year, use_diff=False):
+  def __init__(self, image_set, year, use_diff=False,devkit_path=None,test_ext=False):
     name = 'voc_' + year + '_' + image_set
     if use_diff:
       name += '_diff'
     imdb.__init__(self, name)
     self._year = year
     self._image_set = image_set
-    self._devkit_path = self._get_default_path()
-    self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year)
+    if devkit_path is None:
+        self._devkit_path = self._get_default_path()
+    else:
+        self._devkit_path = devkit_path
+    if test_ext:
+        self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year+'test')
+    else:
+        self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year)
     self._classes = ('__background__',  # always index 0
                      'aeroplane', 'bicycle', 'bird', 'boat',
                      'bottle', 'bus', 'car', 'cat', 'chair',

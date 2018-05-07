@@ -24,7 +24,6 @@ import  os, sys
 import tensorflow as tf
 from tf_faster_rcnn.lib.nets.vgg16 import vgg16
 from tf_faster_rcnn.lib.nets.resnet_v1 import resnetv1
-from tf_faster_rcnn.lib.nets.mobilenet_v1 import mobilenetv1
 
 def parse_args():
   """
@@ -103,8 +102,6 @@ def net_test():
     net = resnetv1(num_layers=101)
   elif args.net == 'res152':
     net = resnetv1(num_layers=152)
-  elif args.net == 'mobile':
-    net = mobilenetv1()
   else:
     raise NotImplementedError
 
@@ -148,9 +145,9 @@ def test_net_local():
         ITERS=490000
         ANCHORS=[4,8,16,32]
         RATIOS=[0.5,1,2]
-    demonet = 'res101 ' 
+    demonet = 'res101' 
     model_path = '/media/HDD/models/tf-faster-rcnn/'
-    filename= model_path + net + '_faster_rcnn_iter_' + str(ITERS) +  '.ckpt'
+    filename= model_path + demonet + '_faster_rcnn_iter_' + str(ITERS) +  '.ckpt'
     imdb_name = TEST_IMDB
     imdb = get_imdb(imdb_name)
     comp_mode = True
@@ -170,8 +167,6 @@ def test_net_local():
       net = resnetv1(num_layers=101)
     elif demonet == 'res152':
       net = resnetv1(num_layers=152)
-    elif demonet == 'mobile':
-      net = mobilenetv1()
     else:
       raise NotImplementedError
     

@@ -1078,20 +1078,33 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/Painting_Dataset/' 
         num_classes = 10
+        ext = '.txt'
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
         num_classes = 20
+        ext = '.txt'
+        raise(NotImplementedError)
+    elif database=='VOC2007':
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+        num_classes = 20
+        ext = '.csv'
     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
         num_classes = 5
+        ext = '.txt'
     else:
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        ext = '.txt'
     
-    databasetxt = path_data + database + '.txt'
-    df_label = pd.read_csv(databasetxt,sep=",")
+    databasetxt = path_data + database + ext
+    if database=='VOC2007':
+        df_label = pd.read_csv(databasetxt,sep=",",dtype=str)
+    else:
+        df_label = pd.read_csv(databasetxt,sep=",")
     if database=='Wikidata_Paintings_miniset_verif':
         df_label = df_label[df_label['BadPhoto'] <= 0.0]
     
@@ -1164,9 +1177,13 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
             dict_writers[set_str] = tf.python_io.TFRecordWriter(name_pkl_all_features)
         if database=='Paintings':
-            item_name = 'name_img'
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-    
+        if database=='VOC2007':
+            classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
+               'bottle', 'bus', 'car', 'cat', 'chair',
+               'cow', 'diningtable', 'dog', 'horse',
+               'motorbike', 'person', 'pottedplant',
+               'sheep', 'sofa', 'train', 'tvmonitor']
     
     # Important variable : number of regions !   
     k_regions = 300    
@@ -1180,7 +1197,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 if not(i==0):
                     pickle.dump(features_resnet_dict,pkl) # Save the data
                     features_resnet_dict= {}
-            if database=='VOC12' or database=='Paintings':
+            if database=='VOC12' or database=='VOC2007' or database=='Paintings':
                 complet_name = path_to_img + name_img + '.jpg'
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 name_sans_ext = os.path.splitext(name_img)[0]
@@ -1198,7 +1215,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         elif filesave=='tfrecords':
             if i%Itera==0:
                 if verbose : print(i,name_img)
-            if database=='VOC12' or database=='Paintings':
+            if database=='VOC12' or database=='VOC2007' or database=='Paintings':
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -1228,6 +1245,10 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 for j in range(num_classes):
                     if(classes[j] in df_label['classe'][i]):
                         classes_vectors[j] = 1
+            if database=='VOC2007':
+                for j in range(num_classes):
+                    value = int((int(df_label[classes[j]][i])+1.)/2.)
+                    classes_vectors[j] = value
             
             #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
             if saved=='fc7':
@@ -1240,7 +1261,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     'label' : _bytes_feature(tf.compat.as_bytes(classes_vectors.tostring())),
                     'name_img' : _bytes_feature(str.encode(name_sans_ext))})
             elif saved=='pool5':
-                raise(NotImplemented)
+                raise(NotImplementedError)
             elif saved=='all':
                 features=tf.train.Features(feature={
                     'height': _int64_feature(height),
@@ -1254,14 +1275,25 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     'label' : _floats_feature(classes_vectors),
                     'name_img' : _bytes_feature(str.encode(name_sans_ext))})
             example = tf.train.Example(features=features)    
-            if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
-                dict_writers['train'].write(example.SerializeToString())
-                dict_writers['trainval'].write(example.SerializeToString())
-            elif (df_label.loc[df_label[item_name]==name_img]['set']=='validation').any():
-                dict_writers['val'].write(example.SerializeToString())
-                dict_writers['trainval'].write(example.SerializeToString())
-            elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
-                dict_writers['test'].write(example.SerializeToString())
+            
+            if database=='VOC2007':
+                if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
+                    dict_writers['train'].write(example.SerializeToString())
+                    dict_writers['trainval'].write(example.SerializeToString())
+                elif (df_label.loc[df_label[item_name]==name_img]['set']=='val').any():
+                    dict_writers['val'].write(example.SerializeToString())
+                    dict_writers['trainval'].write(example.SerializeToString())
+                elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
+                    dict_writers['test'].write(example.SerializeToString())
+            if (database=='Wikidata_Paintings_miniset') or database=='Paintings':
+                if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
+                    dict_writers['train'].write(example.SerializeToString())
+                    dict_writers['trainval'].write(example.SerializeToString())
+                elif (df_label.loc[df_label[item_name]==name_img]['set']=='validation').any():
+                    dict_writers['val'].write(example.SerializeToString())
+                    dict_writers['trainval'].write(example.SerializeToString())
+                elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
+                    dict_writers['test'].write(example.SerializeToString())
 
     if filesave=='pkl':
         pickle.dump(features_resnet_dict,pkl)
@@ -1851,9 +1883,12 @@ if __name__ == '__main__':
     # RESNET152 sur COCO
     # VGG16 sur COCO
     # RES101 sur VOC12
-    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
+    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='VOC2007',
                                  augmentation=False,L2 =False,
                                  saved='all',verbose=True,filesave='tfrecords')   
+#    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
+#                                 augmentation=False,L2 =False,
+#                                 saved='all',verbose=True,filesave='tfrecords')   
     
     # Test pour calculer les performances en prenant la moyenne des regions retournees par le réseau
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',nms_thresh = 0.0)

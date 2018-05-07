@@ -41,7 +41,10 @@ import pathlib
 from milsvm import mi_linearsvm # Version de nicolas avec LinearSVC et TODO SGD 
 from sklearn.externals import joblib # To save the classifier
 from tool_on_Regions import reduce_to_k_regions
-import tables
+from sklearn import linear_model
+#from hpsklearn import HyperoptEstimator,sgd
+#from hyperopt import tpe
+
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -81,7 +84,28 @@ CLASSES_SET ={'VOC' : CLASSESVOC,
 
 depicts_depictsLabel = {'Q942467_verif': 'Jesus_Child','Q235113_verif':'angel_Cupidon ','Q345_verif' :'Mary','Q109607_verif':'ruins','Q10791_verif': 'nudity'}
 num_features = 2048 # TODO change thath !!!
-def parser_w_rois(record):
+
+def parser_w_mei_reduce(record):
+    num_rois = 300
+    # Perform additional preprocessing on the parsed data.
+    keys_to_features={
+                'score_mei': tf.FixedLenFeature([1], tf.float32),
+                'mei': tf.FixedLenFeature([1], tf.int64),
+                'rois': tf.FixedLenFeature([num_rois*5],tf.float32),
+                'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
+                'fc7_selected': tf.FixedLenFeature([num_rois*num_features],tf.float32),
+                'label' : tf.FixedLenFeature([1],tf.float32),
+                'name_img' : tf.FixedLenFeature([],tf.string)}
+    parsed = tf.parse_single_example(record, keys_to_features)
+    
+    # Cast label data into int32
+    label = parsed['label']
+    label_300 = tf.tile(label,[num_rois])
+    fc7_selected = parsed['fc7_selected']
+    fc7_selected = tf.reshape(fc7_selected, [num_rois,num_features])         
+    return fc7_selected,label_300
+
+def parser_w_rois(record,classe_index=0,num_classes=10):
     # Perform additional preprocessing on the parsed data.
     keys_to_features={
                 'height': tf.FixedLenFeature([], tf.int64),
@@ -99,7 +123,7 @@ def parser_w_rois(record):
     # Cast label data into int32
     label = parsed['label']
     name_img = parsed['name_img']
-    label = tf.slice(label,[0],[1])
+    label = tf.slice(label,[classe_index],[1])
     label = tf.squeeze(label) # To get a vector one dimension
     fc7 = parsed['fc7']
     fc7 = tf.reshape(fc7, [300,num_features])
@@ -1114,7 +1138,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   CompBest=True,Stocha=True,k_per_bag=300):
     """ 
     10 avril 2017
-    This function used TFrecords file !!! 
+    This function used TFrecords file 
     
     Classifier based on CNN features with Transfer Learning on Faster RCNN output
     
@@ -1151,6 +1175,8 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     
     """
     # TODO be able to train on background 
+    ext = '.txt'
+    isVOC=False
     if database=='Paintings':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/Painting_Dataset/'
@@ -1158,6 +1184,16 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+    elif database=='VOC2007':
+        ext = '.csv'
+        isVOC = True
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+        classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
+           'bottle', 'bus', 'car', 'cat', 'chair',
+           'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant',
+           'sheep', 'sofa', 'train', 'tvmonitor']
     elif(database=='Wikidata_Paintings'):
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
@@ -1172,10 +1208,13 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
        jtest =0
     
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
-    databasetxt =path_data + database + '.txt'
+    databasetxt =path_data + database + ext
     df_label = pd.read_csv(databasetxt,sep=",")
     if database=='Wikidata_Paintings_miniset_verif':
         df_label = df_label[df_label['BadPhoto'] <= 0.0]
+    if database=='VOC2007':
+        df_label[classes] = df_label[classes].apply(lambda x:x + 1.0 /2.0)
+    num_classes = len(classes)
     N = 1
     extL2 = ''
     nms_thresh = 0.7
@@ -1191,7 +1230,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
             data_precomputeed = False
 
     sLength_all = len(df_label[item_name])
-    buffer_size = 10000
+    
     df_output = df_label.copy()
     if demonet == 'vgg16_COCO':
         size_output = 4096
@@ -1205,14 +1244,18 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                      database=database,augmentation=False,L2 =False,
                                      saved='all',verbose=verbose,filesave='tfrecords')
            
+    # Config param for TF session 
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True  
+            
     # Data for the MILSVM Latent SVM
-    restarts = 1
+    restarts = 0
     n_jobs = -1
     sizeMax = 30*8000 // k_per_bag # With it I got 3739s for 300 iterations 
-    sizeMax = 30*4800 // k_per_bag
+    sizeMax = 30*10000 // k_per_bag
+    buffer_size = 10000
     mini_batch_size = sizeMax
     print('mini_batch_size',mini_batch_size)
-    num_ex_used = 300*300
     AP_per_class = []
     P_per_class = []
     R_per_class = []
@@ -1226,76 +1269,219 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         if verbose : print(j,classes[j])       
         if verbose: print("Start train the MILSVM")
 
+        if PlotRegions:
+            if Stocha:
+                extensionStocha = 'Stocha/'
+            else:
+                extensionStocha = ''
+            if database=='Wikidata_Paintings_miniset_verif':
+                path_to_output2  = path_data + '/tfMILSVMRegion/'+database+'/'+extensionStocha+depicts_depictsLabel[classes[j]]
+            else:
+                path_to_output2  = path_data + '/tfMILSVMRegion/'+database+'/'+extensionStocha+classes[j]
+            if RPN:
+                path_to_output2 += '_RPNetMISVM/'
+            elif CompBest:
+                 path_to_output2 += '_BestObject/'
+            else:
+                path_to_output2 += '/'
+            path_to_output2_bis = path_to_output2 + 'Train'
+            path_to_output2_ter = path_to_output2 + 'Test'
+            pathlib.Path(path_to_output2_bis).mkdir(parents=True, exist_ok=True) 
+            pathlib.Path(path_to_output2_ter).mkdir(parents=True, exist_ok=True)
+
         
         max_iters = (5000 //mini_batch_size)*300
-        #max_iters = 300 # Durations for 300 iterations max = 
+        #max_iters = 3 # Durations for 300 iterations max = 
         print("max_iters",max_iters)
         Optimizer = 'GradientDescent'
+        Optimizer = 'Adam'
         LR=0.01
         optimArg= None
         verboseMILSVM = True
+        return_MILSVM = True
         data_path_trai= dict_name_file['trainval']
         #data_path_trai=  '/home/gonthier/Data_tmp/FasterRCNN_res152_COCO_Paintings_N1_TLforMIL_nms_0.7_all_trainval.tfrecords'
+        
         classifierMILSVM = tf_MILSVM(LR=LR,C=1.0,C_finalSVM=1.0,restarts=restarts,
            max_iters=max_iters,symway=True,n_jobs=n_jobs,buffer_size=buffer_size,
            verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
-           mini_batch_size=mini_batch_size,num_features=size_output,debug=True) 
+           mini_batch_size=mini_batch_size,num_features=size_output,debug=True,
+           num_classes=num_classes) 
         export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_trai,
-                                              class_indice=j,shuffle=True)
-#        export_dir = '/media/HDD/output_exp/ClassifPaintings/FinalClassifierModels1523698420.8969626/model'
+                                              class_indice=j,shuffle=True,
+                                              performance=False)
+        np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
+        Number_of_positif_elt = 1 
+        number_zone = k_per_bag
+        dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
         print(export_dir)
-        export_dir_path = ('/').join(export_dir.split('/')[:-1])
-        name_model_meta = export_dir + '.meta'
-        config = tf.ConfigProto()
-        config.gpu_options.allow_growth = True    
-        test_dataset = tf.data.TFRecordDataset(dict_name_file['test'])
-        test_dataset = test_dataset.map(parser_w_rois)
-        dataset_batch = test_dataset.batch(mini_batch_size)
-        iterator = dataset_batch.make_initializable_iterator()
-        next_element = iterator.get_next()
-        
-        true_label_all_test =  []
-        predict_label_all_test =  []
-        predict_roi_all_test = []
-        name_all_test =  []
-        
-        with tf.Session(config=config) as sess:
-#            tf.saved_model.loader.load(sess,[tag_constants.SERVING],export_dir)
-            new_saver = tf.train.import_meta_graph(name_model_meta)
-            new_saver.restore(sess, tf.train.latest_checkpoint(export_dir_path))
-#            sess.run(tf.global_variables_initializer())
-#            sess.run(tf.local_variables_initializer())
-#            graph = tf.get_default_graph()
-            graph= tf.get_default_graph()
-            X = graph.get_tensor_by_name("X:0")
-            logits = graph.get_tensor_by_name("logits:0")
-            logits_max = tf.reduce_max(logits,axis=1,name='Max')
-            logits_argmax = tf.argmax(logits,axis=1,name='argmax')
+        if PlotRegions:
+            if verbose: print("Start ploting Regions selected by the MILSVM in training phase")
+            export_dir_path = ('/').join(export_dir.split('/')[:-1])
+            name_model_meta = export_dir + '.meta'
+            train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
+            # TODO add num_classes
+            train_dataset = train_dataset.map(lambda r: parser_w_rois(r,classe_index=j,num_classes=num_classes))
+            dataset_batch = train_dataset.batch(mini_batch_size)
+            dataset_batch.cache()
+            iterator = dataset_batch.make_one_shot_iterator()
+            next_element = iterator.get_next()
             
-#            X=tf.placeholder(tf.float32, shape=[None,300,num_features], name='X')
-            sess.run(iterator.initializer)
-            while True:
-              try:
-                  fc7,rois, label,name_img = sess.run(next_element)
-                  logits_max_value,logits_argmax_value= sess.run([logits_max,logits_argmax],feed_dict={X: fc7})
-                  true_label_all_test += [label]
-                  predict_label_all_test +=  [logits_max_value]
-                  predict_roi_all_test += [rois[np.arange(0,len(rois)),logits_argmax_value,:]]
-                  name_all_test += [name_img]
-#                  name_all_test += name_img
-#                  for i,name_tmp in enumerate(name_img):
-#                      df_output[df_output[item_name]==name_tmp]['logits_max'] = logits_max_value[i]
-#                      df_output[df_output[item_name]==name_tmp]['logits_argmax'] = logits_argmax_value[i]
-#                      df_output[df_output[item_name]==name_tmp]['true_label'] = label[i]
-              except tf.errors.OutOfRangeError:
-                break
-       
-            true_label_all_test =np.concatenate(true_label_all_test)
-            predict_label_all_test =np.concatenate(predict_label_all_test)
-            predict_roi_all_test =np.concatenate(predict_roi_all_test)
-            name_all_test =np.concatenate(name_all_test)
-            print(predict_label_all_test.shape)
-            print(predict_roi_all_test.shape)
+            with tf.Session(config=config) as sess:
+                new_saver = tf.train.import_meta_graph(name_model_meta)
+                new_saver.restore(sess, tf.train.latest_checkpoint(export_dir_path))
+                graph= tf.get_default_graph()
+                X = graph.get_tensor_by_name("X:0")
+                y = graph.get_tensor_by_name("y:0")
+                Prod_best = graph.get_tensor_by_name("Prod:0")
+                mei = tf.argmax(Prod_best,axis=1)
+                score_mei = tf.reduce_max(Prod_best,axis=1)
+                sess.run(tf.global_variables_initializer())
+                sess.run(tf.local_variables_initializer())
+                while True:
+                    try:
+                        fc7s,roiss, labels,name_imgs = sess.run(next_element)
+                        PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll = sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
+                        
+                        for k in range(len(PositiveRegions)):                          
+                            if labels[k] == 1:
+                                name_img = str(name_imgs[k].decode("utf-8") )
+                                rois = roiss[k,:]
+                                #if verbose: print(name_img)
+                                if database=='VOC12' or database=='Paintings':
+                                    complet_name = path_to_img + name_img + '.jpg'
+                                    name_sans_ext = name_img
+                                elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                                    name_sans_ext = os.path.splitext(name_img)[0]
+                                    complet_name = path_to_img +name_sans_ext + '.jpg'
+                                im = cv2.imread(complet_name)
+                                blobs, im_scales = get_blobs(im)
+                                roi_with_object_of_the_class = PositiveRegions[k] % len(rois) # Because we have repeated some rois
+                                roi = rois[roi_with_object_of_the_class,:]
+                                roi_scores = [get_PositiveRegionsScore[k]]
+                                roi_boxes =  roi[1:5] / im_scales[0]   
+                                roi_boxes_score = np.expand_dims(np.expand_dims(np.concatenate((roi_boxes,roi_scores)),axis=0),axis=0)
+                                if RPN:
+                                    best_RPN_roi = rois[0,:]
+                                    best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
+                                    best_RPN_roi_scores = [PositiveExScoreAll[k,0]]
+                                    cls = ['RPN','MILSVM']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                                    best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
+                                    roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
+                                else:
+                                    cls = ['MILSVM']
+                                    roi_boxes_and_score = roi_boxes_score
+                                vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
+                                name_output = path_to_output2 +'Train/' + name_sans_ext + '_Regions.jpg'
+                                plt.savefig(name_output)
+                                plt.close()
+                    except tf.errors.OutOfRangeError:
+                            break
+            tf.reset_default_graph()
+        ## Predicition with the MILSVM
+        predict_with = 'MILSVM'
+        if predict_with=='MILSVM':
+            
+            export_dir_path = ('/').join(export_dir.split('/')[:-1])
+            name_model_meta = export_dir + '.meta'  
+            train_dataset = tf.data.TFRecordDataset(dict_name_file['test'])
+            train_dataset = train_dataset.map(lambda r: parser_w_rois(r,classe_index=j))
+            dataset_batch = train_dataset.batch(mini_batch_size)
+            dataset_batch.cache()
+            iterator = dataset_batch.make_one_shot_iterator()
+            next_element = iterator.get_next()
+            true_label_all_test =  []
+            predict_label_all_test =  []
+            name_all_test =  []
+            FirstTime = True
+            with tf.Session(config=config) as sess:
+                new_saver = tf.train.import_meta_graph(name_model_meta)
+                new_saver.restore(sess, tf.train.latest_checkpoint(export_dir_path))
+                graph= tf.get_default_graph()
+                X = graph.get_tensor_by_name("X:0")
+                y = graph.get_tensor_by_name("y:0")
+                Prod_best = graph.get_tensor_by_name("Prod:0")
+                mei = tf.argmax(Prod_best,axis=1)
+                score_mei = tf.reduce_max(Prod_best,axis=1)
+                sess.run(tf.global_variables_initializer())
+                sess.run(tf.local_variables_initializer())
+                while True:
+                    try:
+                        fc7s,roiss, labels,name_imgs = sess.run(next_element)
+                        PositiveRegions,get_RegionsScore,PositiveExScoreAll = sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
+                        true_label_all_test += [labels]
+                        predict_label_all_test +=  [get_RegionsScore]
+                        name_all_test += [name_imgs]
+                        if PlotRegions:
+
+                            if verbose and FirstTime: 
+                                FirstTime = False
+                                print("Start ploting Regions selected by the MILSVM in testing phase")
+                            for k in range(len(PositiveRegions)):                          
+                                if labels[k] == 1:
+                                    name_img = str(name_imgs[k].decode("utf-8") )
+                                    rois = roiss[k,:]
+                                    #if verbose: print(name_img)
+                                    if database=='VOC12' or database=='Paintings':
+                                        complet_name = path_to_img + name_img + '.jpg'
+                                        name_sans_ext = name_img
+                                    elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                                        name_sans_ext = os.path.splitext(name_img)[0]
+                                        complet_name = path_to_img +name_sans_ext + '.jpg'
+                                    im = cv2.imread(complet_name)
+                                    blobs, im_scales = get_blobs(im)
+                                    roi_with_object_of_the_class = PositiveRegions[k] % len(rois) # Because we have repeated some rois
+                                    roi = rois[roi_with_object_of_the_class,:]
+                                    roi_scores = [get_RegionsScore[k]]
+                                    roi_boxes =  roi[1:5] / im_scales[0]   
+                                    roi_boxes_score = np.expand_dims(np.expand_dims(np.concatenate((roi_boxes,roi_scores)),axis=0),axis=0)
+                                    if RPN:
+                                        best_RPN_roi = rois[0,:]
+                                        best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
+                                        best_RPN_roi_scores = [PositiveExScoreAll[k,0]]
+                                        cls = ['RPN','MILSVM']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                                        best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
+                                        roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
+                                    else:
+                                        cls = ['MILSVM']
+                                        roi_boxes_and_score = roi_boxes_score
+                                    vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
+                                    name_output = path_to_output2 +'Test/' + name_sans_ext + '_Regions.jpg'
+                                    plt.savefig(name_output)
+                                    plt.close()
+                    except tf.errors.OutOfRangeError:
+                            break
+            tf.reset_default_graph()
+        elif predict_with =='SGDClassif_sk': # SGD Classifier of scikit learn
+#            np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
+#            Number_of_positif_elt = 1 
+#            number_zone = k_per_bag
+#            dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
+#            classifier_sgd = SGDClassifier(loss='hinge',class_weight=dict_class_weight,n_jobs=-1)
+#            # For best results using the default learning rate schedule, the data should have zero mean and unit variance.
+#            # TODO !! 
+            return(0)
+            
+        elif predict_with =='hpsklearn_sgd': # SGD Classifier of scikit learn
+#            # Use of the hyperopt optimisation 
+#            np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
+#            Number_of_positif_elt = 1 
+#            number_zone = k_per_bag
+#            dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
+#            classifier_sgd = sgd(loss='hinge',class_weight=dict_class_weight)
+#            estim = HyperoptEstimator(classifier=classifier_sgd,  
+#                            algo=tpe.suggest, trial_timeout=300)
+#            #estim.fit_ # fit partial ??? 
+#            
+#                        
+            
+            return(0)
+            
+            
+        # Regroupement des informations     
+        true_label_all_test =np.concatenate(true_label_all_test)
+        predict_label_all_test =np.concatenate(predict_label_all_test)
+        name_all_test =np.concatenate(name_all_test)
         labels_test_predited = (np.sign(predict_label_all_test) +1.)/2
         AP = average_precision_score(true_label_all_test,predict_label_all_test,average=None)
         if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -1311,7 +1497,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         AP_per_class += [AP]
         R_per_class += [test_recall]
         P_per_class += [test_precision]
-       
+                
     print("mean Average Precision for all the data = {0:.3f}".format(np.mean(AP_per_class)))    
     if CompBest: print("mean Average Precision for BEst Score = {0:.3f}".format(np.mean(AP_per_classbS))) 
     print("mean Precision for all the data = {0:.3f}".format(np.mean(P_per_class)))  
@@ -2041,7 +2227,11 @@ if __name__ == '__main__':
 #                                          verbose = True,testMode = True,jtest = 0,
 #                                          PlotRegions = False,misvm_type='LinearMISVC')
 #    detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Paintings_miniset_verif')
-    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings', 
-                                  verbose = True,testMode = True,jtest = 0,
-                                  PlotRegions = True,saved_clf=False,RPN=False,
-                                  CompBest=True,Stocha=True,k_per_bag=300)
+    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
+                                  verbose = False,testMode = True,jtest = 0,
+                                  PlotRegions = True,saved_clf=False,RPN=True,
+                                  CompBest=False,Stocha=True,k_per_bag=300)
+#    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings', 
+#                                  verbose = False,testMode = False,jtest = 6,
+#                                  PlotRegions = False,saved_clf=False,RPN=True,
+#                                  CompBest=False,Stocha=True,k_per_bag=300)
