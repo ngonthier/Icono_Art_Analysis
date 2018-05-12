@@ -317,6 +317,8 @@ class tf_MILSVM():
         self.num_classes = num_classes
         self.debug = debug 
         self.isVOC = isVOC
+        self.np_pos_value = 1
+        self.np_neg_value = 1
      
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 

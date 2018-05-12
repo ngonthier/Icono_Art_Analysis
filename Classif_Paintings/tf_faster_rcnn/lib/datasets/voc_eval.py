@@ -104,9 +104,12 @@ def voc_eval(detpath,
     os.mkdir(cachedir)
   cachefile = os.path.join(cachedir, '%s_annots.pkl' % imagesetfile)
   # read list of images
+  #print(imagesetfile)
   with open(imagesetfile, 'r') as f:
     lines = f.readlines()
   imagenames = [x.strip() for x in lines]
+  #print(annopath)
+  #print(cachefile)
 
   if not os.path.isfile(cachefile):
     # load annotations
@@ -118,7 +121,7 @@ def voc_eval(detpath,
           i + 1, len(imagenames)))
     # save
     print('Saving cached annotations to {:s}'.format(cachefile))
-    with open(cachefile, 'w') as f:
+    with open(cachefile, 'wb') as f:
       pickle.dump(recs, f)
   else:
     # load
@@ -126,6 +129,7 @@ def voc_eval(detpath,
       try:
         recs = pickle.load(f)
       except:
+        print(f)
         recs = pickle.load(f, encoding='bytes')
 
   # extract gt objects for this class

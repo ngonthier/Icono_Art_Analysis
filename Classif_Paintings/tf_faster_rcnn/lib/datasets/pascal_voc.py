@@ -24,7 +24,8 @@ from ..model.config import cfg
 
 
 class pascal_voc(imdb):
-  def __init__(self, image_set, year, use_diff=False,devkit_path=None,test_ext=False):
+  def __init__(self, image_set, year, use_diff=False,devkit_path=None,test_ext=False,
+               force_dont_use_07_metric=False):
     name = 'voc_' + year + '_' + image_set
     if use_diff:
       name += '_diff'
@@ -52,6 +53,7 @@ class pascal_voc(imdb):
     self._roidb_handler = self.gt_roidb
     self._salt = str(uuid.uuid4())
     self._comp_id = 'comp4'
+    self.force_dont_use_07_metric = force_dont_use_07_metric
 
     # PASCAL specific config options
     self.config = {'cleanup': True,
@@ -224,6 +226,9 @@ class pascal_voc(imdb):
                            dets[k, 0] + 1, dets[k, 1] + 1,
                            dets[k, 2] + 1, dets[k, 3] + 1))
 
+  def set_force_dont_use_07_metric(self,boolean):
+      self.force_dont_use_07_metric=boolean
+      
   def _do_python_eval(self, output_dir='output'):
     annopath = os.path.join(
       self._devkit_path,
@@ -240,6 +245,7 @@ class pascal_voc(imdb):
     aps = []
     # The PASCAL VOC metric changed in 2010
     use_07_metric = True if int(self._year) < 2010 else False
+    if self.force_dont_use_07_metric == True: use_07_metric = False
     print('VOC07 metric? ' + ('Yes' if use_07_metric else 'No'))
     if not os.path.isdir(output_dir):
       os.mkdir(output_dir)
