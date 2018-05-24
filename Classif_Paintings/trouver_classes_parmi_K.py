@@ -77,6 +77,7 @@ class MILSVM():
             element [choice : defaultSGD, linearSVC] [default : linearSVC]
         @param verbose : print optimization status messages [default: True]
         """
+        tf.reset_default_graph()
         self.LR = LR
         self.C = C
         self.C_finalSVM = C_finalSVM
@@ -104,7 +105,7 @@ class MILSVM():
         LR = self.LR # Regularisation loss
         np1,k,n = data_pos.shape
         np2,_,_ = data_neg.shape
-        if self.verbose :print("Shapes :",np1,k,n,np2)
+        if self.verbose :print("Shapes :",np1,np2,k,n)
         X1=tf.constant(data_pos,dtype=tft)
         X2=tf.constant(data_neg,dtype=tft)
         W=tf.placeholder(tft,[n])
@@ -261,7 +262,8 @@ class tf_MILSVM():
                  symway=True,all_notpos_inNeg=True,gridSearch=False,n_jobs=-1,
                  final_clf='LinearSVC',verbose=True,Optimizer='GradientDescent',
                   optimArg=None,mini_batch_size=200,buffer_size=10000,num_features=2048,
-                  num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,isVOC=False):
+                  num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
+                  is_betweenMinus1and1=False):
         # TODOD enelver les trucs inutiles ici
         """
         @param LR : Learning rate : pas de gradient de descente [default: 0.01]
@@ -287,7 +289,7 @@ class tf_MILSVM():
         @param num_classes : numbre de classes dans la base
         @param max_iters_sgdc : Nombre d iterations pour la descente de gradient stochastique classification
         @param debug : default False : if we want to debug 
-        @param isVoc : default False : if we have the label value alreaddy between -1 and 1
+        @param is_betweenMinus1and1 : default False : if we have the label value alreaddy between -1 and 1
         """
         self.LR = LR
         self.C = C
@@ -316,7 +318,7 @@ class tf_MILSVM():
         self.num_rois = num_rois
         self.num_classes = num_classes
         self.debug = debug 
-        self.isVOC = isVOC
+        self.is_betweenMinus1and1 = is_betweenMinus1and1
         self.np_pos_value = 1
         self.np_neg_value = 1
      
@@ -346,6 +348,30 @@ class tf_MILSVM():
         #tf.Print(label,[label])
         label = tf.slice(label,[self.class_indice],[1])
         label = tf.squeeze(label) # To get a vector one dimension
+        fc7 = parsed['fc7']
+        fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
+        return fc7, label
+    
+    def parser_all_classes(self,record):
+        # Perform additional preprocessing on the parsed data.
+#        keys_to_features={
+#                    'height': tf.FixedLenFeature([], tf.int64),
+#                    'width': tf.FixedLenFeature([], tf.int64),
+#                    'num_regions':  tf.FixedLenFeature([], tf.int64),
+#                    'num_features':  tf.FixedLenFeature([], tf.int64),
+#                    'dim1_rois':  tf.FixedLenFeature([], tf.int64),
+#                    'rois': tf.FixedLenFeature([5*self.num_rois],tf.float32),
+#                    'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),
+#                    'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
+#                    'label' : tf.FixedLenFeature([self.num_classes],tf.float32),
+#                    'name_img' : tf.FixedLenFeature([],tf.string)}
+        keys_to_features={
+                    'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
+                    'label' : tf.FixedLenFeature([self.num_classes],tf.float32)}
+        parsed = tf.parse_single_example(record, keys_to_features)
+        
+        # Cast label data into int32
+        label = parsed['label']
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
         return fc7, label
@@ -422,16 +448,20 @@ class tf_MILSVM():
     def fit_MILSVM_tfrecords(self,data_path,class_indice,shuffle=True,performance=False):
         """" This function run per batch on the tfrecords data folder """
         
-        self.class_indice = class_indice
+        self.class_indice = class_indice # If class_indice = -1 we will run on all the class at once ! parallel power
         ## Debut de la fonction        
         cpu_count = multiprocessing.cpu_count()
         train_dataset = tf.data.TFRecordDataset(data_path)
+        if class_indice==-1:
+            first_parser = self.parser_all_classes
+        else:
+            first_parser = self.parser
         if tf.__version__ > '1.6' and performance:
             dataset_batch = train_dataset.apply(tf.contrib.data.map_and_batch(
-                    map_func=self.parser, batch_size=self.mini_batch_size))
+                map_func=first_parser, batch_size=self.mini_batch_size))
         else:
-            train_dataset = train_dataset.map(self.parser,
-                                              num_parallel_calls=cpu_count)
+            train_dataset = train_dataset.map(first_parser,
+                                          num_parallel_calls=cpu_count)
             dataset_batch = train_dataset.batch(self.mini_batch_size)
         dataset_batch = dataset_batch.cache()
         dataset_batch = dataset_batch.prefetch(1)
@@ -446,41 +476,57 @@ class tf_MILSVM():
         
         minus_1 = tf.constant(-1.)
         
-        if self.isVOC:
-            add_np_pos = tf.divide(tf.reduce_sum(tf.add(label_batch,tf.constant(1.))),tf.constant(2.))
-            add_np_neg = tf.divide(tf.reduce_sum(tf.add(label_batch,minus_1)),tf.constant(-2.))
-        else:
-            add_np_pos = tf.reduce_sum(label_batch)
-            add_np_neg = -tf.reduce_sum(tf.add(label_batch,minus_1))
+        
        
-        np_pos_value = 0.
-        np_neg_value = 0.
+        if class_indice==-1:
+            label_vector = tf.placeholder(tf.float32, shape=(None,self.num_classes))
+            if self.is_betweenMinus1and1:
+                add_np_pos = tf.divide(tf.reduce_sum(tf.add(label_vector,tf.constant(1.))),tf.constant(2.))
+                add_np_neg = tf.divide(tf.reduce_sum(tf.add(label_vector,minus_1)),tf.constant(-2.))
+            else:
+                add_np_pos = tf.reduce_sum(label_vector,axis=0)
+                add_np_neg = -tf.reduce_sum(tf.add(label_vector,minus_1),axis=0)
+            np_pos_value = np.zeros((self.num_classes,),dtype=np.float32)
+            np_neg_value = np.zeros((self.num_classes,),dtype=np.float32)
+        else:
+            label_vector = tf.placeholder(tf.float32, shape=(None,))
+            if self.is_betweenMinus1and1:
+                add_np_pos = tf.divide(tf.reduce_sum(tf.add(label_vector,tf.constant(1.))),tf.constant(2.))
+                add_np_neg = tf.divide(tf.reduce_sum(tf.add(label_vector,minus_1)),tf.constant(-2.))
+            else:
+                label_batch
+                add_np_pos = tf.reduce_sum(label_vector)
+                add_np_neg = -tf.reduce_sum(tf.add(label_vector,minus_1))
+            np_pos_value = 0.
+            np_neg_value = 0.
+            
         with tf.Session(config=config) as sess:
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
             sess.run(iterator_batch.initializer)
             while True:
               try:
-                  np_pos_value += sess.run(add_np_pos)
-                  np_neg_value += sess.run(add_np_neg)
+                  # Attention a chaque fois que l on appelle la fonction iterator on avance
+                  label_batch_value = sess.run(label_batch)
+                  np_pos_value += sess.run(add_np_pos, feed_dict = {label_vector:label_batch_value})
+                  np_neg_value += sess.run(add_np_neg, feed_dict = {label_vector:label_batch_value})
               except tf.errors.OutOfRangeError:
                 break
+            
+        if self.verbose: print('Proportions',np_pos_value,np_neg_value)
         self.np_pos_value = np_pos_value
         self.np_neg_value = np_neg_value
         if self.verbose:print("Finished to compute the proportion of each label")
-
         # From at https://www.tensorflow.org/versions/master/performance/datasets_performance
         train_dataset2 = tf.data.TFRecordDataset(data_path)
-        
-        
         if tf.__version__ > '1.6' and shuffle and performance:
             train_dataset2 = train_dataset2.apply(tf.contrib.data.map_and_batch(
-                    map_func=self.parser, batch_size=self.mini_batch_size,
+                    map_func=first_parser, batch_size=self.mini_batch_size,
                     num_parallel_batches=cpu_count,drop_remainder=False))
             dataset_shuffle = train_dataset2.apply(tf.contrib.data.shuffle_and_repeat(self.buffer_size))
             dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) 
         else:
-            train_dataset2 = train_dataset2.map(self.parser,
+            train_dataset2 = train_dataset2.map(first_parser,
                                             num_parallel_calls=cpu_count)
             if shuffle:
                 dataset_shuffle = train_dataset2.shuffle(buffer_size=self.buffer_size,
@@ -495,31 +541,63 @@ class tf_MILSVM():
         shuffle_iterator = dataset_shuffle.make_initializable_iterator()
         X_, y_ = shuffle_iterator.get_next()
 
-        # Definition of the graph  
-        W=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights")
-        b=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
-        if tf.__version__ >= '1.8':
-            normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
+        # Definition of the graph 
+        if class_indice==-1:
+            W=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.),name="weights")
+            b=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.), name="bias")
+            if tf.__version__ >= '1.8':
+                normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
+            else:
+                normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
+            W_r=tf.reshape(W,(self.num_classes,1,1,self.num_features))
+            Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_),axis=3),b)
+            Max=tf.reduce_max(Prod,axis=2)
+            if self.is_betweenMinus1and1:
+                weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
+                # Need to add 1 to avoid the case 
+                # The wieght are negative for the positive exemple and positive for the negative ones !!!
+            else:
+                weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value)
+            weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0])
+            Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio),axis=1) # Sum on all the positive exemples 
+            loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[1,2,3])))
+            # Shape 20
+            Prod_batch=tf.add(tf.reduce_sum(tf.multiply(W_r,X_batch),axis=3),b)
+            Max_batch=tf.reduce_max(Prod_batch,axis=2) # We take the max because we have at least one element of the bag that is positive
+            if self.is_betweenMinus1and1:
+                weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
+                # Need to add 1 to avoid the case 
+                # The wieght are negative for the positive exemple and positive for the negative ones !!!
+            else:
+                weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
+            weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
+            Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch),axis=1) # Sum on all the positive exemples 
+            loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[1,2,3])))
         else:
-            normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0)) 
-        W=tf.reshape(W,(1,1,self.num_features))
-        Prod=tf.reduce_sum(tf.multiply(W,X_),axis=2)+b
-        Max=tf.reduce_max(Prod,axis=1) # We take the max because we have at least one element of the bag that is positive
-        weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value) # Need to add 1 to avoid the case 
-        Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio)) # Sum on all the positive exemples 
-        loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
-        
-        Prod_batch=tf.reduce_sum(tf.multiply(W,X_batch),axis=2)+b
-        Max_batch=tf.reduce_max(Prod_batch,axis=1) # We take the max because we have at least one element of the bag that is positive
-        if self.isVOC:
-            weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
-            # Need to add 1 to avoid the case 
-            # The wieght are negative for the positive exemple and positive for the negative ones !!!
-        else:
-            weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
-        
-        Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch)) # Sum on all the positive exemples 
-        loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
+            W=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights")
+            b=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
+            if tf.__version__ >= '1.8':
+                normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
+            else:
+                normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0)) 
+            W=tf.reshape(W,(1,1,self.num_features))
+            Prod=tf.reduce_sum(tf.multiply(W,X_),axis=2)+b
+            Max=tf.reduce_max(Prod,axis=1) # We take the max because we have at least one element of the bag that is positive
+            weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value) # Need to add 1 to avoid the case 
+            Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio)) # Sum on all the positive exemples 
+            loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
+            
+            Prod_batch=tf.reduce_sum(tf.multiply(W,X_batch),axis=2)+b
+            Max_batch=tf.reduce_max(Prod_batch,axis=1) # We take the max because we have at least one element of the bag that is positive
+            if self.is_betweenMinus1and1:
+                weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
+                # Need to add 1 to avoid the case 
+                # The wieght are negative for the positive exemple and positive for the negative ones !!!
+            else:
+                weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
+            
+            Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch)) # Sum on all the positive exemples 
+            loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
         
         if(self.Optimizer == 'GradientDescent'):
             optimizer = tf.train.GradientDescentOptimizer(self.LR) 
@@ -531,32 +609,36 @@ class tf_MILSVM():
             optimizer = tf.train.AdagradOptimizer(self.LR) 
         else:
             print("The optimizer is unknown",self.Optimizer)
-
-        train = optimizer.minimize(loss)   
+          
+        if class_indice==-1:
+            train = optimizer.minimize(loss) 
+            bestloss = np.zeros((self.num_classes,),dtype=np.float32)
+        else:
+            train = optimizer.minimize(loss) 
+            bestloss = 0.
+            
         sess = tf.Session(config=config)
-        bestloss=0.
+            
         for essai in range(self.restarts+1): #on fait 5 essais et on garde la meilleur loss
             if self.verbose : 
                 t0 = time.time()
                 print("essai",essai)
-            # To do need to reinitialiszed
+            # To do need to reinitialiszed : 
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
             if (essai==0):  sess.run(shuffle_iterator.initializer)
-            sess.run(normalize_W)
-            
-            # InternalError: Dst tensor is not initialized. arrive when an other program is running with tensorflow ! 
-            
+
             for step in range(self.max_iters):
                 if self.debug: t2 = time.time()
-#                batch0, batch1 = sess.run(shuffle_next_element)
                 sess.run(train)
                 if self.debug:
                     t3 = time.time()
                     print(step,"durations :",str(t3-t2))
-                #loss_value = sess.run(loss, feed_dict={X_: batch0, y_: batch1})
 
-            loss_value = 0.
+            if class_indice==-1:
+                loss_value = np.zeros((self.num_classes,),dtype=np.float32)
+            else:
+                loss_value = 0.
             sess.run(iterator_batch.initializer)
             while True:
                 try:
@@ -565,11 +647,27 @@ class tf_MILSVM():
                 except tf.errors.OutOfRangeError:
                     break
             
-            if (essai==0) | (loss_value<bestloss):
-                W_best=sess.run(W)
-                b_best=sess.run(b)
-                bestloss= loss_value
-                if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
+            if class_indice==-1:
+                W_tmp=sess.run(W)
+                b_tmp=sess.run(b)
+                if (essai==0):
+                    W_best=W_tmp
+                    b_best=b_tmp
+                    bestloss= loss_value
+                    if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
+                else:
+                    for i in range(self.num_classes):
+                        if(loss_value[i] < bestloss[i]):
+                            bestloss[i] = loss_value[i]
+                            W_best[i,:]=W_tmp[i,:]
+                            b_best[i]=b_tmp[i]
+                    if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
+            else:
+                if (essai==0) | (loss_value<bestloss): 
+                    W_best=sess.run(W)
+                    b_best=sess.run(b)
+                    bestloss= loss_value
+                    if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
             if self.verbose:
                 t1 = time.time()
                 print("durations :",str(t1-t0))
@@ -577,7 +675,10 @@ class tf_MILSVM():
         saver = tf.train.Saver()
         X_= tf.identity(X_, name="X")
         y_ = tf.identity(y_, name="y")
-        Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
+        if class_indice==-1:
+            Prod_best= tf.add(tf.reduce_sum(tf.multiply(tf.reshape(W_best,(self.num_classes,1,1,self.num_features)),X_),axis=3),b_best,name='Prod')
+        else:
+            Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
         export_dir = ('/').join(data_path.split('/')[:-1])
         export_dir += '/MILSVM' + str(time.time())
         name_model = export_dir + '/model'
@@ -1517,6 +1618,46 @@ def test():
     #    print(sor[0][i]-(sor[1].reshape((1,n))*data_p1[i]).sum(axis=1).max())
         
     #%%   FORME 2 NON ENCORE IMPLEMENTEE
+    
+    
+#%% Code pour tf_MILSVM autre facon    
+    
+    # #            tab_W = [[] for _ in range(self.num_classes)]
+#            tab_W_r = [[] for _ in range(self.num_classes)]
+#            tab_b = [[] for _ in range(self.num_classes)]
+#            tab_loss = [[] for _ in range(self.num_classes)]
+#            tab_normalize_W =  [[] for _ in range(self.num_classes)]
+#            for i in range(self.num_classes):
+##                tab_W[i]=tf.slice(W,[i,0],[1,self.num_features])
+##                tab_b[i]=tf.slice(b,[i],[1])
+#                tab_W[i]=tf.Variable(tf.random_normal([self.num_features], stddev=1.))
+#                tab_b[i]=tf.Variable(tf.random_normal([1], stddev=1.))
+#                if tf.__version__ >= '1.8':
+#                    tab_normalize_W[i] = tab_W[i].assign(tf.nn.l2_normalize(tab_W[i],axis=0)) 
+#                else:
+#                    tab_normalize_W[i] = tab_W[i].assign(tf.nn.l2_normalize(tab_W[i],dim=0)) 
+#                tab_W_r[i]=tf.reshape(tab_W[i],(1,1,self.num_features))
+#                print(tab_W[i])
+#                print(tab_b[i])
+#                Prod=tf.add(tf.reduce_sum(tf.multiply(tab_W_r[i],X_),axis=2),tab_b[i])
+#                Max=tf.reduce_max(Prod,axis=1) # We take the max because we have at least one element of the bag that is positive
+#                weights_bags_ratio = -tf.divide(y_,np_pos_value[i]) + tf.divide(-tf.add(y_,-1),np_neg_value[i]) # Need to add 1 to avoid the case 
+#                Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio)) # Sum on all the positive exemples 
+#                print(Tan)
+#                tab_loss[i]= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.multiply(tab_W_r[i],tab_W_r[i]))))
+#                print(tab_loss[i])
+#                Prod_batch=tf.add(tf.reduce_sum(tf.multiply(tab_W_r[i],X_batch),axis=2),tab_b[i])
+#                Max_batch=tf.reduce_max(Prod_batch,axis=1) # We take the max because we have at least one element of the bag that is positive
+#                if self.is_betweenMinus1and1:
+#                    weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
+#                    # Need to add 1 to avoid the case 
+#                    # The wieght are negative for the positive exemple and positive for the negative ones !!!
+#                else:
+#                    weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value[i]) + tf.divide(-tf.add(label_batch,-1),np_neg_value[i]) # Need to add 1 to avoid the case 
+#                
+#                Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch)) # Sum on all the positive exemples 
+#                loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.multiply(tab_W_r[i],tab_W_r[i])))
+    
     
 if __name__ == '__main__':
 #    test()

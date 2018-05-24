@@ -105,11 +105,14 @@ def im_detect(sess, net, im,max_per_image=100):
   """
   
   blobs, im_scales = _get_blobs(im)
+#  print(im_scales.shape)
   assert len(im_scales) == 1, "Only single-image batch implemented"
 
   im_blob = blobs['data'] # Images with smaller dim equal to 600 pixels
+  # All the images are rescaled to 600 max dimension 
+#  print(im_blob.shape)
   blobs['im_info'] = np.array([im_blob.shape[1], im_blob.shape[2], im_scales[0]], dtype=np.float32)
-
+#  print(blobs['im_info'] )
   _, scores, bbox_pred, rois = net.test_image(sess, blobs['data'], blobs['im_info'])
   # Info on the 300 region proposal selected : cls_score, cls_prob, bbox_pred, rois
   # a  box-regression  layer  (reg)  and  a box-classification  layer  (cls)
@@ -151,10 +154,12 @@ def TL_im_detect(sess, net, im,max_per_image=100):
   
   blobs, im_scales = _get_blobs(im)
   assert len(im_scales) == 1, "Only single-image batch implemented"
-
+  # All the images are rescaled to 600 max dimension 
   im_blob = blobs['data'] # Images with smaller dim equal to 600 pixels
   blobs['im_info'] = np.array([im_blob.shape[1], im_blob.shape[2], im_scales[0]], dtype=np.float32)
-
+#  print(im_scales.shape)
+#  print(blobs['im_info'].shape)
+#  print(blobs['data'].shape)
   cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = net.TL_image(sess, blobs['data'], blobs['im_info'])    
   return  cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5
   

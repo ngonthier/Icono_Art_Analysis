@@ -15,7 +15,7 @@ import os
 from os import listdir, getcwd
 from os.path import join
 import pandas as pd
-
+from tf_faster_rcnn.lib.datasets import voc_eval
 sets=[('2012', 'train'), ('2012', 'val'), ('2007', 'train'), ('2007', 'val'), ('2007', 'test')]
 sets=[('2007', 'train'), ('2007', 'val'), ('2007', 'test')]
 
@@ -60,37 +60,85 @@ def convert_annotation(year, image_id):
         b = (float(xmlbox.find('xmin').text), float(xmlbox.find('xmax').text), float(xmlbox.find('ymin').text), float(xmlbox.find('ymax').text))
         bb = convert((w,h), b)
         out_file.write(str(cls_id) + " " + " ".join([str(a) for a in bb]) + '\n')
-        
-df = None
-years = ['2007']
 
-for y in years:
-    for year, image_set in sets:
-        if year==y:
-            image_ids = open('/media/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s.txt'%(year, image_set)).read().strip().split()
-            pd_c = None
-            for c in classes: 
-                print(year,image_set,c)
-                path_c = '/media/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s_%s.txt'%(year,c,image_set)
-                if pd_c is None:
-                    pd_c = pd.read_csv(path_c,sep=r"\s*",names=['name_img',c],dtype=str)
-                    print(pd_c.head(5))
-                else:
-                    pd_c_tmp =  pd.read_csv(path_c,sep=r"\s*",names=['name_img',c],dtype=str)
-                    pd_c = pd_c.merge(pd_c_tmp,on='name_img', how='outer')
-            pd_c['set'] = image_set
+def VOC2007():
+        
+    df = None
+    years = ['2007']
+    
+    for y in years:
+        for year, image_set in sets:
+            if year==y:
+                image_ids = open('/media/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s.txt'%(year, image_set)).read().strip().split()
+                pd_c = None
+                for c in classes: 
+                    print(year,image_set,c)
+                    path_c = '/media/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s_%s.txt'%(year,c,image_set)
+                    if pd_c is None:
+                        pd_c = pd.read_csv(path_c,sep=r"\s*",names=['name_img',c],dtype=str)
+                        print(pd_c.head(5))
+                    else:
+                        pd_c_tmp =  pd.read_csv(path_c,sep=r"\s*",names=['name_img',c],dtype=str)
+                        pd_c = pd_c.merge(pd_c_tmp,on='name_img', how='outer')
+                pd_c['set'] = image_set
+            if df is None:
+                df = pd_c
+            else:
+                df = df.append(pd_c)
+        output_name = path_output + 'VOC%s_all'%y + '.csv'
+        print(df.iloc[[45,46,47]])
+        df.to_csv(output_name)
+        
+        output_name = path_output + 'VOC%s'%y + '.csv'
+        # On remplace les 0 par des 1  ! les cas difficiles par des certitudes
+        for c in classes: 
+            df.loc[df[c]=='0',c] = '1'
+        print(df.iloc[[45,46,47]])
+        df.to_csv(output_name)
+    
+        df=pd.read_csv(output_name,dtype=str)
+        print(df.iloc[[45,46,47]])
+        
+def Watercolor():
+    df = None
+    classes = ["bicycle", "bird","car", "cat", "dog", "person"]
+    sets = [('watercolor','train'),('watercolor','test')]
+    for base,image_set in sets:
+        path_b = '/media/HDD/data/cross-domain-detection/datasets/watercolor/ImageSets/Main/%s.txt'%(image_set)
+        pd_b = pd.read_csv(path_b,sep=r"\s*",names=['name_img'],dtype=str)
+        for c in classes:
+            pd_b[c] = -1
+        print(pd_b.head(5))
+        for index, row in pd_b.iterrows():
+            i = row['name_img']
+            path_i = '/media/HDD/data/cross-domain-detection/datasets/watercolor/Annotations/%s.xml'%(i)
+            read_file = voc_eval.parse_rec(path_i)
+            for element in read_file:
+                classe_elt = element['name']
+                for c in classes:
+                    if classe_elt==c:
+                        pd_b.loc[pd_b['name_img']==row['name_img'],c] = 1
+        pd_b['set'] = image_set
         if df is None:
-            df = pd_c
+            df = pd_b
         else:
-            df = df.append(pd_c)
-    output_name = path_output + 'VOC%s'%y + '.csv'
-    print(df.head(5))
+            df = df.append(pd_b)
+    output_name = path_output + 'watercolor_all' + '.csv'
+    print(df.iloc[[45,46,47]])
+    df.to_csv(output_name)
+    
+    output_name = path_output + 'watercolor' + '.csv'
+    # On remplace les 0 par des 1  ! les cas difficiles par des certitudes
+    for c in classes: 
+        df.loc[df[c]==0,c] = 1
+    print(df.iloc[[45,46,47]])
     df.to_csv(output_name)
 
     df=pd.read_csv(output_name,dtype=str)
-    print(df.head(5))
-    
-    
+    print(df.iloc[[45,46,47]])
+        
+if __name__ == '__main__':
+    Watercolor()
 #        cls_label = open('/media/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s_%s.txt'%(year,c,image_set)).read().strip().split()
 #        print(cls_label)
 #    list_file = open('%s_%s.txt'%(year, image_set), 'w')

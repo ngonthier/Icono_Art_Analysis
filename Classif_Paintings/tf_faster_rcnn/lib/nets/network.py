@@ -377,6 +377,7 @@ class Network(object):
     return rois
     
   def _region_proposal_TL(self, net_conv, is_training, initializer):
+    # Here ! print('net_conv',tf.shape(net_conv))
     rpn = slim.conv2d(net_conv, cfg.RPN_CHANNELS, [3, 3], trainable=is_training, weights_initializer=initializer,
                         scope="rpn_conv/3x3")
     self._act_summaries.append(rpn)
@@ -565,7 +566,13 @@ class Network(object):
 
   # Extract the head feature maps, for example for vgg16 it is conv5_3
   # only useful during testing mode
+  # For ResNet it is conv4_3 and the spatial dimensions have been divided by 16 
   def extract_head(self, sess, image):
+    """
+    Extract the head feature maps, for example for vgg16 it is conv5_3
+    only useful during testing mode
+    For ResNet it is conv5_3 aussi dont les deux dimensions ont ete divise par 16 
+    """
     feed_dict = {self._image: image}
     feat = sess.run(self._layers["head"], feed_dict=feed_dict)
     return feat

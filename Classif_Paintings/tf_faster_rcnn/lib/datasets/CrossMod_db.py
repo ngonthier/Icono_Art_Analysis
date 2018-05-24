@@ -23,29 +23,30 @@ from ..datasets.voc_eval import voc_eval
 from ..model.config import cfg
 
 
-class pascal_voc(imdb):
-  def __init__(self, image_set, year, use_diff=False,devkit_path=None,test_ext=False,
+class CrossMod_db(imdb):
+  def __init__(self, _image_db,image_set, use_diff=False,devkit_path=None,test_ext=False,
                force_dont_use_07_metric=False):
-    name = 'voc_' + year + '_' + image_set
+    name = image_set
     if use_diff:
       name += '_diff'
     imdb.__init__(self, name)
-    self._year = year
+    self._year = None
+    self._image_db = _image_db
     self._image_set = image_set
     if devkit_path is None:
         self._devkit_path = self._get_default_path()
     else:
         self._devkit_path = devkit_path
-    if test_ext:
-        self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year+'test')
+    self._data_path = os.path.join(self._devkit_path,self._image_db)
+    if image_set == 'watercolor':
+        self._classes = ('__background__',"bicycle", "bird","car", "cat", "dog", "person")
     else:
-        self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year)
-    self._classes = ('__background__',  # always index 0
-                     'aeroplane', 'bicycle', 'bird', 'boat',
-                     'bottle', 'bus', 'car', 'cat', 'chair',
-                     'cow', 'diningtable', 'dog', 'horse',
-                     'motorbike', 'person', 'pottedplant',
-                     'sheep', 'sofa', 'train', 'tvmonitor')
+        self._classes = ('__background__',  # always index 0
+                         'aeroplane', 'bicycle', 'bird', 'boat',
+                         'bottle', 'bus', 'car', 'cat', 'chair',
+                         'cow', 'diningtable', 'dog', 'horse',
+                         'motorbike', 'person', 'pottedplant',
+                         'sheep', 'sofa', 'train', 'tvmonitor')
     self._class_to_ind = dict(list(zip(self.classes, list(range(self.num_classes)))))
     self._image_ext = '.jpg'
     self._image_index = self._load_image_set_index()
@@ -302,53 +303,6 @@ class pascal_voc(imdb):
           continue
         filename = self._get_voc_results_file_template().format(cls)
         os.remove(filename)
-    return(aps)
-    
-  def evaluate_localisation(self,all_boxes, output_dir):
-    annopath = os.path.join(
-      self._devkit_path,
-      'VOC' + self._year,
-      'Annotations',
-      '{:s}.xml')
-    imagesetfile = os.path.join(
-      self._devkit_path,
-      'VOC' + self._year,
-      'ImageSets',
-      'Main',
-      self._image_set + '.txt')
-    cachedir = os.path.join(self._devkit_path, 'annotations_cache')
-    aps = []
-    # The PASCAL VOC metric changed in 2010
-    use_07_metric = True if int(self._year) < 2010 else False
-    if self.force_dont_use_07_metric == True: use_07_metric = False
-    print('VOC07 metric? ' + ('Yes' if use_07_metric else 'No'))
-    if not os.path.isdir(output_dir):
-      os.mkdir(output_dir)
-    for i, cls in enumerate(self._classes):
-      if cls == '__background__':
-        continue
-      filename = self._get_voc_results_file_template().format(cls)
-      rec, prec, ap = voc_eval(
-        filename, annopath, imagesetfile, cls, cachedir, ovthresh=0.5,
-        use_07_metric=use_07_metric, use_diff=self.config['use_diff'])
-      aps += [ap]
-      print(('AP for {} = {:.4f}'.format(cls, ap)))
-      with open(os.path.join(output_dir, cls + '_pr.pkl'), 'wb') as f:
-        pickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
-    print(('Mean AP = {:.4f}'.format(np.mean(aps))))
-    print('~~~~~~~~')
-    print('Results:')
-    for ap in aps:
-      print(('{:.3f}'.format(ap)))
-    print(('{:.3f}'.format(np.mean(aps))))
-    print('~~~~~~~~')
-    print('')
-    print('--------------------------------------------------------------')
-    print('Results computed with the **unofficial** Python eval code.')
-    print('Results should be very close to the official MATLAB eval code.')
-    print('Recompute with `./tools/reval.py --matlab ...` for your paper.')
-    print('-- Thanks, The Management')
-    print('--------------------------------------------------------------')
     return(aps)
 
   def competition_mode(self, on):

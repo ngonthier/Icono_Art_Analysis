@@ -12,9 +12,8 @@ from __future__ import print_function
 
 __sets = {}
 from ..datasets.pascal_voc import pascal_voc
+from ..datasets.CrossMod_db import CrossMod_db
 #from ..datasets.coco import coco # Commented by Nicolas because API COCO Python need python27 : it need to be modified problem with _mask
-
-import numpy as np
 
 # Set up voc_<year>_<split> 
 for year in ['2007', '2012']:
@@ -27,6 +26,11 @@ for year in ['2007', '2012']:
     name = 'voc_{}_{}_diff'.format(year, split)
     __sets[name] = (lambda split=split, year=year: pascal_voc(split, year, use_diff=True))
 
+for db in ['watercolor','comic','clipart']:
+    for split in ['train', 'test']:
+        name = '{}_{}'.format(db,split)
+        __sets[name] = (lambda split=split: CrossMod_db(db,split,devkit_path='/media/HDD/data/cross-domain-detection/datasets',test_ext=True))
+ 
 ## Set up coco_2014_<split>
 #for year in ['2014']:
   #for split in ['train', 'val', 'minival', 'valminusminival', 'trainval']:
