@@ -127,7 +127,7 @@ def im_detect(sess, net, im,max_per_image=100):
   boxes = rois[:, 1:5] / im_scales[0]
   scores = np.reshape(scores, [scores.shape[0], -1])
   bbox_pred = np.reshape(bbox_pred, [bbox_pred.shape[0], -1])
-  if cfg.TEST.BBOX_REG:
+  if cfg.TEST.BBOX_REG and False:
     # Apply bounding-box regression deltas
     box_deltas = bbox_pred
     pred_boxes = bbox_transform_inv(boxes, box_deltas)
@@ -166,6 +166,7 @@ def TL_im_detect(sess, net, im,max_per_image=100):
 def TL_im_detect_end(scores, bbox_pred, rois,im): 
   """
    To get the box
+   Need to provide cls_prob, bbox_pred, rois provide by the function TL_im_detect
   """
   blobs, im_scales = _get_blobs(im)
   assert len(im_scales) == 1, "Only single-image batch implemented"

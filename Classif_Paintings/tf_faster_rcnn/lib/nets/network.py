@@ -223,8 +223,10 @@ class Network(object):
     with tf.variable_scope(self._scope, self._scope):
       # build the anchors for the image
       self._anchor_component()
+#      print('net_conv',net_conv.shape)
       # region proposal network
       rois, roi_scores = self._region_proposal_TL(net_conv, is_training, initializer)
+#      print('rois',rois.shape)
       # region of interest pooling
       if cfg.POOLING_MODE == 'crop':
         pool5 = self._crop_pool_layer(net_conv, rois, "pool5")
@@ -232,7 +234,7 @@ class Network(object):
         raise NotImplementedError
 
     fc7 = self._head_to_tail(pool5, is_training)
-    
+#    print('fc7',fc7.shape)
     with tf.variable_scope(self._scope, self._scope):
       # region classification
       cls_prob, bbox_pred = self._region_classification(fc7, is_training, 

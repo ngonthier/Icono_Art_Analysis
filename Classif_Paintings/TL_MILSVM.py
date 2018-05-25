@@ -708,7 +708,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
         
         path_data = '/media/HDD/output_exp/ClassifPaintings/'
         databasetxt =path_data + database + ext    
-        if database=='VOC2007':
+        if database=='VOC2007' or database=='watercolor':
             dtypes = {0:str,'name_img':str,'aeroplane':int,'bicycle':int,'bird':int, \
                       'boat':int,'bottle':int,'bus':int,'car':int,'cat':int,'cow':int,\
                       'dinningtable':int,'dog':int,'horse':int,'motorbike':int,'person':int,\
@@ -765,7 +765,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
         
         features_resnet = np.empty((sLength_all,k_per_bag,size_output),dtype=np.float32)  
         classes_vectors = np.zeros((sLength_all,num_classes),dtype=np.float32)
-        if database=='Wikidata_Paintings_miniset_verif' or database=='VOC2007':
+        if database=='Wikidata_Paintings_miniset_verif' or database=='VOC2007' or database=='watercolor':
             classes_vectors = df_label.as_matrix(columns=classes)
         f_test = {}
         
@@ -811,7 +811,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                 for j in range(num_classes):
                     if(classes[j] in df_label['classe'][i]):
                         classes_vectors[i,j] = 1
-            if database=='VOC2007' or database=='VOC12' or database=='Paintings':          
+            if database=='VOC2007' or database=='VOC12' or database=='Paintings'  or database=='watercolor':          
                 InSet = (df_label.loc[df_label[item_name]==name_img]['set']=='test').any()
             elif database=='Wikidata_Paintings_miniset_verif':
                 InSet = (i in index_test)
@@ -833,8 +833,9 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
         
         if verbose: print("End data processing")
     
-        if database=='VOC2007':
-            imdb = get_imdb('voc_2007_test')
+        if database=='VOC2007'  or database=='watercolor':
+            if database=='VOC2007' : imdb = get_imdb('voc_2007_test')
+            if database=='watercolor' : imdb = get_imdb('watercolor_test')
             imdb.set_force_dont_use_07_metric(True)
             num_images = len(imdb.image_index)
             all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
@@ -857,8 +858,8 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
     #    del features_resnet_dict
         gc.collect()
         
-        if database=='VOC12' or database=='Paintings' or database=='VOC2007':
-            if database=='VOC2007': 
+        if database=='VOC12' or database=='Paintings' or database=='VOC2007'  or database=='watercolor':
+            if database=='VOC2007'  or database=='watercolor': 
                 str_val ='val' 
             else: 
                 str_val='validation'
@@ -985,7 +986,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                     if database=='VOC2007' :
                         name_sans_ext =  str(name_img.decode("utf-8"))
                         complet_name = path_to_img + str(name_img.decode("utf-8")) + '.jpg'
-                    if database=='VOC12' or database=='Paintings':
+                    if database=='VOC12' or database=='Paintings'  or database=='watercolor':
                         complet_name = path_to_img + name_img + '.jpg'
                         name_sans_ext = name_img
                     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -1061,7 +1062,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                 roi_with_object_of_the_class = np.argmax(decision_function_output)
                 
                 # For detection 
-                if database=='VOC2007':
+                if database=='VOC2007'  or database=='watercolor':
                     thresh = 0.0 # Threshold score or distance MILSVM
                     TEST_NMS = 0.7 # Recouvrement entre les classes
                     complet_name = path_to_img + str(name_test[k]) + '.jpg'
@@ -1159,7 +1160,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
         print(AP_per_class)
         print(arrayToLatex(AP_per_class))
         
-        if database=='VOC2007':
+        if database=='VOC2007'  or database=='watercolor':
             if testMode:
                 for j in range(0, imdb.num_classes-1):
                     if not(j==jtest):
@@ -1194,7 +1195,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
             det_file = os.path.join(path_data, 'detections.pkl')
             with open(det_file, 'wb') as f:
                 pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
-            output_dir = path_data + 'VOC2007_mAP.txt'
+            output_dir = path_data +'tmp/' 'VOC2007_mAP.txt'
             aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
             print("Detection score")
             print(arrayToLatex(aps))
@@ -1295,7 +1296,8 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
 def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings', 
                                   verbose = True,testMode = True,jtest = 0,
                                   PlotRegions = True,saved_clf=False,RPN=False,
-                                  CompBest=True,Stocha=True,k_per_bag=300,parallel_op =True):
+                                  CompBest=True,Stocha=True,k_per_bag=300,
+                                  parallel_op =True,CrossVal=False):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -1316,7 +1318,11 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     @param : RPN=False trace la boite autour de l'element ayant le plus haut score du RPN object
     @param : CompBest : Comparaison with the CompBest classifier trained
     @param : Stocha : Use of a SGD for the MIL SVM SAID [default : False]
-    @param : k_per_bag : number of element per batch in the slection phase [defaut : 30]
+    @param : k_per_bag : number of element per batch in the slection phase [defaut : 300] 
+    !!!!! for the moment it is not possible to use something else than 300 if the dataset is not 
+    records with the selection of the regions already !!!! TODO change that
+    @param : parallel_op : use of the parallelisation version of the MILSVM for the all classes same time
+    @param : CrossVal : cross validation in the MILSVM
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -1374,11 +1380,12 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     databasetxt =path_data + database + ext
     df_label = pd.read_csv(databasetxt,sep=",")
     str_val = 'val'
-    if database=='Wikidata_Paintings_miniset_verif':
+    if database=='Wikidata_Paintings_miniset_verif' or database=='Paintings':
         df_label = df_label[df_label['BadPhoto'] <= 0.0]
-    if database=='VOC2007':
         str_val = 'validation'
-        df_label[classes] = df_label[classes].apply(lambda x:x + 1.0 /2.0)
+    if database=='VOC2007' or database=='watercolor':
+        str_val = 'val'
+        df_label[classes] = df_label[classes].apply(lambda x:(x + 1.0)/2.0)
     num_trainval_im = len(df_label[df_label['set']=='train'][item_name]) + len(df_label[df_label['set']==str_val][item_name])
     num_classes = len(classes)
     N = 1
@@ -1417,6 +1424,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     performance = False
     if parallel_op:
         sizeMax = 30*20000 // (k_per_bag*num_classes)
+        sizeMax = 16
     else:
         sizeMax = 30*10000 // k_per_bag
     mini_batch_size = sizeMax
@@ -1427,7 +1435,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         ext_test = '_Test_Mode'
     else:
         ext_test= ''
-        restarts = 19
+        restarts = 0
         max_iters = (num_trainval_im //mini_batch_size)*300
     print('mini_batch_size',mini_batch_size,'max_iters',max_iters)
     AP_per_class = []
@@ -1447,8 +1455,12 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         extPar = '_p'
     else:
         extPar =''
+    if CrossVal:
+        extCV = '_cv'
+    else:
+        extCV =''
     cachefile_model = path_data + database +'_'+demonet+'_r'+str(restarts)+'_s' \
-        +str(mini_batch_size)+'_k'+str(k_per_bag)+extNorm+extPar+ext_test+'_MILSVM.pkl'
+        +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+extCV+ext_test+'_MILSVM.pkl'
     if verbose: print("cachefile name",cachefile_model)
     if not os.path.isfile(cachefile_model) or ReDo:
         name_milsvm = {}
@@ -1625,7 +1637,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         det_file = os.path.join(path_data, 'detections.pkl')
         with open(det_file, 'wb') as f:
             pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
-        output_dir = path_data + 'VOC2007_mAP.txt'
+        output_dir = path_data +'tmp/' + 'VOC2007_mAP.txt'
         aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
         print("Detection score")
         print(arrayToLatex(aps))
@@ -1734,7 +1746,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                 name_img = name_imgs[k]
                             rois = roiss[k,:]
                             #if verbose: print(name_img)
-                            if database=='VOC12' or database=='Paintings' or database=='VOC2007' :
+                            if database=='VOC12' or database=='Paintings' or database=='VOC2007' or database =='watercolor':
                                 complet_name = path_to_img + name_img + '.jpg'
                                 name_sans_ext = name_img
                             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -1826,6 +1838,8 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 for k in range(len(labels)):
                     if database=='VOC2007' :
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
+                    else:
+                         complet_name = path_to_img + name_imgs[k] + '.jpg'
                     im = cv2.imread(complet_name)
                     blobs, im_scales = get_blobs(im)
                     if predict_with=='MILSVM':
@@ -1848,7 +1862,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     i+=1
     
                 for l in range(len(name_imgs)): 
-                    name_all_test += [[str(name_imgs[l].decode("utf-8"))]]
+                    if database=='VOC2007' :
+                        name_all_test += [[str(name_imgs[l].decode("utf-8"))]]
+                    else:
+                        name_all_test += [[name_imgs[l]]]
                 
                 if PlotRegions and predict_with=='MILSVM':
                     if verbose and (ii%1000==0):
@@ -1862,7 +1879,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         else:
                             name_img = name_imgs[k]
                         rois = roiss[k,:]
-                        if database=='VOC12' or database=='Paintings' or database=='VOC2007':
+                        if database=='VOC12' or database=='Paintings' or database=='VOC2007' or database=='watercolor':
                             complet_name = path_to_img + name_img + '.jpg'
                             name_sans_ext = name_img
                         elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -2002,7 +2019,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                                 name_img = str(name_imgs[k].decode("utf-8") )
                                 rois = roiss[k,:]
                                 #if verbose: print(name_img)
-                                if database=='VOC12' or database=='Paintings' or database=='VOC2007' :
+                                if database=='VOC12' or database=='Paintings' or database=='VOC2007' or database =='watercolor':
                                     complet_name = path_to_img + name_img + '.jpg'
                                     name_sans_ext = name_img
                                 elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -2108,7 +2125,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                             name_img = str(name_imgs[k].decode("utf-8") )
                             rois = roiss[k,:]
                             #if verbose: print(name_img)
-                            if database=='VOC12' or database=='Paintings' or database=='VOC2007':
+                            if database=='VOC12' or database=='Paintings' or database=='VOC2007' or database =='watercolor':
                                 complet_name = path_to_img + name_img + '.jpg'
                                 name_sans_ext = name_img
                             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -2931,7 +2948,8 @@ if __name__ == '__main__':
     tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
                                   verbose = True,testMode = False,jtest = 0,
                                   PlotRegions = False,saved_clf=False,RPN=True,
-                                  CompBest=False,Stocha=True,k_per_bag=300,parallel_op=True)
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=False,CrossVal=True)
 #    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings', 
 #                                  verbose = True,testMode = False,jtest = 0,
 #                                  PlotRegions = False,saved_clf=False,RPN=True,

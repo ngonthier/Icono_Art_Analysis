@@ -73,7 +73,7 @@ def voc_eval(detpath,
              cachedir,
              ovthresh=0.5,
              use_07_metric=False,
-             use_diff=False):
+             use_diff=False,verbose=False):
   """rec, prec, ap = voc_eval(detpath,
                               annopath,
                               imagesetfile,
@@ -117,10 +117,10 @@ def voc_eval(detpath,
     for i, imagename in enumerate(imagenames):
       recs[imagename] = parse_rec(annopath.format(imagename))
       if i % 100 == 0:
-        print('Reading annotation for {:d}/{:d}'.format(
+        if verbose: print('Reading annotation for {:d}/{:d}'.format(
           i + 1, len(imagenames)))
     # save
-    print('Saving cached annotations to {:s}'.format(cachefile))
+    if verbose: print('Saving cached annotations to {:s}'.format(cachefile))
     with open(cachefile, 'wb') as f:
       pickle.dump(recs, f)
   else:
@@ -225,6 +225,7 @@ def loc_metric(detpath,
              ovthresh=0.5,
              use_07_metric=False,
              use_diff=False):
+  """ Fonction commencee a etre ecrite par nicolas mais jamais fini """
   if not os.path.isdir(cachedir):
     os.mkdir(cachedir)
   cachefile = os.path.join(cachedir, '%s_annots.pkl' % imagesetfile)

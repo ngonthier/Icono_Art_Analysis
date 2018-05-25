@@ -113,7 +113,7 @@ class MILSVM():
 
         W1=tf.reshape(W,(1,1,n))
         
-        Prod1=tf.reduce_sum(tf.multiply(W1,X1),axis=2)+b
+        Prod1=tf.reduce_sum(tf.multiply(W1,X1),axis=2)+b # Caseof the positive data
         Max1=tf.reduce_max(Prod1,axis=1) # We take the max because we have at least one element of the bag that is positive
         Tan1=tf.reduce_sum(tf.tanh(Max1))/np1 # Sum on all the positive exemples 
 #        Tan1=tf.reduce_sum(Max1)/np1 # Sum on all the positive exemples 
@@ -263,7 +263,7 @@ class tf_MILSVM():
                  final_clf='LinearSVC',verbose=True,Optimizer='GradientDescent',
                   optimArg=None,mini_batch_size=200,buffer_size=10000,num_features=2048,
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
-                  is_betweenMinus1and1=False):
+                  is_betweenMinus1and1=False,CrossVal=False):
         # TODOD enelver les trucs inutiles ici
         """
         @param LR : Learning rate : pas de gradient de descente [default: 0.01]
@@ -290,6 +290,7 @@ class tf_MILSVM():
         @param max_iters_sgdc : Nombre d iterations pour la descente de gradient stochastique classification
         @param debug : default False : if we want to debug 
         @param is_betweenMinus1and1 : default False : if we have the label value alreaddy between -1 and 1
+        @param CrossVal : default False : if we use cross validation or not 
         """
         self.LR = LR
         self.C = C
@@ -320,7 +321,10 @@ class tf_MILSVM():
         self.debug = debug 
         self.is_betweenMinus1and1 = is_betweenMinus1and1
         self.np_pos_value = 1
-        self.np_neg_value = 1
+        self.np_neg_value = 1 # Ces elements peuvent etre des matrices ou des vecteurs selon les cas
+        self.CrossVal = CrossVal
+        if CrossVal:
+            self.num_split = 2 # Only useful if CrossVal==True
      
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 
@@ -444,28 +448,42 @@ class tf_MILSVM():
         fc7_selected = parsed['fc7_selected']
         fc7_selected = tf.reshape(fc7_selected, [self.num_rois,self.num_features])         
         return fc7_selected,label_300
+    
+    def tf_dataset_use_per_batch(self,train_dataset):
         
-    def fit_MILSVM_tfrecords(self,data_path,class_indice,shuffle=True,performance=False):
-        """" This function run per batch on the tfrecords data folder """
-        
-        self.class_indice = class_indice # If class_indice = -1 we will run on all the class at once ! parallel power
-        ## Debut de la fonction        
-        cpu_count = multiprocessing.cpu_count()
-        train_dataset = tf.data.TFRecordDataset(data_path)
-        if class_indice==-1:
-            first_parser = self.parser_all_classes
-        else:
-            first_parser = self.parser
-        if tf.__version__ > '1.6' and performance:
+        if tf.__version__ > '1.6' and self.performance:
             dataset_batch = train_dataset.apply(tf.contrib.data.map_and_batch(
-                map_func=first_parser, batch_size=self.mini_batch_size))
+                map_func=self.first_parser, batch_size=self.mini_batch_size))
         else:
-            train_dataset = train_dataset.map(first_parser,
-                                          num_parallel_calls=cpu_count)
+            train_dataset = train_dataset.map(self.first_parser,
+                                          num_parallel_calls=self.cpu_count)
             dataset_batch = train_dataset.batch(self.mini_batch_size)
         dataset_batch = dataset_batch.cache()
         dataset_batch = dataset_batch.prefetch(1)
         iterator_batch = dataset_batch.make_initializable_iterator()
+        X_batch, label_batch = iterator_batch.get_next()
+        return(iterator_batch)
+        
+    def fit_MILSVM_tfrecords(self,data_path,class_indice,shuffle=True,performance=False):
+        """" This function run per batch on the tfrecords data folder """
+        # Idees pour ameliorer cette fonction : 
+        # - Faire du multi fold sur la valeur
+        # Faire les histogrammes des valeurs pour estimer le threshold
+        self.class_indice = class_indice # If class_indice = -1 we will run on all the class at once ! parallel power
+        self.performance = performance
+        ## Debut de la fonction        
+        self.cpu_count = multiprocessing.cpu_count()
+        train_dataset = tf.data.TFRecordDataset(data_path)
+        
+        if self.CrossVal:
+            train_dataset = train_dataset.shard(self.num_split,0)
+            # The second argument is the index of the subset used
+        if self.class_indice==-1:
+            self.first_parser = self.parser_all_classes
+        else:
+            self.first_parser = self.parser
+            
+        iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
         X_batch, label_batch = iterator_batch.get_next()
         
         # Calcul preliminaire a la definition de la fonction de cout 
@@ -475,9 +493,7 @@ class tf_MILSVM():
         config.gpu_options.allow_growth = True
         
         minus_1 = tf.constant(-1.)
-        
-        
-       
+
         if class_indice==-1:
             label_vector = tf.placeholder(tf.float32, shape=(None,self.num_classes))
             if self.is_betweenMinus1and1:
@@ -513,21 +529,29 @@ class tf_MILSVM():
               except tf.errors.OutOfRangeError:
                 break
             
-        if self.verbose: print('Proportions',np_pos_value,np_neg_value)
         self.np_pos_value = np_pos_value
         self.np_neg_value = np_neg_value
-        if self.verbose:print("Finished to compute the proportion of each label")
+        if self.verbose:print("Finished to compute the proportion of each label :",np_pos_value,np_neg_value)
+       
+        if self.CrossVal:
+            train_dataset2 = train_dataset.shard(self.num_split,0)
+            train_dataset = train_dataset.shard(self.num_split,1)
+            iterator_batch = self.tf_dataset_use_per_batch(self,train_dataset)
+            X_batch, label_batch = iterator_batch.get_next() # We erase the former iterator
+            # The second argument is the index of the subset used
+        else:
+            train_dataset2 = tf.data.TFRecordDataset(data_path)
+        
         # From at https://www.tensorflow.org/versions/master/performance/datasets_performance
-        train_dataset2 = tf.data.TFRecordDataset(data_path)
         if tf.__version__ > '1.6' and shuffle and performance:
             train_dataset2 = train_dataset2.apply(tf.contrib.data.map_and_batch(
-                    map_func=first_parser, batch_size=self.mini_batch_size,
-                    num_parallel_batches=cpu_count,drop_remainder=False))
+                    map_func=self.first_parser, batch_size=self.mini_batch_size,
+                    num_parallel_batches=self.cpu_count,drop_remainder=False))
             dataset_shuffle = train_dataset2.apply(tf.contrib.data.shuffle_and_repeat(self.buffer_size))
             dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) 
         else:
-            train_dataset2 = train_dataset2.map(first_parser,
-                                            num_parallel_calls=cpu_count)
+            train_dataset2 = train_dataset2.map(self.first_parser,
+                                            num_parallel_calls=self.cpu_count)
             if shuffle:
                 dataset_shuffle = train_dataset2.shuffle(buffer_size=self.buffer_size,
                                                          reshuffle_each_iteration=True) 
@@ -562,6 +586,8 @@ class tf_MILSVM():
             Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio),axis=1) # Sum on all the positive exemples 
             loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[1,2,3])))
             # Shape 20
+            
+            # Definiton du graphe pour la partie evaluation de la loss
             Prod_batch=tf.add(tf.reduce_sum(tf.multiply(W_r,X_batch),axis=3),b)
             Max_batch=tf.reduce_max(Prod_batch,axis=2) # We take the max because we have at least one element of the bag that is positive
             if self.is_betweenMinus1and1:
@@ -680,7 +706,7 @@ class tf_MILSVM():
         else:
             Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
         export_dir = ('/').join(data_path.split('/')[:-1])
-        export_dir += '/MILSVM' + str(time.time())
+        export_dir += '/MILSVM/' + str(time.time())
         name_model = export_dir + '/model'
         saver.save(sess,name_model)
         
@@ -963,6 +989,8 @@ class tf_MILSVM():
         
     def fit(self,data_pos,data_neg):
         """
+        Cet version utilise les optimizeurs de tensorflow mais travail sur des 
+        petits batchs de donnees passes en argument et non sur des tf_records
         @param data_pos : a numpy array of the positive bag of size number of positive bag
             * number of max element in one baf * dim features
         @param data_neg : a numpy array of the positive bag of size number of negative bag
