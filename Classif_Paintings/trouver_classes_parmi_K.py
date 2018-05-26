@@ -263,7 +263,7 @@ class tf_MILSVM():
                  final_clf='LinearSVC',verbose=True,Optimizer='GradientDescent',
                   optimArg=None,mini_batch_size=200,buffer_size=10000,num_features=2048,
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
-                  is_betweenMinus1and1=False,CrossVal=False):
+                  is_betweenMinus1and1=False,CV_Mode=None,num_split=2):
         # TODOD enelver les trucs inutiles ici
         """
         @param LR : Learning rate : pas de gradient de descente [default: 0.01]
@@ -290,7 +290,8 @@ class tf_MILSVM():
         @param max_iters_sgdc : Nombre d iterations pour la descente de gradient stochastique classification
         @param debug : default False : if we want to debug 
         @param is_betweenMinus1and1 : default False : if we have the label value alreaddy between -1 and 1
-        @param CrossVal : default False : if we use cross validation or not 
+        @param CV_Mode : default None : cross validation mode in the MILSVM : possibility ; None, CV in k split or LA for Leave apart one of the split
+        @param num_split : default 2 : the number of split/fold used in the cross validation method
         """
         self.LR = LR
         self.C = C
@@ -322,12 +323,17 @@ class tf_MILSVM():
         self.is_betweenMinus1and1 = is_betweenMinus1and1
         self.np_pos_value = 1
         self.np_neg_value = 1 # Ces elements peuvent etre des matrices ou des vecteurs selon les cas
-        self.CrossVal = CrossVal
-        if CrossVal:
-            self.num_split = 2 # Only useful if CrossVal==True
+        self.CV_Mode = CV_Mode
+        if not(CV_Mode is None):
+            assert(num_split>1) # Il faut plus d un folder pour separer
+            self.num_split = num_split # Only useful if CrossVal==True
+            self.max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max
+            if num_split>2:
+                print('The use of more that 2 spits seem to slow a lot the computation with the use of shard')
      
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 
+        # KFold From sklearn.model_selection 
         kf.get_n_splits(data_pos) # returns the number of splitting iterations in the cross-validator
         return(0)
         
@@ -467,16 +473,26 @@ class tf_MILSVM():
     def fit_MILSVM_tfrecords(self,data_path,class_indice,shuffle=True,performance=False):
         """" This function run per batch on the tfrecords data folder """
         # Idees pour ameliorer cette fonction : 
+        # Ajouter la possibilite de choisir les regions avec un nms lors de la 
         # - Faire du multi fold sur la valeur
         # Faire les histogrammes des valeurs pour estimer le threshold
+        # Sinon faire un truc du genre un des folds est laisse de cote et utilise pour evaluer 
+        # la loss a la fin avec les autres, sorte de balances entre les elements vu et non vu
         self.class_indice = class_indice # If class_indice = -1 we will run on all the class at once ! parallel power
         self.performance = performance
         ## Debut de la fonction        
         self.cpu_count = multiprocessing.cpu_count()
-        train_dataset = tf.data.TFRecordDataset(data_path)
+        train_dataset_init = tf.data.TFRecordDataset(data_path)
         
-        if self.CrossVal:
-            train_dataset = train_dataset.shard(self.num_split,0)
+        if self.CV_Mode=='CV':
+            if self.verbose: print('Use of the Cross Validation with ',self.num_split,' splits')
+            train_dataset_tmp = train_dataset_init.shard(self.num_split,0)
+            for i in range(1,self.num_split-1):
+                train_dataset_tmp2 = train_dataset_init.shard(self.num_split,i)
+                train_dataset_tmp = train_dataset_tmp.concatenate(train_dataset_tmp2)
+            train_dataset = train_dataset_tmp
+        else: # Case where elf.CV_Mode=='LA" or None
+            train_dataset = train_dataset_init
             # The second argument is the index of the subset used
         if self.class_indice==-1:
             self.first_parser = self.parser_all_classes
@@ -533,14 +549,28 @@ class tf_MILSVM():
         self.np_neg_value = np_neg_value
         if self.verbose:print("Finished to compute the proportion of each label :",np_pos_value,np_neg_value)
        
-        if self.CrossVal:
-            train_dataset2 = train_dataset.shard(self.num_split,0)
-            train_dataset = train_dataset.shard(self.num_split,1)
-            iterator_batch = self.tf_dataset_use_per_batch(self,train_dataset)
+        if self.CV_Mode=='CV':
+            train_dataset_tmp = train_dataset_init.shard(self.num_split,0)
+            for i in range(1,self.num_split-1):
+                train_dataset_tmp2 = train_dataset.shard(self.num_split,i)
+                train_dataset_tmp = train_dataset_tmp.concatenate(train_dataset_tmp2)
+            train_dataset2 = train_dataset_tmp
+            train_dataset = train_dataset_init.shard(self.num_split,self.num_split-1) 
+            # The last fold is keep for doing the cross validation
+            iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
             X_batch, label_batch = iterator_batch.get_next() # We erase the former iterator
             # The second argument is the index of the subset used
+        elif self.CV_Mode=='LA':
+            if self.verbose: print('Use of the Leave One Aside with ',self.num_split,' splits')
+            train_dataset_tmp = train_dataset_init.shard(self.num_split,0)
+            for i in range(1,self.num_split-1):
+                train_dataset_tmp2 = train_dataset.shard(self.num_split,i)
+                train_dataset_tmp = train_dataset_tmp.concatenate(train_dataset_tmp2)
+            train_dataset2 = train_dataset_tmp
+            # The evaluation of the loss will be on all the dataset
         else:
-            train_dataset2 = tf.data.TFRecordDataset(data_path)
+            # TODO test !
+            train_dataset2 = tf.data.TFRecordDataset(data_path) # train_dataset_init ?  A tester
         
         # From at https://www.tensorflow.org/versions/master/performance/datasets_performance
         if tf.__version__ > '1.6' and shuffle and performance:
@@ -696,7 +726,7 @@ class tf_MILSVM():
                     if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
             if self.verbose:
                 t1 = time.time()
-                print("durations :",str(t1-t0))
+                print("durations :",str(t1-t0),' s')
 
         saver = tf.train.Saver()
         X_= tf.identity(X_, name="X")

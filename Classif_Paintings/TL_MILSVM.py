@@ -1195,9 +1195,9 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
             det_file = os.path.join(path_data, 'detections.pkl')
             with open(det_file, 'wb') as f:
                 pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
-            output_dir = path_data +'tmp/' 'VOC2007_mAP.txt'
+            output_dir = path_data +'tmp/' + database + '/'
             aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
-            print("Detection score")
+            print("Detection scores")
             print(arrayToLatex(aps))
         
         plot_Test_illust_bol = False
@@ -1297,7 +1297,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   verbose = True,testMode = True,jtest = 0,
                                   PlotRegions = True,saved_clf=False,RPN=False,
                                   CompBest=True,Stocha=True,k_per_bag=300,
-                                  parallel_op =True,CrossVal=False):
+                                  parallel_op =True,CV_Mode=None,num_split=2):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -1322,7 +1322,8 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     !!!!! for the moment it is not possible to use something else than 300 if the dataset is not 
     records with the selection of the regions already !!!! TODO change that
     @param : parallel_op : use of the parallelisation version of the MILSVM for the all classes same time
-    @param : CrossVal : cross validation in the MILSVM
+    @param : CV_Mode : cross validation mode in the MILSVM : possibility ; None, CV in k split or LA for Leave apart one of the split
+    @param : num_split  : Number of split for the CV or LA
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -1372,9 +1373,16 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
         classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
     
+    if testMode and not(type(jtest)==int):
+        assert(type(jtest)==str)
+        jtest = int(np.where(np.array(classes)==jtest)[0][0])# Conversion of the jtest string to the value number
+        assert(type(jtest)==int)
+        
     if(jtest>len(classes)) and testMode:
        print("We are in test mode but jtest>len(classes), we will use jtest =0" )
        jtest =0
+    
+        
     
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     databasetxt =path_data + database + ext
@@ -1424,18 +1432,19 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     performance = False
     if parallel_op:
         sizeMax = 30*20000 // (k_per_bag*num_classes)
-        sizeMax = 16
     else:
         sizeMax = 30*10000 // k_per_bag
     mini_batch_size = sizeMax
     buffer_size = 10000
     if testMode:
         restarts = 0
+        restarts = 19
         max_iters = 300
+        max_iters =  (num_trainval_im //mini_batch_size)*300
         ext_test = '_Test_Mode'
     else:
         ext_test= ''
-        restarts = 0
+        restarts = 19
         max_iters = (num_trainval_im //mini_batch_size)*300
     print('mini_batch_size',mini_batch_size,'max_iters',max_iters)
     AP_per_class = []
@@ -1455,9 +1464,11 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         extPar = '_p'
     else:
         extPar =''
-    if CrossVal:
-        extCV = '_cv'
-    else:
+    if CV_Mode=='CV':
+        extCV = '_cv'+str(num_split)
+    elif CV_Mode=='LA':
+        extCV = '_la'+str(num_split)
+    elif CV_Mode is None:
         extCV =''
     cachefile_model = path_data + database +'_'+demonet+'_r'+str(restarts)+'_s' \
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+extCV+ext_test+'_MILSVM.pkl'
@@ -1497,7 +1508,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                    max_iters=max_iters,symway=True,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,num_features=size_output,debug=False,
-                   num_classes=num_classes) 
+                   num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode) 
              export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=True,performance=performance)
              np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
@@ -1557,7 +1568,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                    max_iters=max_iters,symway=True,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,num_features=size_output,debug=False,
-                   num_classes=num_classes) 
+                   num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode) 
                 export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train,
                                                       class_indice=j,shuffle=True,
                                                       performance=False)
@@ -1584,25 +1595,26 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                   
             # Regroupement des informations     
            
-        AP = average_precision_score(true_label_all_test,predict_label_all_test,average=None)
-        if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
-            print("MIL-SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
-        else:
-            print("MIL-SVM version Average Precision for",classes[j]," = ",AP)
-        test_precision = precision_score(true_label_all_test,labels_test_predited)
-        test_recall = recall_score(true_label_all_test,labels_test_predited)
-        F1 = f1_score(true_label_all_test,labels_test_predited)
-        print("Test on all the data precision = {0:.2f}, recall = {1:.2f},F1 = {2:.2f}".format(test_precision,test_recall,F1))
-        precision_at_k = ranking_precision_score(np.array(true_label_all_test), predict_label_all_test,20)
-        P20_per_class += [precision_at_k]
-        AP_per_class += [AP]
-        R_per_class += [test_recall]
-        P_per_class += [test_precision]
+            AP = average_precision_score(true_label_all_test,predict_label_all_test,average=None)
+            if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                print("MIL-SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
+            else:
+                print("MIL-SVM version Average Precision for",classes[j]," = ",AP)
+            test_precision = precision_score(true_label_all_test,labels_test_predited)
+            test_recall = recall_score(true_label_all_test,labels_test_predited)
+            F1 = f1_score(true_label_all_test,labels_test_predited)
+            print("Test on all the data precision = {0:.2f}, recall = {1:.2f},F1 = {2:.2f}".format(test_precision,test_recall,F1))
+            precision_at_k = ranking_precision_score(np.array(true_label_all_test), predict_label_all_test,20)
+            P20_per_class += [precision_at_k]
+            AP_per_class += [AP]
+            R_per_class += [test_recall]
+            P_per_class += [test_precision]
     # End of the loop on the different class
     with open(cachefile_model, 'wb') as f:
         pickle.dump(name_milsvm, f)
     
     if database=='VOC2007' or database=='watercolor':
+        # DEtection evaluation 
         if testMode:
             for j in range(0, imdb.num_classes-1):
                 if not(j==jtest):
@@ -1639,7 +1651,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
             pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
         output_dir = path_data +'tmp/' + 'VOC2007_mAP.txt'
         aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
-        print("Detection score")
+        print("Detection score : ",database)
         print(arrayToLatex(aps))
         
            
@@ -1659,7 +1671,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
        
      PlotRegions,RPN,Stocha,CompBest=parameters
      k_per_bag,positive_elt,size_output = param_clf
-     thresh = 0.5 # Threshold score or distance MILSVM
+     thresh = 0.0 # Threshold score or distance MILSVM
      TEST_NMS = 0.7 # Recouvrement entre les classes
      
      load_model = False
@@ -2946,10 +2958,10 @@ if __name__ == '__main__':
 #                                          PlotRegions = False,misvm_type='LinearMISVC')
 #    detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Paintings_miniset_verif')
     tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
-                                  verbose = True,testMode = False,jtest = 0,
+                                  verbose = True,testMode = True,jtest = 'cow',
                                   PlotRegions = False,saved_clf=False,RPN=True,
                                   CompBest=False,Stocha=True,k_per_bag=300,
-                                  parallel_op=False,CrossVal=True)
+                                  parallel_op=False,CV_Mode='LA',num_split=2)
 #    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings', 
 #                                  verbose = True,testMode = False,jtest = 0,
 #                                  PlotRegions = False,saved_clf=False,RPN=True,
