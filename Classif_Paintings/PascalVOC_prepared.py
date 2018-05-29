@@ -136,9 +136,47 @@ def Watercolor():
 
     df=pd.read_csv(output_name,dtype=str)
     print(df.iloc[[45,46,47]])
+
+def Clipart():
+    df = None
+    classes = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+    sets = [('clipart','train'),('clipart','test')]
+    for base,image_set in sets:
+        path_b = '/media/HDD/data/cross-domain-detection/datasets/clipart/ImageSets/Main/%s.txt'%(image_set)
+        pd_b = pd.read_csv(path_b,sep=r"\s*",names=['name_img'],dtype=str)
+        for c in classes:
+            pd_b[c] = -1
+        print(pd_b.head(5))
+        for index, row in pd_b.iterrows():
+            i = row['name_img']
+            path_i = '/media/HDD/data/cross-domain-detection/datasets/clipart/Annotations/%s.xml'%(i)
+            read_file = voc_eval.parse_rec(path_i)
+            for element in read_file:
+                classe_elt = element['name']
+                for c in classes:
+                    if classe_elt==c:
+                        pd_b.loc[pd_b['name_img']==row['name_img'],c] = 1
+        pd_b['set'] = image_set
+        if df is None:
+            df = pd_b
+        else:
+            df = df.append(pd_b)
+    output_name = path_output + 'clipart_all' + '.csv'
+    print(df.iloc[[45,46,47]])
+    df.to_csv(output_name)
+    
+    output_name = path_output + 'clipart' + '.csv'
+    # On remplace les 0 par des 1  ! les cas difficiles par des certitudes
+    for c in classes: 
+        df.loc[df[c]==0,c] = 1
+    print(df.iloc[[45,46,47]])
+    df.to_csv(output_name)
+
+    df=pd.read_csv(output_name,dtype=str)
+    print(df.iloc[[45,46,47]])
         
 if __name__ == '__main__':
-    Watercolor()
+    Clipart()
 #        cls_label = open('/media/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s_%s.txt'%(year,c,image_set)).read().strip().split()
 #        print(cls_label)
 #    list_file = open('%s_%s.txt'%(year, image_set), 'w')

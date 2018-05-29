@@ -329,34 +329,56 @@ def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxO
 def localisation_pred_met(all_boxes_pred):
     return(0)
 
-def run_FasterRCNN_VOC07_perf():
+def run_FRCNN_Detection_perf(database='VOC2007'):
     """
     15 mai 2018
     Le but de cette fonction est d'evaluer les performances de classification et
     de detection sur Pascal VOC2007 test set
     """
+    print('Evaluation of the detections performance on ',database)
     max_per_image= 100
-    TEST_NMS = 0.7
-    thresh= 0.
+    TEST_NMS = 0.3
+    thresh= 0.05
     output_dir=  '/media/HDD/output_exp/ClassifPaintings/tmp/'
     input_dir=  '/media/HDD/output_exp/ClassifPaintings/'
-    imdb = get_imdb('voc_2007_test')
+    if database=='VOC2007' or  database=='clipart':
+        per =False
+        ext = '.csv'
+        classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
+           'bottle', 'bus', 'car', 'cat', 'chair',
+           'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant',
+           'sheep', 'sofa', 'train', 'tvmonitor']
+        if database=='VOC2007' : imdb = get_imdb('voc_2007_test')
+        if database=='clipart' : imdb = get_imdb('clipart_test')
+        num_classes = imdb.num_classes -1
+        corr_voc_coco = [0,5,2,15,9,40,6,3,16,57,20,61,17,18,4,1,59,19,58,7,63]
+    elif database=='watercolor':
+        per =True
+        ext = '.csv'
+        classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
+        imdb = get_imdb('watercolor_test')
+        num_classes = imdb.num_classes-1
+        corr_voc_coco = [0,2,15,3,16,17,1]
+        corr_watercolor_voc = [0,2,3,7,8,12,15]
+    
     imdb.set_force_dont_use_07_metric(True)
     num_images = len(imdb.image_index)
-    num_classes = imdb.num_classes -1
-    corr_voc_coco = [0,5,2,15,9,40,6,3,16,57,20,61,17,18,4,1,59,19,58,7,63]
     
-    databasetxt = input_dir +'VOC2007.csv'
+    databasetxt = input_dir +database+ext
     df_label = pd.read_csv(databasetxt,sep=",")
     df_test = df_label[df_label['set']=='test']
-    y_true = df_test.as_matrix(columns=CLASSESVOC[1:])
+    if database=='VOC2007'  or  database=='clipart':
+        y_true = df_test.as_matrix(columns=CLASSESVOC[1:])
+    elif database=='watercolor':
+        y_true = df_test.as_matrix(columns=classes)
     y_predict = np.zeros((num_images,num_classes))
     assert(y_true.shape==y_predict.shape)
     
     demonets = ['res152_COCO','res101_COCO','res101_VOC07']
-#    demonets=['res152_COCO']
+    demonets=['res101_VOC07']
     
-    just_Sans_Regression = True
+    just_Sans_Regression = False
     
     for demonet in demonets:
         if just_Sans_Regression:
@@ -406,6 +428,14 @@ def run_FasterRCNN_VOC07_perf():
                     j_tmp = corr_voc_coco[j]
                     boxes_tmp[:,j*4:(j+1)*4] = boxes[:,j_tmp*4:(j_tmp+1)*4]
                 boxes = boxes_tmp
+            elif database=='watercolor':
+                scores = scores[:,corr_watercolor_voc]
+                boxes_tmp = np.zeros((len(scores),21*4))
+                for j in range(1, imdb.num_classes):
+                    j_tmp = corr_watercolor_voc[j]
+                    boxes_tmp[:,j*4:(j+1)*4] = boxes[:,j_tmp*4:(j_tmp+1)*4]
+                boxes = boxes_tmp
+                
 
             # skip j = 0, because it's the background class
             for j in range(1, imdb.num_classes):
@@ -452,20 +482,19 @@ def run_FasterRCNN_VOC07_perf():
         # Rappel des scores :
         print(demonet)
         print(arrayToLatex(CLASSESVOC[1:],dtype=str))
-        print(demonet)
         print("Classification task")
-        print(arrayToLatex(AP_per_class))
+        print(arrayToLatex(AP_per_class,per=per))
         print("Detection task")
-        print(arrayToLatex(aps))
+        print(arrayToLatex(aps,per=per))
 
     # We will know see the impact of the loss of the regression of the bounding box
     demonet = 'res152_COCO'
     print('Impact of the abscence of bounding boxes regressions at the end')
     all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes+1)]
     max_per_image= 100
-    TEST_NMS = 0.7
+#    TEST_NMS = 0.7
     nms_thresh = TEST_NMS
-    thresh= 0.
+#    thresh= 0.
     tf.reset_default_graph()
     CLASSES = CLASSES_SET['COCO']
     anchor_scales = [4, 8, 16, 32]
@@ -572,10 +601,11 @@ def run_FasterRCNN_VOC07_perf():
     print(demonet," mean Average Precision Classification = {0:.3f}".format(np.mean(AP_per_class)))
     
     # Rappel des scores :
+    
     print(demonet)
     print(arrayToLatex(CLASSESVOC[1:],dtype=str))
     print("Classification task")
-    print(arrayToLatex(AP_per_class))
+    print(arrayToLatex(AP_per_class,per=per))
     
     # Limit to max_per_image detections *over all classes*
     if max_per_image > 0:
@@ -593,14 +623,16 @@ def run_FasterRCNN_VOC07_perf():
     
     aps = imdb.evaluate_detections(all_boxes, output_dir)
     print("Detection task with thresh = ",TEST_NMS)
-    print(arrayToLatex(aps))
+    print(arrayToLatex(aps,per=per))
     
     print('Evaluating detections')
-    for thresh in np.arange(TEST_NMS-0.1,0.0,-0.1):
-        all_boxes_after_nms = apply_nms(all_boxes, float(thresh))
-        aps = imdb.evaluate_detections(all_boxes_after_nms, output_dir)
-        print("Detection task with thresh = ",thresh)
-        print(arrayToLatex(aps))
+    with_thres_comp = False
+    if with_thres_comp:
+        for thresh in np.arange(TEST_NMS-0.1,0.0,-0.1):
+            all_boxes_after_nms = apply_nms(all_boxes, float(thresh))
+            aps = imdb.evaluate_detections(all_boxes_after_nms, output_dir)
+            print("Detection task with thresh = ",thresh)
+            print(arrayToLatex(aps,per=per))
         
         
             
@@ -2349,5 +2381,5 @@ if __name__ == '__main__':
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',CV_Crowley=False,
 #                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
 #    
-    run_FasterRCNN_VOC07_perf()
+    run_FRCNN_Detection_perf(database='clipart')
 #     Illus_box_ratio()
