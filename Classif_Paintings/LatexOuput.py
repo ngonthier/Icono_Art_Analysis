@@ -8,12 +8,16 @@ Created on Tue Mar  6 15:05:40 2018
 
 import numpy as np
 
-def arrayToLatex(a,dtype=np.float32):
+def arrayToLatex(a,per=False,dtype=np.float32):
     if dtype==np.float32:
+        if per:
+            multi = 100.
+        else:
+            multi=1.
         stra = ' & '
         for i in range(len(a)):
-            stra += "{0:.3f} & ".format(a[i])
-        stra += "{0:.3f} \\\ \hline".format(np.mean(a))
+            stra += "{0:.3f} & ".format(a[i]*multi)
+        stra += "{0:.3f} \\\ \hline".format(np.mean(a)*multi)
         return(stra)
     elif dtype==str:
         stra = ' & '

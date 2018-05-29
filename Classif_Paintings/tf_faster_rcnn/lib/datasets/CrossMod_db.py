@@ -38,15 +38,18 @@ class CrossMod_db(imdb):
     else:
         self._devkit_path = devkit_path
     self._data_path = os.path.join(self._devkit_path,self._image_db)
-    if image_set == 'watercolor':
-        self._classes = ('__background__',"bicycle", "bird","car", "cat", "dog", "person")
-    else:
+#    print(self._data_path)
+    if self._image_db == 'watercolor' or self._image_db == 'comic':
+        self._classes = ('__background__',"bicycle", "bird","car", "cat", "dog", "person") 
+    elif self._image_db == 'clipart': # In the clipart case
         self._classes = ('__background__',  # always index 0
                          'aeroplane', 'bicycle', 'bird', 'boat',
                          'bottle', 'bus', 'car', 'cat', 'chair',
                          'cow', 'diningtable', 'dog', 'horse',
                          'motorbike', 'person', 'pottedplant',
                          'sheep', 'sofa', 'train', 'tvmonitor')
+    else:
+        raise(NotImplemented)
     self._class_to_ind = dict(list(zip(self.classes, list(range(self.num_classes)))))
     self._image_ext = '.jpg'
     self._image_index = self._load_image_set_index()
@@ -64,7 +67,7 @@ class CrossMod_db(imdb):
                    'rpn_file': None}
 
     assert os.path.exists(self._devkit_path), \
-      'VOCdevkit path does not exist: {}'.format(self._devkit_path)
+      'CrossDomain path does not exist: {}'.format(self._devkit_path)
     assert os.path.exists(self._data_path), \
       'Path does not exist: {}'.format(self._data_path)
 
@@ -94,6 +97,7 @@ class CrossMod_db(imdb):
                                   self._image_set + '.txt')
     assert os.path.exists(image_set_file), \
       'Path does not exist: {}'.format(image_set_file)
+#    print(image_set_file)
     with open(image_set_file) as f:
       image_index = [x.strip() for x in f.readlines()]
     return image_index
@@ -129,7 +133,8 @@ class CrossMod_db(imdb):
     return gt_roidb
 
   def rpn_roidb(self):
-    if int(self._year) == 2007 or self._image_set != 'test':
+    if int(self._year) == 2007 or self._image_set != 'test' or True:
+      print("You are here and I don't know why :)")
       gt_roidb = self.gt_roidb()
       rpn_roidb = self._load_rpn_roidb(gt_roidb)
       roidb = imdb.merge_roidbs(gt_roidb, rpn_roidb)
@@ -204,7 +209,7 @@ class CrossMod_db(imdb):
     path = os.path.join(
       self._devkit_path,
       'results',
-      'VOC' + self._year,
+       self._image_db,
       'Main',
       filename)
     return path
@@ -233,19 +238,19 @@ class CrossMod_db(imdb):
   def _do_python_eval(self, output_dir='output'):
     annopath = os.path.join(
       self._devkit_path,
-      'VOC' + self._year,
+      self._image_db,
       'Annotations',
       '{:s}.xml')
     imagesetfile = os.path.join(
       self._devkit_path,
-      'VOC' + self._year,
+      self._image_db,
       'ImageSets',
       'Main',
       self._image_set + '.txt')
     cachedir = os.path.join(self._devkit_path, 'annotations_cache')
     aps = []
     # The PASCAL VOC metric changed in 2010
-    use_07_metric = True if int(self._year) < 2010 else False
+    use_07_metric = True if (self._year is None) or (int(self._year) < 2010)  else False
     if self.force_dont_use_07_metric == True: use_07_metric = False
     print('VOC07 metric? ' + ('Yes' if use_07_metric else 'No'))
     if not os.path.isdir(output_dir):
@@ -316,7 +321,7 @@ class CrossMod_db(imdb):
 
 if __name__ == '__main__':
   from datasets.pascal_voc import pascal_voc
-
+  # That doens't work of course, the unit test isn't made yet
   d = pascal_voc('trainval', '2007')
   res = d.roidb
   from IPython import embed;

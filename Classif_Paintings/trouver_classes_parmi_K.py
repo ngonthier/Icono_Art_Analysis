@@ -120,7 +120,7 @@ class MILSVM():
         
         Prod2=tf.reduce_sum(tf.multiply(W1,X2),axis=2)+b
         if self.symway :
-            Max2=tf.reduce_max(Prod2,axis=1) # TODO attention tu as mis min au lieu de max ici
+            Max2=tf.reduce_max(Prod2,axis=1)
         else:
             Max2=tf.reduce_mean(Prod2,axis=1) # TODO Il faut que tu check cela avec Said quand meme
         Tan2=tf.reduce_sum(tf.tanh(Max2))/np2
@@ -250,6 +250,7 @@ class MILSVM():
     def get_NegativeRegionsScore(self):
         return(self.NegativeRegionsScore.copy())
 
+
 class tf_MILSVM():
     """
     The MIL-SVM approach of Said Ladjal, try to get a tf version that used the 
@@ -327,7 +328,6 @@ class tf_MILSVM():
         if not(CV_Mode is None):
             assert(num_split>1) # Il faut plus d un folder pour separer
             self.num_split = num_split # Only useful if CrossVal==True
-            self.max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max
             if num_split>2:
                 print('The use of more that 2 spits seem to slow a lot the computation with the use of shard')
      
@@ -469,17 +469,100 @@ class tf_MILSVM():
         iterator_batch = dataset_batch.make_initializable_iterator()
         X_batch, label_batch = iterator_batch.get_next()
         return(iterator_batch)
+     
+    def fit_SVM_onMean(self,sess,X_, y_):
+        X_mean = tf.reduce_mean(X_,axis=1) 
+        # Definition of the graph 
+        if self.class_indice==-1:
+            W_local=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.),name="weights")
+            b_local=tf.Variable(tf.random_normal([self.num_classes,1], stddev=1.), name="bias")
+            if tf.__version__ >= '1.8':
+                normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,axis=0)) 
+            else:
+                normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,dim=0))
+            W_r=tf.reshape(W_local,(self.num_classes,1,self.num_features))
+            Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_mean),axis=2),b_local)
+            if self.is_betweenMinus1and1:
+                weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,self.np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,self.np_neg_value))
+                # Need to add 1 to avoid the case 
+                # The wieght are negative for the positive exemple and positive for the negative ones !!!
+            else:
+                weights_bags_ratio = -tf.divide(y_,self.np_pos_value) + tf.divide(-tf.add(y_,-1),self.np_neg_value)
+            weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0])
+            Tan= tf.reduce_sum(tf.multiply(tf.tanh(Prod),weights_bags_ratio),axis=1) 
+            # Sum on all the exemples 
+            loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[1,2])))
+            # Shape 20
+        else:
+            W_local=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights")
+            b_local=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
+            if tf.__version__ >= '1.8':
+                normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,axis=0)) 
+            else:
+                normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,dim=0)) 
+            W_local=tf.reshape(W_local,(1,self.num_features))
+            Prod=tf.reduce_sum(tf.multiply(W_local,X_mean),axis=1)+b_local
+            Max=tf.reduce_max(Prod,axis=1) # We take the max because we have at least one element of the bag that is positive
+            weights_bags_ratio = -tf.divide(y_,self.np_pos_value) + tf.divide(-tf.add(y_,-1),self.np_neg_value) # Need to add 1 to avoid the case 
+            Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio)) # Sum on all the positive exemples 
+            loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W_local,W_local))))
+            
+        if(self.Optimizer == 'GradientDescent'):
+            optimizer = tf.train.GradientDescentOptimizer(self.LR) 
+        elif(self.Optimizer == 'Momentum'):
+            optimizer = tf.train.MomentumOptimizer(self.optimArg['learning_rate'],self.optimArg['momentum']) 
+        elif(self.Optimizer == 'Adam'):
+            optimizer = tf.train.AdamOptimizer(self.LR) 
+        elif(self.Optimizer == 'Adagrad'):
+            optimizer = tf.train.AdagradOptimizer(self.LR) 
+        else:
+            print("The optimizer is unknown",self.Optimizer)
+          
+        train = optimizer.minimize(loss) 
+#        sess = tf.Session(config=self.config)
+#            
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
+#        sess.run(shuffle_iterator.initializer)
+
+        for step in range(self.max_iters):
+            if self.debug: t2 = time.time()
+            sess.run(train)
+            if self.debug:
+                t3 = time.time()
+                print(step,"durations :",str(t3-t2))
+
+        W_tmp=sess.run(W_local)
+        b_tmp=sess.run(b_local)
+#        sess.close()
+        return(W_tmp,b_tmp)
         
-    def fit_MILSVM_tfrecords(self,data_path,class_indice,shuffle=True,performance=False):
-        """" This function run per batch on the tfrecords data folder """
+    def fit_MILSVM_tfrecords(self,data_path,class_indice,shuffle=True,WR=False,
+                             init_by_mean=None,performance=False):
+        """" 
+        This function run per batch on the tfrecords data folder
+        @param : data_path : 
+        @param : choose of the class to run the optimisation on, if == -1 , then 
+        run all the class at once
+        @param : shuffle or not the dataset 
+        @param : WR : WR=True mean Without Regularisation in the evaluation of the
+        loss in order to choose the best vector
+        @param : init_by_mean   :  use of an initialisation of the vecteur 
+        W and bias b by a optimisation on a classification task on the mean 
+        on all the regions of the image, = None, 'First' or 'All'
+        @param : performance : boolean use or not of optimize function for 
+        shuffle and repeat TF dataset
+        """
         # Idees pour ameliorer cette fonction : 
         # Ajouter la possibilite de choisir les regions avec un nms lors de la 
         # - Faire du multi fold sur la valeur
         # Faire les histogrammes des valeurs pour estimer le threshold
         # Sinon faire un truc du genre un des folds est laisse de cote et utilise pour evaluer 
         # la loss a la fin avec les autres, sorte de balances entre les elements vu et non vu
+        self.WR = WR
         self.class_indice = class_indice # If class_indice = -1 we will run on all the class at once ! parallel power
         self.performance = performance
+        self.init_by_mean = init_by_mean
         ## Debut de la fonction        
         self.cpu_count = multiprocessing.cpu_count()
         train_dataset_init = tf.data.TFRecordDataset(data_path)
@@ -503,10 +586,10 @@ class tf_MILSVM():
         X_batch, label_batch = iterator_batch.get_next()
         
         # Calcul preliminaire a la definition de la fonction de cout 
-        config = tf.ConfigProto()
-        config.intra_op_parallelism_threads = 16
-        config.inter_op_parallelism_threads = 16
-        config.gpu_options.allow_growth = True
+        self.config = tf.ConfigProto()
+        self.config.intra_op_parallelism_threads = 16
+        self.config.inter_op_parallelism_threads = 16
+        self.config.gpu_options.allow_growth = True
         
         minus_1 = tf.constant(-1.)
 
@@ -532,7 +615,7 @@ class tf_MILSVM():
             np_pos_value = 0.
             np_neg_value = 0.
             
-        with tf.Session(config=config) as sess:
+        with tf.Session(config=self.config) as sess:
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
             sess.run(iterator_batch.initializer)
@@ -639,7 +722,10 @@ class tf_MILSVM():
             W=tf.reshape(W,(1,1,self.num_features))
             Prod=tf.reduce_sum(tf.multiply(W,X_),axis=2)+b
             Max=tf.reduce_max(Prod,axis=1) # We take the max because we have at least one element of the bag that is positive
-            weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value) # Need to add 1 to avoid the case 
+            if self.is_betweenMinus1and1:
+                weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
+            else:
+                weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value) # Need to add 1 to avoid the case 
             Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio)) # Sum on all the positive exemples 
             loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
             
@@ -653,7 +739,10 @@ class tf_MILSVM():
                 weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
             
             Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch)) # Sum on all the positive exemples 
-            loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
+            if self.WR:
+                loss_batch= Tan_batch
+            else:
+                loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
         
         if(self.Optimizer == 'GradientDescent'):
             optimizer = tf.train.GradientDescentOptimizer(self.LR) 
@@ -673,7 +762,7 @@ class tf_MILSVM():
             train = optimizer.minimize(loss) 
             bestloss = 0.
             
-        sess = tf.Session(config=config)
+        sess = tf.Session(config=self.config)
             
         for essai in range(self.restarts+1): #on fait 5 essais et on garde la meilleur loss
             if self.verbose : 
@@ -682,7 +771,19 @@ class tf_MILSVM():
             # To do need to reinitialiszed : 
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
-            if (essai==0):  sess.run(shuffle_iterator.initializer)
+            if (essai==0):
+                sess.run(shuffle_iterator.initializer)
+            if (self.init_by_mean == 'First' and  (essai==0)) or (self.init_by_mean == 'All'):
+                if self.verbose: t2 = time.time()
+                W_init,b_init = self.fit_SVM_onMean(sess,X_,y_)
+                print(W_init)
+                if self.verbose:
+                    t3 = time.time()
+                    print("Initialisation by classif by mean durations :",str(t3-t2))
+                sess.run(W.assign(tf.reshape(W_init,tf.shape(W))))
+                sess.run(b.assign(tf.reshape(b_init,tf.shape(b))))
+                print(sess.run(W))
+
 
             for step in range(self.max_iters):
                 if self.debug: t2 = time.time()

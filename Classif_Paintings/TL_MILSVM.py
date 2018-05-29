@@ -52,6 +52,8 @@ from sklearn.externals import joblib # To save the classifier
 from tool_on_Regions import reduce_to_k_regions
 from sklearn import linear_model
 from tf_faster_rcnn.lib.datasets.factory import get_imdb
+from Estimation_Param import kde_sklearn,findIntersection
+from utils.save_param import create_param_id_file_and_dir,write_results
 #from hpsklearn import HyperoptEstimator,sgd
 #from hyperopt import tpe
 
@@ -1297,7 +1299,8 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   verbose = True,testMode = True,jtest = 0,
                                   PlotRegions = True,saved_clf=False,RPN=False,
                                   CompBest=True,Stocha=True,k_per_bag=300,
-                                  parallel_op =True,CV_Mode=None,num_split=2):
+                                  parallel_op =True,CV_Mode=None,num_split=2,
+                                  WR=False,init_by_mean=None,seuil_estimation=False):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -1324,6 +1327,9 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     @param : parallel_op : use of the parallelisation version of the MILSVM for the all classes same time
     @param : CV_Mode : cross validation mode in the MILSVM : possibility ; None, CV in k split or LA for Leave apart one of the split
     @param : num_split  : Number of split for the CV or LA
+    @param : WR   :  use of not of the regularisation term in the evaluation of the final classifier, if True we don't use it
+    @param : init_by_mean   :  use of an initialisation of the vecteur W and bias b by a optimisation on a classification task on the mean on all the regions of the image
+    @param : seuil_estimation  :  Estimation of the seuil for the prediction detection 
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -1378,13 +1384,14 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         jtest = int(np.where(np.array(classes)==jtest)[0][0])# Conversion of the jtest string to the value number
         assert(type(jtest)==int)
         
-    if(jtest>len(classes)) and testMode:
+    if testMode and (jtest>len(classes)) :
        print("We are in test mode but jtest>len(classes), we will use jtest =0" )
        jtest =0
     
         
     
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
+#    path_data = path_data_old+ 'MILSVM/'
     databasetxt =path_data + database + ext
     df_label = pd.read_csv(databasetxt,sep=",")
     str_val = 'val'
@@ -1444,9 +1451,9 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         ext_test = '_Test_Mode'
     else:
         ext_test= ''
-        restarts = 19
+        restarts = 1
         max_iters = (num_trainval_im //mini_batch_size)*300
-    print('mini_batch_size',mini_batch_size,'max_iters',max_iters)
+    max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max par rapport au nombre de split
     AP_per_class = []
     P_per_class = []
     R_per_class = []
@@ -1468,49 +1475,102 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         extCV = '_cv'+str(num_split)
     elif CV_Mode=='LA':
         extCV = '_la'+str(num_split)
-    elif CV_Mode is None:
+    elif CV_Mode=='CV' and WR==True:
+        extCV = '_cv'+str(num_split)+'_wr'
+    elif CV_Mode is None or CV_Mode=='':
         extCV =''
-    cachefile_model = path_data + database +'_'+demonet+'_r'+str(restarts)+'_s' \
-        +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+extCV+ext_test+'_MILSVM.pkl'
+    if WR: extCV += '_wr'
+    
+    Optimizer = 'GradientDescent'
+    Optimizer = 'Adam'
+    if Optimizer=='Adam':
+        opti_str=''
+    elif Optimizer=='GradientDescent':
+        opti_str='_gd'
+    if init_by_mean is None or init_by_mean=='':
+        init_by_mean_str = ''
+    elif init_by_mean=='First':
+        init_by_mean_str= '_ibnF'
+    elif init_by_mean=='All':
+        init_by_mean_str= '_ibnA'
+    LR=0.01 # Learning rate
+    C = 1.0 # regularisation term 
+    optimArg= None
+    verboseMILSVM = True
+    shuffle = True
+    predict_with='MILSVM'
+    Number_of_positif_elt = 1 
+    number_zone = k_per_bag
+    
+    thresh_evaluation,TEST_NMS = 0.0,0.7
+    dont_use_07_metric = True
+    symway = True
+    
+    arrayParam = [demonet,database,N,extL2,nms_thresh,savedstr,mini_batch_size,
+                  performance,buffer_size,predict_with,shuffle,C,testMode,restarts,
+                  max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
+                  Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
+                  TEST_NMS,init_by_mean]
+    arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
+                     'mini_batch_size','performance','buffer_size','predict_with',
+                     'shuffle','C','testMode','restarts','max_iters','CV_Mode',
+                     'num_split','parallel_op','WR','norm','Optimizer','LR',
+                     'optimArg','Number_of_positif_elt','number_zone','seuil_estimation'
+                     ,'thresh_evaluation','TEST_NMS','init_by_mean']
+    assert(len(arrayParam)==len(arrayParamStr))
+    
+    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
+          'parallel_op',parallel_op,'CV_Mode',CV_Mode,'WR',WR,'restarts',restarts,'demonet',demonet,
+          'Optimizer',Optimizer,'init_by_mean',init_by_mean)
+    
+
+    cachefile_model_base= database +'_'+demonet+'_r'+str(restarts)+'_s' \
+        +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
+        extCV+ext_test+opti_str+init_by_mean_str
+    cachefile_model = path_data +  cachefile_model_base+'_MILSVM.pkl'
+#    if os.path.isfile(cachefile_model_old):
+#        print('Do you want to erase the model or do a new one ?')
+#        input_str = input('Answer yes or not')
+#    cachefile_model = path_data + param_name + '.pkl'
     if verbose: print("cachefile name",cachefile_model)
     if not os.path.isfile(cachefile_model) or ReDo:
         name_milsvm = {}
-        if verbose: print("The cachefile doesn t exist")
+        if verbose: print("The cachefile doesn t exist")    
     else:
         with open(cachefile_model, 'rb') as f:
             name_milsvm = pickle.load(f)
             if verbose: print("The cachefile exists")
-
+    
+    param_name,path_data_file,file_param = \
+    create_param_id_file_and_dir(path_data+'/SauvParam/',arrayParam,arrayParamStr)
+    
     if database=='VOC2007':
         imdb = get_imdb('voc_2007_test')
-        imdb.set_force_dont_use_07_metric(True)
+        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         num_images = len(imdb.image_index)
         all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
     elif database=='watercolor':
         imdb = get_imdb('watercolor_test')
-        imdb.set_force_dont_use_07_metric(True)
+        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         num_images = len(imdb.image_index)
         all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
     else:
         all_boxes = None
 
-    Optimizer = 'GradientDescent'
-    Optimizer = 'Adam'
-    LR=0.01
-    optimArg= None
-    verboseMILSVM = True
+   
     data_path_train= dict_name_file['trainval']
     
     if parallel_op:
         # For Pascal VOC2007 pour les 20 classes cela prend environ 2500s par iteration 
         if not os.path.isfile(cachefile_model) or ReDo:
-             classifierMILSVM = tf_MILSVM(LR=LR,C=1.0,C_finalSVM=1.0,restarts=restarts,
-                   max_iters=max_iters,symway=True,n_jobs=n_jobs,buffer_size=buffer_size,
+             classifierMILSVM = tf_MILSVM(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,
+                   max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,num_features=size_output,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode) 
              export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
-                   class_indice=-1,shuffle=True,performance=performance)
+                   class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,
+                   WR=WR,performance=performance)
              np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
              name_milsvm =export_dir,np_pos_value,np_neg_value
              with open(cachefile_model, 'wb') as f:
@@ -1518,17 +1578,16 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         else:
             export_dir,np_pos_value,np_neg_value= name_milsvm
         
-        Number_of_positif_elt = 1 
-        number_zone = k_per_bag
         dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
         parameters=PlotRegions,RPN,Stocha,CompBest
         param_clf = k_per_bag,Number_of_positif_elt,size_output
-        predict_with='MILSVM'
         true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited \
         ,all_boxes = \
         tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                export_dir,dict_name_file,mini_batch_size,config,PlotRegions,
-               path_to_img,path_data,param_clf,classes,parameters,verbose,all_boxes=all_boxes)
+               path_to_img,path_data,param_clf,classes,parameters,verbose,
+               seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
+               cachefile_model_base=cachefile_model_base)
    
         for j,classe in enumerate(classes):
             AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
@@ -1564,14 +1623,15 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                     print('The model of MILSVM doesn t exist')
                     needToDo = True
             if ReDo or needToDo:
-                classifierMILSVM = tf_MILSVM(LR=LR,C=1.0,C_finalSVM=1.0,restarts=restarts,
-                   max_iters=max_iters,symway=True,n_jobs=n_jobs,buffer_size=buffer_size,
+                classifierMILSVM = tf_MILSVM(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,
+                   max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,num_features=size_output,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode) 
                 export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train,
-                                                      class_indice=j,shuffle=True,
-                                                      performance=False)
+                                                      class_indice=j,shuffle=shuffle,
+                                                      performance=performance,init_by_mean=init_by_mean,
+                                                      WR=WR)
                 np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
                 name_milsvm[j]=export_dir,np_pos_value,np_neg_value
                 with open(cachefile_model, 'wb') as f:
@@ -1585,13 +1645,11 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
             ## Predicition with the MILSVM
             parameters=PlotRegions,RPN,Stocha,CompBest
             param_clf = k_per_bag,Number_of_positif_elt,size_output
-            predict_with='LinearSVC'
-            predict_with='MILSVM'
             true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited,all_boxes = \
                 tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                                export_dir,dict_name_file,mini_batch_size,config,
                                PlotRegions,path_to_img,path_data,param_clf,classes,parameters,verbose,
-                               all_boxes=all_boxes)
+                               seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes)
                   
             # Regroupement des informations     
            
@@ -1663,38 +1721,45 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     
     print(AP_per_class)
     print(arrayToLatex(AP_per_class))
+    
+    if database=='watercolor' or database=='VOC2007':
+        write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class),aps,np.mean(aps)],
+                      ['classes','AP_per_class','mAP Classif','AP detection','mAP detection'])
 
 
 def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                export_dir,dict_name_file,mini_batch_size,config,PlotRegions,
-               path_to_img,path_data,param_clf,classes,parameters,verbose,all_boxes=None):
-       
+               path_to_img,path_data,param_clf,classes,parameters,verbose,
+               seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=None,
+               cachefile_model_base='',number_im=200):
+     """
+     @param : number_im : number of image plot at maximum
+     """
      PlotRegions,RPN,Stocha,CompBest=parameters
      k_per_bag,positive_elt,size_output = param_clf
-     thresh = 0.0 # Threshold score or distance MILSVM
-     TEST_NMS = 0.7 # Recouvrement entre les classes
+     thresh = thresh_evaluation # Threshold score or distance MILSVM
+     #TEST_NMS = 0.7 # Recouvrement entre les classes
      
      load_model = False
      
-     if PlotRegions:
-         if Stocha:
-             extensionStocha = 'Stocha/'
-         else:
-             extensionStocha = ''
-         if database=='Wikidata_Paintings_miniset_verif':
-             path_to_output2  = path_data + '/tfMILSVMRegion_paral/'+database+'/'+extensionStocha+'/All'
-         else:
-             path_to_output2  = path_data + '/tfMILSVMRegion_paral/'+database+'/'+extensionStocha+'/All'
+#     seuil_estimation = False
+     seuil_estimation_debug = True
+     plot_hist = True
+     if PlotRegions or (seuil_estimation and plot_hist):
+         extensionStocha = cachefile_model_base 
+         path_to_output2  = path_data + '/tfMILSVMRegion_paral/'+database+'/'+extensionStocha
          if RPN:
-             path_to_output2 += '_RPNetMISVM/'
+             path_to_output2 += '/RPNetMISVM/'
          elif CompBest:
-              path_to_output2 += '_BestObject/'
+              path_to_output2 += '/BestObject/'
          else:
              path_to_output2 += '/'
          path_to_output2_bis = path_to_output2 + 'Train'
          path_to_output2_ter = path_to_output2 + 'Test'
+         path_to_output2_q = path_to_output2 + 'Hist/'
          pathlib.Path(path_to_output2_bis).mkdir(parents=True, exist_ok=True) 
          pathlib.Path(path_to_output2_ter).mkdir(parents=True, exist_ok=True)
+         pathlib.Path(path_to_output2_q).mkdir(parents=True, exist_ok=True)
          
      export_dir_path = ('/').join(export_dir.split('/')[:-1])
      name_model_meta = export_dir + '.meta'
@@ -1708,8 +1773,21 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
          X_array = np.empty((length_matrix,size_output),dtype=np.float32)
          y_array =  np.empty((num_classes,length_matrix),dtype=np.float32)
          x_array_ind = 0
+         
+     if seuil_estimation:
+         if seuil_estimation_debug:
+             top_k = 3
+         else:
+             top_k =1
+         list_arrays = ['prod_neg_ex','prod_pos_ex_topk','prod_pos_ex']
+         dict_seuil_estim = {}
+         for i in range(num_classes):
+             dict_seuil_estim[i] = {}
+             for str_name in list_arrays:
+                 dict_seuil_estim[i][str_name] = []  # Array of the scalar product of the negative examples  
      
-     if (PlotRegions or predict_with=='LinearSVC'):
+     if (PlotRegions or predict_with=='LinearSVC' or seuil_estimation):
+        index_im = 0
         if verbose: print("Start ploting Regions selected by the MILSVM in training phase")
         train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
         train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
@@ -1729,13 +1807,14 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             Prod_best = graph.get_tensor_by_name("Prod:0")
             mei = tf.argmax(Prod_best,axis=2)
             score_mei = tf.reduce_max(Prod_best,axis=2)
+
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
             while True:
                 try:
                     fc7s,roiss, labels,name_imgs = sess.run(next_element)
                     PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll = sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
-                    #print(PositiveExScoreAll.shape)
+#                    print(PositiveExScoreAll.shape)
                     if predict_with=='LinearSVC' and k_per_bag==300  and positive_elt==1:
                         raise(NotImplemented)
                         for k in range(len(fc7s)):
@@ -1750,9 +1829,25 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                     y_array[x_array_ind] = 1
                                     x_array_ind += 1
                                 # TODO need to be finished and tested 
+                                
+                    if seuil_estimation:
+                        for k in range(len(fc7s)):
+                            for l in range(num_classes):
+                                label_i = labels[k,l]
+                                if label_i ==0:
+                                    dict_seuil_estim[l]['prod_neg_ex'] += [PositiveExScoreAll[l,k,:]]
+                                else:
+                                    dict_seuil_estim[l]['prod_pos_ex'] += [PositiveExScoreAll[l,k,:]]
+                                    a= PositiveExScoreAll[l,k,:][np.argsort(PositiveExScoreAll[l,k,:])[-top_k:]]
+                                    # Shape 3 
+                                    dict_seuil_estim[l]['prod_pos_ex_topk'] += [a]
+                            
+                                
                     if PlotRegions:
-                        for k in range(len(labels)):                          
-                            if database=='VOC2007':
+                        for k in range(len(labels)):
+                            if index_im > number_im:
+                                continue
+                            if database=='VOC2007'  or  database=='watercolor' :
                                 name_img = str(name_imgs[k].decode("utf-8") )
                             else:
                                 name_img = name_imgs[k]
@@ -1798,10 +1893,80 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                             name_output = path_to_output2 +'Train/' + name_sans_ext + '_Regions.jpg'
                             plt.savefig(name_output)
                             plt.close()
+                            index_im +=1
                 except tf.errors.OutOfRangeError:
                     break
         #tf.reset_default_graph()
      
+     # Parameter Evaluation Time !
+     if seuil_estimation:
+         list_thresh = []
+         plt.ion()
+         print('Seuil Estimation Time')
+         num_bins = 100
+         # Concatenation of the element
+         for l in range(num_classes):
+             dontPlot = False
+             dontPlot2 = False
+             prod_neg_ex = np.concatenate(dict_seuil_estim[l]['prod_neg_ex'],axis=0)
+             prod_pos_ex = np.concatenate(dict_seuil_estim[l]['prod_pos_ex'],axis=0)
+             prod_pos_ex_topk= np.vstack(dict_seuil_estim[l]['prod_pos_ex_topk'])
+             
+             if plot_hist:
+                 plt.figure()
+                 plt.hist(prod_neg_ex,alpha=0.5,bins=num_bins,label='hist_neg',density=True)
+             
+             e_max = max(np.max(prod_neg_ex),np.max(prod_pos_ex_topk))
+             e_min = min(np.min(prod_neg_ex),np.min(prod_pos_ex_topk))
+             x_axis = np.linspace(e_min,e_max, num_bins)
+#             print('Start kdeA')
+             kdeA, pdfA = kde_sklearn(prod_neg_ex, x_axis, bandwidth=0.25)
+#             print('Finish kdeA')
+             funcA = lambda x: np.exp(kdeA.score_samples([x][0]))
+             if seuil_estimation_debug:
+                 kdeB, pdfB = kde_sklearn(prod_pos_ex, x_axis, bandwidth=0.25)
+                 funcB = lambda x: np.exp(kdeB.score_samples([x][0]))
+                 try:
+                     result_full = findIntersection(funcA, funcB,e_min,e_max)
+                 except(ValueError):
+                     dontPlot =True
+                     print('seuil not found in the case of full data')
+                 print('Seuil if we consider all the element of each image',result_full,'for class ',l)
+             for kk in range(top_k):
+                 kdeB, pdfB = kde_sklearn(prod_pos_ex_topk[:,kk], x_axis, bandwidth=0.25)
+                 funcB = lambda x: np.exp(kdeB.score_samples([x][0]))
+                 try:
+                     result = findIntersection(funcA, funcB,e_min,e_max)
+                 except(ValueError):
+                     dontPlot2 =True
+                     result = thresh_evaluation
+                     print('Intersection not found in the case',kk)
+                 if kk==0:
+                     list_thresh += [result]
+                     if not(dontPlot2): plt.axvline(result, color='red')
+                 if seuil_estimation_debug: print(kk,result)
+                 if plot_hist:
+                     label_str = 'hist_pos '+str(kk)
+                     plt.hist(prod_pos_ex_topk[:,kk],alpha=0.3,bins=num_bins,label=label_str,density=True)
+#                plt.xlim(min(bin_edges), max(bin_edges))
+             if plot_hist:
+                 plt.legend(loc='best')
+                 plt.title('Histogram of the scalar product for class '+str(l))
+                 name_output = path_to_output2_q + 'Hist_top_'+ str(top_k) + '_class'+str(l)+'.jpg'
+                 plt.savefig(name_output)
+                 plt.close()
+                 if seuil_estimation_debug:
+                     plt.figure()
+                     plt.hist(prod_neg_ex,alpha=0.5,bins=num_bins,label='hist_neg',density=True)
+                     plt.hist(prod_pos_ex,alpha=0.5,bins=num_bins,label='hist_pos',density=True)
+                     if not(dontPlot) : plt.axvline(result_full, color='red')
+                     plt.legend(loc='best')
+                     plt.title('Histogram of the scalar product for class '+str(l)+' for all element')
+                     name_output = path_to_output2_q + 'Hist_all_class'+str(l)+'.jpg'
+                     plt.savefig(name_output)
+                     plt.close() 
+                 
+             
      print("Testing Time")
      # Training time !
      if predict_with=='LinearSVC':
@@ -1848,7 +2013,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
 #                if predict_with=='LinearSVC':
                     
                 for k in range(len(labels)):
-                    if database=='VOC2007' :
+                    if database=='VOC2007' or  database=='watercolor' :
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
                     else:
                          complet_name = path_to_img + name_imgs[k] + '.jpg'
@@ -1864,7 +2029,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     
                     for j in range(num_classes):
                         scores = scores_all[j,:]
-                        inds = np.where(scores > thresh)[0]
+                        if seuil_estimation:
+                            inds = np.where(scores > list_thresh[j])[0]
+                        else:
+                            inds = np.where(scores > thresh)[0]
                         cls_scores = scores[inds]
                         cls_boxes = roi_boxes[inds,:]
                         cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])).astype(np.float32, copy=False)
@@ -1874,7 +2042,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     i+=1
     
                 for l in range(len(name_imgs)): 
-                    if database=='VOC2007' :
+                    if database=='VOC2007'  or  database=='watercolor' :
                         name_all_test += [[str(name_imgs[l].decode("utf-8"))]]
                     else:
                         name_all_test += [[name_imgs[l]]]
@@ -1885,8 +2053,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     if verbose and FirstTime: 
                         FirstTime = False
                         print("Start ploting Regions on test set")
-                    for k in range(len(labels)):                          
-                        if  database=='VOC2007':
+                    for k in range(len(labels)):   
+                        if ii > number_im:
+                            continue
+                        if  database=='VOC2007' or  database=='watercolor' :
                             name_img = str(name_imgs[k].decode("utf-8") )
                         else:
                             name_img = name_imgs[k]
@@ -1947,12 +2117,12 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
       
 def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                export_dir,dict_name_file,mini_batch_size,config,PlotRegions,
-               path_to_img,path_data,param_clf,classes,parameters,verbose,all_boxes=None):
+               path_to_img,path_data,param_clf,classes,parameters,seuil_estimation,thresh_evaluation,TEST_NMS,verbose,all_boxes=None):
     
      PlotRegions,RPN,Stocha,CompBest=parameters
      k_per_bag,positive_elt,size_output = param_clf
-     thresh = 0.0 # Threshold score or distance MILSVM
-     TEST_NMS = 0.7 # Recouvrement entre les classes
+     thresh = thresh_evaluation # Threshold score or distance MILSVM
+#     TEST_NMS = 0.7 # Recouvrement entre les classes
      
      load_model = False
      
@@ -2957,11 +3127,16 @@ if __name__ == '__main__':
 #                                          verbose = True,testMode = True,jtest = 0,
 #                                          PlotRegions = False,misvm_type='LinearMISVC')
 #    detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Paintings_miniset_verif')
-    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
-                                  verbose = True,testMode = True,jtest = 'cow',
-                                  PlotRegions = False,saved_clf=False,RPN=True,
-                                  CompBest=False,Stocha=True,k_per_bag=300,
-                                  parallel_op=False,CV_Mode='LA',num_split=2)
+#    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = False,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode=None,num_split=2,WR=True)
+#    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = False,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='CV',num_split=2,WR=True)
 #    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings', 
 #                                  verbose = True,testMode = False,jtest = 0,
 #                                  PlotRegions = False,saved_clf=False,RPN=True,
@@ -2970,7 +3145,9 @@ if __name__ == '__main__':
 #                                  verbose = False,testMode = False,jtest = 6,
 #                                  PlotRegions = False,saved_clf=False,RPN=True,
 #                                  CompBest=False,Stocha=True,k_per_bag=300)
-#    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'watercolor', 
-#                                  verbose = True,testMode = True,jtest =0,
-#                                  PlotRegions = False,saved_clf=False,RPN=True,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,parallel_op=False)
+    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = True,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='CV',num_split=2,
+                                  WR=True,init_by_mean ='First',seuil_estimation=True)

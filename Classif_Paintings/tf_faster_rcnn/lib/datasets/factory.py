@@ -29,7 +29,7 @@ for year in ['2007', '2012']:
 for db in ['watercolor','comic','clipart']:
     for split in ['train', 'test']:
         name = '{}_{}'.format(db,split)
-        __sets[name] = (lambda split=split: CrossMod_db(db,split,devkit_path='/media/HDD/data/cross-domain-detection/datasets',test_ext=True))
+        __sets[name] = (lambda split=split, db=db: CrossMod_db(db,split,devkit_path='/media/HDD/data/cross-domain-detection/datasets',test_ext=True))
  
 ## Set up coco_2014_<split>
 #for year in ['2014']:
