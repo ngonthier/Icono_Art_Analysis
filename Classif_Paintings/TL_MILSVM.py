@@ -13,6 +13,7 @@ Page utile sur VOC 2007 :
 
 @author: gonthier
 """
+
 import pickle
 import gc
 import tensorflow as tf
@@ -53,7 +54,7 @@ from tool_on_Regions import reduce_to_k_regions
 from sklearn import linear_model
 from tf_faster_rcnn.lib.datasets.factory import get_imdb
 from Estimation_Param import kde_sklearn,findIntersection
-from utils.save_param import create_param_id_file_and_dir,write_results
+from utils.save_param import create_param_id_file_and_dir,write_results,tabs_to_str
 #from hpsklearn import HyperoptEstimator,sgd
 #from hyperopt import tpe
 
@@ -144,7 +145,8 @@ def parser_w_rois(record,classe_index=0,num_classes=10):
     rois = tf.reshape(rois, [300,5])           
     return fc7,rois, label,name_img
 
-def parser_w_rois_all_class(record,num_classes=10,num_rois=300,num_features=2048):
+def parser_w_rois_all_class(record,num_classes=10,num_rois=300,num_features=2048,
+                            with_rois_scores=False):
         # Perform additional preprocessing on the parsed data.
         keys_to_features={
                     'height': tf.FixedLenFeature([], tf.int64),
@@ -165,9 +167,14 @@ def parser_w_rois_all_class(record,num_classes=10,num_rois=300,num_features=2048
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [num_rois,num_features])
         rois = parsed['rois']
-        rois = tf.reshape(rois, [num_rois,5])           
-        return fc7,rois, label,name_img
-
+        rois = tf.reshape(rois, [num_rois,5])    
+        if not(with_rois_scores):
+            return fc7,rois, label,name_img
+        else:
+            roi_scores = parsed['roi_scores']
+            return fc7,rois,roi_scores,label,name_img
+        
+        
 def petitTestIllustratif():
     """
     We will try on 20 image from the Art UK Your paintings database and see what 
@@ -1295,12 +1302,16 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
         gc.collect()
         tf.reset_default_graph()
     
-def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings', 
+def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', 
                                   verbose = True,testMode = True,jtest = 0,
                                   PlotRegions = True,saved_clf=False,RPN=False,
                                   CompBest=True,Stocha=True,k_per_bag=300,
                                   parallel_op =True,CV_Mode=None,num_split=2,
-                                  WR=False,init_by_mean=None,seuil_estimation=False):
+                                  WR=False,init_by_mean=None,seuil_estimation=False,
+                                  restarts=19,max_iters_all_base=300,LR=0.01,
+                                  with_tanh=False,C=1.0,Optimizer='Adam',norm=None,
+                                  transform_output=None,with_rois_scores_atEnd=False,
+                                  with_scores=False,epsilon=0.0):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -1330,6 +1341,16 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     @param : WR   :  use of not of the regularisation term in the evaluation of the final classifier, if True we don't use it
     @param : init_by_mean   :  use of an initialisation of the vecteur W and bias b by a optimisation on a classification task on the mean on all the regions of the image
     @param : seuil_estimation  :  Estimation of the seuil for the prediction detection 
+    @param : restarts  :  number of restart in the MILSVM [default=19]
+    @param : max_iters_all_base  :  number of maximum iteration on the going on the full database 
+    @param : LR  :  Learning rate for the optimizer in the MILSVM 
+    @param : C  :  Regularisation term for the optimizer in the MILSVM 
+    @param : Optimizer  : Optimizer for the MILSVM GradientDescent or Adam
+    @param : norm : normalisation of the data or not : possible : None or ''
+            'L2' : normalisation L2 or 'STDall' : Standardisation on all data 
+            'STD' standardisation by feature maps
+    @param : transform_output : Transformation for the final estimation can be sigmoid or tanh (string)
+    @param : with_rois_scores_atEnd : Multiplication of the final result by the object score
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -1441,18 +1462,21 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         sizeMax = 30*20000 // (k_per_bag*num_classes)
     else:
         sizeMax = 30*10000 // k_per_bag
+    if not(init_by_mean is None) or not(init_by_mean==''):
+        if not(CV_Mode=='CV' and num_split==2):
+            sizeMax //= 2
     mini_batch_size = sizeMax
     buffer_size = 10000
     if testMode:
         restarts = 0
         restarts = 19
-        max_iters = 300
-        max_iters =  (num_trainval_im //mini_batch_size)*300
+        max_iters_all_base = 300
+#        max_iters =  (num_trainval_im //mini_batch_size)*max_iters_all_base
         ext_test = '_Test_Mode'
     else:
         ext_test= ''
-        restarts = 1
-        max_iters = (num_trainval_im //mini_batch_size)*300
+#        restarts = 19
+        max_iters = (num_trainval_im //mini_batch_size)*max_iters_all_base
     max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max par rapport au nombre de split
     AP_per_class = []
     P_per_class = []
@@ -1462,10 +1486,18 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     final_clf = None
     class_weight = None
     ReDo = False
-    norm=False
-    if norm:
-        extNorm = '_N'
+    if with_scores:
+        with_scores_str = '_WRC'+str(epsilon)
     else:
+        with_scores_str=''
+    if norm=='L2':
+        extNorm = '_L2'
+    elif norm=='STDall':
+        extNorm = '_STDall'
+    elif norm=='STD':
+        extNorm = '_STD'
+        raise(NotImplemented)
+    elif norm=='' or norm is None:
         extNorm = ''
     if parallel_op:
         extPar = '_p'
@@ -1480,21 +1512,27 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     elif CV_Mode is None or CV_Mode=='':
         extCV =''
     if WR: extCV += '_wr'
-    
-    Optimizer = 'GradientDescent'
-    Optimizer = 'Adam'
+
     if Optimizer=='Adam':
         opti_str=''
     elif Optimizer=='GradientDescent':
         opti_str='_gd'
+    else:
+        raise(NotImplemented)
     if init_by_mean is None or init_by_mean=='':
         init_by_mean_str = ''
     elif init_by_mean=='First':
         init_by_mean_str= '_ibnF'
     elif init_by_mean=='All':
         init_by_mean_str= '_ibnA'
-    LR=0.01 # Learning rate
-    C = 1.0 # regularisation term 
+    if LR==0.01:
+        LR_str = ''
+    else:
+        LR_str='_LR'+str(LR)
+    if C == 1.0:
+        C_str=''
+    else:
+        C_str = '_C'+str(C) # regularisation term 
     optimArg= None
     verboseMILSVM = True
     shuffle = True
@@ -1502,31 +1540,33 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     Number_of_positif_elt = 1 
     number_zone = k_per_bag
     
-    thresh_evaluation,TEST_NMS = 0.0,0.7
+    thresh_evaluation,TEST_NMS = 0.05,0.3
     dont_use_07_metric = True
     symway = True
     
     arrayParam = [demonet,database,N,extL2,nms_thresh,savedstr,mini_batch_size,
-                  performance,buffer_size,predict_with,shuffle,C,testMode,restarts,
+                  performance,buffer_size,predict_with,shuffle,C,testMode,restarts,max_iters_all_base,
                   max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
                   Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
-                  TEST_NMS,init_by_mean]
+                  TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
+                  with_scores,epsilon]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
-                     'shuffle','C','testMode','restarts','max_iters','CV_Mode',
+                     'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
                      'num_split','parallel_op','WR','norm','Optimizer','LR',
                      'optimArg','Number_of_positif_elt','number_zone','seuil_estimation'
-                     ,'thresh_evaluation','TEST_NMS','init_by_mean']
+                     ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
+                     'with_scores','epsilon']
     assert(len(arrayParam)==len(arrayParamStr))
-    
-    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
-          'parallel_op',parallel_op,'CV_Mode',CV_Mode,'WR',WR,'restarts',restarts,'demonet',demonet,
-          'Optimizer',Optimizer,'init_by_mean',init_by_mean)
+    print(tabs_to_str(arrayParam,arrayParamStr))
+#    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
+#          'parallel_op',parallel_op,'CV_Mode',CV_Mode,'WR',WR,'restarts',restarts,'demonet',demonet,
+#          'Optimizer',Optimizer,'init_by_mean',init_by_mean,'with_tanh',with_tanh)
     
 
     cachefile_model_base= database +'_'+demonet+'_r'+str(restarts)+'_s' \
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
-        extCV+ext_test+opti_str+init_by_mean_str
+        extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str
     cachefile_model = path_data +  cachefile_model_base+'_MILSVM.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
@@ -1540,10 +1580,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
         with open(cachefile_model, 'rb') as f:
             name_milsvm = pickle.load(f)
             if verbose: print("The cachefile exists")
-    
-    param_name,path_data_file,file_param = \
-    create_param_id_file_and_dir(path_data+'/SauvParam/',arrayParam,arrayParamStr)
-    
+       
     if database=='VOC2007':
         imdb = get_imdb('voc_2007_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
@@ -1567,9 +1604,9 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                    max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,num_features=size_output,debug=False,
-                   num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode) 
+                   num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores) 
              export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
-                   class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,
+                   class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                    WR=WR,performance=performance)
              np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
              name_milsvm =export_dir,np_pos_value,np_neg_value
@@ -1587,7 +1624,8 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                export_dir,dict_name_file,mini_batch_size,config,PlotRegions,
                path_to_img,path_data,param_clf,classes,parameters,verbose,
                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
-               cachefile_model_base=cachefile_model_base)
+               cachefile_model_base=cachefile_model_base,transform_output=transform_output,
+               with_rois_scores_atEnd=with_rois_scores_atEnd,scoreInMILSVM=with_scores)
    
         for j,classe in enumerate(classes):
             AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
@@ -1629,7 +1667,7 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                    mini_batch_size=mini_batch_size,num_features=size_output,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode) 
                 export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train,
-                                                      class_indice=j,shuffle=shuffle,
+                                                      class_indice=j,shuffle=shuffle,norm=norm,
                                                       performance=performance,init_by_mean=init_by_mean,
                                                       WR=WR)
                 np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
@@ -1649,7 +1687,8 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
                 tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                                export_dir,dict_name_file,mini_batch_size,config,
                                PlotRegions,path_to_img,path_data,param_clf,classes,parameters,verbose,
-                               seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes)
+                               seuil_estimation,thresh_evaluation,TEST_NMS,
+                               all_boxes=all_boxes,with_tanh=with_tanh)
                   
             # Regroupement des informations     
            
@@ -1722,28 +1761,47 @@ def tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings',
     print(AP_per_class)
     print(arrayToLatex(AP_per_class))
     
+    param_name,path_data_file,file_param = \
+    create_param_id_file_and_dir(path_data+'/SauvParam/',arrayParam,arrayParamStr)
+    
     if database=='watercolor' or database=='VOC2007':
         write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class),aps,np.mean(aps)],
                       ['classes','AP_per_class','mAP Classif','AP detection','mAP detection'])
+    else:
+        write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class)],
+                      ['classes','AP_per_class','mAP Classif'])
 
 
 def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                export_dir,dict_name_file,mini_batch_size,config,PlotRegions,
                path_to_img,path_data,param_clf,classes,parameters,verbose,
                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=None,
-               cachefile_model_base='',number_im=200):
+               cachefile_model_base='',number_im=200,transform_output=None,
+               with_rois_scores_atEnd=False,scoreInMILSVM=False):
      """
      @param : number_im : number of image plot at maximum
+     @param : transform_output : use of a softmax or a 
+     @ use the with_rois_scores_atEnd to pondare the final results
      """
+#     scoreInMILSVM = False
+     print('thresh_evaluation',thresh_evaluation,'TEST_NMS',TEST_NMS,'seuil_estimation',seuil_estimation)
      PlotRegions,RPN,Stocha,CompBest=parameters
      k_per_bag,positive_elt,size_output = param_clf
      thresh = thresh_evaluation # Threshold score or distance MILSVM
      #TEST_NMS = 0.7 # Recouvrement entre les classes
-     
+     thres_max = True
      load_model = False
-     
+     if transform_output=='tanh':
+         with_tanh=True
+         with_softmax=False
+     elif transform_output=='softmax':
+         with_softmax=True
+         with_tanh = False
+         if seuil_estimation: print('It may cause problem of doing softmax and tangent estimation')
+     else:
+         with_softmax,with_tanh = False,False
 #     seuil_estimation = False
-     seuil_estimation_debug = True
+     seuil_estimation_debug = False
      plot_hist = True
      if PlotRegions or (seuil_estimation and plot_hist):
          extensionStocha = cachefile_model_base 
@@ -1785,18 +1843,19 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
              dict_seuil_estim[i] = {}
              for str_name in list_arrays:
                  dict_seuil_estim[i][str_name] = []  # Array of the scalar product of the negative examples  
-     
+     get_roisScore = (with_rois_scores_atEnd or scoreInMILSVM)
+
      if (PlotRegions or predict_with=='LinearSVC' or seuil_estimation):
         index_im = 0
         if verbose: print("Start ploting Regions selected by the MILSVM in training phase")
         train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
         train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
-            num_classes=num_classes))
+            num_classes=num_classes,with_rois_scores=get_roisScore))
         dataset_batch = train_dataset.batch(mini_batch_size)
         dataset_batch.cache()
         iterator = dataset_batch.make_one_shot_iterator()
         next_element = iterator.get_next()
-
+        
         with tf.Session(config=config) as sess:
             new_saver = tf.train.import_meta_graph(name_model_meta)
             new_saver.restore(sess, tf.train.latest_checkpoint(export_dir_path))
@@ -1804,17 +1863,54 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             graph= tf.get_default_graph()
             X = graph.get_tensor_by_name("X:0")
             y = graph.get_tensor_by_name("y:0")
-            Prod_best = graph.get_tensor_by_name("Prod:0")
-            mei = tf.argmax(Prod_best,axis=2)
-            score_mei = tf.reduce_max(Prod_best,axis=2)
-
+            if scoreInMILSVM: 
+                scores = graph.get_tensor_by_name("scores:0")
+                Prod_best = graph.get_tensor_by_name("ProdScore:0")
+            else:
+                Prod_best = graph.get_tensor_by_name("Prod:0")
+            if with_tanh:
+                print('use of tanh')
+                Tanh = tf.tanh(Prod_best)
+                mei = tf.argmax(Tanh,axis=2)
+                score_mei = tf.reduce_max(Tanh,axis=2)
+            elif with_softmax:
+                print('use of softmax')
+                Softmax = tf.nn.softmax(Prod_best,axis=-1)
+                mei = tf.argmax(Softmax,axis=2)
+                score_mei = tf.reduce_max(Softmax,axis=2)
+            else:
+                mei = tf.argmax(Prod_best,axis=2)
+                score_mei = tf.reduce_max(Prod_best,axis=2)
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
             while True:
                 try:
-                    fc7s,roiss, labels,name_imgs = sess.run(next_element)
-                    PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll = sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
-#                    print(PositiveExScoreAll.shape)
+#                    print(sess.run(next_element))
+                    next_element_value = sess.run(next_element)
+#                    print(len(next_element_value))
+                    if not(with_rois_scores_atEnd) and not(scoreInMILSVM):
+                        fc7s,roiss, labels,name_imgs = next_element_value
+                    else:
+                        fc7s,roiss,rois_scores,labels,name_imgs = next_element_value
+                    if scoreInMILSVM:
+                        feed_dict_value = {X: fc7s,scores: rois_scores, y: labels}
+                    else:
+                        feed_dict_value = {X: fc7s, y: labels}
+                    if with_tanh:
+                        PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll =\
+                        sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
+                    elif with_softmax:
+                        PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll =\
+                        sess.run([mei,score_mei,Softmax], feed_dict=feed_dict_value)
+                    else:
+                        PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll = \
+                        sess.run([mei,score_mei,Prod_best], feed_dict=feed_dict_value)
+                    if with_rois_scores_atEnd:
+                        PositiveExScoreAll = PositiveExScoreAll*rois_scores
+                        score_mei = np.max(PositiveExScoreAll,axis=2)
+                        mei = np.amax(PositiveExScoreAll,axis=2)
+                    if with_tanh: assert(np.max(PositiveExScoreAll) <= 1.)
+                    
                     if predict_with=='LinearSVC' and k_per_bag==300  and positive_elt==1:
                         raise(NotImplemented)
                         for k in range(len(fc7s)):
@@ -1942,7 +2038,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                      result = thresh_evaluation
                      print('Intersection not found in the case',kk)
                  if kk==0:
-                     list_thresh += [result]
+                     if thres_max:
+                         list_thresh += [max(result,thresh_evaluation)]
+                     else:
+                         list_thresh += [result]
                      if not(dontPlot2): plt.axvline(result, color='red')
                  if seuil_estimation_debug: print(kk,result)
                  if plot_hist:
@@ -1979,7 +2078,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      # Testing time !
      train_dataset = tf.data.TFRecordDataset(dict_name_file['test'])
      train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r,\
-                                                    num_classes=num_classes))
+        num_classes=num_classes,with_rois_scores=get_roisScore))
      dataset_batch = train_dataset.batch(mini_batch_size)
      dataset_batch.cache()
      iterator = dataset_batch.make_one_shot_iterator()
@@ -1997,16 +2096,52 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             graph= tf.get_default_graph()
             X = graph.get_tensor_by_name("X:0")
             y = graph.get_tensor_by_name("y:0")
-            Prod_best = graph.get_tensor_by_name("Prod:0")
-            mei = tf.argmax(Prod_best,axis=2)
-            score_mei = tf.reduce_max(Prod_best,axis=2)
+            if scoreInMILSVM: 
+                scores = graph.get_tensor_by_name("scores:0")
+                Prod_best = graph.get_tensor_by_name("ProdScore:0")
+            else:
+                Prod_best = graph.get_tensor_by_name("Prod:0")
+            if with_tanh:
+                print('use of tanh')
+                Tanh = tf.tanh(Prod_best)
+                mei = tf.argmax(Tanh,axis=2)
+                score_mei = tf.reduce_max(Tanh,axis=2)
+            elif with_softmax:
+                Softmax = tf.nn.softmax(Prod_best,axis=-1)
+                mei = tf.argmax(Softmax,axis=2)
+                score_mei = tf.reduce_max(Softmax,axis=2)
+            else:
+                mei = tf.argmax(Prod_best,axis=2)
+                score_mei = tf.reduce_max(Prod_best,axis=2)
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
+
         while True:
             try:
-                fc7s,roiss, labels,name_imgs = sess.run(next_element)
-                PositiveRegions,get_RegionsScore,PositiveExScoreAll = \
-                    sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
+                if not(with_rois_scores_atEnd) and not(scoreInMILSVM):
+                    fc7s,roiss, labels,name_imgs = sess.run(next_element)
+                else:
+                    print('next')
+                    fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
+                if scoreInMILSVM:
+                    feed_dict_value = {X: fc7s,scores: rois_scores, y: labels}
+                else:
+                    feed_dict_value = {X: fc7s, y: labels}
+                if with_tanh:
+                    PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
+                    sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
+                elif with_softmax:
+                    PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
+                    sess.run([mei,score_mei,Softmax], feed_dict=feed_dict_value)
+                else:
+                    PositiveRegions,get_RegionsScore,PositiveExScoreAll = \
+                    sess.run([mei,score_mei,Prod_best], feed_dict=feed_dict_value)
+                if with_rois_scores_atEnd:
+                    PositiveExScoreAll = PositiveExScoreAll*rois_scores
+                    get_RegionsScore = np.max(PositiveExScoreAll,axis=2)
+                    PositiveRegions = np.amax(PositiveExScoreAll,axis=2)
+                if with_tanh: assert(np.max(PositiveExScoreAll) <= 1.)
+
                 true_label_all_test += [labels]
                 if predict_with=='MILSVM':
                     predict_label_all_test +=  [get_RegionsScore]
@@ -2112,6 +2247,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      predict_label_all_test = np.transpose(np.concatenate(predict_label_all_test,axis=1))
      name_all_test = np.concatenate(name_all_test)
      labels_test_predited = (np.sign(predict_label_all_test) +1.)/2
+     labels_test_predited[np.where(labels_test_predited==0.5)] = 0 # To deal with the case where predict_label_all_test == 0 
      return(true_label_all_test,predict_label_all_test,name_all_test,
             labels_test_predited,all_boxes)
       
@@ -3127,27 +3263,101 @@ if __name__ == '__main__':
 #                                          verbose = True,testMode = True,jtest = 0,
 #                                          PlotRegions = False,misvm_type='LinearMISVC')
 #    detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Paintings_miniset_verif')
-#    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
 #                                  verbose = True,testMode = False,jtest = 'cow',
 #                                  PlotRegions = False,saved_clf=False,RPN=False,
 #                                  CompBest=False,Stocha=True,k_per_bag=300,
 #                                  parallel_op=True,CV_Mode=None,num_split=2,WR=True)
-#    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
 #                                  verbose = True,testMode = False,jtest = 'cow',
 #                                  PlotRegions = False,saved_clf=False,RPN=False,
 #                                  CompBest=False,Stocha=True,k_per_bag=300,
 #                                  parallel_op=True,CV_Mode='CV',num_split=2,WR=True)
-#    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings', 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', 
 #                                  verbose = True,testMode = False,jtest = 0,
 #                                  PlotRegions = False,saved_clf=False,RPN=True,
 #                                  CompBest=False,Stocha=True,k_per_bag=300,parallel_op=True)
-#    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'Paintings', 
-#                                  verbose = False,testMode = False,jtest = 6,
-#                                  PlotRegions = False,saved_clf=False,RPN=True,
-#                                  CompBest=False,Stocha=True,k_per_bag=300)
-    tfRecords_FasterRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
+#                                  verbose = False,testMode = False,jtest = 'cow',
+#                                  PlotRegions = True,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='CV',num_split=2,
+#                                  WR=True,init_by_mean ='First',seuil_estimation=False,
+#                                  restarts=19,max_iters_all_base=150,LR=0.1)
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
+#                                  verbose = False,testMode = False,jtest = 'cow',
+#                                  PlotRegions = True,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='',num_split=2,
+#                                  WR=True,init_by_mean ='First',seuil_estimation=False,
+#                                  restarts=19,max_iters_all_base=150,LR=0.1)
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
+#                                  verbose = False,testMode = False,jtest = 'cow',
+#                                  PlotRegions = True,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='CV',num_split=2,
+#                                  WR=True,init_by_mean ='All',seuil_estimation=False,
+#                                  restarts=19,max_iters_all_base=150,LR=0.1)
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = True,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='',num_split=2,
+#                                  WR=True,init_by_mean =None,seuil_estimation=False,
+#                                  restarts=0,max_iters_all_base=1,LR=0.01,with_tanh=True,
+#                                  C=1.0,Optimizer='GradientDescent',norm='',
+#                                  transform_output='tanh',with_rois_scores_atEnd=False,
+#                                  with_scores=True,epsilon=0.0)
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = False,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='',num_split=2,
+#                                  WR=True,init_by_mean =None,seuil_estimation=False,
+#                                  restarts=10,max_iters_all_base=500,LR=0.01,with_tanh=True,
+#                                  C=1.0,Optimizer='GradientDescent',norm='',
+#                                  transform_output='tanh',with_rois_scores_atEnd=False,
+#                                  with_scores=True,epsilon=0.0)
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
                                   verbose = True,testMode = False,jtest = 'cow',
-                                  PlotRegions = True,saved_clf=False,RPN=False,
+                                  PlotRegions = False,saved_clf=False,RPN=False,
                                   CompBest=False,Stocha=True,k_per_bag=300,
-                                  parallel_op=True,CV_Mode='CV',num_split=2,
-                                  WR=True,init_by_mean ='First',seuil_estimation=True)
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation=False,
+                                  restarts=10,max_iters_all_base=1000,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=False,epsilon=0.0)
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation=False,
+                                  restarts=10,max_iters_all_base=500,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=True,epsilon=0.01)
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation=False,
+                                  restarts=10,max_iters_all_base=500,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=True,epsilon=0.01)
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation=False,
+                                  restarts=10,max_iters_all_base=500,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=True,epsilon=0.0)
+
+    ## TODO : tester avec une image constante en entrée et voir ce que cela donne de couleur différentes
+    # Peut etre a rajouter dans les exemples negatifs 

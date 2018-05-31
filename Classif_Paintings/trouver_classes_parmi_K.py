@@ -264,7 +264,8 @@ class tf_MILSVM():
                  final_clf='LinearSVC',verbose=True,Optimizer='GradientDescent',
                   optimArg=None,mini_batch_size=200,buffer_size=10000,num_features=2048,
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
-                  is_betweenMinus1and1=False,CV_Mode=None,num_split=2):
+                  is_betweenMinus1and1=False,CV_Mode=None,num_split=2,with_scores=False,
+                  epsilon=0.0):
         # TODOD enelver les trucs inutiles ici
         """
         @param LR : Learning rate : pas de gradient de descente [default: 0.01]
@@ -293,6 +294,7 @@ class tf_MILSVM():
         @param is_betweenMinus1and1 : default False : if we have the label value alreaddy between -1 and 1
         @param CV_Mode : default None : cross validation mode in the MILSVM : possibility ; None, CV in k split or LA for Leave apart one of the split
         @param num_split : default 2 : the number of split/fold used in the cross validation method
+        @param with_scores : default False : Multiply the scalar product before the max by the objectness score from the FasterRCNN
         """
         self.LR = LR
         self.C = C
@@ -330,7 +332,10 @@ class tf_MILSVM():
             self.num_split = num_split # Only useful if CrossVal==True
             if num_split>2:
                 print('The use of more that 2 spits seem to slow a lot the computation with the use of shard')
-     
+        self.with_scores = with_scores 
+        self.epsilon = epsilon# Used to avoid having a zero score
+                
+                
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 
         # KFold From sklearn.model_selection 
@@ -361,6 +366,29 @@ class tf_MILSVM():
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
         return fc7, label
+    def parser_wRoiScore(self,record):
+        # Perform additional preprocessing on the parsed data.
+        keys_to_features={
+                    'height': tf.FixedLenFeature([], tf.int64),
+                    'width': tf.FixedLenFeature([], tf.int64),
+                    'num_regions':  tf.FixedLenFeature([], tf.int64),
+                    'num_features':  tf.FixedLenFeature([], tf.int64),
+                    'dim1_rois':  tf.FixedLenFeature([], tf.int64),
+                    'rois': tf.FixedLenFeature([5*self.num_rois],tf.float32),
+                    'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),
+                    'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
+                    'label' : tf.FixedLenFeature([self.num_classes],tf.float32),
+                    'name_img' : tf.FixedLenFeature([],tf.string)}
+        parsed = tf.parse_single_example(record, keys_to_features)
+        
+        # Cast label data into int32
+        label = parsed['label']
+        roi_scores = parsed['roi_scores']
+        label = tf.slice(label,[self.class_indice],[1])
+        label = tf.squeeze(label) # To get a vector one dimension
+        fc7 = parsed['fc7']
+        fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
+        return fc7,roi_scores, label
     
     def parser_all_classes(self,record):
         # Perform additional preprocessing on the parsed data.
@@ -385,6 +413,20 @@ class tf_MILSVM():
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
         return fc7, label
+    
+    def parser_all_classes_wRoiScore(self,record):
+        keys_to_features={
+                    'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
+                    'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),
+                    'label' : tf.FixedLenFeature([self.num_classes],tf.float32)}
+        parsed = tf.parse_single_example(record, keys_to_features)
+        
+        # Cast label data into int32
+        label = parsed['label']
+        roi_scores = parsed['roi_scores']
+        fc7 = parsed['fc7']
+        fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
+        return fc7,roi_scores, label
     
     def parser_w_rois(self,record):
         # Perform additional preprocessing on the parsed data.
@@ -467,10 +509,9 @@ class tf_MILSVM():
         dataset_batch = dataset_batch.cache()
         dataset_batch = dataset_batch.prefetch(1)
         iterator_batch = dataset_batch.make_initializable_iterator()
-        X_batch, label_batch = iterator_batch.get_next()
         return(iterator_batch)
      
-    def fit_SVM_onMean(self,sess,X_, y_):
+    def def_SVM_onMean(self,X_, y_):
         X_mean = tf.reduce_mean(X_,axis=1) 
         # Definition of the graph 
         if self.class_indice==-1:
@@ -508,26 +549,58 @@ class tf_MILSVM():
             loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W_local,W_local))))
             
         if(self.Optimizer == 'GradientDescent'):
-            optimizer = tf.train.GradientDescentOptimizer(self.LR) 
+            optimizer_local = tf.train.GradientDescentOptimizer(self.LR) 
         elif(self.Optimizer == 'Momentum'):
-            optimizer = tf.train.MomentumOptimizer(self.optimArg['learning_rate'],self.optimArg['momentum']) 
+            optimizer_local = tf.train.MomentumOptimizer(self.optimArg['learning_rate'],self.optimArg['momentum']) 
         elif(self.Optimizer == 'Adam'):
-            optimizer = tf.train.AdamOptimizer(self.LR) 
+            if self.optimArg is None:
+                optimizer = tf.train.AdamOptimizer(self.LR) # Default value  : beta1=0.9,beta2=0.999,epsilon=1e-08, maybe epsilon should be 0.1 or 1
+            else:
+                optimizer = tf.train.AdamOptimizer(learning_rate=\
+                self.optimArg['learning_rate'],beta1=self.optimArg['beta1'],\
+                beta2=self.optimArg['beta2'],epsilon=self.optimArg['epsilon']) 
         elif(self.Optimizer == 'Adagrad'):
-            optimizer = tf.train.AdagradOptimizer(self.LR) 
+            optimizer_local = tf.train.AdagradOptimizer(self.LR) 
         else:
             print("The optimizer is unknown",self.Optimizer)
           
-        train = optimizer.minimize(loss) 
-#        sess = tf.Session(config=self.config)
-#            
-        sess.run(tf.global_variables_initializer())
-        sess.run(tf.local_variables_initializer())
-#        sess.run(shuffle_iterator.initializer)
+        train_local = optimizer_local.minimize(loss) 
+        return(W_local,b_local,train_local)
+
+    def compute_STD_all(self,X_batch,iterator_batch):
+        """
+        Compute the mean and variance per feature
+        """
+        sum_train_set = np.zeros((self.num_features,),dtype=np.float32)
+        sumSquared_train_set = np.zeros((self.num_features,),dtype=np.float32)
+        X_batch_value_ph = tf.placeholder(tf.float32, shape=(None,self.num_rois,self.num_features))
+        Number_elt = 0
+        add_sum = tf.reduce_sum(X_batch_value_ph,axis=[0,1])
+        add_sumSquared = tf.reduce_sum(tf.pow(X_batch_value_ph,2),axis=[0,1])
+                 
+        with tf.Session(config=self.config) as sess:
+            sess.run(tf.global_variables_initializer())
+            sess.run(tf.local_variables_initializer())
+            sess.run(iterator_batch.initializer)
+            while True:
+              try:
+                  # Attention a chaque fois que l on appelle la fonction iterator on avance
+                  X_batch_value = sess.run(X_batch)
+                  Number_elt += X_batch_value.shape[0]
+                  sum_train_set += sess.run(add_sum, feed_dict = {X_batch_value_ph:X_batch_value})
+                  sumSquared_train_set += sess.run(add_sumSquared, feed_dict = {X_batch_value_ph:X_batch_value})
+              except tf.errors.OutOfRangeError:
+                break
+            mean_train_set = sum_train_set/(Number_elt*self.num_rois)
+            var_train_set = (sumSquared_train_set/(Number_elt*self.num_rois)) - (mean_train_set)**2
+            std_train_set = np.sqrt(var_train_set)
+        return(mean_train_set,std_train_set)
+
+    def fit_SVM_onMean(self,sess,W_local,b_local,train_local):
 
         for step in range(self.max_iters):
             if self.debug: t2 = time.time()
-            sess.run(train)
+            sess.run(train_local)
             if self.debug:
                 t3 = time.time()
                 print(step,"durations :",str(t3-t2))
@@ -535,10 +608,11 @@ class tf_MILSVM():
         W_tmp=sess.run(W_local)
         b_tmp=sess.run(b_local)
 #        sess.close()
+#        tf.reset_default_graph()
         return(W_tmp,b_tmp)
         
     def fit_MILSVM_tfrecords(self,data_path,class_indice,shuffle=True,WR=False,
-                             init_by_mean=None,performance=False):
+                             init_by_mean=None,norm=None,performance=False):
         """" 
         This function run per batch on the tfrecords data folder
         @param : data_path : 
@@ -550,15 +624,18 @@ class tf_MILSVM():
         @param : init_by_mean   :  use of an initialisation of the vecteur 
         W and bias b by a optimisation on a classification task on the mean 
         on all the regions of the image, = None, 'First' or 'All'
+        @param : norm : normalisation of the data or not : possible : None or ''
+            'L2' : normalisation L2 or 'STDall' : Standardisation on all data 
+            'STD' standardisation by feature maps
         @param : performance : boolean use or not of optimize function for 
         shuffle and repeat TF dataset
         """
         # Idees pour ameliorer cette fonction : 
         # Ajouter la possibilite de choisir les regions avec un nms lors de la 
-        # - Faire du multi fold sur la valeur
-        # Faire les histogrammes des valeurs pour estimer le threshold
-        # Sinon faire un truc du genre un des folds est laisse de cote et utilise pour evaluer 
-        # la loss a la fin avec les autres, sorte de balances entre les elements vu et non vu
+        
+        # Travailler sur le min du top k des regions sinon 
+        self.norm = norm
+        self.First_run = True
         self.WR = WR
         self.class_indice = class_indice # If class_indice = -1 we will run on all the class at once ! parallel power
         self.performance = performance
@@ -578,12 +655,22 @@ class tf_MILSVM():
             train_dataset = train_dataset_init
             # The second argument is the index of the subset used
         if self.class_indice==-1:
-            self.first_parser = self.parser_all_classes
+            if self.with_scores:
+                self.first_parser = self.parser_all_classes_wRoiScore
+            else:
+                self.first_parser = self.parser_all_classes
         else:
-            self.first_parser = self.parser
+            if self.with_scores:
+                self.first_parser = self.parser_wRoiScore
+            else:
+                self.first_parser = self.parser
             
         iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
-        X_batch, label_batch = iterator_batch.get_next()
+        
+        if self.with_scores:
+            X_batch,scores_batch, label_batch = iterator_batch.get_next()
+        else:
+            X_batch, label_batch = iterator_batch.get_next()
         
         # Calcul preliminaire a la definition de la fonction de cout 
         self.config = tf.ConfigProto()
@@ -628,6 +715,9 @@ class tf_MILSVM():
               except tf.errors.OutOfRangeError:
                 break
             
+        if self.norm=='STDall': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
+            mean_train_set, std_train_set = self.compute_STD_all(X_batch,iterator_batch)
+            
         self.np_pos_value = np_pos_value
         self.np_neg_value = np_neg_value
         if self.verbose:print("Finished to compute the proportion of each label :",np_pos_value,np_neg_value)
@@ -641,8 +731,10 @@ class tf_MILSVM():
             train_dataset = train_dataset_init.shard(self.num_split,self.num_split-1) 
             # The last fold is keep for doing the cross validation
             iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
-            X_batch, label_batch = iterator_batch.get_next() # We erase the former iterator
-            # The second argument is the index of the subset used
+            if self.with_scores:
+                X_batch,scores_batch, label_batch = iterator_batch.get_next()
+            else:
+                X_batch, label_batch = iterator_batch.get_next() 
         elif self.CV_Mode=='LA':
             if self.verbose: print('Use of the Leave One Aside with ',self.num_split,' splits')
             train_dataset_tmp = train_dataset_init.shard(self.num_split,0)
@@ -676,7 +768,19 @@ class tf_MILSVM():
             dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) # https://stackoverflow.com/questions/46444018/meaning-of-buffer-size-in-dataset-map-dataset-prefetch-and-dataset-shuffle/47025850#47025850
 
         shuffle_iterator = dataset_shuffle.make_initializable_iterator()
-        X_, y_ = shuffle_iterator.get_next()
+        if self.with_scores:
+            X_,scores_, y_ = shuffle_iterator.get_next()
+        else:
+            X_, y_ = shuffle_iterator.get_next()
+
+        if self.norm=='L2':
+            if self.debug: print('L2 normalisation')
+            X_ = tf.nn.l2_normalize(X_,axis=-1)
+            X_batch = tf.nn.l2_normalize(X_batch,axis=-1)
+        elif self.norm=='STD_all':
+            if self.debug: print('Standardisation')
+            X_ = tf.divide(tf.add( X_,-mean_train_set), std_train_set)
+            X_batch = tf.divide(tf.add(X_batch,-mean_train_set), std_train_set)
 
         # Definition of the graph 
         if class_indice==-1:
@@ -688,6 +792,7 @@ class tf_MILSVM():
                 normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
             W_r=tf.reshape(W,(self.num_classes,1,1,self.num_features))
             Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_),axis=3),b)
+            if self.with_scores: Prod=tf.multiply(Prod,tf.add(scores_,self.epsilon))
             Max=tf.reduce_max(Prod,axis=2)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
@@ -702,6 +807,7 @@ class tf_MILSVM():
             
             # Definiton du graphe pour la partie evaluation de la loss
             Prod_batch=tf.add(tf.reduce_sum(tf.multiply(W_r,X_batch),axis=3),b)
+            if self.with_scores: Prod_batch=tf.multiply(Prod_batch,tf.add(scores_batch,self.epsilon))
             Max_batch=tf.reduce_max(Prod_batch,axis=2) # We take the max because we have at least one element of the bag that is positive
             if self.is_betweenMinus1and1:
                 weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
@@ -721,6 +827,7 @@ class tf_MILSVM():
                 normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0)) 
             W=tf.reshape(W,(1,1,self.num_features))
             Prod=tf.reduce_sum(tf.multiply(W,X_),axis=2)+b
+            if self.with_scores: Prod=tf.multiply(Prod,tf.add(scores_,self.epsilon))
             Max=tf.reduce_max(Prod,axis=1) # We take the max because we have at least one element of the bag that is positive
             if self.is_betweenMinus1and1:
                 weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
@@ -730,6 +837,7 @@ class tf_MILSVM():
             loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
             
             Prod_batch=tf.reduce_sum(tf.multiply(W,X_batch),axis=2)+b
+            if self.with_scores: Prod_batch=tf.multiply(Prod_batch,tf.add(scores_batch,self.epsilon))
             Max_batch=tf.reduce_max(Prod_batch,axis=1) # We take the max because we have at least one element of the bag that is positive
             if self.is_betweenMinus1and1:
                 weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
@@ -749,41 +857,56 @@ class tf_MILSVM():
         elif(self.Optimizer == 'Momentum'):
             optimizer = tf.train.MomentumOptimizer(self.optimArg['learning_rate'],self.optimArg['momentum']) 
         elif(self.Optimizer == 'Adam'):
-            optimizer = tf.train.AdamOptimizer(self.LR) 
+            if self.optimArg is None:
+                optimizer = tf.train.AdamOptimizer(self.LR) 
+                # Default value  : beta1=0.9,beta2=0.999,epsilon=1e-08, 
+                # maybe epsilon should be 0.1 or 1 cf https://www.tensorflow.org/api_docs/python/tf/train/AdamOptimizer
+            else:
+                optimizer = tf.train.AdamOptimizer(learning_rate=\
+                self.optimArg['learning_rate'],beta1=self.optimArg['beta1'],\
+                beta2=self.optimArg['beta2'],epsilon=self.optimArg['epsilon'])
         elif(self.Optimizer == 'Adagrad'):
             optimizer = tf.train.AdagradOptimizer(self.LR) 
         else:
             print("The optimizer is unknown",self.Optimizer)
-          
+        train = optimizer.minimize(loss)  
+        
         if class_indice==-1:
-            train = optimizer.minimize(loss) 
             bestloss = np.zeros((self.num_classes,),dtype=np.float32)
         else:
-            train = optimizer.minimize(loss) 
             bestloss = 0.
+        
+        if not(self.init_by_mean is None) or not(self.init_by_mean =='')  :
+            W_onMean,b_onMean,train_SVM_onMean = self.def_SVM_onMean(X_,y_)
+            init_op_onMean = tf.group(W_onMean.initializer,b_onMean.initializer)
+            placeholder = tf.placeholder(tf.float32, shape=W_onMean.shape)
+            assign_op = W.assign(tf.reshape(placeholder,tf.shape(W)))
+            placeholder_b = tf.placeholder(tf.float32, shape=b_onMean.shape)
+            assign_op_b = b.assign(tf.reshape(placeholder_b,tf.shape(b)))
             
+        
         sess = tf.Session(config=self.config)
-            
+#        saver = tf.train.Saver()      
+        init_op = tf.group(W.initializer,b.initializer,tf.global_variables_initializer()\
+                           ,tf.local_variables_initializer())
+#        sess.graph.finalize()   
         for essai in range(self.restarts+1): #on fait 5 essais et on garde la meilleur loss
             if self.verbose : 
                 t0 = time.time()
                 print("essai",essai)
             # To do need to reinitialiszed : 
-            sess.run(tf.global_variables_initializer())
-            sess.run(tf.local_variables_initializer())
+            sess.run(init_op)
             if (essai==0):
                 sess.run(shuffle_iterator.initializer)
             if (self.init_by_mean == 'First' and  (essai==0)) or (self.init_by_mean == 'All'):
-                if self.verbose: t2 = time.time()
-                W_init,b_init = self.fit_SVM_onMean(sess,X_,y_)
-                print(W_init)
-                if self.verbose:
+                if self.debug: t2 = time.time()
+                sess.run(init_op_onMean)
+                W_init,b_init = self.fit_SVM_onMean(sess,W_onMean,b_onMean,train_SVM_onMean)
+                if self.debug:
                     t3 = time.time()
                     print("Initialisation by classif by mean durations :",str(t3-t2))
-                sess.run(W.assign(tf.reshape(W_init,tf.shape(W))))
-                sess.run(b.assign(tf.reshape(b_init,tf.shape(b))))
-                print(sess.run(W))
-
+                sess.run(assign_op, {placeholder: W_init})
+                sess.run(assign_op_b, {placeholder_b: b_init})
 
             for step in range(self.max_iters):
                 if self.debug: t2 = time.time()
@@ -803,7 +926,6 @@ class tf_MILSVM():
                     break
                 except tf.errors.OutOfRangeError:
                     break
-            
             if class_indice==-1:
                 W_tmp=sess.run(W)
                 b_tmp=sess.run(b)
@@ -811,31 +933,62 @@ class tf_MILSVM():
                     W_best=W_tmp
                     b_best=b_tmp
                     bestloss= loss_value
-                    if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
                 else:
                     for i in range(self.num_classes):
                         if(loss_value[i] < bestloss[i]):
                             bestloss[i] = loss_value[i]
                             W_best[i,:]=W_tmp[i,:]
                             b_best[i]=b_tmp[i]
-                    if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
+                if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
             else:
                 if (essai==0) | (loss_value<bestloss): 
                     W_best=sess.run(W)
                     b_best=sess.run(b)
                     bestloss= loss_value
                     if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
+ 
+#            if class_indice==-1:
+#                W_tmp=sess.run(W)
+#                b_tmp=sess.run(b)
+#                if (essai==0):
+#                    W_best_local=W_tmp
+#                    b_best_local=b_tmp
+#                    bestloss= loss_value
+#                else:
+#                    for i in range(self.num_classes):
+#                        if(loss_value[i] < bestloss[i]):
+#                            bestloss[i] = loss_value[i]
+#                            W_best_local[i,:]=W_tmp[i,:]
+#                            b_best_local[i]=b_tmp[i]
+#                sess.run(assign_best,feed_dict={placeholder_W_best:W_best_local,placeholder_b_best:b_best_local})
+#                if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
+#            else:
+#                if (essai==0) | (loss_value<bestloss): 
+#                    sess.run(assign_best,feed_dict={placeholder_W_best:W,placeholder_b_best:b})
+##                    W_best=sess.run(W)
+##                    b_best=sess.run(b)
+#                    bestloss= loss_value
+#                    if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
             if self.verbose:
                 t1 = time.time()
                 print("durations :",str(t1-t0),' s')
 
         saver = tf.train.Saver()
         X_= tf.identity(X_, name="X")
+        if self.norm=='L2':
+            X_ = tf.nn.l2_normalize(X_,axis=-1, name="L2norm")
+        elif self.norm=='STD_all':
+            X_ = tf.divide(tf.add( X_,-mean_train_set), std_train_set, name="STD")
         y_ = tf.identity(y_, name="y")
+        if self.with_scores:
+            print('Here')
+            scores_ = tf.identity(scores_,name="scores")
+            print(scores_)
         if class_indice==-1:
             Prod_best= tf.add(tf.reduce_sum(tf.multiply(tf.reshape(W_best,(self.num_classes,1,1,self.num_features)),X_),axis=3),b_best,name='Prod')
         else:
             Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
+        if self.with_scores: Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
         export_dir = ('/').join(data_path.split('/')[:-1])
         export_dir += '/MILSVM/' + str(time.time())
         name_model = export_dir + '/model'
