@@ -376,7 +376,7 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
     assert(y_true.shape==y_predict.shape)
     
     demonets = ['res152_COCO','res101_COCO','res101_VOC07']
-    demonets=['res101_VOC07']
+#    demonets=['res101_VOC07']
     
     just_Sans_Regression = False
     
@@ -2381,5 +2381,5 @@ if __name__ == '__main__':
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',CV_Crowley=False,
 #                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
 #    
-    run_FRCNN_Detection_perf(database='clipart')
+    run_FRCNN_Detection_perf(database='VOC2007')
 #     Illus_box_ratio()
