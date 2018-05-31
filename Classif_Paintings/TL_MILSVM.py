@@ -1864,7 +1864,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             X = graph.get_tensor_by_name("X:0")
             y = graph.get_tensor_by_name("y:0")
             if scoreInMILSVM: 
-                scores = graph.get_tensor_by_name("scores:0")
+                scores_tf = graph.get_tensor_by_name("scores:0")
                 Prod_best = graph.get_tensor_by_name("ProdScore:0")
             else:
                 Prod_best = graph.get_tensor_by_name("Prod:0")
@@ -1893,7 +1893,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     else:
                         fc7s,roiss,rois_scores,labels,name_imgs = next_element_value
                     if scoreInMILSVM:
-                        feed_dict_value = {X: fc7s,scores: rois_scores, y: labels}
+                        feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
                     else:
                         feed_dict_value = {X: fc7s, y: labels}
                     if with_tanh:
@@ -2097,7 +2097,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             X = graph.get_tensor_by_name("X:0")
             y = graph.get_tensor_by_name("y:0")
             if scoreInMILSVM: 
-                scores = graph.get_tensor_by_name("scores:0")
+                scores_tf = graph.get_tensor_by_name("scores:0")
                 Prod_best = graph.get_tensor_by_name("ProdScore:0")
             else:
                 Prod_best = graph.get_tensor_by_name("Prod:0")
@@ -2121,10 +2121,9 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 if not(with_rois_scores_atEnd) and not(scoreInMILSVM):
                     fc7s,roiss, labels,name_imgs = sess.run(next_element)
                 else:
-                    print('next')
                     fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
                 if scoreInMILSVM:
-                    feed_dict_value = {X: fc7s,scores: rois_scores, y: labels}
+                    feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
                 else:
                     feed_dict_value = {X: fc7s, y: labels}
                 if with_tanh:
@@ -3318,23 +3317,43 @@ if __name__ == '__main__':
 #                                  C=1.0,Optimizer='GradientDescent',norm='',
 #                                  transform_output='tanh',with_rois_scores_atEnd=False,
 #                                  with_scores=True,epsilon=0.0)
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = False,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='',num_split=2,
+#                                  WR=True,init_by_mean =None,seuil_estimation=False,
+#                                  restarts=10,max_iters_all_base=1000,LR=0.01,with_tanh=True,
+#                                  C=1.0,Optimizer='GradientDescent',norm='',
+#                                  transform_output='tanh',with_rois_scores_atEnd=False,
+#                                  with_scores=False,epsilon=0.0)
     tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
                                   verbose = True,testMode = False,jtest = 'cow',
                                   PlotRegions = False,saved_clf=False,RPN=False,
                                   CompBest=False,Stocha=True,k_per_bag=300,
                                   parallel_op=True,CV_Mode='',num_split=2,
                                   WR=True,init_by_mean =None,seuil_estimation=False,
-                                  restarts=10,max_iters_all_base=1000,LR=0.01,with_tanh=True,
+                                  restarts=10,max_iters_all_base=300,LR=0.01,with_tanh=True,
                                   C=1.0,Optimizer='GradientDescent',norm='',
                                   transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=False,epsilon=0.0)
+                                  with_scores=True,epsilon=0.0)
     tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
                                   verbose = True,testMode = False,jtest = 'cow',
                                   PlotRegions = False,saved_clf=False,RPN=False,
                                   CompBest=False,Stocha=True,k_per_bag=300,
                                   parallel_op=True,CV_Mode='',num_split=2,
                                   WR=True,init_by_mean =None,seuil_estimation=False,
-                                  restarts=10,max_iters_all_base=500,LR=0.01,with_tanh=True,
+                                  restarts=10,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=0.1,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=True,epsilon=0.0)
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation=False,
+                                  restarts=10,max_iters_all_base=300,LR=0.01,with_tanh=True,
                                   C=1.0,Optimizer='GradientDescent',norm='',
                                   transform_output='tanh',with_rois_scores_atEnd=False,
                                   with_scores=True,epsilon=0.01)
@@ -3347,14 +3366,34 @@ if __name__ == '__main__':
                                   restarts=10,max_iters_all_base=500,LR=0.01,with_tanh=True,
                                   C=1.0,Optimizer='GradientDescent',norm='',
                                   transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=True,epsilon=0.01)
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+                                  with_scores=True,epsilon=0.0)
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation=False,
+                                  restarts=10,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=True,epsilon=0.0)
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
                                   verbose = True,testMode = False,jtest = 'cow',
                                   PlotRegions = False,saved_clf=False,RPN=False,
                                   CompBest=False,Stocha=True,k_per_bag=300,
                                   parallel_op=True,CV_Mode='',num_split=2,
                                   WR=True,init_by_mean =None,seuil_estimation=False,
                                   restarts=10,max_iters_all_base=500,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=True,epsilon=0.0)
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation=False,
+                                  restarts=10,max_iters_all_base=500,LR=0.1,with_tanh=True,
                                   C=1.0,Optimizer='GradientDescent',norm='',
                                   transform_output='tanh',with_rois_scores_atEnd=False,
                                   with_scores=True,epsilon=0.0)
