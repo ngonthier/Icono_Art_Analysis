@@ -21,6 +21,7 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score
 import time
 import multiprocessing
+from sparsemax import sparsemax
 # On genere des vecteurs selon deux distributions p1 et p2 dans R^n
 # On les regroupe par paquets de k vecteurs
 # Un paquet est positif si il contient un vecteur p1
@@ -48,6 +49,40 @@ def _int64_feature_reshape(value):
 
 def _floats_feature(value):
   return tf.train.Feature(float_list=tf.train.FloatList(value=value.reshape(-1)))
+
+def reduce_var(x, axis=None, keepdims=False):
+    """Variance of a tensor, alongside the specified axis.
+
+    # Arguments
+        x: A tensor or variable.
+        axis: An integer, the axis to compute the variance.
+        keepdims: A boolean, whether to keep the dimensions or not.
+            If `keepdims` is `False`, the rank of the tensor is reduced
+            by 1. If `keepdims` is `True`,
+            the reduced dimension is retained with length 1.
+
+    # Returns
+        A tensor with the variance of elements of `x`.
+    """
+    m = tf.reduce_mean(x, axis=axis, keep_dims=True)
+    devs_squared = tf.square(x - m)
+    return tf.reduce_mean(devs_squared, axis=axis, keep_dims=keepdims)
+
+def reduce_std(x, axis=None, keepdims=False):
+    """Standard deviation of a tensor, alongside the specified axis.
+
+    # Arguments
+        x: A tensor or variable.
+        axis: An integer, the axis to compute the standard deviation.
+        keepdims: A boolean, whether to keep the dimensions or not.
+            If `keepdims` is `False`, the rank of the tensor is reduced
+            by 1. If `keepdims` is `True`,
+            the reduced dimension is retained with length 1.
+
+    # Returns
+        A tensor with the standard deviation of elements of `x`.
+    """
+    return tf.sqrt(reduce_var(x, axis=axis, keepdims=keepdims))
 
 class MILSVM():
     """
@@ -265,7 +300,8 @@ class tf_MILSVM():
                   optimArg=None,mini_batch_size=200,buffer_size=10000,num_features=2048,
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
                   is_betweenMinus1and1=False,CV_Mode=None,num_split=2,with_scores=False,
-                  epsilon=0.0):
+                  epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
+                  seuil= 0.5):
         # TODOD enelver les trucs inutiles ici
         # TODO faire des tests unitaire sur les differentes parametres
         """
@@ -296,6 +332,14 @@ class tf_MILSVM():
         @param CV_Mode : default None : cross validation mode in the MILSVM : possibility ; None, CV in k split or LA for Leave apart one of the split
         @param num_split : default 2 : the number of split/fold used in the cross validation method
         @param with_scores : default False : Multiply the scalar product before the max by the objectness score from the FasterRCNN
+        @param epsilon : default 0. : The term we add to the object score
+        @param Max_version : default None : Different max that can be used in the optimisation
+            Choice : 'max', None or '' for a reduce max 
+            'softmax' : a softmax witht the product multiplied by w_exp
+            'sparsemax' : use a sparsemax
+        @param w_exp : default 1.0 : weight in the softmax 
+        @param seuillage_by_score : default False : remove the region with a score under seuil
+        @param seuil : used to eliminate some regions : it remove all the image with an objectness score under seuil
         """
         self.LR = LR
         self.C = C
@@ -335,8 +379,17 @@ class tf_MILSVM():
                 print('The use of more that 2 spits seem to slow a lot the computation with the use of shard')
         self.with_scores = with_scores 
         self.epsilon = epsilon# Used to avoid having a zero score
-                
-                
+        self.Max_version=Max_version
+        if self.Max_version=='softmax':
+            self.w_exp = w_exp # This parameter can increase of not the pente
+        self.seuillage_by_score = seuillage_by_score
+        self.seuil = seuil
+        if self.seuillage_by_score:
+            self.with_scores = False # Only one of the two is possible seuillage_by_score is priority !
+        if self.Max_version=='sparsemax': raise(NotImplemented)
+        if not(self.Max_version in ['sparsemax','max','','softmax'] or self.Max_version is None):
+            raise(NotImplemented)
+        
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 
         # KFold From sklearn.model_selection 
@@ -659,6 +712,7 @@ class tf_MILSVM():
         self.restarts_paral = restarts_paral
         if self.init_by_mean and self.restarts_paral: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral: raise(NotImplemented)
+        if self.class_indice>-1 and (self.Max_version=='sparsemax' or self.seuillage_by_score): raise(NotImplemented)
         self.paral_number_W = self.restarts +1
         ## Debut de la fonction        
         self.cpu_count = multiprocessing.cpu_count()
@@ -675,19 +729,19 @@ class tf_MILSVM():
             train_dataset = train_dataset_init
             # The second argument is the index of the subset used
         if self.class_indice==-1:
-            if self.with_scores:
+            if self.with_scores or self.seuillage_by_score:
                 self.first_parser = self.parser_all_classes_wRoiScore
             else:
                 self.first_parser = self.parser_all_classes
         else:
-            if self.with_scores:
+            if self.with_scores or self.seuillage_by_score:
                 self.first_parser = self.parser_wRoiScore
             else:
                 self.first_parser = self.parser
             
         iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
         
-        if self.with_scores:
+        if self.with_scores or self.seuillage_by_score:
             X_batch,scores_batch, label_batch = iterator_batch.get_next()
         else:
             X_batch, label_batch = iterator_batch.get_next()
@@ -699,7 +753,7 @@ class tf_MILSVM():
         self.config.gpu_options.allow_growth = True
         
         minus_1 = tf.constant(-1.)
-
+        print(self.Max_version)
         if class_indice==-1:
             label_vector = tf.placeholder(tf.float32, shape=(None,self.num_classes))
             if self.is_betweenMinus1and1:
@@ -735,7 +789,7 @@ class tf_MILSVM():
               except tf.errors.OutOfRangeError:
                 break
             
-        if self.norm=='STDall': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
+        if self.norm=='STDall' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
             mean_train_set, std_train_set = self.compute_STD_all(X_batch,iterator_batch)
             
         self.np_pos_value = np_pos_value
@@ -788,7 +842,7 @@ class tf_MILSVM():
             dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) # https://stackoverflow.com/questions/46444018/meaning-of-buffer-size-in-dataset-map-dataset-prefetch-and-dataset-shuffle/47025850#47025850
 
         shuffle_iterator = dataset_shuffle.make_initializable_iterator()
-        if self.with_scores:
+        if self.with_scores or self.seuillage_by_score:
             X_,scores_, y_ = shuffle_iterator.get_next()
         else:
             X_, y_ = shuffle_iterator.get_next()
@@ -801,7 +855,12 @@ class tf_MILSVM():
             if self.debug: print('Standardisation')
             X_ = tf.divide(tf.add( X_,-mean_train_set), std_train_set)
             X_batch = tf.divide(tf.add(X_batch,-mean_train_set), std_train_set)
-
+        elif self.norm=='STDSaid':
+            if self.debug: print('Standardisation Said')
+            _EPSILON = 1e-7
+            X_ = tf.divide(tf.add( X_,-mean_train_set),tf.add(_EPSILON,reduce_std(X_, axis=-1,keepdims=True)))
+            X_batch = tf.divide(tf.add(X_batch,-mean_train_set),tf.add(_EPSILON,reduce_std(X_batch, axis=-1,keepdims=True)))
+            
         # Definition of the graph 
         if class_indice==-1:
             if self.restarts_paral:
@@ -821,8 +880,20 @@ class tf_MILSVM():
                     normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
                 W_r=tf.reshape(W,(self.num_classes,1,1,self.num_features))
             Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_),axis=-1),b)
-            if self.with_scores: Prod=tf.multiply(Prod,tf.add(scores_,self.epsilon))
-            Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
+            if self.with_scores: 
+                if self.verbose: print('With score multiplication')
+                Prod=tf.multiply(Prod,tf.add(scores_,self.epsilon))
+            elif self.seuillage_by_score:
+                if self.verbose: print('score seuil')
+                Prod=tf.multiply(Prod,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.))
+            if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
+                Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
+            elif self.Max_version=='softmax':
+                if self.verbose: print('softmax',Max)
+                Max=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod,axis=-1),tf.multiply(Prod,self.w_exp)),axis=-1)
+            elif self.Max_version=='sparsemax':
+                Max=sparsemax(Prod,axis=-1,number_dim=3)
+                if self.verbose: print('sparsemax',Max)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
                 # Need to add 1 to avoid the case 
@@ -836,8 +907,16 @@ class tf_MILSVM():
             
             # Definiton du graphe pour la partie evaluation de la loss
             Prod_batch=tf.add(tf.reduce_sum(tf.multiply(W_r,X_batch),axis=-1),b)
-            if self.with_scores: Prod_batch=tf.multiply(Prod_batch,tf.add(scores_batch,self.epsilon))
-            Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
+            if self.with_scores: 
+                Prod_batch=tf.multiply(Prod_batch,tf.add(scores_batch,self.epsilon))
+            elif self.seuillage_by_score:
+                Prod_batch=tf.multiply(Prod_batch,tf.divide(tf.add(tf.sign(tf.add(scores_batch,-self.seuil)),1.),2.))
+            if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
+                Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
+            elif self.Max_version=='softmax':
+                Max_batch=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod_batch,axis=-1),tf.multiply(Prod_batch,self.w_exp)),axis=-1)
+            elif self.Max_version=='sparsemax':
+                Max_batch=sparsemax(Prod_batch,axis=-1,number_dim=3)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
                 # Need to add 1 to avoid the case 
@@ -859,7 +938,10 @@ class tf_MILSVM():
             W=tf.reshape(W,(1,1,self.num_features))
             Prod=tf.reduce_sum(tf.multiply(W,X_),axis=2)+b
             if self.with_scores: Prod=tf.multiply(Prod,tf.add(scores_,self.epsilon))
-            Max=tf.reduce_max(Prod,axis=1) # We take the max because we have at least one element of the bag that is positive
+            if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
+                Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
+            elif self.Max_version=='softmax':
+                Max=tf.reduce_max(tf.multiply(tf.nn.softmax(Prod,axis=-1),Prod),axis=-1)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
             else:
@@ -869,7 +951,10 @@ class tf_MILSVM():
             
             Prod_batch=tf.reduce_sum(tf.multiply(W,X_batch),axis=2)+b
             if self.with_scores: Prod_batch=tf.multiply(Prod_batch,tf.add(scores_batch,self.epsilon))
-            Max_batch=tf.reduce_max(Prod_batch,axis=1) # We take the max because we have at least one element of the bag that is positive
+            if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
+                Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
+            elif self.Max_version=='softmax':
+                Max=tf.reduce_max(tf.multiply(tf.nn.softmax(Prod,axis=-1),Prod),axis=-1)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
                 # Need to add 1 to avoid the case 
@@ -1027,16 +1112,20 @@ class tf_MILSVM():
             X_ = tf.nn.l2_normalize(X_,axis=-1, name="L2norm")
         elif self.norm=='STD_all':
             X_ = tf.divide(tf.add( X_,-mean_train_set), std_train_set, name="STD")
+            X_ = tf.nn.l2_normalize(X_,axis=-1, name="L2norm")
+        elif self.norm=='STDSaid':
+            X_ = tf.divide(tf.add( X_,-mean_train_set), tf.add(_EPSILON,reduce_std(X_, axis=-1,keepdims=True)), name="STDSaid")
         y_ = tf.identity(y_, name="y")
-        if self.with_scores:
-            print('Here')
+        if self.with_scores or self.seuillage_by_score:
             scores_ = tf.identity(scores_,name="scores")
-            print(scores_)
         if class_indice==-1:
             Prod_best= tf.add(tf.reduce_sum(tf.multiply(tf.reshape(W_best,(self.num_classes,1,1,self.num_features)),X_),axis=3),b_best,name='Prod')
         else:
             Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
-        if self.with_scores: Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
+        if self.with_scores: 
+            Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
+        elif self.seuillage_by_score:
+            Prod_score=tf.multiply(Prod_best,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.),name='ProdScore')
         export_dir = ('/').join(data_path.split('/')[:-1])
         export_dir += '/MILSVM/' + str(time.time())
         name_model = export_dir + '/model'
@@ -1524,6 +1613,8 @@ class tf_MILSVM():
 #    optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
 #    train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
 #return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
+
+
 
 
 def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1,C_finalSVM=1):

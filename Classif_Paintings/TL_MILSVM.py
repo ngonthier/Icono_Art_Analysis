@@ -1311,7 +1311,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   restarts=19,max_iters_all_base=300,LR=0.01,
                                   with_tanh=False,C=1.0,Optimizer='Adam',norm=None,
                                   transform_output=None,with_rois_scores_atEnd=False,
-                                  with_scores=False,epsilon=0.0,restarts_paral=False):
+                                  with_scores=False,epsilon=0.0,restarts_paral=False,
+                                  Max_version=None,w_exp=1.0,seuillage_by_score=True,
+                                  seuil=0.5):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -1351,6 +1353,13 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
             'STD' standardisation by feature maps
     @param : transform_output : Transformation for the final estimation can be sigmoid or tanh (string)
     @param : with_rois_scores_atEnd : Multiplication of the final result by the object score
+    @param Max_version : default None : Different max that can be used in the optimisation
+        Choice : 'max', None or '' for a reduce max 
+        'softmax' : a softmax witht the product multiplied by w_exp
+        'sparsemax' : use a sparsemax
+    @param w_exp : default 1.0 : weight in the softmax 
+    @param seuillage_by_score : default False : remove the region with a score under seuil
+    @param seuil : used to eliminate some regions : it remove all the image with an objectness score under seuil
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -1499,10 +1508,15 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         with_scores_str = '_WRC'+str(epsilon)
     else:
         with_scores_str=''
+    if seuillage_by_score:
+        seuillage_by_score_str = '_SBS'+str(seuil)
+    else: seuillage_by_score_str = ''
     if norm=='L2':
         extNorm = '_L2'
     elif norm=='STDall':
         extNorm = '_STDall'
+    elif norm=='STDSaid':
+        extNorm = '_STDSaid'
     elif norm=='STD':
         extNorm = '_STD'
         raise(NotImplemented)
@@ -1542,6 +1556,13 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         C_str=''
     else:
         C_str = '_C'+str(C) # regularisation term 
+    if Max_version=='max' or Max_version=='' or Max_version is None:
+        Max_version_str =''
+    elif Max_version=='softmax':
+        Max_version_str ='_MVSF'
+        if not(w_exp==1.0): Max_version_str+=str(w_exp)
+    elif Max_version=='sparsemax':
+        Max_version_str ='_MVSM'
     optimArg= None
     verboseMILSVM = True
     shuffle = True
@@ -1558,14 +1579,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                   max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
                   Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
                   TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
-                  with_scores,epsilon,restarts_paral]
+                  with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
                      'num_split','parallel_op','WR','norm','Optimizer','LR',
                      'optimArg','Number_of_positif_elt','number_zone','seuil_estimation'
                      ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
-                     'with_scores','epsilon','restarts_paral']
+                     'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score','seuil']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -1575,7 +1596,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
 
     cachefile_model_base= database +'_'+demonet+'_r'+str(restarts)+'_s' \
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
-        extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str
+        extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
+        +Max_version_str+seuillage_by_score_str
     cachefile_model = path_data +  cachefile_model_base+'_MILSVM.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
@@ -1613,7 +1635,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                    max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,num_features=size_output,debug=False,
-                   num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores) 
+                   num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
+                   Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil) 
              export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                    WR=WR,performance=performance,restarts_paral=restarts_paral)
@@ -1634,7 +1657,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                path_to_img,path_data,param_clf,classes,parameters,verbose,
                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
                cachefile_model_base=cachefile_model_base,transform_output=transform_output,
-               with_rois_scores_atEnd=with_rois_scores_atEnd,scoreInMILSVM=with_scores)
+               with_rois_scores_atEnd=with_rois_scores_atEnd,scoreInMILSVM=(with_scores or seuillage_by_score))
    
         for j,classe in enumerate(classes):
             AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
@@ -1674,11 +1697,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                    max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,num_features=size_output,debug=False,
-                   num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode) 
-                export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train,
-                                                      class_indice=j,shuffle=shuffle,norm=norm,
-                                                      performance=performance,init_by_mean=init_by_mean,
-                                                      WR=WR)
+                   num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
+                   Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil) 
+                export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
+                   class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,\
+                   WR=WR,performance=performance,restarts_paral=restarts_paral)
                 np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
                 name_milsvm[j]=export_dir,np_pos_value,np_neg_value
                 with open(cachefile_model, 'wb') as f:
@@ -1786,7 +1809,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                path_to_img,path_data,param_clf,classes,parameters,verbose,
                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=None,
                cachefile_model_base='',number_im=200,transform_output=None,
-               with_rois_scores_atEnd=False,scoreInMILSVM=False):
+               with_rois_scores_atEnd=False,scoreInMILSVM=False,seuillage_by_score=False):
      """
      @param : number_im : number of image plot at maximum
      @param : transform_output : use of a softmax or a 
@@ -1800,16 +1823,14 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      #TEST_NMS = 0.7 # Recouvrement entre les classes
      thres_max = True
      load_model = False
+     with_softmax,with_tanh,with_softmax_a_intraining = False,False,False
      if transform_output=='tanh':
          with_tanh=True
-         with_softmax=False
      elif transform_output=='softmax':
          with_softmax=True
-         with_tanh = False
          if seuil_estimation: print('It may cause problem of doing softmax and tangent estimation')
-     else:
-         with_softmax,with_tanh = False,False
-#     seuil_estimation = False
+     elif  transform_output=='softmaxTraining':
+         with_softmax_a_intraining = True
      seuil_estimation_debug = False
      plot_hist = True
      if PlotRegions or (seuil_estimation and plot_hist):
@@ -1887,6 +1908,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 Softmax = tf.nn.softmax(Prod_best,axis=-1)
                 mei = tf.argmax(Softmax,axis=2)
                 score_mei = tf.reduce_max(Softmax,axis=2)
+            elif with_softmax_a_intraining:
+                Softmax=tf.multiply(tf.nn.softmax(Prod_best,axis=-1),Prod_best)
+                mei = tf.argmax(Softmax,axis=2)
+                score_mei = tf.reduce_max(Softmax,axis=2)
             else:
                 mei = tf.argmax(Prod_best,axis=2)
                 score_mei = tf.reduce_max(Prod_best,axis=2)
@@ -1908,7 +1933,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     if with_tanh:
                         PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll =\
                         sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
-                    elif with_softmax:
+                    elif with_softmax or with_softmax_a_intraining:
                         PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll =\
                         sess.run([mei,score_mei,Softmax], feed_dict=feed_dict_value)
                     else:
@@ -2119,6 +2144,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 Softmax = tf.nn.softmax(Prod_best,axis=-1)
                 mei = tf.argmax(Softmax,axis=2)
                 score_mei = tf.reduce_max(Softmax,axis=2)
+            elif with_softmax_a_intraining:
+                Softmax=tf.multiply(tf.nn.softmax(Prod_best,axis=-1),Prod_best)
+                mei = tf.argmax(Softmax,axis=2)
+                score_mei = tf.reduce_max(Softmax,axis=2)
             else:
                 mei = tf.argmax(Prod_best,axis=2)
                 score_mei = tf.reduce_max(Prod_best,axis=2)
@@ -2138,7 +2167,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 if with_tanh:
                     PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
                     sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
-                elif with_softmax:
+                elif with_softmax or with_softmax_a_intraining:
                     PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
                     sess.run([mei,score_mei,Softmax], feed_dict=feed_dict_value)
                 else:
@@ -3299,43 +3328,6 @@ if __name__ == '__main__':
 #                                  parallel_op=True,CV_Mode='',num_split=2,
 #                                  WR=True,init_by_mean ='First',seuil_estimation=False,
 #                                  restarts=19,max_iters_all_base=150,LR=0.1)
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
-#                                  verbose = False,testMode = False,jtest = 'cow',
-#                                  PlotRegions = True,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,
-#                                  parallel_op=True,CV_Mode='CV',num_split=2,
-#                                  WR=True,init_by_mean ='All',seuil_estimation=False,
-#                                  restarts=19,max_iters_all_base=150,LR=0.1)
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
-#                                  verbose = True,testMode = False,jtest = 'cow',
-#                                  PlotRegions = True,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,
-#                                  parallel_op=True,CV_Mode='',num_split=2,
-#                                  WR=True,init_by_mean =None,seuil_estimation=False,
-#                                  restarts=0,max_iters_all_base=1,LR=0.01,with_tanh=True,
-#                                  C=1.0,Optimizer='GradientDescent',norm='',
-#                                  transform_output='tanh',with_rois_scores_atEnd=False,
-#                                  with_scores=True,epsilon=0.0)
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
-#                                  verbose = True,testMode = False,jtest = 'cow',
-#                                  PlotRegions = False,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,
-#                                  parallel_op=True,CV_Mode='',num_split=2,
-#                                  WR=True,init_by_mean =None,seuil_estimation=False,
-#                                  restarts=10,max_iters_all_base=500,LR=0.01,with_tanh=True,
-#                                  C=1.0,Optimizer='GradientDescent',norm='',
-#                                  transform_output='tanh',with_rois_scores_atEnd=False,
-#                                  with_scores=True,epsilon=0.0)
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
-#                                  verbose = True,testMode = False,jtest = 'cow',
-#                                  PlotRegions = False,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,
-#                                  parallel_op=True,CV_Mode='',num_split=2,
-#                                  WR=True,init_by_mean =None,seuil_estimation=False,
-#                                  restarts=10,max_iters_all_base=1000,LR=0.01,with_tanh=True,
-#                                  C=1.0,Optimizer='GradientDescent',norm='',
-#                                  transform_output='tanh',with_rois_scores_atEnd=False,
-#                                  with_scores=False,epsilon=0.0)
     tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
                                   verbose = True,testMode = False,jtest = 'cow',
                                   PlotRegions = False,saved_clf=False,RPN=False,
@@ -3345,7 +3337,8 @@ if __name__ == '__main__':
                                   restarts=10,max_iters_all_base=300,LR=0.01,with_tanh=True,
                                   C=1.0,Optimizer='GradientDescent',norm='',
                                   transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=True,epsilon=1.0,restarts_paral=False)
+                                  with_scores=False,epsilon=1.0,restarts_paral=False,
+                                  Max_version='sparsemax',w_exp=1.0,seuillage_by_score=False,seuil=0.1)
    # A comparer avec du 93s par restart pour les 6 classes de watercolor
 
     ## TODO : tester avec une image constante en entrée et voir ce que cela donne de couleur différentes
