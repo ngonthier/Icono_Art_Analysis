@@ -1311,7 +1311,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   restarts=19,max_iters_all_base=300,LR=0.01,
                                   with_tanh=False,C=1.0,Optimizer='Adam',norm=None,
                                   transform_output=None,with_rois_scores_atEnd=False,
-                                  with_scores=False,epsilon=0.0):
+                                  with_scores=False,epsilon=0.0,restarts_paral=False):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -1465,18 +1465,27 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     if not(init_by_mean is None) or not(init_by_mean==''):
         if not(CV_Mode=='CV' and num_split==2):
             sizeMax //= 2
+     # boolean paralleliation du W
+    if restarts_paral:
+        restarts_paral_str = '_RP'
+        sizeMax //= max(int((restarts+1)//2),1) # To avoid division by zero
+        # it seems that using a different size batch drasticly change the results
+    else:
+        restarts_paral_str=''
     mini_batch_size = sizeMax
     buffer_size = 10000
     if testMode:
-        restarts = 0
-        restarts = 19
-        max_iters_all_base = 300
-#        max_iters =  (num_trainval_im //mini_batch_size)*max_iters_all_base
+#        restarts = 0
+#        restarts = 19
+#        max_iters_all_base = 300
+        max_iters =  (num_trainval_im //mini_batch_size)*max_iters_all_base
         ext_test = '_Test_Mode'
     else:
         ext_test= ''
 #        restarts = 19
         max_iters = (num_trainval_im //mini_batch_size)*max_iters_all_base
+
+        
     max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max par rapport au nombre de split
     AP_per_class = []
     P_per_class = []
@@ -1549,14 +1558,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                   max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
                   Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
                   TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
-                  with_scores,epsilon]
+                  with_scores,epsilon,restarts_paral]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
                      'num_split','parallel_op','WR','norm','Optimizer','LR',
                      'optimArg','Number_of_positif_elt','number_zone','seuil_estimation'
                      ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
-                     'with_scores','epsilon']
+                     'with_scores','epsilon','restarts_paral']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -1566,7 +1575,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
 
     cachefile_model_base= database +'_'+demonet+'_r'+str(restarts)+'_s' \
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
-        extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str
+        extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str
     cachefile_model = path_data +  cachefile_model_base+'_MILSVM.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
@@ -1607,7 +1616,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores) 
              export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
-                   WR=WR,performance=performance)
+                   WR=WR,performance=performance,restarts_paral=restarts_paral)
              np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
              name_milsvm =export_dir,np_pos_value,np_neg_value
              with open(cachefile_model, 'wb') as f:
@@ -3336,67 +3345,8 @@ if __name__ == '__main__':
                                   restarts=10,max_iters_all_base=300,LR=0.01,with_tanh=True,
                                   C=1.0,Optimizer='GradientDescent',norm='',
                                   transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=True,epsilon=0.0)
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
-                                  verbose = True,testMode = False,jtest = 'cow',
-                                  PlotRegions = False,saved_clf=False,RPN=False,
-                                  CompBest=False,Stocha=True,k_per_bag=300,
-                                  parallel_op=True,CV_Mode='',num_split=2,
-                                  WR=True,init_by_mean =None,seuil_estimation=False,
-                                  restarts=10,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                                  C=0.1,Optimizer='GradientDescent',norm='',
-                                  transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=True,epsilon=0.0)
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
-                                  verbose = True,testMode = False,jtest = 'cow',
-                                  PlotRegions = False,saved_clf=False,RPN=False,
-                                  CompBest=False,Stocha=True,k_per_bag=300,
-                                  parallel_op=True,CV_Mode='',num_split=2,
-                                  WR=True,init_by_mean =None,seuil_estimation=False,
-                                  restarts=10,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                                  C=1.0,Optimizer='GradientDescent',norm='',
-                                  transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=True,epsilon=0.01)
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
-                                  verbose = True,testMode = False,jtest = 'cow',
-                                  PlotRegions = False,saved_clf=False,RPN=False,
-                                  CompBest=False,Stocha=True,k_per_bag=300,
-                                  parallel_op=True,CV_Mode='',num_split=2,
-                                  WR=True,init_by_mean =None,seuil_estimation=False,
-                                  restarts=10,max_iters_all_base=500,LR=0.01,with_tanh=True,
-                                  C=1.0,Optimizer='GradientDescent',norm='',
-                                  transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=True,epsilon=0.0)
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
-                                  verbose = True,testMode = False,jtest = 'cow',
-                                  PlotRegions = False,saved_clf=False,RPN=False,
-                                  CompBest=False,Stocha=True,k_per_bag=300,
-                                  parallel_op=True,CV_Mode='',num_split=2,
-                                  WR=True,init_by_mean =None,seuil_estimation=False,
-                                  restarts=10,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                                  C=1.0,Optimizer='GradientDescent',norm='',
-                                  transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=True,epsilon=0.0)
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
-                                  verbose = True,testMode = False,jtest = 'cow',
-                                  PlotRegions = False,saved_clf=False,RPN=False,
-                                  CompBest=False,Stocha=True,k_per_bag=300,
-                                  parallel_op=True,CV_Mode='',num_split=2,
-                                  WR=True,init_by_mean =None,seuil_estimation=False,
-                                  restarts=10,max_iters_all_base=500,LR=0.01,with_tanh=True,
-                                  C=1.0,Optimizer='GradientDescent',norm='',
-                                  transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=True,epsilon=0.0)
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
-                                  verbose = True,testMode = False,jtest = 'cow',
-                                  PlotRegions = False,saved_clf=False,RPN=False,
-                                  CompBest=False,Stocha=True,k_per_bag=300,
-                                  parallel_op=True,CV_Mode='',num_split=2,
-                                  WR=True,init_by_mean =None,seuil_estimation=False,
-                                  restarts=10,max_iters_all_base=500,LR=0.1,with_tanh=True,
-                                  C=1.0,Optimizer='GradientDescent',norm='',
-                                  transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=True,epsilon=0.0)
+                                  with_scores=True,epsilon=1.0,restarts_paral=False)
+   # A comparer avec du 93s par restart pour les 6 classes de watercolor
 
     ## TODO : tester avec une image constante en entrée et voir ce que cela donne de couleur différentes
     # Peut etre a rajouter dans les exemples negatifs 
