@@ -822,7 +822,7 @@ def run_FasterRCNN_demo():
                     print(CLASSES[cls_ind])
         sess.close()
  
-def vis_detections(im, class_name, dets, thresh=0.5):
+def vis_detections(im, class_name, dets, thresh=0.5,with_title=True):
     """Draw detected bounding boxes."""
     inds = np.where(dets[:, -1] >= thresh)[0]
     if len(inds) == 0:
@@ -846,10 +846,11 @@ def vis_detections(im, class_name, dets, thresh=0.5):
                 bbox=dict(facecolor='blue', alpha=0.5),
                 fontsize=14, color='white')
 
-    ax.set_title(('{} detections with '
-                  'p({} | box) >= {:.1f}').format(class_name, class_name,
-                                                  thresh),
-                  fontsize=14)
+    if with_title:
+        ax.set_title(('{} detections with '
+                      'p({} | box) >= {:.1f}').format(class_name, class_name,
+                                                      thresh),
+                      fontsize=14)
     plt.axis('off')
     plt.tight_layout()
     plt.draw()
@@ -1770,6 +1771,104 @@ def Illus_NMS_threshold_test():
         tf.reset_default_graph()
         sess.close()
     return(0) # Not really necessary indead
+  
+def Illus_ScoreObjectness():
+    """
+    The goal of this function is to test the modification of the NMS threshold 
+    on the output provide by the algo 
+    And plot the zone considered as the best by the Faster RCNN 
+    """ 
+    classes  = CLASSESVOC[1:21]
+    corr_voc_coco = [0,5,2,15,9,40,6,3,16,57,20,61,17,18,4,1,59,19,58,7,63]
+    TEST_NMS = 0.7
+    num_classes = 21
+    thresh = 0.0
+    path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_ObjectScore/'
+    pathlib.Path(path_to_output).mkdir(parents=True, exist_ok=True) 
+    demonet = 'res152_COCO'
+    tf.reset_default_graph() # Needed to use different nets one after the other
+    print(demonet)
+    if 'VOC'in demonet:
+        CLASSES = CLASSES_SET['VOC']
+        anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+    elif 'COCO'in demonet:
+        CLASSES = CLASSES_SET['COCO']
+        anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
+    nbClasses = len(CLASSES)
+    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+    tfconfig = tf.ConfigProto(allow_soft_placement=True)
+    tfconfig.gpu_options.allow_growth=True
+    # load network
+    if  'vgg16' in demonet:
+      net = vgg16()
+      net_TL = vgg16()
+    elif demonet == 'res50':
+      raise NotImplementedError
+    elif 'res101' in demonet:
+      net = resnetv1(num_layers=101)
+      net_TL = resnetv1(num_layers=101)
+    elif 'res152' in demonet:
+      net = resnetv1(num_layers=152)
+      net_TL = resnetv1(num_layers=152)
+    elif demonet == 'mobile':
+      raise NotImplementedError
+    else:
+      raise NotImplementedError
+      
+    # List des images a test 
+    path_to_img = '/media/HDD/output_exp/ClassifPaintings/im/'
+    
+    # creation of the images :
+#    random_im = np.clip(np.random.normal(loc=125,size=(600,600,3),scale=25),0,255)
+    random_im = np.random.randint(0,255,size=(600,600,3))
+    list_images = []
+    list_images_name = []
+    list_images += [random_im]
+    list_images_name += ['random_im']
+    list_color = {'red' :  (0,0,255),'blue':(255,0,0),'green':(0,255,0),'white':(255,255,255),\
+                  'grey':(128,128,128),'golden':(11,134,184)} # Color code in BGR
+    for color in list_color.keys():
+        im = np.ones(shape=(600,600,3))
+        colors=list_color[color]
+        for i in range(3):
+            im[:,:,i] = colors[i]
+        list_images += [im.astype(int)]
+        list_images_name += [color]
+    complet_name = path_to_img + 'watercolor-photoshop-brush-1200x580.jpg'
+    im = cv2.imread(complet_name)
+    list_images += [im]
+    list_images_name += ['watercolor']
+    
+    nms_thresh = 0.7
+    number_box_keep = 10
+    plt.ion()
+    plt.close('all')    
+    sess = tf.Session(config=tfconfig)
+    net_TL.create_architecture("TEST", nbClasses,
+                                  tag='default', anchor_scales=anchor_scales,
+                                  modeTL= True,nms_thresh=nms_thresh)
+    saver = tf.train.Saver()
+    saver.restore(sess, tfmodel)       
+    for im,im_name in zip(list_images,list_images_name):
+        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = \
+        TL_im_detect(sess, net_TL, im)
+        blobs, im_scales = get_blobs(im)
+        roi =  rois[0:number_box_keep,1:5] / im_scales[0]
+        scores = roi_scores[0:number_box_keep]
+        number_box_keep_p1 = number_box_keep +1
+        roimin =  rois[-number_box_keep_p1:-1,1:5] / im_scales[0]
+        scoresmin = roi_scores[-number_box_keep_p1:-1]
+        Boexsmin = np.hstack((roimin,scoresmin))
+        Boexs = np.hstack((roi,scores))
+        vis_detections(im, 'object max', Boexs, thresh=0.,with_title=False)
+        name_output = path_to_output + im_name + '_ObjectScoresMax.jpg'
+        plt.savefig(name_output)     
+        vis_detections(im, 'object min', Boexsmin, thresh=0.,with_title=False)
+        name_output = path_to_output + im_name + '_ObjectScoresMin.jpg'
+        plt.savefig(name_output)     
+    plt.close('all')
+    return(0) # Not really necessary indead
     
 def Illus_box_ratio():
     """
@@ -2381,5 +2480,6 @@ if __name__ == '__main__':
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',CV_Crowley=False,
 #                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
 #    
-    run_FRCNN_Detection_perf(database='VOC2007')
+#    run_FRCNN_Detection_perf(database='VOC2007')
+    Illus_ScoreObjectness()
 #     Illus_box_ratio()
