@@ -116,9 +116,9 @@ def voc_eval(detpath,
     recs = {}
     for i, imagename in enumerate(imagenames):
       recs[imagename] = parse_rec(annopath.format(imagename))
-      if i % 100 == 0:
-        if verbose: print('Reading annotation for {:d}/{:d}'.format(
-          i + 1, len(imagenames)))
+#      if i % 100 == 0:
+#        if verbose: print('Reading annotation for {:d}/{:d}'.format(
+#          i + 1, len(imagenames)))
     # save
     if verbose: print('Saving cached annotations to {:s}'.format(cachefile))
     with open(cachefile, 'wb') as f:
@@ -242,11 +242,11 @@ def loc_metric(detpath,
     recs = {}
     for i, imagename in enumerate(imagenames):
       recs[imagename] = parse_rec(annopath.format(imagename))
-      if i % 100 == 0:
-        print('Reading annotation for {:d}/{:d}'.format(
-          i + 1, len(imagenames)))
+      #if i % 100 == 0:
+        #print('Reading annotation for {:d}/{:d}'.format(
+         # i + 1, len(imagenames)))
     # save
-    print('Saving cached annotations to {:s}'.format(cachefile))
+    #print('Saving cached annotations to {:s}'.format(cachefile))
     with open(cachefile, 'wb') as f:
       pickle.dump(recs, f)
   else:
