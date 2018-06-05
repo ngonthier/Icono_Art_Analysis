@@ -702,6 +702,11 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                'cow', 'diningtable', 'dog', 'horse',
                'motorbike', 'person', 'pottedplant',
                'sheep', 'sofa', 'train', 'tvmonitor']
+        elif database=='watercolor':
+            ext = '.csv'
+            item_name = 'name_img'
+            path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+            classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
         elif(database=='Wikidata_Paintings'):
             item_name = 'image'
             path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
@@ -1072,8 +1077,8 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                 
                 # For detection 
                 if database=='VOC2007'  or database=='watercolor':
-                    thresh = 0.0 # Threshold score or distance MILSVM
-                    TEST_NMS = 0.7 # Recouvrement entre les classes
+                    thresh = 0.05 # Threshold score or distance MILSVM
+                    TEST_NMS = 0.3 # Recouvrement entre les classes
                     complet_name = path_to_img + str(name_test[k]) + '.jpg'
                     im = cv2.imread(complet_name)
                     blobs, im_scales = get_blobs(im)
@@ -1307,11 +1312,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   PlotRegions = True,saved_clf=False,RPN=False,
                                   CompBest=True,Stocha=True,k_per_bag=300,
                                   parallel_op =True,CV_Mode=None,num_split=2,
-                                  WR=False,init_by_mean=None,seuil_estimation=False,
+                                  WR=False,init_by_mean=None,seuil_estimation=None,
                                   restarts=19,max_iters_all_base=300,LR=0.01,
                                   with_tanh=False,C=1.0,Optimizer='Adam',norm=None,
                                   transform_output=None,with_rois_scores_atEnd=False,
-                                  with_scores=False,epsilon=0.0,restarts_paral=False,
+                                  with_scores=False,epsilon=0.0,restarts_paral='',
                                   Max_version=None,w_exp=1.0,seuillage_by_score=True,
                                   seuil=0.5):
     """ 
@@ -1342,7 +1347,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     @param : num_split  : Number of split for the CV or LA
     @param : WR   :  use of not of the regularisation term in the evaluation of the final classifier, if True we don't use it
     @param : init_by_mean   :  use of an initialisation of the vecteur W and bias b by a optimisation on a classification task on the mean on all the regions of the image
-    @param : seuil_estimation  :  Estimation of the seuil for the prediction detection 
+    @param : seuil_estimation : ByHist or MaxDesNeg :  Estimation of the seuil for the prediction detection 
     @param : restarts  :  number of restart in the MILSVM [default=19]
     @param : max_iters_all_base  :  number of maximum iteration on the going on the full database 
     @param : LR  :  Learning rate for the optimizer in the MILSVM 
@@ -1351,6 +1356,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     @param : norm : normalisation of the data or not : possible : None or ''
             'L2' : normalisation L2 or 'STDall' : Standardisation on all data 
             'STD' standardisation by feature maps
+    @param : restarts_paral : run several W vecteur optimisation in parallel 
+            two versions exist 'Dim','paral'
     @param : transform_output : Transformation for the final estimation can be sigmoid or tanh (string)
     @param : with_rois_scores_atEnd : Multiplication of the final result by the object score
     @param Max_version : default None : Different max that can be used in the optimisation
@@ -1468,34 +1475,31 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     n_jobs = -1
     performance = False
     if parallel_op:
-        sizeMax = 30*20000 // (k_per_bag*num_classes)
+        sizeMax = 30*10000 // (k_per_bag*num_classes) + 1
     else:
         sizeMax = 30*10000 // k_per_bag
-    if not(init_by_mean is None) or not(init_by_mean==''):
+    if not(init_by_mean is None) and not(init_by_mean==''):
         if not(CV_Mode=='CV' and num_split==2):
             sizeMax //= 2
      # boolean paralleliation du W
-    if restarts_paral:
+    if restarts_paral=='Dim': # It will create a new dimension
         restarts_paral_str = '_RP'
         sizeMax //= max(int((restarts+1)//2),1) # To avoid division by zero
         # it seems that using a different size batch drasticly change the results
+    elif restarts_paral=='paral': # Version 2 of the parallelisation
+        restarts_paral_str = '_RPV2'
+        sizeMax = 30*60000 // (k_per_bag*num_classes) + 1
     else:
         restarts_paral_str=''
     mini_batch_size = sizeMax
     buffer_size = 10000
     if testMode:
-#        restarts = 0
-#        restarts = 19
-#        max_iters_all_base = 300
-        max_iters =  (num_trainval_im //mini_batch_size)*max_iters_all_base
         ext_test = '_Test_Mode'
     else:
         ext_test= ''
-#        restarts = 19
-        max_iters = (num_trainval_im //mini_batch_size)*max_iters_all_base
+    max_iters = ((num_trainval_im // mini_batch_size)+ np.sign(num_trainval_im % mini_batch_size))*max_iters_all_base
 
-        
-    max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max par rapport au nombre de split
+    
     AP_per_class = []
     P_per_class = []
     R_per_class = []
@@ -1527,8 +1531,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     else:
         extPar =''
     if CV_Mode=='CV':
+        max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max par rapport au nombre de split
         extCV = '_cv'+str(num_split)
     elif CV_Mode=='LA':
+        max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max par rapport au nombre de split
         extCV = '_la'+str(num_split)
     elif CV_Mode=='CV' and WR==True:
         extCV = '_cv'+str(num_split)+'_wr'
@@ -1811,29 +1817,35 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                cachefile_model_base='',number_im=200,transform_output=None,
                with_rois_scores_atEnd=False,scoreInMILSVM=False,seuillage_by_score=False):
      """
+     @param : seuil_estimation : ByHist or MaxDesNeg
      @param : number_im : number of image plot at maximum
      @param : transform_output : use of a softmax or a 
      @ use the with_rois_scores_atEnd to pondare the final results
      """
 #     scoreInMILSVM = False
+     if seuil_estimation in ['ByHist','MinDesPos','MaxDesNeg','byHistOnPos']:
+         seuil_estimation_bool = True
+     else:
+         seuil_estimation_bool = False
+    
      print('thresh_evaluation',thresh_evaluation,'TEST_NMS',TEST_NMS,'seuil_estimation',seuil_estimation)
      PlotRegions,RPN,Stocha,CompBest=parameters
      k_per_bag,positive_elt,size_output = param_clf
      thresh = thresh_evaluation # Threshold score or distance MILSVM
      #TEST_NMS = 0.7 # Recouvrement entre les classes
-     thres_max = True
+     thres_max = False
      load_model = False
      with_softmax,with_tanh,with_softmax_a_intraining = False,False,False
      if transform_output=='tanh':
          with_tanh=True
      elif transform_output=='softmax':
          with_softmax=True
-         if seuil_estimation: print('It may cause problem of doing softmax and tangent estimation')
+         if seuil_estimation_bool: print('It may cause problem of doing softmax and tangent estimation')
      elif  transform_output=='softmaxTraining':
          with_softmax_a_intraining = True
-     seuil_estimation_debug = False
+     seuil_estimation_debug = True
      plot_hist = True
-     if PlotRegions or (seuil_estimation and plot_hist):
+     if PlotRegions or (seuil_estimation_bool and plot_hist):
          extensionStocha = cachefile_model_base 
          path_to_output2  = path_data + '/tfMILSVMRegion_paral/'+database+'/'+extensionStocha
          if RPN:
@@ -1861,9 +1873,9 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
          X_array = np.empty((length_matrix,size_output),dtype=np.float32)
          y_array =  np.empty((num_classes,length_matrix),dtype=np.float32)
          x_array_ind = 0
-         
-     if seuil_estimation:
-         if seuil_estimation_debug:
+     
+     if seuil_estimation_bool:
+         if seuil_estimation_debug and not(seuil_estimation=='byHistOnPos'):
              top_k = 3
          else:
              top_k =1
@@ -1875,7 +1887,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                  dict_seuil_estim[i][str_name] = []  # Array of the scalar product of the negative examples  
      get_roisScore = (with_rois_scores_atEnd or scoreInMILSVM)
 
-     if (PlotRegions or predict_with=='LinearSVC' or seuil_estimation):
+     if (PlotRegions or predict_with=='LinearSVC' or seuil_estimation_bool):
         index_im = 0
         if verbose: print("Start ploting Regions selected by the MILSVM in training phase")
         train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
@@ -1960,7 +1972,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                     x_array_ind += 1
                                 # TODO need to be finished and tested 
                                 
-                    if seuil_estimation:
+                    if seuil_estimation_bool:
                         for k in range(len(fc7s)):
                             for l in range(num_classes):
                                 label_i = labels[k,l]
@@ -2029,7 +2041,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
         #tf.reset_default_graph()
      
      # Parameter Evaluation Time !
-     if seuil_estimation:
+     if seuil_estimation=='byHist':
          list_thresh = []
          plt.ion()
          print('Seuil Estimation Time')
@@ -2049,19 +2061,17 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
              e_max = max(np.max(prod_neg_ex),np.max(prod_pos_ex_topk))
              e_min = min(np.min(prod_neg_ex),np.min(prod_pos_ex_topk))
              x_axis = np.linspace(e_min,e_max, num_bins)
-#             print('Start kdeA')
              kdeA, pdfA = kde_sklearn(prod_neg_ex, x_axis, bandwidth=0.25)
-#             print('Finish kdeA')
              funcA = lambda x: np.exp(kdeA.score_samples([x][0]))
              if seuil_estimation_debug:
                  kdeB, pdfB = kde_sklearn(prod_pos_ex, x_axis, bandwidth=0.25)
                  funcB = lambda x: np.exp(kdeB.score_samples([x][0]))
                  try:
                      result_full = findIntersection(funcA, funcB,e_min,e_max)
+                     print('Seuil if we consider all the element of each image',result_full,'for class ',l)
                  except(ValueError):
                      dontPlot =True
                      print('seuil not found in the case of full data')
-                 print('Seuil if we consider all the element of each image',result_full,'for class ',l)
              for kk in range(top_k):
                  kdeB, pdfB = kde_sklearn(prod_pos_ex_topk[:,kk], x_axis, bandwidth=0.25)
                  funcB = lambda x: np.exp(kdeB.score_samples([x][0]))
@@ -2098,8 +2108,91 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                      name_output = path_to_output2_q + 'Hist_all_class'+str(l)+'.jpg'
                      plt.savefig(name_output)
                      plt.close() 
-                 
+                     
+     if seuil_estimation=='MaxDesNeg':
+         # On prend le maximum des exemples negatifs 
+         list_thresh = np.zeros((num_classes,))
+         for l in range(num_classes):
+             prod_neg_ex = np.concatenate(dict_seuil_estim[l]['prod_neg_ex'],axis=0)
+             seuil_max_negative = np.max(prod_neg_ex)
+             list_thresh[l] = seuil_max_negative  
              
+     if seuil_estimation=='MinDesPos':
+         # On prend le minimum des max des exemples positifs 
+         list_thresh = np.zeros((num_classes,))
+         for l in range(num_classes):
+             prod_pos_ex_topk= np.vstack(dict_seuil_estim[l]['prod_pos_ex_topk'])
+             prod_pos_ex_topk = prod_pos_ex_topk[np.where(prod_pos_ex_topk>0)]
+             seuil_estim =np.min(prod_pos_ex_topk)   
+             list_thresh[l] = seuil_estim 
+             
+     if seuil_estimation=='byHistOnPos':
+         list_thresh = []
+         plt.ion()
+         num_bins = 100
+         # Concatenation of the element
+         for l in range(num_classes):
+             dontPlot = False
+             dontPlot2 = False
+             prod_neg_ex = np.concatenate(dict_seuil_estim[l]['prod_neg_ex'],axis=0)
+             prod_pos_ex = np.concatenate(dict_seuil_estim[l]['prod_pos_ex'],axis=0)
+             prod_pos_ex_topk= np.vstack(dict_seuil_estim[l]['prod_pos_ex_topk'])
+             prod_neg_ex = prod_neg_ex[np.where(prod_neg_ex>0)]
+             prod_pos_ex_topk = prod_pos_ex_topk[np.where(prod_pos_ex_topk>0)][:,np.newaxis]
+             if plot_hist:
+                 plt.figure()
+                 plt.hist(prod_neg_ex,alpha=0.5,bins=num_bins,label='hist_neg',density=True)
+             e_max = max(np.max(prod_neg_ex),np.max(prod_pos_ex_topk))
+             e_min = min(np.min(prod_neg_ex),np.min(prod_pos_ex_topk))
+             x_axis = np.linspace(e_min,e_max, num_bins)
+             kdeA, pdfA = kde_sklearn(prod_neg_ex, x_axis, bandwidth=0.25)
+             funcA = lambda x: np.exp(kdeA.score_samples([x][0]))
+             if seuil_estimation_debug:
+                 kdeB, pdfB = kde_sklearn(prod_pos_ex, x_axis, bandwidth=0.25)
+                 funcB = lambda x: np.exp(kdeB.score_samples([x][0]))
+                 try:
+                     result_full = findIntersection(funcA, funcB,e_min,e_max)
+                     print('Seuil if we consider all the element of each image',result_full,'for class ',l)
+                 except(ValueError):
+                     dontPlot =True
+                     print('seuil not found in the case of full data')
+             for kk in range(top_k):
+                 kdeB, pdfB = kde_sklearn(prod_pos_ex_topk[:,kk], x_axis, bandwidth=0.25)
+                 funcB = lambda x: np.exp(kdeB.score_samples([x][0]))
+                 try:
+                     result = findIntersection(funcA, funcB,e_min,e_max)
+                 except(ValueError):
+                     dontPlot2 =True
+                     result = thresh_evaluation
+                     print('Intersection not found in the case',kk)
+                 if kk==0:
+                     if thres_max:
+                         list_thresh += [max(result,thresh_evaluation)]
+                     else:
+                         list_thresh += [result]
+                     if not(dontPlot2): plt.axvline(result, color='red')
+                 if seuil_estimation_debug: print('seuil estime : ',kk,result)
+                 if plot_hist:
+                     label_str = 'hist_pos '+str(kk)
+                     plt.hist(prod_pos_ex_topk[:,kk],alpha=0.3,bins=num_bins,label=label_str,density=True)
+#                plt.xlim(min(bin_edges), max(bin_edges))
+                 if plot_hist:
+                     plt.legend(loc='best')
+                     plt.title('Histogram of the scalar product for class '+str(l))
+                     name_output = path_to_output2_q + 'Hist_top_'+ str(top_k) + '_class'+str(l)+'.jpg'
+                     plt.savefig(name_output)
+                     plt.close()
+                     if seuil_estimation_debug:
+                         plt.figure()
+                         plt.hist(prod_neg_ex,alpha=0.5,bins=num_bins,label='hist_neg',density=True)
+                         plt.hist(prod_pos_ex,alpha=0.5,bins=num_bins,label='hist_pos',density=True)
+                         if not(dontPlot) : plt.axvline(result_full, color='red')
+                         plt.legend(loc='best')
+                         plt.title('Histogram of the scalar product for class '+str(l)+' for all element')
+                         name_output = path_to_output2_q + 'Hist_all_class'+str(l)+'.jpg'
+                         plt.savefig(name_output)
+                         plt.close() 
+                         
      print("Testing Time")
      # Training time !
      if predict_with=='LinearSVC':
@@ -2201,7 +2294,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     
                     for j in range(num_classes):
                         scores = scores_all[j,:]
-                        if seuil_estimation:
+                        if seuil_estimation_bool:
                             inds = np.where(scores > list_thresh[j])[0]
                         else:
                             inds = np.where(scores > thresh)[0]
@@ -3291,54 +3384,23 @@ if __name__ == '__main__':
 #                                          verbose = True,testMode = True,jtest = 0,
 #                                          PlotRegions = False,RPN=False,Stocha=False,
 #                                          k_per_bag=30)
-
+#
 #    FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',
-#                                          database = 'VOC2007', 
+#                                          database = 'watercolor', 
 #                                          verbose = True,testMode = False,jtest = 1,
 #                                          PlotRegions = False,RPN=False,CompBest=False)
-#    FasterRCNN_TL_MISVM(demonet = 'res152_COCO',database = 'Paintings', 
-#                                          verbose = True,testMode = True,jtest = 0,
-#                                          PlotRegions = False,misvm_type='LinearMISVC')
-#    detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Paintings_miniset_verif')
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
-#                                  verbose = True,testMode = False,jtest = 'cow',
-#                                  PlotRegions = False,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,
-#                                  parallel_op=True,CV_Mode=None,num_split=2,WR=True)
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
-#                                  verbose = True,testMode = False,jtest = 'cow',
-#                                  PlotRegions = False,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,
-#                                  parallel_op=True,CV_Mode='CV',num_split=2,WR=True)
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', 
-#                                  verbose = True,testMode = False,jtest = 0,
-#                                  PlotRegions = False,saved_clf=False,RPN=True,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,parallel_op=True)
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
-#                                  verbose = False,testMode = False,jtest = 'cow',
-#                                  PlotRegions = True,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,
-#                                  parallel_op=True,CV_Mode='CV',num_split=2,
-#                                  WR=True,init_by_mean ='First',seuil_estimation=False,
-#                                  restarts=19,max_iters_all_base=150,LR=0.1)
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
-#                                  verbose = False,testMode = False,jtest = 'cow',
-#                                  PlotRegions = True,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,
-#                                  parallel_op=True,CV_Mode='',num_split=2,
-#                                  WR=True,init_by_mean ='First',seuil_estimation=False,
-#                                  restarts=19,max_iters_all_base=150,LR=0.1)
+
     tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
                                   verbose = True,testMode = False,jtest = 'cow',
                                   PlotRegions = False,saved_clf=False,RPN=False,
                                   CompBest=False,Stocha=True,k_per_bag=300,
                                   parallel_op=True,CV_Mode='',num_split=2,
-                                  WR=True,init_by_mean =None,seuil_estimation=False,
+                                  WR=True,init_by_mean =None,seuil_estimation='',
                                   restarts=10,max_iters_all_base=300,LR=0.01,with_tanh=True,
                                   C=1.0,Optimizer='GradientDescent',norm='',
                                   transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=False,epsilon=1.0,restarts_paral=False,
-                                  Max_version='sparsemax',w_exp=1.0,seuillage_by_score=False,seuil=0.1)
+                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
+                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9)
    # A comparer avec du 93s par restart pour les 6 classes de watercolor
 
     ## TODO : tester avec une image constante en entrée et voir ce que cela donne de couleur différentes

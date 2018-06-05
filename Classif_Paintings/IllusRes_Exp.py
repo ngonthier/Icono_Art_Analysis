@@ -20,7 +20,8 @@ from tf_faster_rcnn.lib.model.nms_wrapper import nms
 from FasterRCNN import vis_detections_list
 
 def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
-                            export_dir,problem_class=[],RPN=False,water_mark=''):
+                            export_dir,problem_class=[],RPN=False,water_mark='',
+                            transform_output=None,with_rois_scores_atEnd=False,scoreInMILSVM=False):
     verbose =True 
 #    k_per_bag,positive_elt,size_output = param_clf
     thresh = 0.0 # Threshold score or distance MILSVM
@@ -37,6 +38,11 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
            'cow', 'diningtable', 'dog', 'horse',
            'motorbike', 'person', 'pottedplant',
            'sheep', 'sofa', 'train', 'tvmonitor']
+    elif database=='watercolor':
+        ext = '.csv'
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+        classes =  ['bicycle', 'bird','car', 'cat','dog', 'person']
     else:
         raise(NotImplemented)
     if len(problem_class) > 0:
@@ -56,11 +62,20 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
          
     export_dir_path = ('/').join(export_dir.split('/')[:-1])
     name_model_meta = export_dir + '.meta'
-
+    get_roisScore = (with_rois_scores_atEnd or scoreInMILSVM)
     if verbose: print("Start ploting Regions selected by the MILSVM in training phase")
+    if transform_output=='tanh':
+         with_tanh=True
+         with_softmax=False
+    elif transform_output=='softmax':
+         with_softmax=True
+         with_tanh = False
+#    if seuil_estimation: print('It may cause problem of doing softmax and tangent estimation')
+    else:
+         with_softmax,with_tanh = False,False
     train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
-    train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
-        num_classes=num_classes))
+    train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r,\
+        num_classes=num_classes,with_rois_scores=get_roisScore))
     dataset_batch = train_dataset.batch(mini_batch_size)
     dataset_batch.cache()
     iterator = dataset_batch.make_one_shot_iterator()
@@ -74,17 +89,47 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
         graph= tf.get_default_graph()
         X = graph.get_tensor_by_name("X:0")
         y = graph.get_tensor_by_name("y:0")
-        Prod_best = graph.get_tensor_by_name("Prod:0")
-        mei = tf.argmax(Prod_best,axis=2)
-        score_mei = tf.reduce_max(Prod_best,axis=2)
+        if scoreInMILSVM: 
+            scores_tf = graph.get_tensor_by_name("scores:0")
+            Prod_best = graph.get_tensor_by_name("ProdScore:0")
+        else:
+            Prod_best = graph.get_tensor_by_name("Prod:0")
+        if with_tanh:
+            print('use of tanh')
+            Tanh = tf.tanh(Prod_best)
+            mei = tf.argmax(Tanh,axis=2)
+            score_mei = tf.reduce_max(Tanh,axis=2)
+        elif with_softmax:
+            Softmax = tf.nn.softmax(Prod_best,axis=-1)
+            mei = tf.argmax(Softmax,axis=2)
+            score_mei = tf.reduce_max(Softmax,axis=2)
+        else:
+            mei = tf.argmax(Prod_best,axis=2)
+            score_mei = tf.reduce_max(Prod_best,axis=2)
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
         index_im = 0
         while True:
             try:
-                fc7s,roiss, labels,name_imgs = sess.run(next_element)
-                PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll = sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
-                #print(PositiveExScoreAll.shape)
+                next_element_value = sess.run(next_element)
+#                    print(len(next_element_value))
+                if not(with_rois_scores_atEnd) and not(scoreInMILSVM):
+                    fc7s,roiss, labels,name_imgs = next_element_value
+                else:
+                    fc7s,roiss,rois_scores,labels,name_imgs = next_element_value
+                if scoreInMILSVM:
+                    feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
+                else:
+                    feed_dict_value = {X: fc7s, y: labels}
+                if with_tanh:
+                    PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll =\
+                    sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
+                elif with_softmax:
+                    PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll =\
+                    sess.run([mei,score_mei,Softmax], feed_dict=feed_dict_value)
+                else:
+                    PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll = \
+                    sess.run([mei,score_mei,Prod_best], feed_dict=feed_dict_value)
                 for k in range(len(labels)):
                     label_tmp = np.array(labels[k,:])
                     label_tmp_index = np.where(label_tmp==1)
@@ -95,7 +140,7 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
                     
                     if index_im > number_im:
                         continue                          
-                    if database=='VOC2007':
+                    if database=='VOC2007' or database =='watercolor':
                         name_img = str(name_imgs[k].decode("utf-8") )
                     else:
                         name_img = name_imgs[k]
@@ -152,7 +197,7 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
      # Testing time !
     train_dataset = tf.data.TFRecordDataset(dict_name_file['test'])
     train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r,\
-                                                    num_classes=num_classes))
+        num_classes=num_classes,with_rois_scores=get_roisScore))
     dataset_batch = train_dataset.batch(mini_batch_size)
     dataset_batch.cache()
     iterator = dataset_batch.make_one_shot_iterator()
@@ -167,16 +212,48 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
             graph= tf.get_default_graph()
             X = graph.get_tensor_by_name("X:0")
             y = graph.get_tensor_by_name("y:0")
-            Prod_best = graph.get_tensor_by_name("Prod:0")
-            mei = tf.argmax(Prod_best,axis=2)
-            score_mei = tf.reduce_max(Prod_best,axis=2)
+            if scoreInMILSVM: 
+                scores_tf = graph.get_tensor_by_name("scores:0")
+                Prod_best = graph.get_tensor_by_name("ProdScore:0")
+            else:
+                Prod_best = graph.get_tensor_by_name("Prod:0")
+            if with_tanh:
+                print('use of tanh')
+                Tanh = tf.tanh(Prod_best)
+                mei = tf.argmax(Tanh,axis=2)
+                score_mei = tf.reduce_max(Tanh,axis=2)
+            elif with_softmax:
+                Softmax = tf.nn.softmax(Prod_best,axis=-1)
+                mei = tf.argmax(Softmax,axis=2)
+                score_mei = tf.reduce_max(Softmax,axis=2)
+            else:
+                mei = tf.argmax(Prod_best,axis=2)
+                score_mei = tf.reduce_max(Prod_best,axis=2)
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
         while True:
             try:
-                fc7s,roiss, labels,name_imgs = sess.run(next_element)
-                PositiveRegions,get_RegionsScore,PositiveExScoreAll = \
-                    sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
+                if not(with_rois_scores_atEnd) and not(scoreInMILSVM):
+                   fc7s,roiss, labels,name_imgs = sess.run(next_element)
+                else:
+                    fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
+                if scoreInMILSVM:
+                    feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
+                else:
+                    feed_dict_value = {X: fc7s, y: labels}
+                if with_tanh:
+                    PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
+                    sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
+                elif with_softmax:
+                    PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
+                    sess.run([mei,score_mei,Softmax], feed_dict=feed_dict_value)
+                else:
+                    PositiveRegions,get_RegionsScore,PositiveExScoreAll = \
+                    sess.run([mei,score_mei,Prod_best], feed_dict=feed_dict_value)
+                if with_rois_scores_atEnd:
+                    PositiveExScoreAll = PositiveExScoreAll*rois_scores
+                    get_RegionsScore = np.max(PositiveExScoreAll,axis=2)
+                    PositiveRegions = np.amax(PositiveExScoreAll,axis=2)
 #                if predict_with=='LinearSVC':              
                 for k in range(len(labels)):
                     label_tmp = np.array(labels[k,:])
@@ -184,7 +261,7 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
                     intersec = np.intersect1d(label_tmp_index,label_problem)
                     if len(intersec)==0:
                         continue
-                    if database=='VOC2007' :
+                    if database=='VOC2007'or database =='watercolor' :
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
                     else:
                          complet_name = path_to_img + name_imgs[k] + '.jpg'
@@ -219,7 +296,7 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
                 for k in range(len(labels)): 
                     if ii > number_im:
                         continue
-                    if  database=='VOC2007':
+                    if  database=='VOC2007' or database =='watercolor':
                         name_img = str(name_imgs[k].decode("utf-8") )
                     else:
                         name_img = name_imgs[k]
@@ -264,7 +341,8 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
                     else:
                         cls = local_cls
                     #print(len(cls),len(roi_boxes_and_score))
-                    vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
+                    # Attention you use the 0.5 threshold
+                    vis_detections_list(im, cls, roi_boxes_and_score, thresh=0.0)
                     name_output = path_to_output2_ter + name_sans_ext +water_mark+ '_Regions.jpg'
                     plt.savefig(name_output)
                     plt.close()
@@ -273,7 +351,7 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
     tf.reset_default_graph()
 
 def plotEXP1():
-    
+    """ Difference of result with and without right ratio """
     cache_model_right_ratio = '/media/HDD/output_exp/ClassifPaintings/MILSVM1527210600.5675514/model'
     cache_model_false_ratio = '/media/HDD/output_exp/ClassifPaintings/MILSVM1527118925.7643065/model'
     database = 'VOC2007'
@@ -299,6 +377,36 @@ def plotEXP1():
     plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,\
                             cache_model_false_ratio,problem_class,RPN,water_mark)
 
+def plotEXP2():
+    """ Illustration of the use of score and not """
+     # watercolor_res152_COCO_r10_s166_k300_m900_p_wr_gd_MILSVM
+     
+    cache_model_wt_score = '/media/HDD/output_exp/ClassifPaintings/MILSVM/1527793922.5090935/model'
+    cache_model_w_score = '/media/HDD/output_exp/ClassifPaintings/MILSVM/1528134380.9923458/model'
+    database = 'watercolor'
+    number_im = 250
+    N = 1
+    extL2 = ''
+    nms_thresh = 0.7
+    savedstr = '_all'
+    sets = ['train','val','trainval','test']
+    dict_name_file = {}
+    demonet = 'res152_COCO'
+    problem_class = ['person','cat','bicycle']
+    path_data =  '/media/HDD/output_exp/ClassifPaintings/'
+    for set_str in sets:
+        name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
+        dict_name_file[set_str] = name_pkl_all_features
+    path_to_output2 = '/media/HDD/output_exp/ClassifPaintings/Illus_Exp2/'
+    RPN = False
+    water_mark = 'WithoutScore'
+    plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,\
+                            cache_model_wt_score,problem_class,RPN,water_mark,
+                            transform_output='tanh',scoreInMILSVM=False)
+    water_mark = 'WithScore'
+    plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,\
+                            cache_model_w_score,problem_class,RPN,water_mark,
+                            transform_output='tanh',scoreInMILSVM=True)
         
 if __name__ == '__main__':
-    plotEXP1()
+    plotEXP2()
