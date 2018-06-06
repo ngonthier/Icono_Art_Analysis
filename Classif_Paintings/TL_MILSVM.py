@@ -1318,7 +1318,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   transform_output=None,with_rois_scores_atEnd=False,
                                   with_scores=False,epsilon=0.0,restarts_paral='',
                                   Max_version=None,w_exp=1.0,seuillage_by_score=True,
-                                  seuil=0.5):
+                                  seuil=0.5,k_intopk=3):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -1364,6 +1364,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         Choice : 'max', None or '' for a reduce max 
         'softmax' : a softmax witht the product multiplied by w_exp
         'sparsemax' : use a sparsemax
+        'mintopk' : use the min of the top k_intopk regions 
+    @param : k_intopk
     @param w_exp : default 1.0 : weight in the softmax 
     @param seuillage_by_score : default False : remove the region with a score under seuil
     @param seuil : used to eliminate some regions : it remove all the image with an objectness score under seuil
@@ -1440,6 +1442,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         df_label[classes] = df_label[classes].apply(lambda x:(x + 1.0)/2.0)
     num_trainval_im = len(df_label[df_label['set']=='train'][item_name]) + len(df_label[df_label['set']==str_val][item_name])
     num_classes = len(classes)
+    print(database,'with ',num_trainval_im,' images in the trainval set')
     N = 1
     extL2 = ''
     nms_thresh = 0.7
@@ -1472,10 +1475,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     config.gpu_options.allow_growth = True  
             
     # Data for the MILSVM Latent SVM
+    # All those parameter are design for my GPU 1080 Ti memory size 
     n_jobs = -1
     performance = False
     if parallel_op:
-        sizeMax = 30*10000 // (k_per_bag*num_classes) + 1
+        sizeMax = 30*10000 // (k_per_bag*num_classes) 
     else:
         sizeMax = 30*10000 // k_per_bag
     if not(init_by_mean is None) and not(init_by_mean==''):
@@ -1488,16 +1492,18 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         # it seems that using a different size batch drasticly change the results
     elif restarts_paral=='paral': # Version 2 of the parallelisation
         restarts_paral_str = '_RPV2'
-        sizeMax = 30*60000 // (k_per_bag*num_classes) + 1
+        sizeMax = 30*200000 // (k_per_bag*num_classes)
     else:
         restarts_paral_str=''
-    mini_batch_size = sizeMax
+    # InternalError: Dst tensor is not initialized. can mean that you are running out of GPU memory
+    mini_batch_size = min(sizeMax,num_trainval_im)
     buffer_size = 10000
     if testMode:
         ext_test = '_Test_Mode'
     else:
         ext_test= ''
-    max_iters = ((num_trainval_im // mini_batch_size)+ np.sign(num_trainval_im % mini_batch_size))*max_iters_all_base
+    max_iters = ((num_trainval_im // mini_batch_size)+ \
+                 np.sign(num_trainval_im % mini_batch_size))*max_iters_all_base
 
     
     AP_per_class = []
@@ -1569,9 +1575,17 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         if not(w_exp==1.0): Max_version_str+=str(w_exp)
     elif Max_version=='sparsemax':
         Max_version_str ='_MVSM'
+    elif Max_version=='mintopk':
+        Max_version_str ='_MVMT'+str(k_intopk)
     optimArg= None
     verboseMILSVM = True
     shuffle = True
+    if num_trainval_im==mini_batch_size:
+        shuffle = False
+    if shuffle:
+        shuffle_str = ''
+    else:
+        shuffle_str = '_allBase'
     predict_with='MILSVM'
     Number_of_positif_elt = 1 
     number_zone = k_per_bag
@@ -1585,14 +1599,16 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                   max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
                   Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
                   TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
-                  with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil]
+                  with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
+                  k_intopk]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
                      'num_split','parallel_op','WR','norm','Optimizer','LR',
                      'optimArg','Number_of_positif_elt','number_zone','seuil_estimation'
                      ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
-                     'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score','seuil']
+                     'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
+                     'seuil','k_intopk']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -1603,7 +1619,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     cachefile_model_base= database +'_'+demonet+'_r'+str(restarts)+'_s' \
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
-        +Max_version_str+seuillage_by_score_str
+        +Max_version_str+seuillage_by_score_str+shuffle_str
     cachefile_model = path_data +  cachefile_model_base+'_MILSVM.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
@@ -1642,7 +1658,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,num_features=size_output,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
-                   Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil) 
+                   Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
+                   k_intopk=k_intopk) 
              export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                    WR=WR,performance=performance,restarts_paral=restarts_paral)
@@ -3389,18 +3406,19 @@ if __name__ == '__main__':
 #                                          database = 'watercolor', 
 #                                          verbose = True,testMode = False,jtest = 1,
 #                                          PlotRegions = False,RPN=False,CompBest=False)
-
     tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
                                   verbose = True,testMode = False,jtest = 'cow',
                                   PlotRegions = False,saved_clf=False,RPN=False,
                                   CompBest=False,Stocha=True,k_per_bag=300,
                                   parallel_op=True,CV_Mode='',num_split=2,
                                   WR=True,init_by_mean =None,seuil_estimation='',
-                                  restarts=10,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
                                   C=1.0,Optimizer='GradientDescent',norm='',
                                   transform_output='tanh',with_rois_scores_atEnd=False,
                                   with_scores=False,epsilon=0.01,restarts_paral='paral',
-                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9)
+                                  Max_version='mintopk',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                                  k_intopk=30)
+
    # A comparer avec du 93s par restart pour les 6 classes de watercolor
 
     ## TODO : tester avec une image constante en entrée et voir ce que cela donne de couleur différentes

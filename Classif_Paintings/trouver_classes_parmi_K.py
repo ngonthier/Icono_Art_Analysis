@@ -301,7 +301,7 @@ class tf_MILSVM():
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
                   is_betweenMinus1and1=False,CV_Mode=None,num_split=2,with_scores=False,
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
-                  seuil= 0.5):
+                  seuil= 0.5,k_intopk=3):
         # TODOD enelver les trucs inutiles ici
         # TODO faire des tests unitaire sur les differentes parametres
         """
@@ -337,7 +337,9 @@ class tf_MILSVM():
             Choice : 'max', None or '' for a reduce max 
             'softmax' : a softmax witht the product multiplied by w_exp
             'sparsemax' : use a sparsemax
+            'mintopk' : use the min of the top k regions 
         @param w_exp : default 1.0 : weight in the softmax 
+        @param k_intopk : number of regions used
         @param seuillage_by_score : default False : remove the region with a score under seuil
         @param seuil : used to eliminate some regions : it remove all the image with an objectness score under seuil
         """
@@ -382,6 +384,8 @@ class tf_MILSVM():
         self.Max_version=Max_version
         if self.Max_version=='softmax':
             self.w_exp = w_exp # This parameter can increase of not the pente
+        if self.Max_version=='mintopk':
+            self.k = k_intopk # number of regions
         self.seuillage_by_score = seuillage_by_score
         self.seuil = seuil
         if self.seuillage_by_score:
@@ -389,7 +393,7 @@ class tf_MILSVM():
         if self.Max_version=='sparsemax':
             print('This don t work right now') # TODO a faire LOL
             raise(NotImplemented) 
-        if not(self.Max_version in ['sparsemax','max','','softmax'] or self.Max_version is None):
+        if not(self.Max_version in ['mintopk','sparsemax','max','','softmax'] or self.Max_version is None):
             raise(NotImplemented)
         
     def fit_w_CV(self,data_pos,data_neg):
@@ -742,7 +746,7 @@ class tf_MILSVM():
         if self.init_by_mean and self.restarts_paral_V2: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_Dim: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_V2: raise(NotImplemented)
-        if self.class_indice>-1 and (self.Max_version=='sparsemax' or self.seuillage_by_score): raise(NotImplemented)
+        if self.class_indice>-1 and (self.Max_version=='sparsemax' or self.seuillage_by_score or self.Max_version=='mintopk'): raise(NotImplemented)
         self.paral_number_W = self.restarts +1
         ## Debut de la fonction        
         self.cpu_count = multiprocessing.cpu_count()
@@ -935,6 +939,9 @@ class tf_MILSVM():
                 Prod=tf.multiply(Prod,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.))
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
+            elif self.Max_version=='mintopk':
+                Max=tf.reduce_min(tf.nn.top_k(Prod,self.k)[0],axis=-1)
+                if self.verbose: print('mintopk')
             elif self.Max_version=='softmax':
                 if self.verbose: print('softmax')
                 Max=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod,axis=-1),tf.multiply(Prod,self.w_exp)),axis=-1)
@@ -970,6 +977,8 @@ class tf_MILSVM():
                 Prod_batch=tf.multiply(Prod_batch,tf.divide(tf.add(tf.sign(tf.add(scores_batch,-self.seuil)),1.),2.))
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
+            elif self.Max_version=='mintopk':
+                Max_batch=tf.reduce_min(tf.nn.top_k(Prod_batch,self.k)[0],axis=-1)
             elif self.Max_version=='softmax':
                 Max_batch=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod_batch,axis=-1),tf.multiply(Prod_batch,self.w_exp)),axis=-1)
             elif self.Max_version=='sparsemax':
@@ -1086,8 +1095,8 @@ class tf_MILSVM():
                     t4 = time.time()
                     list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
                     if self.WR: 
-                        assert(np.max(list_elt)<= 1.0)
-                        assert(np.min(list_elt)>= -1.0)
+                        assert(np.max(list_elt)<= 2.0)
+                        assert(np.min(list_elt)>= -2.0)
                     t5 = time.time()
                     print("duration loss eval :",str(t5-t4))
                     print(list_elt)
