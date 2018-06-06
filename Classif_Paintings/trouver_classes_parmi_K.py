@@ -566,7 +566,25 @@ class tf_MILSVM():
         dataset_batch = dataset_batch.prefetch(1)
         iterator_batch = dataset_batch.make_initializable_iterator()
         return(iterator_batch)
-     
+    
+    def eval_loss(self,sess,iterator_batch,loss_batch):
+        if self.class_indice==-1:
+            if self.restarts_paral_V2:
+                loss_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
+            elif self.restarts_paral_Dim:
+                loss_value = np.zeros((self.paral_number_W,self.num_classes),dtype=np.float32)
+        else:
+            loss_value = np.zeros((self.paral_number_W,),dtype=np.float32)
+        sess.run(iterator_batch.initializer)
+        while True:
+            try:
+                loss_value_tmp = sess.run(loss_batch)
+                loss_value += loss_value_tmp
+                break
+            except tf.errors.OutOfRangeError:
+                break
+        return(loss_value)
+    
     def def_SVM_onMean(self,X_, y_):
         X_mean = tf.reduce_mean(X_,axis=1) 
         # Definition of the graph 
@@ -967,10 +985,14 @@ class tf_MILSVM():
             else:
                 weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
             Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
-            if self.restarts_paral_V2:
-                loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
+            if self.WR:
+                loss_batch= Tan_batch
             else:
-                loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
+                if self.restarts_paral_V2:
+                    loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
+                else:
+                    loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
+
             
         else:
             # TODO faire le parallele sur les W
@@ -1056,10 +1078,19 @@ class tf_MILSVM():
            
             for step in range(self.max_iters):
                 if self.debug: t2 = time.time()
-                sess.run(train,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE))
+                sess.run(train)
+#                sess.run(train,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE))
                 if self.debug:
                     t3 = time.time()
-                    print(step,"durations :",str(t3-t2))
+                    print(step,"duration :",str(t3-t2))
+                    t4 = time.time()
+                    list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
+                    if self.WR: 
+                        assert(np.max(list_elt)<= 1.0)
+                        assert(np.min(list_elt)>= -1.0)
+                    t5 = time.time()
+                    print("duration loss eval :",str(t5-t4))
+                    print(list_elt)
                     
             if class_indice==-1:
                 if self.restarts_paral_V2:
