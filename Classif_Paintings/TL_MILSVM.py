@@ -1422,6 +1422,15 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
         classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
+    elif database=='clipart':
+        ext = '.csv'
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
+        classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
+           'bottle', 'bus', 'car', 'cat', 'chair',
+           'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant',
+           'sheep', 'sofa', 'train', 'tvmonitor']
     elif(database=='Wikidata_Paintings'):
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
@@ -1447,10 +1456,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     databasetxt =path_data + database + ext
     df_label = pd.read_csv(databasetxt,sep=",")
     str_val = 'val'
-    if database=='Wikidata_Paintings_miniset_verif' or database=='Paintings':
+    if database=='Wikidata_Paintings_miniset_verif':
         df_label = df_label[df_label['BadPhoto'] <= 0.0]
         str_val = 'validation'
-    if database=='VOC2007' or database=='watercolor':
+    elif database=='Paintings':
+        str_val = 'validation'
+    elif database in ['VOC2007','watercolor','clipart']:
         str_val = 'val'
         df_label[classes] = df_label[classes].apply(lambda x:(x + 1.0)/2.0)
     num_trainval_im = len(df_label[df_label['set']=='train'][item_name]) + len(df_label[df_label['set']==str_val][item_name])
@@ -1499,13 +1510,15 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         if not(CV_Mode=='CV' and num_split==2):
             sizeMax //= 2
      # boolean paralleliation du W
+    if not(num_features==2048):
+        sizeMax //= (num_features//2048)
     if restarts_paral=='Dim': # It will create a new dimension
         restarts_paral_str = '_RP'
         sizeMax //= max(int((restarts+1)//2),1) # To avoid division by zero
         # it seems that using a different size batch drasticly change the results
     elif restarts_paral=='paral': # Version 2 of the parallelisation
         restarts_paral_str = '_RPV2'
-        sizeMax = 30*200000 // (k_per_bag*num_classes)
+        sizeMax = 30*200000 // (k_per_bag*20)
     else:
         restarts_paral_str=''
     # InternalError: Dst tensor is not initialized. can mean that you are running out of GPU memory
@@ -1648,17 +1661,21 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         with open(cachefile_model, 'rb') as f:
             name_milsvm = pickle.load(f)
             if verbose: print("The cachefile exists")
-       
+     
+    num_images =  len(df_label[df_label['set']=='test'][item_name])
+    all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
     if database=='VOC2007':
         imdb = get_imdb('voc_2007_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         num_images = len(imdb.image_index)
-        all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
     elif database=='watercolor':
         imdb = get_imdb('watercolor_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         num_images = len(imdb.image_index)
-        all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
+    elif database=='clipart':
+        imdb = get_imdb('clipart_test')
+        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+        num_images = len(imdb.image_index) 
     else:
         all_boxes = None
 
@@ -1781,7 +1798,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     with open(cachefile_model, 'wb') as f:
         pickle.dump(name_milsvm, f)
     
-    if database=='VOC2007' or database=='watercolor':
+    if database in ['VOC2007','watercolor','clipart']:
         # DEtection evaluation 
         if testMode:
             for j in range(0, imdb.num_classes-1):
@@ -2022,7 +2039,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         for k in range(len(labels)):
                             if index_im > number_im:
                                 continue
-                            if database=='VOC2007'  or  database=='watercolor' :
+                            if database in ['VOC2007','watercolor','Paintings','clipart']:
                                 name_img = str(name_imgs[k].decode("utf-8") )
                             else:
                                 name_img = name_imgs[k]
@@ -2311,7 +2328,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
 #                if predict_with=='LinearSVC':
                     
                 for k in range(len(labels)):
-                    if database=='VOC2007' or  database=='watercolor' :
+                    if database in ['VOC2007','watercolor','Paintings','clipart'] :
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
                     else:
                          complet_name = path_to_img + name_imgs[k] + '.jpg'
@@ -2346,7 +2363,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     i+=1
     
                 for l in range(len(name_imgs)): 
-                    if database=='VOC2007'  or  database=='watercolor' :
+                    if database in ['VOC2007','watercolor','clipart']:
                         name_all_test += [[str(name_imgs[l].decode("utf-8"))]]
                     else:
                         name_all_test += [[name_imgs[l]]]
@@ -2360,7 +2377,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     for k in range(len(labels)):   
                         if ii > number_im:
                             continue
-                        if  database=='VOC2007' or  database=='watercolor' :
+                        if  database in ['VOC2007','watercolor','clipart']:
                             name_img = str(name_imgs[k].decode("utf-8") )
                         else:
                             name_img = name_imgs[k]
@@ -3428,18 +3445,18 @@ if __name__ == '__main__':
 #                                          database = 'watercolor', 
 #                                          verbose = True,testMode = False,jtest = 1,
 #                                          PlotRegions = False,RPN=False,CompBest=False)
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'clipart', 
                                   verbose = True,testMode = False,jtest = 'cow',
                                   PlotRegions = False,saved_clf=False,RPN=False,
                                   CompBest=False,Stocha=True,k_per_bag=300,
                                   parallel_op=True,CV_Mode='',num_split=2,
                                   WR=True,init_by_mean =None,seuil_estimation='',
-                                  restarts=19,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
                                   C=1.0,Optimizer='GradientDescent',norm='',
                                   transform_output='',with_rois_scores_atEnd=False,
-                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
+                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
                                   Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
-                                  k_intopk=1,C_Searching=True)
+                                  k_intopk=1,C_Searching=False)
 
 
    # A comparer avec du 93s par restart pour les 6 classes de watercolor

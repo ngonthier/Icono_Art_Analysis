@@ -1410,6 +1410,11 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         ext = '.csv'
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+    elif database=='clipart':
+        num_classes = 20
+        ext = '.csv'
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
@@ -1421,7 +1426,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         ext = '.txt'
     
     databasetxt = path_data + database + ext
-    if database=='VOC2007' or database=='watercolor':
+    if database=='VOC2007' or database=='watercolor' or database=='clipart':
         df_label = pd.read_csv(databasetxt,sep=",",dtype=str)
     else:
         df_label = pd.read_csv(databasetxt,sep=",")
@@ -1498,7 +1503,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             dict_writers[set_str] = tf.python_io.TFRecordWriter(name_pkl_all_features)
         if database=='Paintings':
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-        if database=='VOC2007':
+        if database=='VOC2007' or database=='clipart':
             classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
                'bottle', 'bus', 'car', 'cat', 'chair',
                'cow', 'diningtable', 'dog', 'horse',
@@ -1519,7 +1524,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 if not(i==0):
                     pickle.dump(features_resnet_dict,pkl) # Save the data
                     features_resnet_dict= {}
-            if database=='VOC12' or database=='VOC2007' or database=='Paintings'or database=='watercolor':
+            if database in ['VOC2007','clipart','Paintings','watercolor']:
                 complet_name = path_to_img + name_img + '.jpg'
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 name_sans_ext = os.path.splitext(name_img)[0]
@@ -1537,7 +1542,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         elif filesave=='tfrecords':
             if i%Itera==0:
                 if verbose : print(i,name_img)
-            if database=='VOC12' or database=='VOC2007' or database=='Paintings' or database=='watercolor':
+            if database in ['VOC2007','clipart','Paintings','watercolor']:
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -1567,7 +1572,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 for j in range(num_classes):
                     if(classes[j] in df_label['classe'][i]):
                         classes_vectors[j] = 1
-            if database=='VOC2007'or database=='watercolor':
+            if database in ['VOC2007','clipart','watercolor']:
                 for j in range(num_classes):
                     value = int((int(df_label[classes[j]][i])+1.)/2.)
                     #print(value)
@@ -1617,7 +1622,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     dict_writers['trainval'].write(example.SerializeToString())
                 elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
                     dict_writers['test'].write(example.SerializeToString())
-            if database=='watercolor':
+            if database=='watercolor' or database=='clipart':
                 if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
                     dict_writers['train'].write(example.SerializeToString())
                     dict_writers['trainval'].write(example.SerializeToString())
