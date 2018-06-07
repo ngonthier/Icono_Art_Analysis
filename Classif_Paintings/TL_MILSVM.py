@@ -55,6 +55,7 @@ from sklearn import linear_model
 from tf_faster_rcnn.lib.datasets.factory import get_imdb
 from Estimation_Param import kde_sklearn,findIntersection
 from utils.save_param import create_param_id_file_and_dir,write_results,tabs_to_str
+from Transform_Box import py_cpu_modif
 #from hpsklearn import HyperoptEstimator,sgd
 #from hyperopt import tpe
 
@@ -97,10 +98,8 @@ CLASSES_SET ={'VOC' : CLASSESVOC,
               'COCO' : CLASSESCOCO }
 
 depicts_depictsLabel = {'Q942467_verif': 'Jesus_Child','Q235113_verif':'angel_Cupidon ','Q345_verif' :'Mary','Q109607_verif':'ruins','Q10791_verif': 'nudity'}
-num_features = 2048 # TODO change thath !!!
 
-def parser_w_mei_reduce(record):
-    num_rois = 300
+def parser_w_mei_reduce(record,num_rois=300,num_features=2048):
     # Perform additional preprocessing on the parsed data.
     keys_to_features={
                 'score_mei': tf.FixedLenFeature([1], tf.float32),
@@ -119,7 +118,7 @@ def parser_w_mei_reduce(record):
     fc7_selected = tf.reshape(fc7_selected, [num_rois,num_features])         
     return fc7_selected,label_300
 
-def parser_w_rois(record,classe_index=0,num_classes=10):
+def parser_w_rois(record,classe_index=0,num_classes=10,num_rois=300,num_features=2048):
     # Perform additional preprocessing on the parsed data.
     keys_to_features={
                 'height': tf.FixedLenFeature([], tf.int64),
@@ -127,9 +126,9 @@ def parser_w_rois(record,classe_index=0,num_classes=10):
                 'num_regions':  tf.FixedLenFeature([], tf.int64),
                 'num_features':  tf.FixedLenFeature([], tf.int64),
                 'dim1_rois':  tf.FixedLenFeature([], tf.int64),
-                'rois': tf.FixedLenFeature([300*5],tf.float32),
-                'roi_scores':tf.FixedLenFeature([300],tf.float32),
-                'fc7': tf.FixedLenFeature([300*num_features],tf.float32),
+                'rois': tf.FixedLenFeature([num_rois*5],tf.float32),
+                'roi_scores':tf.FixedLenFeature([num_rois],tf.float32),
+                'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
                 'label' : tf.FixedLenFeature([num_classes],tf.float32),
                 'name_img' : tf.FixedLenFeature([],tf.string)}
     parsed = tf.parse_single_example(record, keys_to_features)
@@ -140,9 +139,9 @@ def parser_w_rois(record,classe_index=0,num_classes=10):
     label = tf.slice(label,[classe_index],[1])
     label = tf.squeeze(label) # To get a vector one dimension
     fc7 = parsed['fc7']
-    fc7 = tf.reshape(fc7, [300,num_features])
+    fc7 = tf.reshape(fc7, [num_rois,num_features])
     rois = parsed['rois']
-    rois = tf.reshape(rois, [300,5])           
+    rois = tf.reshape(rois, [num_rois,5])           
     return fc7,rois, label,name_img
 
 def parser_w_rois_all_class(record,num_classes=10,num_rois=300,num_features=2048,
@@ -990,7 +989,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
             if verbose: print("End training the MILSVM")
             
             pos_ex_after_MILSVM = np.zeros((len(pos_ex),size_output))
-            neg_ex_keep = np.zeros((len(neg_ex),size_output))
+            neg_ex_keep = np.zeros((len(neg_ex),num_features))
             for k,name_imgtab in enumerate(pos_name):
                 pos_ex_after_MILSVM[k,:] = pos_ex[k,PositiveRegions[k],:] # We keep the positive exemple according to the MILSVM from Said
                 
@@ -1030,7 +1029,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                     plt.savefig(name_output)
                     plt.close()
             
-            neg_ex_keep = neg_ex.reshape(-1,size_output)
+            neg_ex_keep = neg_ex.reshape(-1,num_features)
             
             X = np.vstack((pos_ex_after_MILSVM,neg_ex_keep))
             y_pos = np.ones((len(pos_ex_after_MILSVM),1))
@@ -1318,7 +1317,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   transform_output=None,with_rois_scores_atEnd=False,
                                   with_scores=False,epsilon=0.0,restarts_paral='',
                                   Max_version=None,w_exp=1.0,seuillage_by_score=True,
-                                  seuil=0.5,k_intopk=3):
+                                  seuil=0.5,k_intopk=3,C_Searching=False):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -1328,13 +1327,17 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     In this function we train an SVM only on the positive element returned by 
     the algo
     
+    Note : with a features maps of 2048, k_bag =300 and a batchsize of 1000 we can 
+    train up to 1200 W vectors in parallel at the same time on a NVIDIA 1080 Ti
+    
     @param : demonet : the kind of inside network used it can be 'vgg16_VOC07',
         'vgg16_VOC12','vgg16_COCO','res101_VOC12','res101_COCO','res152_COCO'
     @param : database : the database used for the classification task
     @param : verbose : Verbose option classical
     @param : testMode : boolean True we only run on one class
     @param : jtest : the class on which we run the test
-    @param : PlotRegions : plot the regions used for learn and the regions in the positive output response
+    @param : PlotRegions : plot the regions used for learn and the regions in 
+        the positive output response
     @param : saved_clf : [default : True] Too sva ethe classifier 
     @param : RPN=False trace la boite autour de l'element ayant le plus haut score du RPN object
     @param : CompBest : Comparaison with the CompBest classifier trained
@@ -1342,14 +1345,21 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     @param : k_per_bag : number of element per batch in the slection phase [defaut : 300] 
     !!!!! for the moment it is not possible to use something else than 300 if the dataset is not 
     records with the selection of the regions already !!!! TODO change that
-    @param : parallel_op : use of the parallelisation version of the MILSVM for the all classes same time
-    @param : CV_Mode : cross validation mode in the MILSVM : possibility ; None, CV in k split or LA for Leave apart one of the split
+    @param : parallel_op : use of the parallelisation version of the MILSVM 
+        for the all classes same time
+    @param : CV_Mode : cross validation mode in the MILSVM : possibility ; 
+        None, CV in k split or LA for Leave apart one of the split
     @param : num_split  : Number of split for the CV or LA
-    @param : WR   :  use of not of the regularisation term in the evaluation of the final classifier, if True we don't use it
-    @param : init_by_mean   :  use of an initialisation of the vecteur W and bias b by a optimisation on a classification task on the mean on all the regions of the image
-    @param : seuil_estimation : ByHist or MaxDesNeg :  Estimation of the seuil for the prediction detection 
+    @param : WR   :  use of not of the regularisation term in the evaluation of 
+        the final classifier, if True we don't use it
+    @param : init_by_mean   :  use of an initialisation of the vecteur W and 
+        bias b by a optimisation on a classification task on the mean on all 
+        the regions of the image
+    @param : seuil_estimation : ByHist or MaxDesNeg :  Estimation of the seuil 
+        for the prediction detection 
     @param : restarts  :  number of restart in the MILSVM [default=19]
-    @param : max_iters_all_base  :  number of maximum iteration on the going on the full database 
+    @param : max_iters_all_base  :  number of maximum iteration on the going on 
+        the full database 
     @param : LR  :  Learning rate for the optimizer in the MILSVM 
     @param : C  :  Regularisation term for the optimizer in the MILSVM 
     @param : Optimizer  : Optimizer for the MILSVM GradientDescent or Adam
@@ -1358,9 +1368,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
             'STD' standardisation by feature maps
     @param : restarts_paral : run several W vecteur optimisation in parallel 
             two versions exist 'Dim','paral'
-    @param : transform_output : Transformation for the final estimation can be sigmoid or tanh (string)
-    @param : with_rois_scores_atEnd : Multiplication of the final result by the object score
-    @param Max_version : default None : Different max that can be used in the optimisation
+    @param : transform_output : Transformation for the final estimation can be 
+        sigmoid or tanh (string)
+    @param : with_rois_scores_atEnd : Multiplication of the final result by the 
+        object score
+    @param Max_version : default None : Different max that can be used in the 
+        optimisation :
         Choice : 'max', None or '' for a reduce max 
         'softmax' : a softmax witht the product multiplied by w_exp
         'sparsemax' : use a sparsemax
@@ -1459,9 +1472,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
 
     sLength_all = len(df_label[item_name])
     if demonet == 'vgg16_COCO':
-        size_output = 4096
-    elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
-        size_output = 2048
+        num_features = 4096
+    elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
+        num_features = 2048
     
     if not(data_precomputeed):
         # Compute the features
@@ -1514,6 +1527,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     final_clf = None
     class_weight = None
     ReDo = False
+    if C_Searching:C_Searching_str ='_Csearch'
+    else: C_Searching_str = ''
     if with_scores:
         with_scores_str = '_WRC'+str(epsilon)
     else:
@@ -1600,7 +1615,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                   Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
                   TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
-                  k_intopk]
+                  k_intopk,C_Searching]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -1608,7 +1623,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                      'optimArg','Number_of_positif_elt','number_zone','seuil_estimation'
                      ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
-                     'seuil','k_intopk']
+                     'seuil','k_intopk','C_Searching']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -1619,7 +1634,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     cachefile_model_base= database +'_'+demonet+'_r'+str(restarts)+'_s' \
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
-        +Max_version_str+seuillage_by_score_str+shuffle_str
+        +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str
     cachefile_model = path_data +  cachefile_model_base+'_MILSVM.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
@@ -1656,13 +1671,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
              classifierMILSVM = tf_MILSVM(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,
                    max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
-                   mini_batch_size=mini_batch_size,num_features=size_output,debug=False,
+                   mini_batch_size=mini_batch_size,num_features=num_features,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
                    Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
                    k_intopk=k_intopk) 
              export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
-                   WR=WR,performance=performance,restarts_paral=restarts_paral)
+                   WR=WR,performance=performance,restarts_paral=restarts_paral,
+                   C_Searching=C_Searching)
              np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
              name_milsvm =export_dir,np_pos_value,np_neg_value
              with open(cachefile_model, 'wb') as f:
@@ -1672,7 +1688,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         
         dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
         parameters=PlotRegions,RPN,Stocha,CompBest
-        param_clf = k_per_bag,Number_of_positif_elt,size_output
+        param_clf = k_per_bag,Number_of_positif_elt,num_features
         true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited \
         ,all_boxes = \
         tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
@@ -1719,7 +1735,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                 classifierMILSVM = tf_MILSVM(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,
                    max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
-                   mini_batch_size=mini_batch_size,num_features=size_output,debug=False,
+                   mini_batch_size=mini_batch_size,num_features=num_features,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
                    Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil) 
                 export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
@@ -1737,7 +1753,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
            
             ## Predicition with the MILSVM
             parameters=PlotRegions,RPN,Stocha,CompBest
-            param_clf = k_per_bag,Number_of_positif_elt,size_output
+            param_clf = k_per_bag,Number_of_positif_elt,num_features
             true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited,all_boxes = \
                 tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                                export_dir,dict_name_file,mini_batch_size,config,
@@ -1847,7 +1863,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
     
      print('thresh_evaluation',thresh_evaluation,'TEST_NMS',TEST_NMS,'seuil_estimation',seuil_estimation)
      PlotRegions,RPN,Stocha,CompBest=parameters
-     k_per_bag,positive_elt,size_output = param_clf
+     k_per_bag,positive_elt,num_features = param_clf
      thresh = thresh_evaluation # Threshold score or distance MILSVM
      #TEST_NMS = 0.7 # Recouvrement entre les classes
      thres_max = False
@@ -1887,7 +1903,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
          if length_matrix>17500*300:
              print('Not enough memory on Nicolas Computer ! use an other classifier than LinearSVC')
              raise(MemoryError)
-         X_array = np.empty((length_matrix,size_output),dtype=np.float32)
+         X_array = np.empty((length_matrix,num_features),dtype=np.float32)
          y_array =  np.empty((num_classes,length_matrix),dtype=np.float32)
          x_array_ind = 0
      
@@ -1909,7 +1925,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
         if verbose: print("Start ploting Regions selected by the MILSVM in training phase")
         train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
         train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
-            num_classes=num_classes,with_rois_scores=get_roisScore))
+            num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features))
         dataset_batch = train_dataset.batch(mini_batch_size)
         dataset_batch.cache()
         iterator = dataset_batch.make_one_shot_iterator()
@@ -2222,7 +2238,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      # Testing time !
      train_dataset = tf.data.TFRecordDataset(dict_name_file['test'])
      train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r,\
-        num_classes=num_classes,with_rois_scores=get_roisScore))
+        num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features))
      dataset_batch = train_dataset.batch(mini_batch_size)
      dataset_batch.cache()
      iterator = dataset_batch.make_one_shot_iterator()
@@ -2318,6 +2334,12 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         cls_scores = scores[inds]
                         cls_boxes = roi_boxes[inds,:]
                         cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])).astype(np.float32, copy=False)
+                        
+                        modif_box = '' # Possibility : SumPond, Inter
+                        if(not(modif_box=='') and not(modif_box is None)):
+                            # Modification of the bounding box 
+                            cls_dets = py_cpu_modif(cls_dets,kind=modif_box)
+                        
                         keep = nms(cls_dets, TEST_NMS)
                         cls_dets = cls_dets[keep, :]
                         all_boxes[j][i] = cls_dets
@@ -3412,12 +3434,13 @@ if __name__ == '__main__':
                                   CompBest=False,Stocha=True,k_per_bag=300,
                                   parallel_op=True,CV_Mode='',num_split=2,
                                   WR=True,init_by_mean =None,seuil_estimation='',
-                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  restarts=19,max_iters_all_base=300,LR=0.01,with_tanh=True,
                                   C=1.0,Optimizer='GradientDescent',norm='',
-                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  transform_output='',with_rois_scores_atEnd=False,
                                   with_scores=False,epsilon=0.01,restarts_paral='paral',
-                                  Max_version='mintopk',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-                                  k_intopk=30)
+                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+                                  k_intopk=1,C_Searching=True)
+
 
    # A comparer avec du 93s par restart pour les 6 classes de watercolor
 

@@ -701,7 +701,7 @@ class tf_MILSVM():
         
     def fit_MILSVM_tfrecords(self,data_path,class_indice,shuffle=True,WR=False,
                              init_by_mean=None,norm=None,performance=False,
-                             restarts_paral=''):
+                             restarts_paral='',C_Searching=False):
         """" 
         This function run per batch on the tfrecords data folder
         @param : data_path : 
@@ -730,6 +730,7 @@ class tf_MILSVM():
         # TODO : selectionner que les top_k region sby score
         
         # Travailler sur le min du top k des regions sinon 
+        self.C_Searching= C_Searching
         self.norm = norm
         self.First_run = True
         self.WR = WR
@@ -744,10 +745,20 @@ class tf_MILSVM():
             self.restarts_paral_V2 = True
         if self.init_by_mean and self.restarts_paral_Dim: raise(NotImplemented)
         if self.init_by_mean and self.restarts_paral_V2: raise(NotImplemented)
+        if self.init_by_mean and self.C_Searching: raise(NotImplemented)
+        if self.class_indice>-1 and self.C_Searching: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_Dim: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_V2: raise(NotImplemented)
         if self.class_indice>-1 and (self.Max_version=='sparsemax' or self.seuillage_by_score or self.Max_version=='mintopk'): raise(NotImplemented)
         self.paral_number_W = self.restarts +1
+        if self.C_Searching:
+            if not(self.C_Searching and self.WR):
+                print("!! You should not do that, you will not choose the W vector on the right reason")
+#            C_values = np.array([2.,1.5,1.,0.5,0.1,0.01],dtype=np.float32)
+            C_values =  np.arange(0.5,1.5,0.1,dtype=np.float32)
+            C_value_repeat = np.repeat(C_values,repeats=(self.paral_number_W*self.num_classes),axis=0)
+            self.paral_number_W *= len(C_values)
+            if self.verbose: print('We will compute :',len(C_value_repeat),'W vectors due to the C searching')
         ## Debut de la fonction        
         self.cpu_count = multiprocessing.cpu_count()
         train_dataset_init = tf.data.TFRecordDataset(data_path)
@@ -787,7 +798,6 @@ class tf_MILSVM():
         self.config.gpu_options.allow_growth = True
         
         minus_1 = tf.constant(-1.)
-        print(self.Max_version)
         if class_indice==-1:
             label_vector = tf.placeholder(tf.float32, shape=(None,self.num_classes))
             if self.is_betweenMinus1and1:
@@ -960,7 +970,11 @@ class tf_MILSVM():
                 weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0])
             Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
             if self.restarts_paral_V2:
-                loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
+                if self.C_Searching:    
+                    loss= tf.add(Tan,tf.multiply(C_value_repeat,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
+                else:
+                    loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
+
             else:
                 loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
             # Shape 20 and if self.restarts_paral_Dim shape (number_W) x 20
@@ -1142,6 +1156,8 @@ class tf_MILSVM():
                     W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
                     b_best[j,:,:] = b_tmp[j+argmin*self.num_classes]
                     if self.verbose: loss_value_min+=[loss_value_j_min]
+                    if self.C_Searching and self.verbose:
+                        print('Best C values : ',C_value_repeat[j+argmin*self.num_classes],'class ',j)
             if self.verbose : 
                 print("bestloss",loss_value_min)
                 t1 = time.time()
