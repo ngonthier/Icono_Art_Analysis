@@ -342,7 +342,7 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
     output_dir=  '/media/HDD/output_exp/ClassifPaintings/tmp/'
     input_dir=  '/media/HDD/output_exp/ClassifPaintings/'
     if database=='VOC2007' or  database=='clipart':
-        per =False
+        per =True
         ext = '.csv'
         classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
            'bottle', 'bus', 'car', 'cat', 'chair',
@@ -359,7 +359,7 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
         classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
         imdb = get_imdb('watercolor_test')
         num_classes = imdb.num_classes-1
-        corr_voc_coco = [0,2,15,3,16,17,1]
+        corr_watercolor_coco = [0,2,15,3,16,17,1] # From Cooc to watercolor
         corr_watercolor_voc = [0,2,3,7,8,12,15]
     
     imdb.set_force_dont_use_07_metric(True)
@@ -376,7 +376,6 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
     assert(y_true.shape==y_predict.shape)
     
     demonets = ['res152_COCO','res101_COCO','res101_VOC07']
-#    demonets=['res101_VOC07']
     
     just_Sans_Regression = False
     
@@ -422,13 +421,17 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
 
 
             if 'COCO' in demonet:
-                scores = scores[:,corr_voc_coco]
+                if database=='VOC2007':
+                    scores = scores[:,corr_voc_coco]
+                elif database=='watercolor':
+                    scores = scores[:,corr_watercolor_coco]
                 boxes_tmp = np.zeros((len(scores),21*4))
                 for j in range(1, imdb.num_classes):
-                    j_tmp = corr_voc_coco[j]
+                    if database=='VOC2007': j_tmp = corr_voc_coco[j]
+                    elif database=='watercolor':j_tmp = corr_watercolor_coco[j]
                     boxes_tmp[:,j*4:(j+1)*4] = boxes[:,j_tmp*4:(j_tmp+1)*4]
                 boxes = boxes_tmp
-            elif database=='watercolor':
+            elif  'VOC' in demonet and database=='watercolor':
                 scores = scores[:,corr_watercolor_voc]
                 boxes_tmp = np.zeros((len(scores),21*4))
                 for j in range(1, imdb.num_classes):
@@ -488,151 +491,172 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
         print(arrayToLatex(aps,per=per))
 
     # We will know see the impact of the loss of the regression of the bounding box
-    demonet = 'res152_COCO'
     print('Impact of the abscence of bounding boxes regressions at the end')
-    all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes+1)]
-    max_per_image= 100
-#    TEST_NMS = 0.7
-    nms_thresh = TEST_NMS
-#    thresh= 0.
-    tf.reset_default_graph()
-    CLASSES = CLASSES_SET['COCO']
-    anchor_scales = [4, 8, 16, 32]
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
-    tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
-    tfconfig = tf.ConfigProto(allow_soft_placement=True)
-    tfconfig.gpu_options.allow_growth=True
-    # init session
-    sess = tf.Session(config=tfconfig)
-    net = resnetv1(num_layers=152)
-    nbClasses = len(CLASSES)
-    net.create_architecture("TEST", nbClasses,
-                                      tag='default', anchor_scales=anchor_scales,
-                                      modeTL= True,nms_thresh=nms_thresh) # default nms_thresh = 0.7
-    saver = tf.train.Saver()
-    saver.restore(sess, tfmodel)
+    for demonet in demonets:
+        all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes+1)]
+        print(demonet)
+        tf.reset_default_graph()
+        if 'VOC'in demonet:
+            CLASSES = CLASSES_SET['VOC']
+            anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+        elif 'COCO'in demonet:
+            CLASSES = CLASSES_SET['COCO']
+            anchor_scales = [4, 8, 16, 32]
+        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+        tfconfig = tf.ConfigProto(allow_soft_placement=True)
+        tfconfig.gpu_options.allow_growth=True
+        # init session
+        sess = tf.Session(config=tfconfig)
+        # load network
+        if  'vgg16' in demonet:
+          net = vgg16()
+        elif demonet == 'res50':
+          raise NotImplementedError
+        elif 'res101' in demonet:
+          net = resnetv1(num_layers=101)
+        elif 'res152' in demonet:
+          net = resnetv1(num_layers=152)
+        else:
+          raise NotImplementedError
+        nms_thresh = TEST_NMS
     
-    plot = False
-    if plot:
-        path_to_output2  = '/media/HDD/output_exp/ClassifPaintings/Perf_FasterRCNN/VOC2007_Test/'
-        pathlib.Path(path_to_output2).mkdir(parents=True, exist_ok=True) 
-    
-    for i in range(num_images):
-        if i%1000==0: print('Images #',i)
-        name_tab = imdb.image_path_at(i)
-        name_tab2 = name_tab.split('/')[-1]
-        name_im = name_tab2.split('.')[0]
-        im = cv2.imread(imdb.image_path_at(i))
-        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess,  net, im) 
-#        
-#        scores_end, boxes_end = TL_im_detect_end(cls_prob, bbox_pred, rois,im)
-#        if 'COCO' in demonet:
-#            scores_end = scores_end[:,corr_voc_coco]
-#            boxes_tmp = np.zeros((len(scores_end),21*4))
-#            for j in range(1, imdb.num_classes):
-#                j_tmp = corr_voc_coco[j]
-#                boxes_tmp[:,j*4:(j+1)*4] = boxes_end[:,j_tmp*4:(j_tmp+1)*4]
-#            boxes_end = boxes_tmp
-#
-#            # skip j = 0, because it's the background class
-#        for j in range(1, imdb.num_classes):
-#            inds = np.where(scores_end[:, j] > thresh)[0]
-##            print(j,len(inds))
-#            cls_scores_end = scores_end[inds, j]
-#            cls_boxes_end = boxes_end[inds, j*4:(j+1)*4]
-#            cls_dets_end = np.hstack((cls_boxes_end, cls_scores_end[:, np.newaxis])) \
-#                .astype(np.float32, copy=False)
-#            keep = nms(cls_dets_end, TEST_NMS)
-#            cls_dets_end = cls_dets_end[keep, :]
-##            print(len(keep))
-                
-        # C'est cls_prob apres np.reshape(scores, [scores.shape[0], -1]) qui correspond au scores de im_detect 
-        blobs, im_scales = get_blobs(im)
-        roi =  rois[:,1:5] / im_scales[0]
-        scores = np.reshape(cls_prob, [cls_prob.shape[0], -1])
-        boxes = np.tile(roi, (1, scores.shape[1]))
-        # For COCO scores.shape = #boxes,81, boxes.shape = #boxes,4*81
+        # init session
+        sess = tf.Session(config=tfconfig)
+        nbClasses = len(CLASSES)
+        net.create_architecture("TEST", nbClasses,
+                                          tag='default', anchor_scales=anchor_scales,
+                                          modeTL= True,nms_thresh=nms_thresh) # default nms_thresh = 0.7
+        saver = tf.train.Saver()
+        saver.restore(sess, tfmodel)
         
-        if 'COCO' in demonet:
-            scores = scores[:,corr_voc_coco]
-        # skip j = 0, because it's the background class
-        local_cls = []
-        roi_boxes_and_score = None
-        for j in range(1, imdb.num_classes):
-            inds = np.where(scores[:, j] > thresh)[0]
-#            print(j,len(inds))
-            cls_scores = scores[inds, j]
-            cls_boxes = boxes[inds, j*4:(j+1)*4]
-            cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
-              .astype(np.float32, copy=False)
-            keep = nms(cls_dets, TEST_NMS)
-#            print(len(keep))
-            cls_dets = cls_dets[keep, :]
-            all_boxes[j][i] = cls_dets
-
+        plot = False
         if plot:
-            if len(cls_dets) > 0:
-                local_cls += [imdb.classes[j]]*len(cls_dets)
-                roi_boxes_score = np.expand_dims(cls_dets,axis=1)
-#                print(roi_boxes_score.shape)
-                if roi_boxes_and_score is None:
-                    roi_boxes_and_score = roi_boxes_score
-                else:
-                    roi_boxes_and_score= \
-                    np.vstack((roi_boxes_score,roi_boxes_and_score))
-#               print(roi_boxes_and_score)
-#                print(local_cls)
-#                vis_detections_list(im, local_cls, roi_boxes_and_score, thresh=0.5)
-#                name_output = path_to_output2 + name_im + '_Regions.jpg'
-#                plt.savefig(name_output)
-#                plt.close()
-          # Part classification
-        scores_max = np.max(scores,axis=0)
-        y_predict[i,:] = scores_max[1:]
+            path_to_output2  = '/media/HDD/output_exp/ClassifPaintings/Perf_FasterRCNN/VOC2007_Test/'
+            pathlib.Path(path_to_output2).mkdir(parents=True, exist_ok=True) 
         
-    # Score de classification
-    AP_per_class = []
-    for k,classe in enumerate(imdb.classes):
-        if not(k==0):
-            kk = k -1 
-            AP = average_precision_score(y_true[:,kk],y_predict[:,kk],average=None)
-            AP_per_class += [AP]
-            print("Average Precision Classification for",classe," = ",AP)
-    print(demonet," mean Average Precision Classification = {0:.3f}".format(np.mean(AP_per_class)))
-    
-    # Rappel des scores :
-    
-    print(demonet)
-    print(arrayToLatex(CLASSESVOC[1:],dtype=str))
-    print("Classification task")
-    print(arrayToLatex(AP_per_class,per=per))
-    
-    # Limit to max_per_image detections *over all classes*
-    if max_per_image > 0:
-        image_scores = np.hstack([all_boxes[j][i][:, -1] \
-                for j in range(1, imdb.num_classes)])
-        if len(image_scores) > max_per_image:
-            image_thresh = np.sort(image_scores)[-max_per_image]
+        for i in range(num_images):
+            if i%1000==0: print('Images #',i)
+            name_tab = imdb.image_path_at(i)
+            name_tab2 = name_tab.split('/')[-1]
+#            name_im = name_tab2.split('.')[0]
+            im = cv2.imread(imdb.image_path_at(i))
+            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess,  net, im) 
+    #        
+    #        scores_end, boxes_end = TL_im_detect_end(cls_prob, bbox_pred, rois,im)
+    #        if 'COCO' in demonet:
+    #            scores_end = scores_end[:,corr_voc_coco]
+    #            boxes_tmp = np.zeros((len(scores_end),21*4))
+    #            for j in range(1, imdb.num_classes):
+    #                j_tmp = corr_voc_coco[j]
+    #                boxes_tmp[:,j*4:(j+1)*4] = boxes_end[:,j_tmp*4:(j_tmp+1)*4]
+    #            boxes_end = boxes_tmp
+    #
+    #            # skip j = 0, because it's the background class
+    #        for j in range(1, imdb.num_classes):
+    #            inds = np.where(scores_end[:, j] > thresh)[0]
+    ##            print(j,len(inds))
+    #            cls_scores_end = scores_end[inds, j]
+    #            cls_boxes_end = boxes_end[inds, j*4:(j+1)*4]
+    #            cls_dets_end = np.hstack((cls_boxes_end, cls_scores_end[:, np.newaxis])) \
+    #                .astype(np.float32, copy=False)
+    #            keep = nms(cls_dets_end, TEST_NMS)
+    #            cls_dets_end = cls_dets_end[keep, :]
+    ##            print(len(keep))
+                    
+            # C'est cls_prob apres np.reshape(scores, [scores.shape[0], -1]) qui correspond au scores de im_detect 
+            blobs, im_scales = get_blobs(im)
+            roi =  rois[:,1:5] / im_scales[0]
+            scores = np.reshape(cls_prob, [cls_prob.shape[0], -1])
+            boxes = np.tile(roi, (1, scores.shape[1]))
+            # For COCO scores.shape = #boxes,81, boxes.shape = #boxes,4*81
+            
+            if 'COCO' in demonet:
+                if database=='VOC2007':
+                    scores = scores[:,corr_voc_coco]
+                elif database=='watercolor':
+                    scores = scores[:,corr_watercolor_coco]
+            elif 'VOC' in demonet and database=='watercolor':
+                scores = scores[:,corr_watercolor_voc]
+                    
+            # skip j = 0, because it's the background class
+            local_cls = []
+            roi_boxes_and_score = None
             for j in range(1, imdb.num_classes):
-                keep = np.where(all_boxes[j][i][:, -1] >= image_thresh)[0]
-                all_boxes[j][i] = all_boxes[j][i][keep, :]
-       
-    det_file = os.path.join(output_dir, 'detections_perf.pkl')
-    with open(det_file, 'wb') as f:
-        pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+                inds = np.where(scores[:, j] > thresh)[0]
+    #            print(j,len(inds))
+                cls_scores = scores[inds, j]
+                cls_boxes = boxes[inds, j*4:(j+1)*4]
+                cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
+                  .astype(np.float32, copy=False)
+                keep = nms(cls_dets, TEST_NMS)
+    #            print(len(keep))
+                cls_dets = cls_dets[keep, :]
+                all_boxes[j][i] = cls_dets
     
-    aps = imdb.evaluate_detections(all_boxes, output_dir)
-    print("Detection task with thresh = ",TEST_NMS)
-    print(arrayToLatex(aps,per=per))
-    
-    print('Evaluating detections')
-    with_thres_comp = False
-    if with_thres_comp:
-        for thresh in np.arange(TEST_NMS-0.1,0.0,-0.1):
-            all_boxes_after_nms = apply_nms(all_boxes, float(thresh))
-            aps = imdb.evaluate_detections(all_boxes_after_nms, output_dir)
-            print("Detection task with thresh = ",thresh)
-            print(arrayToLatex(aps,per=per))
+            if plot:
+                if len(cls_dets) > 0:
+                    local_cls += [imdb.classes[j]]*len(cls_dets)
+                    roi_boxes_score = np.expand_dims(cls_dets,axis=1)
+    #                print(roi_boxes_score.shape)
+                    if roi_boxes_and_score is None:
+                        roi_boxes_and_score = roi_boxes_score
+                    else:
+                        roi_boxes_and_score= \
+                        np.vstack((roi_boxes_score,roi_boxes_and_score))
+    #               print(roi_boxes_and_score)
+    #                print(local_cls)
+    #                vis_detections_list(im, local_cls, roi_boxes_and_score, thresh=0.5)
+    #                name_output = path_to_output2 + name_im + '_Regions.jpg'
+    #                plt.savefig(name_output)
+    #                plt.close()
+              # Part classification
+            scores_max = np.max(scores,axis=0)
+            y_predict[i,:] = scores_max[1:]
+            
+        # Score de classification
+        AP_per_class = []
+        for k,classe in enumerate(imdb.classes):
+            if not(k==0):
+                kk = k -1 
+                AP = average_precision_score(y_true[:,kk],y_predict[:,kk],average=None)
+                AP_per_class += [AP]
+                print("Average Precision Classification for",classe," = ",AP)
+        print(demonet," mean Average Precision Classification = {0:.3f}".format(np.mean(AP_per_class)))
+        
+        # Rappel des scores :
+        
+        print(demonet)
+        print(arrayToLatex(CLASSESVOC[1:],dtype=str))
+        print("Classification task")
+        print(arrayToLatex(AP_per_class,per=per))
+        
+        # Limit to max_per_image detections *over all classes*
+        if max_per_image > 0:
+            image_scores = np.hstack([all_boxes[j][i][:, -1] \
+                    for j in range(1, imdb.num_classes)])
+            if len(image_scores) > max_per_image:
+                image_thresh = np.sort(image_scores)[-max_per_image]
+                for j in range(1, imdb.num_classes):
+                    keep = np.where(all_boxes[j][i][:, -1] >= image_thresh)[0]
+                    all_boxes[j][i] = all_boxes[j][i][keep, :]
+           
+        det_file = os.path.join(output_dir, 'detections_perf.pkl')
+        with open(det_file, 'wb') as f:
+            pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+        
+        aps = imdb.evaluate_detections(all_boxes, output_dir)
+        print("Detection task with thresh = ",TEST_NMS)
+        print(arrayToLatex(aps,per=per))
+        
+        print('Evaluating detections')
+        with_thres_comp = False
+        if with_thres_comp:
+            for thresh in np.arange(TEST_NMS-0.1,0.0,-0.1):
+                all_boxes_after_nms = apply_nms(all_boxes, float(thresh))
+                aps = imdb.evaluate_detections(all_boxes_after_nms, output_dir)
+                print("Detection task with thresh = ",thresh)
+                print(arrayToLatex(aps,per=per))
         
         
             
@@ -2486,5 +2510,5 @@ if __name__ == '__main__':
 #                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
 #    
 #    run_FRCNN_Detection_perf(database='VOC2007')
-    Illus_ScoreObjectness()
+   run_FRCNN_Detection_perf(database='watercolor')
 #     Illus_box_ratio()

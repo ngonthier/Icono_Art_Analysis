@@ -16,8 +16,14 @@ def arrayToLatex(a,per=False,dtype=np.float32):
             multi=1.
         stra = ' & '
         for i in range(len(a)):
-            stra += "{0:.3f} & ".format(a[i]*multi)
-        stra += "{0:.3f} \\\ \hline".format(np.mean(a)*multi)
+            if per:
+                stra += "{0:.1f} & ".format(a[i]*multi)
+            else:
+                stra += "{0:.3f} & ".format(a[i]*multi)
+        if per:        
+            stra += "{0:.1f} \\\ \hline".format(np.mean(a)*multi)
+        else:
+            stra += "{0:.3f} \\\ \hline".format(np.mean(a)*multi)
         return(stra)
     elif dtype==str:
         stra = ' & '

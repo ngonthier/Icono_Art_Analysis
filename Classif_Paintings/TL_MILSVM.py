@@ -643,7 +643,8 @@ def FasterRCNN_TL_MILSVM_newVersion():
 def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Paintings', 
                                           verbose = True,testMode = True,jtest = 0,
                                           PlotRegions = True,saved_clf=False,RPN=False,
-                                          CompBest=True,Stocha=False,k_per_bag=30):
+                                          CompBest=True,Stocha=False,k_per_bag=30,
+                                          WR=True):
     """ 
     15 mars 2017
     Classifier based on CNN features with Transfer Learning on Faster RCNN output
@@ -682,6 +683,10 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
     """
     # TODO be able to train on background 
     try:
+        if demonet == 'vgg16_COCO':
+            num_features = 4096
+        elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
+            num_features = 2048
         ext = '.txt'
         dtypes = str
         if database=='Paintings':
@@ -846,9 +851,10 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
         
         if verbose: print("End data processing")
     
-        if database=='VOC2007'  or database=='watercolor':
+        if database=='VOC2007'  or database=='watercolor' or database=='clipart':
             if database=='VOC2007' : imdb = get_imdb('voc_2007_test')
             if database=='watercolor' : imdb = get_imdb('watercolor_test')
+            if database=='clipart' : imdb = get_imdb('clipart_test')
             imdb.set_force_dont_use_07_metric(True)
             num_images = len(imdb.image_index)
             all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
@@ -966,13 +972,13 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                    max_iters=max_iters,symway=True,n_jobs=n_jobs,
                    all_notpos_inNeg=False,gridSearch=True,
                    verbose=verboseMIL,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
-                   mini_batch_size=mini_batch_size) 
+                   mini_batch_size=mini_batch_size,WR=True) 
                 classifierMILSVM.fit_Stocha(bags,labels,shuffle=True)
             else:
                 classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
                    max_iters=max_iters,symway=True,n_jobs=n_jobs,
                    all_notpos_inNeg=False,gridSearch=True,
-                   verbose=verboseMIL,final_clf=final_clf)   
+                   verbose=verboseMIL,final_clf=final_clf,WR=True)   
                 classifierMILSVM.fit(pos_ex, neg_ex)
                 #durations : between 26 and durations : 8 for Paintings
             
@@ -1837,7 +1843,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         output_dir = path_data +'tmp/' + 'VOC2007_mAP.txt'
         aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
         print("Detection score : ",database)
-        print(arrayToLatex(aps))
+        print(arrayToLatex(aps,per=True))
         
            
     print("mean Average Precision for all the data = {0:.3f}".format(np.mean(AP_per_class)))    
@@ -3442,10 +3448,46 @@ if __name__ == '__main__':
 #                                          k_per_bag=30)
 #
 #    FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',
-#                                          database = 'watercolor', 
+#                                          database = 'VOC2007', 
 #                                          verbose = True,testMode = False,jtest = 1,
-#                                          PlotRegions = False,RPN=False,CompBest=False)
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'clipart', 
+#                                          PlotRegions = False,RPN=False,CompBest=False,WR=True)
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation='',
+                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='',with_rois_scores_atEnd=False,
+                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
+                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+                                  k_intopk=1,C_Searching=False)
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation='',
+                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='',with_rois_scores_atEnd=False,
+                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
+                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+                                  k_intopk=1,C_Searching=False)
+    tfR_FRCNN(demonet = 'res101_VOC07',database = 'watercolor', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation='',
+                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='',with_rois_scores_atEnd=False,
+                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
+                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+                                  k_intopk=1,C_Searching=False)
+    tfR_FRCNN(demonet = 'res101_VOC07',database = 'watercolor', 
                                   verbose = True,testMode = False,jtest = 'cow',
                                   PlotRegions = False,saved_clf=False,RPN=False,
                                   CompBest=False,Stocha=True,k_per_bag=300,

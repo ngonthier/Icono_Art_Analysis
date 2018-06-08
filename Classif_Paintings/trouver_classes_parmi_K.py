@@ -92,7 +92,7 @@ class MILSVM():
 
     def __init__(self,LR=0.01,C=1.0,C_finalSVM=1.0,restarts=0, max_iters=300,
                  symway=True,all_notpos_inNeg=True,gridSearch=False,n_jobs=-1,
-                 final_clf='LinearSVC',verbose=True):
+                 final_clf='LinearSVC',verbose=True,WR=True):
         """
         
         @param LR : Learning rate : pas de gradient de descente [default: 0.01]
@@ -128,6 +128,7 @@ class MILSVM():
         self.final_clf = final_clf
         self.PositiveRegions = None
         self.PositiveRegionsScore = None
+        self.WR = WR
         
     def fit(self,data_pos,data_neg):
         """
@@ -163,9 +164,10 @@ class MILSVM():
         # TODO peut on se passer de la tangente ??? 
         # TODO ne faudait il pas faire reduce_min pour le cas negative pour forcer a etre eloigne de tous ?
         
-        loss=Tan1-Tan2-self.C*tf.reduce_sum(W*W)  #ceci peut se résoudre par la methode classique des multiplicateurs de Lagrange
+        loss=Tan1-Tan2
+        lossWithRegul = loss -self.C*tf.reduce_sum(W*W)  #ceci peut se résoudre par la methode classique des multiplicateurs de Lagrange
          
-        gr=tf.gradients(loss,[W,b])
+        gr=tf.gradients(lossWithRegul,[W,b])
         #print("Grad defined")
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
@@ -184,7 +186,10 @@ class MILSVM():
 #            #LR=0.01
             for i in range(self.max_iters): 
                 dico={W:W_x,b:b_x}
-                sor=sess.run([Tan1,Tan2,loss,gr],feed_dict=dico)
+                if self.WR:
+                    sor=sess.run([Tan1,Tan2,loss,gr],feed_dict=dico)
+                else:
+                    sor=sess.run([Tan1,Tan2,lossWithRegul,gr],feed_dict=dico)
                 #print('etape ',i,'loss=', sor[2],'Tan1=',sor[0],\
                  #     'Tan2=',sor[1],'norme de W=', np.linalg.norm(W_x))
                 b_x=b_x+LR*sor[3][1]
