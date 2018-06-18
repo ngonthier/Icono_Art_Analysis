@@ -1746,9 +1746,14 @@ class tf_MILSVM():
 
 
 
-def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1,C_finalSVM=1):
-    cs = np.logspace(-5, -2, 20)
-    cs = np.hstack((cs,[0.01,0.2,1.,2.,10.,100.]))
+def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1,C_finalSVM=1,cskind=None):
+    if cskind =='' or cskind is None:
+        # default case
+        cs = np.logspace(-5, -2, 20)
+        cs = np.hstack((cs,[0.01,0.2,1.,2.,10.,100.]))
+    elif cskind=='small':
+        cs = np.logspace(-5, -2, 10)
+        cs = np.hstack((cs,[0.2,1.,2.]))
     param_grid = dict(C=cs)
     # TODO  class_weight='balanced' TODO add this parameter ! 
     if gridSearch:

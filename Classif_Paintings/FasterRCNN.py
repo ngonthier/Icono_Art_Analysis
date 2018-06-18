@@ -105,7 +105,9 @@ def _floats_feature(value):
 def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxObject',
                                   nms_thresh = 0.0,CV_Crowley=True,database='Paintings'):
     """
-    Compute the performance on the Your Paintings subset ie Crowley on the output but also the best case on feature fc7 of the best proposal part
+    Compute the performance on the Your Paintings subset ie Crowley on the output 
+    but also the best case on feature fc7 of the best proposal part
+    This function compute the classification score 
     @param : TL : use the features maps of the best object score detection
     @param : reDO : recompute the features maps
     @param : feature_selection : 'MaxObject' or 'meanObject' mean on all regions or only keep the max
@@ -333,7 +335,7 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
     """
     15 mai 2018
     Le but de cette fonction est d'evaluer les performances de classification et
-    de detection sur Pascal VOC2007 test set
+    de detection sur Pascal VOC2007 test set et autres 
     """
     print('Evaluation of the detections performance on ',database)
     max_per_image= 100
@@ -657,7 +659,6 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
                 aps = imdb.evaluate_detections(all_boxes_after_nms, output_dir)
                 print("Detection task with thresh = ",thresh)
                 print(arrayToLatex(aps,per=per))
-        
         
             
 def read_features_computePerfPaintings():
