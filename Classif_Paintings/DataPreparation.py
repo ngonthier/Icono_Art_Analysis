@@ -550,7 +550,6 @@ def CreationMiniSet10C():
     
     
     """
-    
     LabelsFor10c = ['Q3039121','Q3575260','Q42804','Q3289701','Q12511','Q4817','Q193893',
                     'Q148993','Q18281','Q345','Q942467','Q302','Q10791','Q235113',
                     'Q109607','Q63070','Q40662','Q179718','Q1698874','Q47652',
@@ -650,8 +649,8 @@ def CreationMiniSet10C():
     
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     database='Wikidata_Paintings'
-    databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge3.csv'  #6576 images
-    df = pd.read_csv(databasetxt,sep=",")
+    databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge33.csv'  #6576 images
+    df = pd.read_csv(databasetxt,sep=",", encoding='utf8')
     df = df[df['BadPhoto'] <= 0.0]
     print(len(df))
     
@@ -688,13 +687,68 @@ def CreationMiniSet10C():
     
     return(0)
 
+def CopyBase10c():
+    """
+    Creation du MiniSet10c
+    """
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    database='Wikidata_Paintings'
+    databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge6.csv'  #6528 images
+    databasetxt3 = path_data +  'Wikidata_Paintings_miniset10cMerge3.csv'  #6528 images
+    databasetxt2 = path_data + 'Wikidata_Paintings_miniset10cMerge6_verif.csv'
+    df6 = pd.read_csv(databasetxt,sep=",")
+    df3 = pd.read_csv(databasetxt3,sep=",")
+    df6verif = pd.read_csv(databasetxt2,sep=",")
+    print(len(df6))
+#    df = df[df['BadPhoto'] <= 0.0]
+    df6 = df6.replace(np.nan,-1)
+#    print(df.head(5))
+    #df = df.drop_duplicates(subset='image', keep="last")
+    
+    folder=database +'/'
+    target_path = '/media/HDD/data/'
+    write_data = target_path + folder 
+    bigger_size = 600
+    read_data = write_data + str(bigger_size) + '/'
+    dstfolder=  write_data + 'MiniSet10c_Qname/'
+    numberIm = 0
+    do_mkdir(dstfolder)
+    list_of_im  =[]
+    name_tab_index = np.array(df6.index)
+    for i in name_tab_index:
+        
+        nameoutput = df6.iloc[i]['item']
+        
+        name = df3.loc[df3['item']==nameoutput,'image'].item()
+        print(name)
+        # Correction 
+        df6.loc[df6['item']==nameoutput,'image'] = name
+        df6verif.loc[df6verif['item']==nameoutput,'image'] = name
+        
+        name_tab = name.split('.')
+        name_tab[-1] = 'jpg'
+        namejpg = ".".join(name_tab)
+        list_of_im += [namejpg]
+        src = str(read_data + namejpg)
+        dst = dstfolder + nameoutput + '.jpg'
+        #copyfile(src, dst)
+        if os.path.exists(dst):
+            numberIm +=1 
+        else:
+            print("Image not copied",dst)
+    
+    databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge6_v2.csv'
+    databasetxt2 = path_data +  'Wikidata_Paintings_miniset10cMerge6_verif2.csv'
+    df6.to_csv(databasetxt, index=None, sep=',', mode='w') 
+    df6verif.to_csv(databasetxt2, index=None, sep=',', mode='w') 
+
 def MiseDeCote10c():
     """
     Creation du MiniSet10c
     """
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     database='Wikidata_Paintings'
-    databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge3.csv'  #6528 images
+    databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge6.csv'  #6528 images
     allelt = True
     df = pd.read_csv(databasetxt,sep=",")
     print(df.head(5))
@@ -703,12 +757,13 @@ def MiseDeCote10c():
     print(df.head(5))
     #df = df.drop_duplicates(subset='image', keep="last")
     print(len(df))
-    copyMode = True
+    copyMode = False
     classes10c = ['Q3039121','Q235113','Q148993','Q193893','Q3575260','Q345','Q42804','Q942467','Q10791','Q109607']
     classes10c = ['Q51636','Q3039121','Q235113','Q148993','Q193893','Q345','Q42804','Q942467','Q10791','Q109607']
     classes10c = ['Q183332','Q2460567','Q51636','Q235113','Q148993','Q193893','Q345','Q42804','Q942467','Q10791','Q109607']
+    classes10c = ['Q51636','Q235113','Q193893','Q345','Q42804','Q942467','Q10791','Q109607']
     # Retrait de Q3575260 jewelly et rajout de Q51636 cruxification christ
-    # Retrait de Q3039121 drapery et     classes10c = ['Q183332','Q2460567'] # Saint Sebastien et turban 
+    # Retrait de Q3039121 drapery et Q148993 : broad leaved tree classes10c = ['Q183332','Q2460567'] # Saint Sebastien et turban 
     oldclasses = ['Q942467','Q235113','Q345','Q109607','Q10791']
 
     for classe_a_annotee in classes10c:
@@ -757,7 +812,7 @@ def MiseDeCote10c():
                 name_tab[-1] = 'jpg'
                 namejpg = ".".join(name_tab)
                 list_of_im += [namejpg]
-                src = read_data + namejpg
+                src = str(read_data + namejpg)
                 dst = dstfolder + nameoutput + '.jpg'
                 copyfile(src, dst)
                 if os.path.exists(dst):
@@ -768,20 +823,29 @@ def MiseDeCote10c():
             
             #input("Press input when you have remove all the image containing this class...")
         else:
-        
-        
-            name_tab_index = np.array(df.index)
-            classe_a_annotee_verif = classe_a_annotee + '_verif'
-            list_elt= os.listdir(dstfolder)
-            #print(list_elt)
-            number_paitings = len(df['image'])
-            df[classe_a_annotee_verif] = Series(np.ones(number_paitings), index=df.index)
-            for name in list_elt:
-                #print(name_tab)
-                name_tab = name.split('.') 
-                item_name = name_tab[0]
-                df.loc[df['item']==item_name,classe_a_annotee_verif] = 0
-            print('Number of ',classe_a_annotee,' element',np.sum(df[classe_a_annotee_verif]))
+#            print('Here')
+            if not(classe_a_annotee in oldclasses):
+                folder=database +'/'
+                target_path = '/media/HDD/data/'
+                write_data = target_path + folder 
+                dstfolder=  write_data + 'Not_' + classe_a_annotee +'_'+depicts_depictsLabel[classe_a_annotee]+ '/'
+            
+                name_tab_index = np.array(df.index)
+                classe_a_annotee_verif = classe_a_annotee + '_verif'
+                list_elt= os.listdir(dstfolder)
+    #            print(list_elt)
+                number_paitings = len(df['image'])
+                df[classe_a_annotee_verif] = Series(np.ones(number_paitings), index=df.index)
+                for name in list_elt:
+                    #print(name_tab)
+                    name_tab = name.split('.') 
+                    item_name = name_tab[0]
+                    df.loc[df['item']==item_name,classe_a_annotee_verif] = 0
+                print('Number of ',classe_a_annotee,' element',np.sum(df[classe_a_annotee_verif]))
+    if not(copyMode):
+        namefile = path_data +'Wikidata_Paintings_miniset10cMerge6_verif.csv'
+        df.to_csv(namefile, index=None, sep=',', mode='w') 
+        print(namefile,'saved')
         
 def MiseDeCote10c_crucifictionChrist():
     """
@@ -1346,7 +1410,9 @@ def createSubset2():
 if __name__ == '__main__':
     #prepareVOC12()
     #preparePaintings()
-    MiseDeCote10c()
+#    CreationMiniSet10C()
+#    MiseDeCote10c()
+    CopyBase10c()
     #prepareWikiData()
     #prepareWikidataSetsPaitings()
     #MiseDeCote()
