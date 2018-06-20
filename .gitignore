@@ -36,7 +36,7 @@ Classif_Paintings/*.txt
 Classif_Paintings/tmp/*
 Classif_Paintings/*.npy
 Classif_Paintings/__pycache/* 
-Classif_Paintings/data/* 
+#Classif_Paintings/data/* 
 *.html
 
 # For Darkflow #
