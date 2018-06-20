@@ -1051,7 +1051,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             output_dir = path_data +'tmp/' + database + '/'
             aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
             print("Detection scores")
-            print(arrayToLatex(aps))
+            print(arrayToLatex(aps,per=True))
 
     except KeyboardInterrupt:
         gc.collect()
@@ -1740,7 +1740,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   transform_output=None,with_rois_scores_atEnd=False,
                                   with_scores=False,epsilon=0.0,restarts_paral='',
                                   Max_version=None,w_exp=1.0,seuillage_by_score=True,
-                                  seuil=0.5,k_intopk=3,C_Searching=False):
+                                  seuil=0.5,k_intopk=3,C_Searching=False,gridSearch=False,n_jobs=1,
+                                  predict_with='MILSVM',select_thres=0.5):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -1805,6 +1806,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     @param w_exp : default 1.0 : weight in the softmax 
     @param seuillage_by_score : default False : remove the region with a score under seuil
     @param seuil : used to eliminate some regions : it remove all the image with an objectness score under seuil
+    @param : gridSearch=False, use a grid search on the C parameter of the final classifier if predict_with is LeanarSVC
+    @param : n_jobs=1, number of jobs for the grid search hyperparamter optimisation
+    @param : predict_with='MILSVM', final classifier 
+    @param : select_thres : parameter to choose some of the exemple before feeding the final classifier LinearSVC
+    
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -1904,7 +1910,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         if not(os.path.isfile(name_pkl_all_features)):
             data_precomputeed = False
 
-    sLength_all = len(df_label[item_name])
+#    sLength_all = len(df_label[item_name])
     if demonet == 'vgg16_COCO':
         num_features = 4096
     elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
@@ -1923,7 +1929,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
             
     # Data for the MILSVM Latent SVM
     # All those parameter are design for my GPU 1080 Ti memory size 
-    n_jobs = -1
     performance = False
     if parallel_op:
         sizeMax = 30*10000 // (k_per_bag*num_classes) 
@@ -2037,7 +2042,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         shuffle_str = ''
     else:
         shuffle_str = '_allBase'
-    predict_with='MILSVM'
     Number_of_positif_elt = 1 
     number_zone = k_per_bag
     
@@ -2051,7 +2055,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                   Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
                   TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
-                  k_intopk,C_Searching]
+                  k_intopk,C_Searching,gridSearch,select_thres]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2059,7 +2063,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                      'optimArg','Number_of_positif_elt','number_zone','seuil_estimation'
                      ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
-                     'seuil','k_intopk','C_Searching']
+                     'seuil','k_intopk','C_Searching','gridSearch','select_thres']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2136,7 +2140,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                path_to_img,path_data,param_clf,classes,parameters,verbose,
                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
                cachefile_model_base=cachefile_model_base,transform_output=transform_output,
-               with_rois_scores_atEnd=with_rois_scores_atEnd,scoreInMILSVM=(with_scores or seuillage_by_score))
+               with_rois_scores_atEnd=with_rois_scores_atEnd,scoreInMILSVM=(with_scores or seuillage_by_score),
+               gridSearch=gridSearch,n_jobs=n_jobs,select_thres=select_thres)
    
         for j,classe in enumerate(classes):
             AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
@@ -2288,20 +2293,27 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                path_to_img,path_data,param_clf,classes,parameters,verbose,
                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=None,
                cachefile_model_base='',number_im=200,transform_output=None,
-               with_rois_scores_atEnd=False,scoreInMILSVM=False,seuillage_by_score=False):
+               with_rois_scores_atEnd=False,scoreInMILSVM=False,seuillage_by_score=False,
+               gridSearch=False,n_jobs=1,select_thres=0.5):
      """
      @param : seuil_estimation : ByHist or MaxDesNeg
      @param : number_im : number of image plot at maximum
      @param : transform_output : use of a softmax or a 
      @ use the with_rois_scores_atEnd to pondare the final results
      """
+     
+     # TODO : predict_with LinearSVC_Extremboth : use the most discriminative regions for each images
+     # LinearSVC_Sign: use the negative examples for negatives and positive for positives
+     # LinearSVC_MAXPos : use all the regions of negatives examples and the max for positives
+     # LinearSVC_Seuil : select of the regions for the negative and with a threshold for the positive
+     
 #     scoreInMILSVM = False
      if seuil_estimation in ['ByHist','MinDesPos','MaxDesNeg','byHistOnPos']:
          seuil_estimation_bool = True
      else:
          seuil_estimation_bool = False
     
-     print('thresh_evaluation',thresh_evaluation,'TEST_NMS',TEST_NMS,'seuil_estimation',seuil_estimation)
+     if verbose: print('thresh_evaluation',thresh_evaluation,'TEST_NMS',TEST_NMS,'seuil_estimation',seuil_estimation)
      PlotRegions,RPN,Stocha,CompBest=parameters
      k_per_bag,positive_elt,num_features = param_clf
      thresh = thresh_evaluation # Threshold score or distance MILSVM
@@ -2337,15 +2349,15 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      export_dir_path = ('/').join(export_dir.split('/')[:-1])
      name_model_meta = export_dir + '.meta'
      
-     if predict_with=='LinearSVC':
-         raise(NotImplemented)
-         length_matrix = dict_class_weight[0] + dict_class_weight[1]
-         if length_matrix>17500*300:
-             print('Not enough memory on Nicolas Computer ! use an other classifier than LinearSVC')
-             raise(MemoryError)
-         X_array = np.empty((length_matrix,num_features),dtype=np.float32)
-         y_array =  np.empty((num_classes,length_matrix),dtype=np.float32)
-         x_array_ind = 0
+#     if 'LinearSVC' in predict_with:
+#         raise(NotImplemented)
+#         length_matrix = dict_class_weight[0] + dict_class_weight[1]
+#         if length_matrix>17500*300:
+#             print('Not enough memory on Nicolas Computer ! use an other classifier than LinearSVC')
+#             raise(MemoryError)
+#         X_array = np.empty((length_matrix,num_features),dtype=np.float32)
+#         y_array =  np.empty((num_classes,length_matrix),dtype=np.float32)
+#         x_array_ind = 0
      
      if seuil_estimation_bool:
          if seuil_estimation_debug and not(seuil_estimation=='byHistOnPos'):
@@ -2360,7 +2372,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                  dict_seuil_estim[i][str_name] = []  # Array of the scalar product of the negative examples  
      get_roisScore = (with_rois_scores_atEnd or scoreInMILSVM)
 
-     if (PlotRegions or predict_with=='LinearSVC' or seuil_estimation_bool):
+     if (PlotRegions or seuil_estimation_bool) and not('LinearSVC' in predict_with):
         index_im = 0
         if verbose: print("Start ploting Regions selected by the MILSVM in training phase")
         train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
@@ -2402,6 +2414,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 score_mei = tf.reduce_max(Prod_best,axis=2)
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
+            
             while True:
                 try:
 #                    print(sess.run(next_element))
@@ -2429,22 +2442,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         score_mei = np.max(PositiveExScoreAll,axis=2)
                         mei = np.amax(PositiveExScoreAll,axis=2)
                     if with_tanh: assert(np.max(PositiveExScoreAll) <= 1.)
-                    
-                    if predict_with=='LinearSVC' and k_per_bag==300  and positive_elt==1:
-                        raise(NotImplemented)
-                        for k in range(len(fc7s)):
-                            for l in range(num_classes):
-                                label_i = labels[k,l]
-                                if label_i ==0:
-                                    X_array[x_array_ind:x_array_ind+300,:] = fc7s[k,:]
-                                    y_array[x_array_ind:x_array_ind+300] = 0
-                                    x_array_ind += 300
-                                else:
-                                    X_array[x_array_ind,:] = fc7s[k,PositiveRegions[k]]
-                                    y_array[x_array_ind] = 1
-                                    x_array_ind += 1
-                                # TODO need to be finished and tested 
-                                
+                                                    
                     if seuil_estimation_bool:
                         for k in range(len(fc7s)):
                             for l in range(num_classes):
@@ -2511,7 +2509,150 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                             index_im +=1
                 except tf.errors.OutOfRangeError:
                     break
-        #tf.reset_default_graph()
+       
+     # Training the differents SVC for each class 
+     # Training Time !! 
+     if 'LinearSVC' in predict_with:
+        if verbose: print('predict_with',predict_with)
+        classifier_trained_dict = {}
+        load_model = True
+        train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
+        train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
+            num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features))
+        dataset_batch = train_dataset.batch(mini_batch_size)
+        dataset_batch.cache()
+        dataset_batch = dataset_batch.prefetch(1)
+        iterator = dataset_batch.make_initializable_iterator()
+        next_element = iterator.get_next()
+        
+        with tf.Session(config=config) as sess:
+            new_saver = tf.train.import_meta_graph(name_model_meta)
+            new_saver.restore(sess, tf.train.latest_checkpoint(export_dir_path))
+            load_model = True
+            graph= tf.get_default_graph()
+            X = graph.get_tensor_by_name("X:0")
+            y = graph.get_tensor_by_name("y:0")
+            if scoreInMILSVM: 
+                scores_tf = graph.get_tensor_by_name("scores:0")
+                Prod_best = graph.get_tensor_by_name("ProdScore:0")
+            else:
+                Prod_best = graph.get_tensor_by_name("Prod:0")
+            if with_tanh:
+                print('use of tanh')
+                Tanh = tf.tanh(Prod_best)
+                mei = tf.argmax(Tanh,axis=2)
+                score_mei = tf.reduce_max(Tanh,axis=2)
+            elif with_softmax:
+                print('use of softmax')
+                Softmax = tf.nn.softmax(Prod_best,axis=-1)
+                mei = tf.argmax(Softmax,axis=2)
+                score_mei = tf.reduce_max(Softmax,axis=2)
+            elif with_softmax_a_intraining:
+                Softmax=tf.multiply(tf.nn.softmax(Prod_best,axis=-1),Prod_best)
+                mei = tf.argmax(Softmax,axis=2)
+                score_mei = tf.reduce_max(Softmax,axis=2)
+            else:
+                mei = tf.argmax(Prod_best,axis=2)
+                score_mei = tf.reduce_max(Prod_best,axis=2)
+            sess.run(tf.global_variables_initializer())
+            sess.run(tf.local_variables_initializer())
+            for j in range(num_classes):
+                y_trainval_select = []
+                X_trainval_select = []
+                sess.run(iterator.initializer)
+                while True:
+                    try:
+                        next_element_value = sess.run(next_element)
+                        if not(with_rois_scores_atEnd) and not(scoreInMILSVM):
+                            fc7s,roiss, labels,name_imgs = next_element_value
+                        else:
+                            fc7s,roiss,rois_scores,labels,name_imgs = next_element_value
+                        if scoreInMILSVM:
+                            feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
+                        else:
+                            feed_dict_value = {X: fc7s, y: labels}
+                        if with_tanh:
+                            PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll =\
+                            sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
+                        elif with_softmax or with_softmax_a_intraining:
+                            PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll =\
+                            sess.run([mei,score_mei,Softmax], feed_dict=feed_dict_value)
+                        else:
+                            PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll = \
+                            sess.run([mei,score_mei,Prod_best], feed_dict=feed_dict_value)
+
+                        for i in range(len(fc7s)):
+                            if predict_with=='LinearSVC_Extremboth' or predict_with=='LinearSVC_MAXPos':
+                                if labels[i,j] == 1: # Positive exemple
+                                    if not(len(X_trainval_select)==0):
+                                        if predict_with=='LinearSVC_Extremboth' or predict_with=='LinearSVC_MAXPos':
+                                            y_trainval_select+= [1]
+                                            X_trainval_select += [np.expand_dims(fc7s[i,PositiveRegions[j,i],:],axis=0)]
+                                    else:
+                                        if predict_with=='LinearSVC_Extremboth' or predict_with=='LinearSVC_MAXPos':
+                                            y_trainval_select = [1]
+                                            X_trainval_select = [np.expand_dims(fc7s[i,PositiveRegions[j,i],:],axis=0)] # The roi_scores vector is sorted
+                                else:
+                                    if not(len(X_trainval_select)==0):
+                                        if predict_with=='LinearSVC_Extremboth':
+                                            y_trainval_select+= [0]
+                                            X_trainval_select += [np.expand_dims(fc7s[i,np.argmin(PositiveExScoreAll[j,i,:]),:],axis=0)]
+                                        elif  predict_with=='LinearSVC_MAXPos':
+                                            y_trainval_select+= [0]*len(fc7s[i,:,:])
+                                            X_trainval_select += [fc7s[i,:,:]]
+                                    else:
+                                        if predict_with=='LinearSVC_Extremboth':
+                                            y_trainval_select= [0]
+                                            X_trainval_select = [np.expand_dims(fc7s[i,np.argmin(PositiveExScoreAll[j,i,:]),:],axis=0)]
+                                        elif predict_with=='LinearSVC_MAXPos':
+                                            y_trainval_select= [0]*len(fc7s[i,:,:])
+                                            X_trainval_select = [fc7s[i,:,:]]
+                            elif predict_with=='LinearSVC_Sign':
+                                # TODO : this is not optimal at all to recompu
+                                index_pos = np.where(PositiveExScoreAll[j,i,:] > 0)
+                                y_trainval_select_tmp = np.zeros((len(PositiveExScoreAll[j,i,:],)),dtype=np.float32)
+                                y_trainval_select_tmp[index_pos] = 1  
+                                if not(len(X_trainval_select)==0):
+                                    y_trainval_select = np.hstack((y_trainval_select,y_trainval_select_tmp))
+                                    X_trainval_select += [fc7s[i,:,:]]
+                                else:
+                                    X_trainval_select = [fc7s[i,:,:]]
+                                    y_trainval_select = y_trainval_select_tmp
+                            elif predict_with=='LinearSVC_Seuil':
+                                if labels[i,j] == 1:
+                                    index_pos = np.where(PositiveExScoreAll[j,i,:] > select_thres)
+
+                                    y_trainval_select_tmp = np.ones((len(index_pos[0]),),dtype=np.float32) 
+                                    if not(len(X_trainval_select)==0):
+                                        y_trainval_select = np.hstack((y_trainval_select,y_trainval_select_tmp))
+                                        X_trainval_select += [fc7s[i,index_pos[0],:]]
+                                    else:
+                                        X_trainval_select = [fc7s[i,index_pos[0],:]]
+                                        y_trainval_select = y_trainval_select_tmp
+                                else:
+                                    y_trainval_select_tmp = np.zeros((len(PositiveExScoreAll[j,i,:],)),dtype=np.float32)
+                                    if not(len(X_trainval_select)==0):
+                                        y_trainval_select = np.hstack((y_trainval_select,y_trainval_select_tmp))
+                                        X_trainval_select += [fc7s[i,:,:]]
+                                    else:
+                                        X_trainval_select = [fc7s[i,:,:]]
+                                        y_trainval_select = y_trainval_select_tmp
+                                
+                    except tf.errors.OutOfRangeError:
+                        break
+                        
+#                    print(X_trainval_select)
+#                    print(X_trainval_select[0].shape)
+#                    print(X_trainval_select[-1].shape)
+                    X_trainval_select = np.array(np.concatenate(X_trainval_select,axis=0),dtype=np.float32)
+                    y_trainval_select = np.array(y_trainval_select,dtype=np.float32)
+                    if verbose: print("Shape X and y",X_trainval_select.shape,y_trainval_select.shape)
+                    if verbose: print("Start learning for class",j)
+                    classifier_trained = TrainClassif(X_trainval_select,y_trainval_select,
+                        clf='LinearSVC',class_weight='balanced',gridSearch=gridSearch,n_jobs=n_jobs,C_finalSVM=1)
+                    if verbose: print("End learning for class",j)
+                    classifier_trained_dict[j] = classifier_trained
+
      
      # Parameter Evaluation Time !
      if seuil_estimation=='byHist':
@@ -2666,15 +2807,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                          plt.savefig(name_output)
                          plt.close() 
                          
-     print("Testing Time")
-     # Training time !
-     if predict_with=='LinearSVC':
-         if verbose: print('Start training LiearSVC')
-         clf =  TrainClassif(X_array,y_array,clf='LinearSVC',
-                             class_weight=dict_class_weight,gridSearch=True,
-                             n_jobs=1,C_finalSVM=1)
-         if verbose: print('End training LiearSVC')
-             
+     print("Testing Time")            
      # Testing time !
      train_dataset = tf.data.TFRecordDataset(dict_name_file['test'])
      train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r,\
@@ -2726,28 +2859,40 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     fc7s,roiss, labels,name_imgs = sess.run(next_element)
                 else:
                     fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
-                if scoreInMILSVM:
-                    feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
-                else:
-                    feed_dict_value = {X: fc7s, y: labels}
-                if with_tanh:
-                    PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
-                    sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
-                elif with_softmax or with_softmax_a_intraining:
-                    PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
-                    sess.run([mei,score_mei,Softmax], feed_dict=feed_dict_value)
-                else:
-                    PositiveRegions,get_RegionsScore,PositiveExScoreAll = \
-                    sess.run([mei,score_mei,Prod_best], feed_dict=feed_dict_value)
-                if with_rois_scores_atEnd:
-                    PositiveExScoreAll = PositiveExScoreAll*rois_scores
-                    get_RegionsScore = np.max(PositiveExScoreAll,axis=2)
-                    PositiveRegions = np.amax(PositiveExScoreAll,axis=2)
-                if with_tanh: assert(np.max(PositiveExScoreAll) <= 1.)
+                if predict_with=='MILSVM':
+                    if scoreInMILSVM:
+                        feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
+                    else:
+                        feed_dict_value = {X: fc7s, y: labels}
+                    if with_tanh:
+                        PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
+                        sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
+                    elif with_softmax or with_softmax_a_intraining:
+                        PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
+                        sess.run([mei,score_mei,Softmax], feed_dict=feed_dict_value)
+                    else:
+                        PositiveRegions,get_RegionsScore,PositiveExScoreAll = \
+                        sess.run([mei,score_mei,Prod_best], feed_dict=feed_dict_value)
+                    if with_rois_scores_atEnd:
+                        PositiveExScoreAll = PositiveExScoreAll*rois_scores
+                        get_RegionsScore = np.max(PositiveExScoreAll,axis=2)
+                        PositiveRegions = np.amax(PositiveExScoreAll,axis=2)
+                    if with_tanh: assert(np.max(PositiveExScoreAll) <= 1.)
 
                 true_label_all_test += [labels]
+                
                 if predict_with=='MILSVM':
                     predict_label_all_test +=  [get_RegionsScore]
+                elif 'LinearSVC' in predict_with:
+                    predict_label_all_test_tmp = []
+                    for j in range(num_classes):
+                        predict_label_all_test_tmp += [np.reshape(classifier_trained_dict[j].decision_function( 
+                                np.reshape(fc7s,(-1,fc7s.shape[-1]))),(fc7s.shape[0],fc7s.shape[1]))]
+                    predict_label_all_test_batch = np.stack(predict_label_all_test_tmp,axis=0)
+#                    print(predict_label_all_test_batch.shape)
+                    predict_label_all_test += [np.max(predict_label_all_test_batch,axis=2)]
+#                    print('predict_label_all_test',predict_label_all_test[-1].shape)
+                    # predict_label_all_test is used only for the classification score !
 #                if predict_with=='LinearSVC':
                     
                 for k in range(len(labels)):
@@ -2759,8 +2904,8 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     blobs, im_scales = get_blobs(im)
                     if predict_with=='MILSVM':
                         scores_all = PositiveExScoreAll[:,k,:]
-                    elif predict_with=='LinearSVC':
-                        scores = clf.decision_function(fc7s[k,:])
+                    elif 'LinearSVC' in predict_with:
+                        scores_all = predict_label_all_test_batch[:,k,:]
 
                     roi = roiss[k,:]
                     roi_boxes =  roi[:,1:5] / im_scales[0] 
@@ -3876,34 +4021,22 @@ if __name__ == '__main__':
 #                                  WR=True,init_by_mean =None,seuil_estimation='',
 #                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
 #                                  C=1.0,Optimizer='GradientDescent',norm='',
-#                                  transform_output='',with_rois_scores_atEnd=False,
-#                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
+#                                  transform_output='tanh',with_rois_scores_atEnd=False,
+#                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
 #                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
-#                                  k_intopk=1,C_Searching=False)
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-                             gridSearch=False,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-                             gridSearch=True,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-                             gridSearch=False,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-                             gridSearch=True,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-                             gridSearch=False,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-                             gridSearch=True,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-                             gridSearch=False,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-                             gridSearch=True,k_per_bag=300,n_jobs=2)
+#                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_Seuil',
+#                                  gridSearch=True,select_thres=0.5,n_jobs=2)  
+    
+    # calcul a lancer plus tard !!! 
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
+#                             gridSearch=True,k_per_bag=300,n_jobs=1)
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                             gridSearch=False,k_per_bag=300,n_jobs=2)
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                             gridSearch=True,k_per_bag=300,n_jobs=1)
     Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
                              normalisation= False,baseline_kind = 'MAX1',verbose = True,
                              gridSearch=False,k_per_bag=300,n_jobs=2)
@@ -3916,18 +4049,18 @@ if __name__ == '__main__':
     Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
                              normalisation= False,baseline_kind = 'MAXA',verbose = True,
                              gridSearch=True,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-                             gridSearch=False,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-                             gridSearch=True,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-                             gridSearch=False,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-                             gridSearch=True,k_per_bag=300,n_jobs=2)
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
+#                             gridSearch=False,k_per_bag=300,n_jobs=1)
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
+#                             gridSearch=True,k_per_bag=300,n_jobs=1)
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                             gridSearch=False,k_per_bag=300,n_jobs=1)
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                             gridSearch=True,k_per_bag=300,n_jobs=1)
 
 
 
