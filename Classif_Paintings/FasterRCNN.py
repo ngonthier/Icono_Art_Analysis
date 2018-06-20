@@ -3,7 +3,7 @@
 """
 Created on Tue Dec 12 13:42:41 2017
 
-Based on the Tensorflow implementation of Faster-RCNNN 
+Based on the Tensorflow implementation of Faster-RCNNN but it has been modified a lot
 https://github.com/endernewton/tf-faster-rcnn
 
 Be careful it was a necessity to modify all the script of the library with stuff 
@@ -30,7 +30,7 @@ from sklearn.covariance import EllipticEnvelope
 from sklearn.linear_model import SGDClassifier
 from tf_faster_rcnn.lib.nets.vgg16 import vgg16
 from tf_faster_rcnn.lib.nets.resnet_v1 import resnetv1
-from tf_faster_rcnn.lib.model.test import im_detect,TL_im_detect,TL_im_detect_end,get_blobs
+from tf_faster_rcnn.lib.model.test import im_detect,TL_im_detect,TL_im_detect_end,get_blobs,apply_nms
 from tf_faster_rcnn.lib.model.nms_wrapper import nms
 import matplotlib.pyplot as plt
 from sklearn.svm import LinearSVC, SVC
@@ -49,6 +49,8 @@ import misvm # Library to do Multi Instance Learning with SVM
 from trouver_classes_parmi_K import MILSVM
 import pathlib
 from tool_on_Regions import reduce_to_k_regions
+from tf_faster_rcnn.lib.datasets.factory import get_imdb
+from LatexOuput import arrayToLatex
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -57,7 +59,8 @@ CLASSESVOC = ('__background__',
            'motorbike', 'person', 'pottedplant',
            'sheep', 'sofa', 'train', 'tvmonitor')
 
-CLASSESCOCO = ('__background__','person', 'bicycle','car','motorcycle', 'aeroplane','bus','train','truck','boat',
+CLASSESCOCO = ('__background__','person', 'bicycle','car','motorcycle', 'aeroplane','bus',
+               'train','truck','boat',
  'traffic light','fire hydrant', 'stop sign', 'parking meter','bench','bird',
  'cat','dog','horse','sheep','cow','elephant','bear','zebra','giraffe','backpack',
  'umbrella','handbag','tie','suitcase','frisbee','skis','snowboard','sports ball', 'kite',
@@ -79,6 +82,7 @@ DATASETS= {'coco': ('coco_2014_train+coco_2014_valminusminival',),'pascal_voc': 
 NETS_Pretrained = {'vgg16_VOC07' :'vgg16_faster_rcnn_iter_70000.ckpt',
                    'vgg16_VOC12' :'vgg16_faster_rcnn_iter_110000.ckpt',
                    'vgg16_COCO' :'vgg16_faster_rcnn_iter_1190000.ckpt',
+                   'res101_VOC07' :'res101_faster_rcnn_iter_70000.ckpt',
                    'res101_VOC12' :'res101_faster_rcnn_iter_110000.ckpt',
                    'res101_COCO' :'res101_faster_rcnn_iter_1190000.ckpt',
                    'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'
@@ -92,13 +96,18 @@ def _bytes_feature(value):
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
+def _int64_feature_reshape(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=value.reshape(-1)))
+
 def _floats_feature(value):
   return tf.train.Feature(float_list=tf.train.FloatList(value=value.reshape(-1)))
 
 def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxObject',
                                   nms_thresh = 0.0,CV_Crowley=True,database='Paintings'):
     """
-    Compute the performance on the Your Paintings subset ie Crowley on the output but also the best case on feature fc7 of the best proposal part
+    Compute the performance on the Your Paintings subset ie Crowley on the output 
+    but also the best case on feature fc7 of the best proposal part
+    This function compute the classification score 
     @param : TL : use the features maps of the best object score detection
     @param : reDO : recompute the features maps
     @param : feature_selection : 'MaxObject' or 'meanObject' mean on all regions or only keep the max
@@ -318,6 +327,339 @@ def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxO
                                       classifier_name='LinearSVM',CV_Crowley=CV_Crowley,
                                       feature_selection =feature_selection,nms_thresh=nms_thresh)
              
+
+def localisation_pred_met(all_boxes_pred):
+    return(0)
+
+def run_FRCNN_Detection_perf(database='VOC2007'):
+    """
+    15 mai 2018
+    Le but de cette fonction est d'evaluer les performances de classification et
+    de detection sur Pascal VOC2007 test set et autres 
+    """
+    print('Evaluation of the detections performance on ',database)
+    max_per_image= 100
+    TEST_NMS = 0.3
+    thresh= 0.05
+    output_dir=  '/media/HDD/output_exp/ClassifPaintings/tmp/'
+    input_dir=  '/media/HDD/output_exp/ClassifPaintings/'
+    if database=='VOC2007' or  database=='clipart':
+        per =True
+        ext = '.csv'
+        classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
+           'bottle', 'bus', 'car', 'cat', 'chair',
+           'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant',
+           'sheep', 'sofa', 'train', 'tvmonitor']
+        if database=='VOC2007' : imdb = get_imdb('voc_2007_test')
+        if database=='clipart' : imdb = get_imdb('clipart_test')
+        num_classes = imdb.num_classes -1
+        corr_voc_coco = [0,5,2,15,9,40,6,3,16,57,20,61,17,18,4,1,59,19,58,7,63]
+    elif database=='watercolor':
+        per =True
+        ext = '.csv'
+        classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
+        imdb = get_imdb('watercolor_test')
+        num_classes = imdb.num_classes-1
+        corr_watercolor_coco = [0,2,15,3,16,17,1] # From Cooc to watercolor
+        corr_watercolor_voc = [0,2,3,7,8,12,15]
+    
+    imdb.set_force_dont_use_07_metric(True)
+    num_images = len(imdb.image_index)
+    
+    databasetxt = input_dir +database+ext
+    df_label = pd.read_csv(databasetxt,sep=",")
+    df_test = df_label[df_label['set']=='test']
+    if database=='VOC2007'  or  database=='clipart':
+        y_true = df_test.as_matrix(columns=CLASSESVOC[1:])
+    elif database=='watercolor':
+        y_true = df_test.as_matrix(columns=classes)
+    y_predict = np.zeros((num_images,num_classes))
+    assert(y_true.shape==y_predict.shape)
+    
+    demonets = ['res152_COCO','res101_COCO','res101_VOC07']
+    
+    just_Sans_Regression = False
+    
+    for demonet in demonets:
+        if just_Sans_Regression:
+            continue
+        all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes+1)]
+        print(demonet)
+        tf.reset_default_graph()
+        if 'VOC'in demonet:
+            CLASSES = CLASSES_SET['VOC']
+            anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+        elif 'COCO'in demonet:
+            CLASSES = CLASSES_SET['COCO']
+            anchor_scales = [4, 8, 16, 32]
+        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+        tfconfig = tf.ConfigProto(allow_soft_placement=True)
+        tfconfig.gpu_options.allow_growth=True
+        # init session
+        sess = tf.Session(config=tfconfig)
+        # load network
+        if  'vgg16' in demonet:
+          net = vgg16()
+        elif demonet == 'res50':
+          raise NotImplementedError
+        elif 'res101' in demonet:
+          net = resnetv1(num_layers=101)
+        elif 'res152' in demonet:
+          net = resnetv1(num_layers=152)
+        else:
+          raise NotImplementedError
+        nbClasses = len(CLASSES)
+        net.create_architecture("TEST", nbClasses,
+                                  tag='default', anchor_scales=anchor_scales)
+        saver = tf.train.Saver()
+        saver.restore(sess, tfmodel)
+        
+        for i in range(num_images):
+            if i%1000==0: print('Images #',i)
+            im = cv2.imread(imdb.image_path_at(i))
+            scores, boxes = im_detect(sess, net, im) # For COCO scores.shape = #boxes,81, boxes.shape = #boxes,4*81
+
+
+            if 'COCO' in demonet:
+                if database=='VOC2007':
+                    scores = scores[:,corr_voc_coco]
+                elif database=='watercolor':
+                    scores = scores[:,corr_watercolor_coco]
+                boxes_tmp = np.zeros((len(scores),21*4))
+                for j in range(1, imdb.num_classes):
+                    if database=='VOC2007': j_tmp = corr_voc_coco[j]
+                    elif database=='watercolor':j_tmp = corr_watercolor_coco[j]
+                    boxes_tmp[:,j*4:(j+1)*4] = boxes[:,j_tmp*4:(j_tmp+1)*4]
+                boxes = boxes_tmp
+            elif  'VOC' in demonet and database=='watercolor':
+                scores = scores[:,corr_watercolor_voc]
+                boxes_tmp = np.zeros((len(scores),21*4))
+                for j in range(1, imdb.num_classes):
+                    j_tmp = corr_watercolor_voc[j]
+                    boxes_tmp[:,j*4:(j+1)*4] = boxes[:,j_tmp*4:(j_tmp+1)*4]
+                boxes = boxes_tmp
+                
+
+            # skip j = 0, because it's the background class
+            for j in range(1, imdb.num_classes):
+              inds = np.where(scores[:, j] > thresh)[0]
+              cls_scores = scores[inds, j]
+              cls_boxes = boxes[inds, j*4:(j+1)*4]
+              cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
+                .astype(np.float32, copy=False)
+              keep = nms(cls_dets, TEST_NMS)
+              cls_dets = cls_dets[keep, :]
+              all_boxes[j][i] = cls_dets
+              
+              # Part classification
+              scores_max = np.max(scores,axis=0)
+              y_predict[i,:] = scores_max[1:]
+        
+        # Score de classification
+        AP_per_class = []
+        for k,classe in enumerate(imdb.classes):
+            if not(k==0):
+                kk = k -1 
+                AP = average_precision_score(y_true[:,kk],y_predict[:,kk],average=None)
+                AP_per_class += [AP]
+                print("Average Precision Classification for",classe," = ",AP)
+        print(demonet," mean Average Precision Classification = {0:.3f}".format(np.mean(AP_per_class)))
+        
+        # Limit to max_per_image detections *over all classes*
+        if max_per_image > 0:
+            image_scores = np.hstack([all_boxes[j][i][:, -1] \
+                    for j in range(1, imdb.num_classes)])
+            if len(image_scores) > max_per_image:
+                image_thresh = np.sort(image_scores)[-max_per_image]
+                for j in range(1, imdb.num_classes):
+                    keep = np.where(all_boxes[j][i][:, -1] >= image_thresh)[0]
+                    all_boxes[j][i] = all_boxes[j][i][keep, :]
+           
+        det_file = os.path.join(output_dir, 'detections_perf.pkl')
+        with open(det_file, 'wb') as f:
+            pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+        
+        print('Evaluating detections')
+        aps = imdb.evaluate_detections(all_boxes, output_dir)
+        
+        # Rappel des scores :
+        print(demonet)
+        print(arrayToLatex(CLASSESVOC[1:],dtype=str))
+        print("Classification task")
+        print(arrayToLatex(AP_per_class,per=per))
+        print("Detection task")
+        print(arrayToLatex(aps,per=per))
+
+    # We will know see the impact of the loss of the regression of the bounding box
+    print('Impact of the abscence of bounding boxes regressions at the end')
+    for demonet in demonets:
+        all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes+1)]
+        print(demonet)
+        tf.reset_default_graph()
+        if 'VOC'in demonet:
+            CLASSES = CLASSES_SET['VOC']
+            anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+        elif 'COCO'in demonet:
+            CLASSES = CLASSES_SET['COCO']
+            anchor_scales = [4, 8, 16, 32]
+        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+        tfconfig = tf.ConfigProto(allow_soft_placement=True)
+        tfconfig.gpu_options.allow_growth=True
+        # init session
+        sess = tf.Session(config=tfconfig)
+        # load network
+        if  'vgg16' in demonet:
+          net = vgg16()
+        elif demonet == 'res50':
+          raise NotImplementedError
+        elif 'res101' in demonet:
+          net = resnetv1(num_layers=101)
+        elif 'res152' in demonet:
+          net = resnetv1(num_layers=152)
+        else:
+          raise NotImplementedError
+        nms_thresh = TEST_NMS
+    
+        # init session
+        sess = tf.Session(config=tfconfig)
+        nbClasses = len(CLASSES)
+        net.create_architecture("TEST", nbClasses,
+                                          tag='default', anchor_scales=anchor_scales,
+                                          modeTL= True,nms_thresh=nms_thresh) # default nms_thresh = 0.7
+        saver = tf.train.Saver()
+        saver.restore(sess, tfmodel)
+        
+        plot = False
+        if plot:
+            path_to_output2  = '/media/HDD/output_exp/ClassifPaintings/Perf_FasterRCNN/VOC2007_Test/'
+            pathlib.Path(path_to_output2).mkdir(parents=True, exist_ok=True) 
+        
+        for i in range(num_images):
+            if i%1000==0: print('Images #',i)
+            name_tab = imdb.image_path_at(i)
+            name_tab2 = name_tab.split('/')[-1]
+#            name_im = name_tab2.split('.')[0]
+            im = cv2.imread(imdb.image_path_at(i))
+            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess,  net, im) 
+    #        
+    #        scores_end, boxes_end = TL_im_detect_end(cls_prob, bbox_pred, rois,im)
+    #        if 'COCO' in demonet:
+    #            scores_end = scores_end[:,corr_voc_coco]
+    #            boxes_tmp = np.zeros((len(scores_end),21*4))
+    #            for j in range(1, imdb.num_classes):
+    #                j_tmp = corr_voc_coco[j]
+    #                boxes_tmp[:,j*4:(j+1)*4] = boxes_end[:,j_tmp*4:(j_tmp+1)*4]
+    #            boxes_end = boxes_tmp
+    #
+    #            # skip j = 0, because it's the background class
+    #        for j in range(1, imdb.num_classes):
+    #            inds = np.where(scores_end[:, j] > thresh)[0]
+    ##            print(j,len(inds))
+    #            cls_scores_end = scores_end[inds, j]
+    #            cls_boxes_end = boxes_end[inds, j*4:(j+1)*4]
+    #            cls_dets_end = np.hstack((cls_boxes_end, cls_scores_end[:, np.newaxis])) \
+    #                .astype(np.float32, copy=False)
+    #            keep = nms(cls_dets_end, TEST_NMS)
+    #            cls_dets_end = cls_dets_end[keep, :]
+    ##            print(len(keep))
+                    
+            # C'est cls_prob apres np.reshape(scores, [scores.shape[0], -1]) qui correspond au scores de im_detect 
+            blobs, im_scales = get_blobs(im)
+            roi =  rois[:,1:5] / im_scales[0]
+            scores = np.reshape(cls_prob, [cls_prob.shape[0], -1])
+            boxes = np.tile(roi, (1, scores.shape[1]))
+            # For COCO scores.shape = #boxes,81, boxes.shape = #boxes,4*81
+            
+            if 'COCO' in demonet:
+                if database=='VOC2007':
+                    scores = scores[:,corr_voc_coco]
+                elif database=='watercolor':
+                    scores = scores[:,corr_watercolor_coco]
+            elif 'VOC' in demonet and database=='watercolor':
+                scores = scores[:,corr_watercolor_voc]
+                    
+            # skip j = 0, because it's the background class
+            local_cls = []
+            roi_boxes_and_score = None
+            for j in range(1, imdb.num_classes):
+                inds = np.where(scores[:, j] > thresh)[0]
+    #            print(j,len(inds))
+                cls_scores = scores[inds, j]
+                cls_boxes = boxes[inds, j*4:(j+1)*4]
+                cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
+                  .astype(np.float32, copy=False)
+                keep = nms(cls_dets, TEST_NMS)
+    #            print(len(keep))
+                cls_dets = cls_dets[keep, :]
+                all_boxes[j][i] = cls_dets
+    
+            if plot:
+                if len(cls_dets) > 0:
+                    local_cls += [imdb.classes[j]]*len(cls_dets)
+                    roi_boxes_score = np.expand_dims(cls_dets,axis=1)
+    #                print(roi_boxes_score.shape)
+                    if roi_boxes_and_score is None:
+                        roi_boxes_and_score = roi_boxes_score
+                    else:
+                        roi_boxes_and_score= \
+                        np.vstack((roi_boxes_score,roi_boxes_and_score))
+    #               print(roi_boxes_and_score)
+    #                print(local_cls)
+    #                vis_detections_list(im, local_cls, roi_boxes_and_score, thresh=0.5)
+    #                name_output = path_to_output2 + name_im + '_Regions.jpg'
+    #                plt.savefig(name_output)
+    #                plt.close()
+              # Part classification
+            scores_max = np.max(scores,axis=0)
+            y_predict[i,:] = scores_max[1:]
+            
+        # Score de classification
+        AP_per_class = []
+        for k,classe in enumerate(imdb.classes):
+            if not(k==0):
+                kk = k -1 
+                AP = average_precision_score(y_true[:,kk],y_predict[:,kk],average=None)
+                AP_per_class += [AP]
+                print("Average Precision Classification for",classe," = ",AP)
+        print(demonet," mean Average Precision Classification = {0:.3f}".format(np.mean(AP_per_class)))
+        
+        # Rappel des scores :
+        
+        print(demonet)
+        print(arrayToLatex(CLASSESVOC[1:],dtype=str))
+        print("Classification task")
+        print(arrayToLatex(AP_per_class,per=per))
+        
+        # Limit to max_per_image detections *over all classes*
+        if max_per_image > 0:
+            image_scores = np.hstack([all_boxes[j][i][:, -1] \
+                    for j in range(1, imdb.num_classes)])
+            if len(image_scores) > max_per_image:
+                image_thresh = np.sort(image_scores)[-max_per_image]
+                for j in range(1, imdb.num_classes):
+                    keep = np.where(all_boxes[j][i][:, -1] >= image_thresh)[0]
+                    all_boxes[j][i] = all_boxes[j][i][keep, :]
+           
+        det_file = os.path.join(output_dir, 'detections_perf.pkl')
+        with open(det_file, 'wb') as f:
+            pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+        
+        aps = imdb.evaluate_detections(all_boxes, output_dir)
+        print("Detection task with thresh = ",TEST_NMS)
+        print(arrayToLatex(aps,per=per))
+        
+        print('Evaluating detections')
+        with_thres_comp = False
+        if with_thres_comp:
+            for thresh in np.arange(TEST_NMS-0.1,0.0,-0.1):
+                all_boxes_after_nms = apply_nms(all_boxes, float(thresh))
+                aps = imdb.evaluate_detections(all_boxes_after_nms, output_dir)
+                print("Detection task with thresh = ",thresh)
+                print(arrayToLatex(aps,per=per))
+        
             
 def read_features_computePerfPaintings():
     """ Function to test if you can refind the same AP metric by reading the saved CNN features """
@@ -505,7 +847,7 @@ def run_FasterRCNN_demo():
                     print(CLASSES[cls_ind])
         sess.close()
  
-def vis_detections(im, class_name, dets, thresh=0.5):
+def vis_detections(im, class_name, dets, thresh=0.5,with_title=True):
     """Draw detected bounding boxes."""
     inds = np.where(dets[:, -1] >= thresh)[0]
     if len(inds) == 0:
@@ -529,10 +871,11 @@ def vis_detections(im, class_name, dets, thresh=0.5):
                 bbox=dict(facecolor='blue', alpha=0.5),
                 fontsize=14, color='white')
 
-    ax.set_title(('{} detections with '
-                  'p({} | box) >= {:.1f}').format(class_name, class_name,
-                                                  thresh),
-                  fontsize=14)
+    if with_title:
+        ax.set_title(('{} detections with '
+                      'p({} | box) >= {:.1f}').format(class_name, class_name,
+                                                      thresh),
+                      fontsize=14)
     plt.axis('off')
     plt.tight_layout()
     plt.draw()
@@ -552,7 +895,7 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5):
         inds = np.where(dets[:, -1] >= thresh)[0]
         if not(len(inds) == 0):
             color = list_colors[i_color]
-            i_color += 1 % len(list_colors)
+            i_color = ((i_color + 1) % len(list_colors))
             for i in inds:
                 bbox = dets[i, :4]
                 score = dets[i, -1]
@@ -1074,18 +1417,44 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     if database=='Paintings':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/Painting_Dataset/' 
+        num_classes = 10
+        ext = '.txt'
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        num_classes = 20
+        ext = '.txt'
+        raise(NotImplementedError)
+    elif database=='VOC2007':
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+        num_classes = 20
+        ext = '.csv'
+    elif database=='watercolor':
+        num_classes = 6
+        ext = '.csv'
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+    elif database=='clipart':
+        num_classes = 20
+        ext = '.csv'
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        num_classes = 5
+        ext = '.txt'
     else:
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        ext = '.txt'
     
-    databasetxt = path_data + database + '.txt'
-    df_label = pd.read_csv(databasetxt,sep=",")
+    databasetxt = path_data + database + ext
+    if database=='VOC2007' or database=='watercolor' or database=='clipart':
+        df_label = pd.read_csv(databasetxt,sep=",",dtype=str)
+    else:
+        df_label = pd.read_csv(databasetxt,sep=",")
     if database=='Wikidata_Paintings_miniset_verif':
         df_label = df_label[df_label['BadPhoto'] <= 0.0]
     
@@ -1114,7 +1483,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     elif 'COCO'in demonet:
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
-    nbClasses = len(CLASSES)
+    nbClassesDemoNet = len(CLASSES)
     path_to_model = '/media/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
@@ -1125,19 +1494,22 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     # load network
     if  'vgg16' in demonet:
       net = vgg16()
+      size_output = 4096
     elif demonet == 'res50':
       raise NotImplementedError
     elif 'res101' in demonet:
       net = resnetv1(num_layers=101)
+      size_output = 2048
     elif 'res152' in demonet:
       net = resnetv1(num_layers=152)
+      size_output = 2048
     elif demonet == 'mobile':
       raise NotImplementedError
     else:
       raise NotImplementedError
       
    
-    net.create_architecture("TEST", nbClasses,
+    net.create_architecture("TEST", nbClassesDemoNet,
                           tag='default', anchor_scales=anchor_scales,
                           modeTL= True,nms_thresh=nms_thresh)
     saver = tf.train.Saver()
@@ -1155,11 +1527,20 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
             dict_writers[set_str] = tf.python_io.TFRecordWriter(name_pkl_all_features)
         if database=='Paintings':
-            item_name = 'name_img'
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+        if database=='VOC2007' or database=='clipart':
+            classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
+               'bottle', 'bus', 'car', 'cat', 'chair',
+               'cow', 'diningtable', 'dog', 'horse',
+               'motorbike', 'person', 'pottedplant',
+               'sheep', 'sofa', 'train', 'tvmonitor']
+        if database=='watercolor':
+            classes = ["bicycle", "bird","car", "cat", "dog", "person"]
     
-        
-        
+    # Important variable : number of regions !   
+    k_regions = 300    
+    
+    
     Itera = 1000
     for i,name_img in  enumerate(df_label[item_name]):
         if filesave=='pkl':
@@ -1168,7 +1549,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 if not(i==0):
                     pickle.dump(features_resnet_dict,pkl) # Save the data
                     features_resnet_dict= {}
-            if database=='VOC12' or database=='Paintings':
+            if database in ['VOC2007','clipart','Paintings','watercolor']:
                 complet_name = path_to_img + name_img + '.jpg'
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 name_sans_ext = os.path.splitext(name_img)[0]
@@ -1186,7 +1567,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         elif filesave=='tfrecords':
             if i%Itera==0:
                 if verbose : print(i,name_img)
-            if database=='VOC12' or database=='Paintings':
+            if database in ['VOC2007','clipart','Paintings','watercolor']:
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -1199,19 +1580,43 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             num_regions = fc7.shape[0]
             num_features = fc7.shape[1]
             dim1_rois = rois.shape[1]
-            classes_vectors = np.zeros((10,1))
+            classes_vectors = np.zeros((num_classes,1))
+            
+            # We will 
+            rois_tmp = np.zeros((k_regions,5))
+            roi_scores_tmp = np.zeros((k_regions,1))
+            fc7_tmp = np.zeros((k_regions,size_output))
+            rois_tmp[0:rois.shape[0],0:rois.shape[1]] = rois
+            roi_scores_tmp[0:roi_scores.shape[0],0:roi_scores.shape[1]] = roi_scores
+            fc7_tmp[0:fc7.shape[0],0:fc7.shape[1]] = fc7           
+            rois = rois_tmp
+            roi_scores =roi_scores_tmp
+            fc7 = fc7_tmp
+            
             if database=='Paintings':
-                for j in range(10):
+                for j in range(num_classes):
                     if(classes[j] in df_label['classe'][i]):
                         classes_vectors[j] = 1
+            if database in ['VOC2007','clipart','watercolor']:
+                for j in range(num_classes):
+                    value = int((int(df_label[classes[j]][i])+1.)/2.)
+                    #print(value)
+                    classes_vectors[j] = value
             
             #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
             if saved=='fc7':
-                raise(NotImplemented)
+                features=tf.train.Features(feature={
+                    'height': _int64_feature(height),
+                    'width': _int64_feature(width),
+                    'num_regions': _int64_feature(num_regions),
+                    'num_features': _int64_feature(num_features),
+                    'fc7': _bytes_feature(tf.compat.as_bytes(fc7.tostring())),
+                    'label' : _bytes_feature(tf.compat.as_bytes(classes_vectors.tostring())),
+                    'name_img' : _bytes_feature(str.encode(name_sans_ext))})
             elif saved=='pool5':
-                raise(NotImplemented)
+                raise(NotImplementedError)
             elif saved=='all':
-                example = tf.train.Example(features=tf.train.Features(feature={
+                features=tf.train.Features(feature={
                     'height': _int64_feature(height),
                     'width': _int64_feature(width),
                     'num_regions': _int64_feature(num_regions),
@@ -1220,8 +1625,20 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     'rois': _floats_feature(rois),
                     'roi_scores': _floats_feature(roi_scores),
                     'fc7': _floats_feature(fc7),
-                    'label' : _bytes_feature(classes_vectors.tostring()),
-                    'name_img' : _bytes_feature(str.encode(name_sans_ext))}))
+                    'label' : _floats_feature(classes_vectors),
+                    'name_img' : _bytes_feature(str.encode(name_sans_ext))})
+            example = tf.train.Example(features=features)    
+            
+            if database=='VOC2007':
+                if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
+                    dict_writers['train'].write(example.SerializeToString())
+                    dict_writers['trainval'].write(example.SerializeToString())
+                elif (df_label.loc[df_label[item_name]==name_img]['set']=='val').any():
+                    dict_writers['val'].write(example.SerializeToString())
+                    dict_writers['trainval'].write(example.SerializeToString())
+                elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
+                    dict_writers['test'].write(example.SerializeToString())
+            if (database=='Wikidata_Paintings_miniset') or database=='Paintings':
                 if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
                     dict_writers['train'].write(example.SerializeToString())
                     dict_writers['trainval'].write(example.SerializeToString())
@@ -1230,7 +1647,13 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     dict_writers['trainval'].write(example.SerializeToString())
                 elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
                     dict_writers['test'].write(example.SerializeToString())
-
+            if database=='watercolor' or database=='clipart':
+                if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
+                    dict_writers['train'].write(example.SerializeToString())
+                    dict_writers['trainval'].write(example.SerializeToString())
+                elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
+                    dict_writers['test'].write(example.SerializeToString())
+                    
     if filesave=='pkl':
         pickle.dump(features_resnet_dict,pkl)
         pkl.close()
@@ -1377,6 +1800,258 @@ def Illus_NMS_threshold_test():
         plt.close('all')
         tf.reset_default_graph()
         sess.close()
+    return(0) # Not really necessary indead
+  
+def Illus_ScoreObjectness():
+    """
+    The goal of this function is to test the modification of the NMS threshold 
+    on the output provide by the algo 
+    And plot the zone considered as the best by the Faster RCNN 
+    """ 
+    classes  = CLASSESVOC[1:21]
+    corr_voc_coco = [0,5,2,15,9,40,6,3,16,57,20,61,17,18,4,1,59,19,58,7,63]
+    TEST_NMS = 0.7
+    num_classes = 21
+    thresh = 0.0
+    path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_ObjectScore/'
+    pathlib.Path(path_to_output).mkdir(parents=True, exist_ok=True) 
+    demonet = 'res152_COCO'
+    tf.reset_default_graph() # Needed to use different nets one after the other
+    print(demonet)
+    if 'VOC'in demonet:
+        CLASSES = CLASSES_SET['VOC']
+        anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+    elif 'COCO'in demonet:
+        CLASSES = CLASSES_SET['COCO']
+        anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
+    nbClasses = len(CLASSES)
+    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+    tfconfig = tf.ConfigProto(allow_soft_placement=True)
+    tfconfig.gpu_options.allow_growth=True
+    # load network
+    if  'vgg16' in demonet:
+      net = vgg16()
+      net_TL = vgg16()
+    elif demonet == 'res50':
+      raise NotImplementedError
+    elif 'res101' in demonet:
+      net = resnetv1(num_layers=101)
+      net_TL = resnetv1(num_layers=101)
+    elif 'res152' in demonet:
+      net = resnetv1(num_layers=152)
+      net_TL = resnetv1(num_layers=152)
+    elif demonet == 'mobile':
+      raise NotImplementedError
+    else:
+      raise NotImplementedError
+      
+    # List des images a test 
+    path_to_img = '/media/HDD/output_exp/ClassifPaintings/im/'
+    
+    # creation of the images :
+#    random_im = np.clip(np.random.normal(loc=125,size=(600,600,3),scale=25),0,255)
+    random_im = np.random.randint(0,255,size=(600,600,3))
+    list_images = []
+    list_images_name = []
+    list_images += [random_im]
+    list_images_name += ['random_im']
+    list_color = {'red' :  (0,0,255),'blue':(255,0,0),'green':(0,255,0),'white':(255,255,255),\
+                  'grey':(128,128,128),'golden':(11,134,184)} # Color code in BGR
+    for color in list_color.keys():
+        im = np.ones(shape=(600,600,3))
+        colors=list_color[color]
+        for i in range(3):
+            im[:,:,i] = colors[i]
+        list_images += [im.astype(int)]
+        list_images_name += [color]
+    complet_name = path_to_img + 'watercolor-photoshop-brush-1200x580.jpg'
+    im = cv2.imread(complet_name)
+    list_images += [im]
+    list_images_name += ['watercolor']
+    
+    nms_thresh = 0.7
+    number_box_keep = 10
+    plt.ion()
+    plt.close('all')    
+    sess = tf.Session(config=tfconfig)
+    net_TL.create_architecture("TEST", nbClasses,
+                                  tag='default', anchor_scales=anchor_scales,
+                                  modeTL= True,nms_thresh=nms_thresh)
+    saver = tf.train.Saver()
+    saver.restore(sess, tfmodel)       
+    for im,im_name in zip(list_images,list_images_name):
+        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = \
+        TL_im_detect(sess, net_TL, im)
+        blobs, im_scales = get_blobs(im)
+        roi =  rois[0:number_box_keep,1:5] / im_scales[0]
+        scores = roi_scores[0:number_box_keep]
+        number_box_keep_p1 = number_box_keep +1
+        roimin =  rois[-number_box_keep_p1:-1,1:5] / im_scales[0]
+        scoresmin = roi_scores[-number_box_keep_p1:-1]
+        Boexsmin = np.hstack((roimin,scoresmin))
+        Boexs = np.hstack((roi,scores))
+        vis_detections(im, 'object max', Boexs, thresh=0.,with_title=False)
+        name_output = path_to_output + im_name + '_ObjectScoresMax.jpg'
+        plt.savefig(name_output)     
+        vis_detections(im, 'object min', Boexsmin, thresh=0.,with_title=False)
+        name_output = path_to_output + im_name + '_ObjectScoresMin.jpg'
+        plt.savefig(name_output)     
+    plt.close('all')
+    return(0) # Not really necessary indead
+    
+def Illus_box_ratio():
+    """
+    The goal of this function is to test the modification of the NMS threshold 
+    on the output provide by the algo 
+    And plot the zone considered as the best by the Faster RCNN 
+    """ 
+    classes  = CLASSESVOC[1:21]
+    corr_voc_coco = [0,5,2,15,9,40,6,3,16,57,20,61,17,18,4,1,59,19,58,7,63]
+    TEST_NMS = 0.7
+    num_classes = 21
+    thresh = 0.0
+    #NETS_Pretrained = {'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'}
+    path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/'
+    demonet = 'res152_COCO'
+    tf.reset_default_graph() # Needed to use different nets one after the other
+    print(demonet)
+    if 'VOC'in demonet:
+        CLASSES = CLASSES_SET['VOC']
+        anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+    elif 'COCO'in demonet:
+        CLASSES = CLASSES_SET['COCO']
+        anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
+    nbClasses = len(CLASSES)
+    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+    tfconfig = tf.ConfigProto(allow_soft_placement=True)
+    tfconfig.gpu_options.allow_growth=True
+    # load network
+    if  'vgg16' in demonet:
+      net = vgg16()
+      net_TL = vgg16()
+    elif demonet == 'res50':
+      raise NotImplementedError
+    elif 'res101' in demonet:
+      net = resnetv1(num_layers=101)
+      net_TL = resnetv1(num_layers=101)
+    elif 'res152' in demonet:
+      net = resnetv1(num_layers=152)
+      net_TL = resnetv1(num_layers=152)
+    elif demonet == 'mobile':
+      raise NotImplementedError
+    else:
+      raise NotImplementedError
+      
+    # List des images a test 
+    path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+    path_to_img = '/media/HDD/output_exp/ClassifPaintings/im/'
+    list_name_img = ['000001']
+    list_name_img = ['medaille-charms-need-dog']
+    nms_thresh = 0.7
+    # First we test with a high threshold !!!
+    plt.ion()
+    plt.close('all')
+    sess = tf.Session(config=tfconfig)
+    net.create_architecture("TEST", nbClasses,
+                          tag='default', anchor_scales=anchor_scales)
+
+    saver = tf.train.Saver()
+    saver.restore(sess, tfmodel)
+    name_img = list_name_img[0]
+    i=0
+    name_img = list_name_img[i]
+    complet_name = path_to_img + name_img + '.jpg'
+    im = cv2.imread(complet_name)
+    
+
+    # Partie normale de detection :
+    scores_classic, boxes_classic = im_detect(sess, net, im) # For COCO scores.shape = #boxes,81, boxes.shape = #boxes,4*81
+    if 'COCO' in demonet:
+        scores_classic = scores_classic[:,corr_voc_coco]
+        boxes_tmp = np.zeros((len(scores_classic),21*4))
+        for j in range(1, num_classes):
+            j_tmp = corr_voc_coco[j]
+            boxes_tmp[:,j*4:(j+1)*4] = boxes_classic[:,j_tmp*4:(j_tmp+1)*4]
+        boxes_classic = boxes_tmp
+
+    j_class = 15 # Person
+    j_class = 12 # Dog
+    CONF_THRESH = 0.3
+    NMS_THRESH = 0.9
+    argmax = [np.argmax(scores_classic[:,j_class])]
+#    scores_classic = scores_classic[argmax,:]
+    scores_class_classic = scores_classic[argmax,j_class]
+    boxes_class_classic = boxes_classic[argmax,j_class*4:(j_class+1)*4] 
+    print(scores_class_classic)
+    cls = classes[j_class-1]
+    cls_scores = scores_class_classic
+    cls_boxes = boxes_class_classic
+    print(cls_scores.shape)
+    print(cls_boxes.shape)
+    dets = np.hstack((cls_boxes,
+                      cls_scores[:, np.newaxis])).astype(np.float32)
+    print(dets.shape)
+    keep = nms(dets, NMS_THRESH)
+    dets = dets[keep, :]
+    #inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
+    vis_detections(im, cls, dets, thresh=0.5)
+    plt.show()
+    
+    tf.reset_default_graph()
+    sess.close()
+    
+    sess = tf.Session(config=tfconfig)
+    net_TL.create_architecture("TEST", nbClasses,
+                                  tag='default', anchor_scales=anchor_scales,
+                                  modeTL= True,nms_thresh=nms_thresh)
+    saver = tf.train.Saver()
+    saver.restore(sess, tfmodel)
+    
+    #print("Image shape",im.shape)
+    cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = \
+        TL_im_detect(sess, net_TL, im)  # This call net.TL_image 
+        
+    for dim in [2048,1024,800,600,512,248,224]:
+        resized = cv2.resize(im, (dim,dim), interpolation = cv2.INTER_AREA)
+        features_maps = net_TL.extract_head(sess, np.expand_dims(resized,axis=0))
+        print(resized.shape)
+        print(features_maps.shape)
+        s = features_maps.shape[1]
+        ratio = dim//s
+        print('ratio',ratio)
+        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = \
+        TL_im_detect(sess, net_TL, resized)
+    # dans cette version du Faster RCNN toute les images sont redimensionnes a du 600
+    # pour le plus petit cote et la feature map final a une dimension de (1, 38, 38, 1024)
+    # Soit H/16 et W/16 pour une image de 600*600
+    blobs, im_scales = get_blobs(im)
+    roi =  rois[:,1:5] / im_scales[0]
+    scores = np.reshape(cls_prob, [cls_prob.shape[0], -1])
+    boxes = np.tile(roi,21)
+    if 'COCO' in demonet:
+        scores = scores[:,corr_voc_coco]
+    # skip j = 0, because it's the background class
+    scores_class_TL = scores[argmax,j_class]
+    boxes_class_TL = boxes[argmax,j_class*4:(j_class+1)*4] 
+    print(scores_class_TL)
+    cls = classes[j_class-1]
+    cls_scores = scores_class_TL
+    cls_boxes = boxes_class_TL
+    print(cls_scores.shape)
+    print(cls_boxes.shape)
+    dets = np.hstack((cls_boxes,
+                      cls_scores[:, np.newaxis])).astype(np.float32)
+    keep = nms(dets, NMS_THRESH)
+    print(dets.shape)
+    dets = dets[keep, :]
+    #inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
+    vis_detections(im, cls, dets, thresh=0.5)
+    plt.show()
+    #input('wait')        
+    #plt.close('all')
+    
     return(0) # Not really necessary indead
          
         
@@ -1819,9 +2494,12 @@ if __name__ == '__main__':
     # RESNET152 sur COCO
     # VGG16 sur COCO
     # RES101 sur VOC12
-    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
-                                 augmentation=False,L2 =False,
-                                 saved='all',verbose=True,filesave='tfrecords')   
+#    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='VOC2007',
+#                                 augmentation=False,L2 =False,
+#                                 saved='all',verbose=True,filesave='tfrecords')   
+#    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='watercolor',
+#                                 augmentation=False,L2 =False,
+#                                 saved='all',verbose=True,filesave='tfrecords')   
     
     # Test pour calculer les performances en prenant la moyenne des regions retournees par le réseau
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',nms_thresh = 0.0)
@@ -1832,3 +2510,6 @@ if __name__ == '__main__':
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',CV_Crowley=False,
 #                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
 #    
+#    run_FRCNN_Detection_perf(database='VOC2007')
+   run_FRCNN_Detection_perf(database='watercolor')
+#     Illus_box_ratio()

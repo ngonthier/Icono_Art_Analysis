@@ -14,7 +14,7 @@ With VGG16 (``conv5_3``):
   - Train on VOC 2007+2012 trainval and test on VOC 2007 test ([R-FCN](https://github.com/daijifeng001/R-FCN) schedule), **75.7**.
   - Train on COCO 2014 [trainval35k](https://github.com/rbgirshick/py-faster-rcnn/tree/master/models) and test on [minival](https://github.com/rbgirshick/py-faster-rcnn/tree/master/models) (*Iterations*: 900k/1190k), **30.2**.
 
-With Resnet101 (last ``conv4``):
+With Resnet101 (last ``conv4``): ie conv4_3
   - Train on VOC 2007 trainval and test on VOC 2007 test, **75.7**.
   - Train on VOC 2007+2012 trainval and test on VOC 2007 test (R-FCN schedule), **79.8**.
   - Train on COCO 2014 trainval35k and test on minival (900k/1190k), **35.4**.

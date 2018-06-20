@@ -7,9 +7,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from datasets.imdb import imdb
-import datasets.ds_utils as ds_utils
-from model.config import cfg
+from ..datasets.imdb import imdb
+from ..datasets.ds_utils import validate_boxes
+from ..model.config import cfg
 import os.path as osp
 import sys
 import os
@@ -20,9 +20,9 @@ import pickle
 import json
 import uuid
 # COCO API
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
-from pycocotools import mask as COCOmask
+from .pycocotools.coco import COCO
+from .pycocotools.cocoeval import COCOeval
+from .pycocotools import mask as COCOmask
 
 class coco(imdb):
   def __init__(self, image_set, year):
@@ -168,7 +168,7 @@ class coco(imdb):
       else:
         overlaps[ix, cls] = 1.0
 
-    ds_utils.validate_boxes(boxes, width=width, height=height)
+    validate_boxes(boxes, width=width, height=height)
     overlaps = scipy.sparse.csr_matrix(overlaps)
     return {'width': width,
             'height': height,

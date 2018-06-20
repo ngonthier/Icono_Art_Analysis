@@ -82,6 +82,10 @@ Classif_Paintings/darkflow/ckpt/*
 #pytest cache
 Classif_Paintings/darkflow/.cache/
 
+../cpm/.ipynb_checkpoints/
 
+# For tf records
+*.tfrecords
+*.tfrecord
 
 

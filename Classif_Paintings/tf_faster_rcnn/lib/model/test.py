@@ -105,11 +105,14 @@ def im_detect(sess, net, im,max_per_image=100):
   """
   
   blobs, im_scales = _get_blobs(im)
+#  print(im_scales.shape)
   assert len(im_scales) == 1, "Only single-image batch implemented"
 
   im_blob = blobs['data'] # Images with smaller dim equal to 600 pixels
+  # All the images are rescaled to 600 max dimension 
+#  print(im_blob.shape)
   blobs['im_info'] = np.array([im_blob.shape[1], im_blob.shape[2], im_scales[0]], dtype=np.float32)
-
+#  print(blobs['im_info'] )
   _, scores, bbox_pred, rois = net.test_image(sess, blobs['data'], blobs['im_info'])
   # Info on the 300 region proposal selected : cls_score, cls_prob, bbox_pred, rois
   # a  box-regression  layer  (reg)  and  a box-classification  layer  (cls)
@@ -124,7 +127,7 @@ def im_detect(sess, net, im,max_per_image=100):
   boxes = rois[:, 1:5] / im_scales[0]
   scores = np.reshape(scores, [scores.shape[0], -1])
   bbox_pred = np.reshape(bbox_pred, [bbox_pred.shape[0], -1])
-  if cfg.TEST.BBOX_REG:
+  if cfg.TEST.BBOX_REG and False:
     # Apply bounding-box regression deltas
     box_deltas = bbox_pred
     pred_boxes = bbox_transform_inv(boxes, box_deltas)
@@ -151,16 +154,19 @@ def TL_im_detect(sess, net, im,max_per_image=100):
   
   blobs, im_scales = _get_blobs(im)
   assert len(im_scales) == 1, "Only single-image batch implemented"
-
+  # All the images are rescaled to 600 max dimension 
   im_blob = blobs['data'] # Images with smaller dim equal to 600 pixels
   blobs['im_info'] = np.array([im_blob.shape[1], im_blob.shape[2], im_scales[0]], dtype=np.float32)
-
+#  print(im_scales.shape)
+#  print(blobs['im_info'].shape)
+#  print(blobs['data'].shape)
   cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = net.TL_image(sess, blobs['data'], blobs['im_info'])    
   return  cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5
   
 def TL_im_detect_end(scores, bbox_pred, rois,im): 
   """
    To get the box
+   Need to provide cls_prob, bbox_pred, rois provide by the function TL_im_detect
   """
   blobs, im_scales = _get_blobs(im)
   assert len(im_scales) == 1, "Only single-image batch implemented"

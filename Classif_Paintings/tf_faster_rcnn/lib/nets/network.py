@@ -223,8 +223,10 @@ class Network(object):
     with tf.variable_scope(self._scope, self._scope):
       # build the anchors for the image
       self._anchor_component()
+#      print('net_conv',net_conv.shape)
       # region proposal network
       rois, roi_scores = self._region_proposal_TL(net_conv, is_training, initializer)
+#      print('rois',rois.shape)
       # region of interest pooling
       if cfg.POOLING_MODE == 'crop':
         pool5 = self._crop_pool_layer(net_conv, rois, "pool5")
@@ -232,7 +234,7 @@ class Network(object):
         raise NotImplementedError
 
     fc7 = self._head_to_tail(pool5, is_training)
-    
+#    print('fc7',fc7.shape)
     with tf.variable_scope(self._scope, self._scope):
       # region classification
       cls_prob, bbox_pred = self._region_classification(fc7, is_training, 
@@ -377,6 +379,7 @@ class Network(object):
     return rois
     
   def _region_proposal_TL(self, net_conv, is_training, initializer):
+    # Here ! print('net_conv',tf.shape(net_conv))
     rpn = slim.conv2d(net_conv, cfg.RPN_CHANNELS, [3, 3], trainable=is_training, weights_initializer=initializer,
                         scope="rpn_conv/3x3")
     self._act_summaries.append(rpn)
@@ -565,7 +568,13 @@ class Network(object):
 
   # Extract the head feature maps, for example for vgg16 it is conv5_3
   # only useful during testing mode
+  # For ResNet it is conv4_3 and the spatial dimensions have been divided by 16 
   def extract_head(self, sess, image):
+    """
+    Extract the head feature maps, for example for vgg16 it is conv5_3
+    only useful during testing mode
+    For ResNet it is conv5_3 aussi dont les deux dimensions ont ete divise par 16 
+    """
     feed_dict = {self._image: image}
     feat = sess.run(self._layers["head"], feed_dict=feed_dict)
     return feat

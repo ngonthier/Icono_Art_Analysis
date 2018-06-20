@@ -46,7 +46,19 @@ def fusion_wikidata(x):
                         country = x['country'].min(),
                         year = x['year'].min(),depictsLabel =  "%s" % ' '.join(x['depictsLabel'])
                         ))
-depicts_depictsLabel = {'Q109607':'ruins','Q3039121':'drapery','Q18281':'embroidery','Q148993':'broad_leaved_tree','Q10884':'tree','Q193893':'capital','Q4817':'column','Q12511':'stairs','Q3289701':'step','Q42804':'beard','Q3575260':'jewellery','Q467': 'woman','Q8441' : 'man','Q345': 'Mary','Q527':	'sky','Q10884'	: 'tree','Q942467'	: 'Child Jesus','Q8074':	'cloud','Q3010' :	'boy','Q302':	'Jesus Christ','Q1144593':'sitting','Q10791':	'nudity','Q7569':'child','Q726':	'horse','Q14130':	'long hair','Q7560': 'mother','Q107425':	'landscape','Q144': 'dog','Q8502':'mountain','Q235113':	'angel'}
+depicts_depictsLabel = {'Q51636':'crucifixion_of_Jesus','Q109607':'ruins',
+                            'Q3039121':'drapery','Q18281':'embroidery',
+                            'Q148993':'broad_leaved_tree','Q10884':'tree',
+                            'Q193893':'capital','Q4817':'column','Q12511':'stairs',
+                            'Q3289701':'step','Q42804':'beard','Q3575260':'jewellery',
+                            'Q467': 'woman','Q8441' : 'man','Q345': 'Mary','Q527':	'sky',
+                            'Q10884'	: 'tree','Q942467': 'Child Jesus',
+                            'Q8074':	'cloud','Q3010' :'boy','Q302':'Jesus Christ',
+                            'Q1144593':'sitting','Q10791':'nudity','Q7569':'child',
+                            'Q726':	'horse','Q14130':'long hair','Q7560':'mother',
+                            'Q107425':'landscape','Q144': 'dog','Q8502':'mountain',
+                            'Q235113':'angel','Q183332':'Saint-Sebastien',
+                            'Q2460567':'turban'}
 
 
 # Chercher des chapitaux dans stairs et steps, column 
@@ -693,6 +705,10 @@ def MiseDeCote10c():
     print(len(df))
     copyMode = True
     classes10c = ['Q3039121','Q235113','Q148993','Q193893','Q3575260','Q345','Q42804','Q942467','Q10791','Q109607']
+    classes10c = ['Q51636','Q3039121','Q235113','Q148993','Q193893','Q345','Q42804','Q942467','Q10791','Q109607']
+    classes10c = ['Q183332','Q2460567','Q51636','Q235113','Q148993','Q193893','Q345','Q42804','Q942467','Q10791','Q109607']
+    # Retrait de Q3575260 jewelly et rajout de Q51636 cruxification christ
+    # Retrait de Q3039121 drapery et     classes10c = ['Q183332','Q2460567'] # Saint Sebastien et turban 
     oldclasses = ['Q942467','Q235113','Q345','Q109607','Q10791']
 
     for classe_a_annotee in classes10c:
@@ -767,7 +783,99 @@ def MiseDeCote10c():
                 df.loc[df['item']==item_name,classe_a_annotee_verif] = 0
             print('Number of ',classe_a_annotee,' element',np.sum(df[classe_a_annotee_verif]))
         
+def MiseDeCote10c_crucifictionChrist():
+    """
+    Creation du MiniSet10c
+    """
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    database='Wikidata_Paintings'
+    databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge3.csv'  #6528 images
+    allelt = True
+    df = pd.read_csv(databasetxt,sep=",")
+    print(df.head(5))
+    df = df[df['BadPhoto'] <= 0.0]
+    df = df.replace(np.nan,-1)
+    print(df.head(5))
+    #df = df.drop_duplicates(subset='image', keep="last")
+    print(len(df))
+    copyMode = True
+    classes10c = ['Q3039121','Q235113','Q148993','Q193893','Q3575260','Q345','Q42804','Q942467','Q10791','Q109607']
+    classes10c = ['Q51636'] # Christ en croix
+    classes10c = ['Q183332','Q2460567'] # Saint Sebastien et turban 
+    oldclasses = ['Q942467','Q235113','Q345','Q109607','Q10791']
 
+    for classe_a_annotee in classes10c:
+        print(classe_a_annotee,depicts_depictsLabel[classe_a_annotee])
+        if copyMode:
+            if not (allelt):
+                depictsAll = ['Q467','Q8441','Q345','Q527','Q10884','Q942467','Q8074','Q3010','Q302','Q1144593','Q10791','Q7569','Q726','Q14130','Q7560','Q107425','Q144','Q8502','Q235113']
+                np_classes = df.as_matrix(columns=depictsAll)
+                print(np_classes.shape)
+                index_image_with_at_least_one_of_the_class = np.where(np.sum(np_classes,axis=1) > 0)
+                name_tab_index =  index_image_with_at_least_one_of_the_class[0]
+                print("Number of image :",len(name_tab_index),'==?',len(np.unique(name_tab_index)))
+            else:
+                if classe_a_annotee in oldclasses:
+                    classe_a_annotee_verif = classe_a_annotee + '_verif'
+                    np_classes = df.as_matrix(columns=[classe_a_annotee_verif])
+                    name_tab_index = np.where(np_classes <= -1)[0]
+                else:
+                    np_classes = df.as_matrix(columns=[classe_a_annotee])
+                    name_tab_index = np.where(np_classes <= 0.0)[0]
+                print(np_classes.shape)
+                
+                print(depicts_depictsLabel[classe_a_annotee],"len(name_tab_index)",len(name_tab_index))
+                if classe_a_annotee in oldclasses:
+                    name_tab_index2 = np.where(np_classes > 0)[0]
+                    print("et len(name_tab_index2)",len(name_tab_index2))
+    
+            folder=database +'/'
+            target_path = '/media/HDD/data/'
+            write_data = target_path + folder 
+            bigger_size = 600
+            read_data = write_data + str(bigger_size) + '/'
+            dstfolder=  write_data + 'Not_' + classe_a_annotee +'_'+depicts_depictsLabel[classe_a_annotee]+ '/'
+            numberIm = 0
+            do_mkdir(dstfolder)
+            list_of_im  =[]
+            for i in name_tab_index:
+                name = df.iloc[i]['image']
+                nameoutput = df.iloc[i]['item']
+                #if name in list_of_im:
+                    #print(name," already read! indice = ",i,"Q index = ",df['item'][i])
+                    #print(df[df['image']==name])
+                    #print(df[df['item']==df['item'][i]])
+                
+                name_tab = name.split('.')
+                name_tab[-1] = 'jpg'
+                namejpg = ".".join(name_tab)
+                list_of_im += [namejpg]
+                src = read_data + namejpg
+                dst = dstfolder + nameoutput + '.jpg'
+                copyfile(src, dst)
+                if os.path.exists(dst):
+                    numberIm +=1 
+                else:
+                    print("Image not copied",dst)
+            print(depicts_depictsLabel[classe_a_annotee],"Number of image copied",numberIm)
+            
+            #input("Press input when you have remove all the image containing this class...")
+        else:
+        
+        
+            name_tab_index = np.array(df.index)
+            classe_a_annotee_verif = classe_a_annotee + '_verif'
+            list_elt= os.listdir(dstfolder)
+            #print(list_elt)
+            number_paitings = len(df['image'])
+            df[classe_a_annotee_verif] = Series(np.ones(number_paitings), index=df.index)
+            for name in list_elt:
+                #print(name_tab)
+                name_tab = name.split('.') 
+                item_name = name_tab[0]
+                df.loc[df['item']==item_name,classe_a_annotee_verif] = 0
+            print('Number of ',classe_a_annotee,' element',np.sum(df[classe_a_annotee_verif]))
+        
 
 def MiseDeCote():
     """

@@ -9,30 +9,37 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-from datasets.imdb import imdb
-import datasets.ds_utils as ds_utils
-import xml.etree.ElementTree as ET
+from ..datasets.imdb import imdb
+#from ..datasets.ds_utils import unique_boxes,
+import xml.etree.ElementTree as ET 
 import numpy as np
 import scipy.sparse
 import scipy.io as sio
-import utils.cython_bbox
+#import ..utils.cython_bbox
 import pickle
 import subprocess
 import uuid
-from .voc_eval import voc_eval
-from model.config import cfg
+from ..datasets.voc_eval import voc_eval
+from ..model.config import cfg
 
 
 class pascal_voc(imdb):
-  def __init__(self, image_set, year, use_diff=False):
+  def __init__(self, image_set, year, use_diff=False,devkit_path=None,test_ext=False,
+               force_dont_use_07_metric=False):
     name = 'voc_' + year + '_' + image_set
     if use_diff:
       name += '_diff'
     imdb.__init__(self, name)
     self._year = year
     self._image_set = image_set
-    self._devkit_path = self._get_default_path()
-    self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year)
+    if devkit_path is None:
+        self._devkit_path = self._get_default_path()
+    else:
+        self._devkit_path = devkit_path
+    if test_ext:
+        self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year+'test')
+    else:
+        self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year)
     self._classes = ('__background__',  # always index 0
                      'aeroplane', 'bicycle', 'bird', 'boat',
                      'bottle', 'bus', 'car', 'cat', 'chair',
@@ -46,6 +53,7 @@ class pascal_voc(imdb):
     self._roidb_handler = self.gt_roidb
     self._salt = str(uuid.uuid4())
     self._comp_id = 'comp4'
+    self.force_dont_use_07_metric = force_dont_use_07_metric
 
     # PASCAL specific config options
     self.config = {'cleanup': True,
@@ -218,6 +226,9 @@ class pascal_voc(imdb):
                            dets[k, 0] + 1, dets[k, 1] + 1,
                            dets[k, 2] + 1, dets[k, 3] + 1))
 
+  def set_force_dont_use_07_metric(self,boolean):
+      self.force_dont_use_07_metric=boolean
+      
   def _do_python_eval(self, output_dir='output'):
     annopath = os.path.join(
       self._devkit_path,
@@ -234,6 +245,82 @@ class pascal_voc(imdb):
     aps = []
     # The PASCAL VOC metric changed in 2010
     use_07_metric = True if int(self._year) < 2010 else False
+    if self.force_dont_use_07_metric == True: use_07_metric = False
+    print('VOC07 metric? ' + ('Yes' if use_07_metric else 'No'))
+    if not os.path.isdir(output_dir):
+      os.mkdir(output_dir)
+    for i, cls in enumerate(self._classes):
+      if cls == '__background__':
+        continue
+      filename = self._get_voc_results_file_template().format(cls)
+      rec, prec, ap = voc_eval(
+        filename, annopath, imagesetfile, cls, cachedir, ovthresh=0.5,
+        use_07_metric=use_07_metric, use_diff=self.config['use_diff'])
+      aps += [ap]
+      print(('AP for {} = {:.4f}'.format(cls, ap)))
+      with open(os.path.join(output_dir, cls + '_pr.pkl'), 'wb') as f:
+        pickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
+    print(('Mean AP = {:.4f}'.format(np.mean(aps))))
+    print('~~~~~~~~')
+    print('Results:')
+    for ap in aps:
+      print(('{:.3f}'.format(ap)))
+    print(('{:.3f}'.format(np.mean(aps))))
+    print('~~~~~~~~')
+#    print('')
+#    print('--------------------------------------------------------------')
+    print('Results computed with the **unofficial** Python eval code.')
+#    print('Results should be very close to the official MATLAB eval code.')
+#    print('Recompute with `./tools/reval.py --matlab ...` for your paper.')
+#    print('-- Thanks, The Management')
+#    print('--------------------------------------------------------------')
+    return(aps)
+
+  def _do_matlab_eval(self, output_dir='output'):
+    print('-----------------------------------------------------')
+    print('Computing results with the official MATLAB eval code.')
+    print('-----------------------------------------------------')
+    path = os.path.join(cfg.ROOT_DIR, 'lib', 'datasets',
+                        'VOCdevkit-matlab-wrapper')
+    cmd = 'cd {} && '.format(path)
+    cmd += '{:s} -nodisplay -nodesktop '.format(cfg.MATLAB)
+    cmd += '-r "dbstop if error; '
+    cmd += 'voc_eval(\'{:s}\',\'{:s}\',\'{:s}\',\'{:s}\'); quit;"' \
+      .format(self._devkit_path, self._get_comp_id(),
+              self._image_set, output_dir)
+    print(('Running:\n{}'.format(cmd)))
+    status = subprocess.call(cmd, shell=True)
+
+  def evaluate_detections(self, all_boxes, output_dir):
+    self._write_voc_results_file(all_boxes)
+    aps = self._do_python_eval(output_dir)
+    if self.config['matlab_eval']:
+      self._do_matlab_eval(output_dir)
+    if self.config['cleanup']:
+      for cls in self._classes:
+        if cls == '__background__':
+          continue
+        filename = self._get_voc_results_file_template().format(cls)
+        os.remove(filename)
+    return(aps)
+    
+  def evaluate_localisation(self,all_boxes, output_dir):
+    annopath = os.path.join(
+      self._devkit_path,
+      'VOC' + self._year,
+      'Annotations',
+      '{:s}.xml')
+    imagesetfile = os.path.join(
+      self._devkit_path,
+      'VOC' + self._year,
+      'ImageSets',
+      'Main',
+      self._image_set + '.txt')
+    cachedir = os.path.join(self._devkit_path, 'annotations_cache')
+    aps = []
+    # The PASCAL VOC metric changed in 2010
+    use_07_metric = True if int(self._year) < 2010 else False
+    if self.force_dont_use_07_metric == True: use_07_metric = False
     print('VOC07 metric? ' + ('Yes' if use_07_metric else 'No'))
     if not os.path.isdir(output_dir):
       os.mkdir(output_dir)
@@ -262,33 +349,7 @@ class pascal_voc(imdb):
     print('Recompute with `./tools/reval.py --matlab ...` for your paper.')
     print('-- Thanks, The Management')
     print('--------------------------------------------------------------')
-
-  def _do_matlab_eval(self, output_dir='output'):
-    print('-----------------------------------------------------')
-    print('Computing results with the official MATLAB eval code.')
-    print('-----------------------------------------------------')
-    path = os.path.join(cfg.ROOT_DIR, 'lib', 'datasets',
-                        'VOCdevkit-matlab-wrapper')
-    cmd = 'cd {} && '.format(path)
-    cmd += '{:s} -nodisplay -nodesktop '.format(cfg.MATLAB)
-    cmd += '-r "dbstop if error; '
-    cmd += 'voc_eval(\'{:s}\',\'{:s}\',\'{:s}\',\'{:s}\'); quit;"' \
-      .format(self._devkit_path, self._get_comp_id(),
-              self._image_set, output_dir)
-    print(('Running:\n{}'.format(cmd)))
-    status = subprocess.call(cmd, shell=True)
-
-  def evaluate_detections(self, all_boxes, output_dir):
-    self._write_voc_results_file(all_boxes)
-    self._do_python_eval(output_dir)
-    if self.config['matlab_eval']:
-      self._do_matlab_eval(output_dir)
-    if self.config['cleanup']:
-      for cls in self._classes:
-        if cls == '__background__':
-          continue
-        filename = self._get_voc_results_file_template().format(cls)
-        os.remove(filename)
+    return(aps)
 
   def competition_mode(self, on):
     if on:

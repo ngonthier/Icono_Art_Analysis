@@ -56,8 +56,11 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, 
   return blob, scores
   
 def proposal_layerTL(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, anchors, num_anchors,nms_thresh):
-  """A simplified version compared to fast/er RCNN
+  """
+     A simplified version compared to fast/er RCNN
      For details please see the technical report
+     It return the blob : the proposal regions rescale to the standard size 
+     (default is 600 pixel for the smaller dimension)
   """
   if type(cfg_key) == bytes:
       cfg_key = cfg_key.decode('utf-8')

@@ -32,6 +32,11 @@ def bbox_transform(ex_rois, gt_rois):
 
 
 def bbox_transform_inv(boxes, deltas):
+  """
+    Convertion of the boxes predicted at the RPN level to regions for the final image
+    boxes = coordinate of the center of the sliding windows
+    deltas = 4k coordinates for the k possible anchor boxes
+  """
   if boxes.shape[0] == 0:
     return np.zeros((0, deltas.shape[1]), dtype=deltas.dtype)
 
