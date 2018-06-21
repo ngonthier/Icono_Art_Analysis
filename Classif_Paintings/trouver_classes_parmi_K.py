@@ -1747,6 +1747,9 @@ class tf_MILSVM():
 
 
 def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1,C_finalSVM=1,cskind=None):
+    """
+    @param clf : LinearSVC, defaultSGD or SGDsquared_hinge 
+    """
     if cskind =='' or cskind is None:
         # default case
         cs = np.logspace(-5, -2, 20)
@@ -1778,7 +1781,7 @@ def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1
             classifier = LinearSVC(penalty='l2',class_weight=class_weight,
                                    loss='squared_hinge',max_iter=1000,dual=True,C=C_finalSVM)
         elif clf == 'defaultSGD':
-            classifier = SGDClassifier()
+            classifier = SGDClassifier(max_iter=1000)
         elif clf == 'SGDsquared_hinge':
             classifier = SGDClassifier(max_iter=1000, tol=0.0001,loss='squared_hinge')
     

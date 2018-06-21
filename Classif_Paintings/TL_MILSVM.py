@@ -643,7 +643,7 @@ def FasterRCNN_TL_MILSVM_newVersion():
 def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test_on_k_bag = False,
                              normalisation= False,baseline_kind = 'MAX1',
                              verbose = True,gridSearch=False,k_per_bag=300,jtest=0,testMode=False,
-                             n_jobs=-1):
+                             n_jobs=-1,clf='LinearSVC'):
     """ 
     18 juin 2018
     Detection based on CNN features with Transfer Learning on Faster RCNN output
@@ -682,7 +682,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
     
     """
     # TODO be able to train on background 
-    print(database,demonet,baseline_kind,'gridSearch',gridSearch)
+    print(database,demonet,baseline_kind,'gridSearch',gridSearch,'clf',clf)
     try:
         if demonet == 'vgg16_COCO':
             num_features = 4096
@@ -764,19 +764,19 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             
         
         if verbose: print("Start loading data",name_pkl)
-        
-        with open(name_pkl, 'rb') as pkl:
-            for i,name_img in  enumerate(df_label[item_name]):
-                if i%1000==0 and not(i==0):
-                    if verbose: print(i,name_img)
-                    features_resnet_dict_tmp = pickle.load(pkl)
-                    if i==1000:
-                        features_resnet_dict = features_resnet_dict_tmp
-                    else:
-                        features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
-            features_resnet_dict_tmp = pickle.load(pkl)
-            features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
-        if verbose: print("Data loaded",len(features_resnet_dict))
+        if baseline_kind == 'MAX1' or baseline_kind == 'MEAN':
+            with open(name_pkl, 'rb') as pkl:
+                for i,name_img in  enumerate(df_label[item_name]):
+                    if i%1000==0 and not(i==0):
+                        if verbose: print(i,name_img)
+                        features_resnet_dict_tmp = pickle.load(pkl)
+                        if i==1000:
+                            features_resnet_dict = features_resnet_dict_tmp
+                        else:
+                            features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+                features_resnet_dict_tmp = pickle.load(pkl)
+                features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+            if verbose: print("Data loaded",len(features_resnet_dict))
         
         
 #        features_resnet = np.empty((sLength_all,k_per_bag,size_output),dtype=np.float32)  
@@ -814,39 +814,40 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         name_test = {}
         key_test = 0
         for i,name_img in  enumerate(df_label[item_name]):
-            if i%1000==0 and not(i==0):
-                if verbose: print(i,name_img)
-            if database=='VOC2007' or database=='VOC12' or database=='Paintings'  or database=='watercolor':          
-                InSet = (df_label.loc[df_label[item_name]==name_img]['set']=='test').any()
-            elif database=='Wikidata_Paintings_miniset_verif':
-                InSet = (i in index_test)
+#            if i%1000==0 and not(i==0):
+#                if verbose: print(i,name_img)
+#            if database=='VOC2007' or database=='VOC12' or database=='Paintings'  or database=='watercolor':          
+#                InSet = (df_label.loc[df_label[item_name]==name_img]['set']=='test').any()
+#            elif database=='Wikidata_Paintings_miniset_verif':
+#                InSet = (i in index_test)
                 
             if database=='VOC12' or database=='Paintings':
                 for j in range(num_classes):
                     if(classes[j] in df_label['classe'][i]):
                         classes_vectors[i,j] = 1
                 
-            if InSet:
-                rois,roi_scores,fc7 = features_resnet_dict[name_img]
-                #print(rois.shape,roi_scores.shape)
-                if Test_on_k_bag:
-                    rois_reduce,roi_scores,fc7_reduce =  reduce_to_k_regions(k_per_bag,rois, \
-                                                               roi_scores, fc7,new_nms_thresh, \
-                                                               score_threshold,minimal_surface)
-                    if(len(fc7_reduce) >= k_per_bag):
-                        bag = np.expand_dims(fc7_reduce[0:k_per_bag,:],axis=0)
-                    else:
-                        number_repeat = k_per_bag // len(fc7_reduce)  +1
-                        f_repeat = np.repeat(fc7_reduce,number_repeat,axis=0)
-                        bag = np.expand_dims(f_repeat[0:k_per_bag,:],axis=0) 
-                    fc7 = np.array(bag)
-                    
-                    
-                f_test[key_test] = fc7
-                roi_test[key_test] = rois
-                name_test[key_test] = name_img
-                key_test += 1
-        if verbose: print("End load test image")
+#            if InSet:
+#                del features_resnet_dict[name_img] # To get memory place
+#                rois,roi_scores,fc7 = features_resnet_dict[name_img]
+#                #print(rois.shape,roi_scores.shape)
+#                if Test_on_k_bag:
+#                    rois_reduce,roi_scores,fc7_reduce =  reduce_to_k_regions(k_per_bag,rois, \
+#                                                               roi_scores, fc7,new_nms_thresh, \
+#                                                               score_threshold,minimal_surface)
+#                    if(len(fc7_reduce) >= k_per_bag):
+#                        bag = np.expand_dims(fc7_reduce[0:k_per_bag,:],axis=0)
+#                    else:
+#                        number_repeat = k_per_bag // len(fc7_reduce)  +1
+#                        f_repeat = np.repeat(fc7_reduce,number_repeat,axis=0)
+#                        bag = np.expand_dims(f_repeat[0:k_per_bag,:],axis=0) 
+#                    fc7 = np.array(bag)
+#                    
+#                    
+#                f_test[key_test] = fc7
+#                roi_test[key_test] = rois
+#                name_test[key_test] = name_img
+#                key_test += 1
+#        if verbose: print("End load test image")
         
         # Separation training, validation, test set
         if database=='VOC12' or database=='Paintings' or database=='VOC2007'  or database=='watercolor':
@@ -861,7 +862,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
 #            X_val = features_resnet[df_label['set']==str_val,:,:]
             y_val = classes_vectors[df_label['set']==str_val,:]
 #            X_trainval = np.append(X_train,X_val,axis=0)
-            y_trainval = np.append(y_train,y_val,axis=0)
+            y_trainval =np.append(y_train,y_val,axis=0).astype(np.float32)
             names = df_label.as_matrix(columns=['name_img'])
             name_train = names[df_label['set']=='train']
             name_val = names[df_label['set']==str_val]
@@ -888,7 +889,10 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         elif baseline_kind == 'MAXA':
             number_neg = 300
             
+        # Training time
+        dict_clf = {}
         for j,classe in enumerate(classes):
+            gc.collect()
             if testMode and not(j==jtest):
                 continue
             
@@ -910,32 +914,47 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     else:
                         X_trainval_select[index_nav,:] = fc7[0,:]
                         index_nav += 1
-            elif baseline_kind=='MAXA':
-                y_trainval_select = []
-                X_trainval_select = []
+            elif baseline_kind == 'MEAN':
+                number_ex = len(y_trainval)
+                y_trainval_select = y_trainval[:,j]
+                X_trainval_select = np.empty((number_ex,num_features),dtype=np.float32)
                 index_nav = 0
                 for i,name_img in  enumerate(name_trainval):
                     if i%1000==0 and not(i==0):
                         if verbose: print(i,name_img)
                     rois,roi_scores,fc7 = features_resnet_dict[name_img]
-                    if y_trainval[i,j] == 1: # Positive exemple
-                        if not(len(X_trainval_select)==0):
-                            y_trainval_select+= [1]
-                            X_trainval_select += [np.expand_dims(fc7[0,:],axis=0)] # The roi_scores vector is sorted
-                        else:
-                            y_trainval_select = [1]
-                            X_trainval_select = [np.expand_dims(fc7[0,:],axis=0)] # The roi_scores vector is sorted
-                    else:
-                        if not(len(X_trainval_select)==0):
-                            X_trainval_select += [fc7]
-                            y_trainval_select += [0]*len(fc7)
-                        else:
-                            X_trainval_select = [fc7]
-                            y_trainval_select = [0]*len(fc7)
-                X_trainval_select = np.array(np.concatenate(X_trainval_select,axis=0),dtype=np.float32)
+                    X_trainval_select[index_nav,:] = np.mean(fc7[0,:]) # The roi_scores vector is sorted
+                    index_nav += 1 
+            elif baseline_kind=='MAXA':
+                y_trainval_select = []
+                X_trainval_select = []
+                index_nav = 0
+                with open(name_pkl, 'rb') as pkl:
+                    for i,name_img in  enumerate(df_label[item_name]):
+                        if i%1000==0:
+                            if verbose: print(i,name_img)
+                            features_resnet_dict = pickle.load(pkl)
+                        InTestSet = (df_label.loc[df_label[item_name]==name_img]['set']=='test').any()
+                        if not(InTestSet):
+                            rois,roi_scores,fc7 = features_resnet_dict[name_img]
+                            if y_trainval[i,j] == 1: # Positive exemple
+                                if not(len(X_trainval_select)==0):
+                                    y_trainval_select+= [1]
+                                    X_trainval_select += [np.expand_dims(fc7[0,:],axis=0).astype(np.float32)] # The roi_scores vector is sorted
+                                else:
+                                    y_trainval_select = [1]
+                                    X_trainval_select = [np.expand_dims(fc7[0,:],axis=0).astype(np.float32)] # The roi_scores vector is sorted
+                            else:
+                                if not(len(X_trainval_select)==0):
+                                    X_trainval_select += [fc7.astype(np.float32)]
+                                    y_trainval_select += [0]*len(fc7)
+                                else:
+                                    X_trainval_select = [fc7.astype(np.float32)]
+                                    y_trainval_select = [0]*len(fc7)
+                X_trainval_select = np.concatenate(X_trainval_select,axis=0).astype(np.float32)
 #                print(y_trainval_select)
                 y_trainval_select = np.array(y_trainval_select,dtype=np.float32)
-                if verbose: print("Shape X and y",X_trainval_select.shape,y_trainval_select.shape)
+            if verbose: print("Shape X and y",X_trainval_select.shape,y_trainval_select.shape)
                 
             if normalisation == True:
                 if verbose: print('Normalisation, never tested')
@@ -949,10 +968,66 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             # Training time
             if verbose: print("Start learning for class",j)
             classifier_trained = TrainClassif(X_trainval_select,y_trainval_select,
-                clf='LinearSVC',class_weight='balanced',gridSearch=gridSearch,n_jobs=n_jobs,C_finalSVM=1)
+                clf=clf,class_weight='balanced',gridSearch=gridSearch,
+                n_jobs=n_jobs,C_finalSVM=1)
+            dict_clf[j] = classifier_trained
             if verbose: print("End learning for class",j)
-            y_predict_confidence_score_classifier = np.zeros_like(y_test[:,j])
-            labels_test_predited = np.zeros_like(y_test[:,j])
+            
+        gc.collect()
+        
+        #Load test set 
+        if baseline_kind == 'MAXA':
+            del features_resnet_dict
+            with open(name_pkl, 'rb') as pkl:
+                for i,name_img in  enumerate(df_label[item_name]):
+                    if i%1000==0 and not(i==0):
+                        if verbose: print(i,name_img)
+                        features_resnet_dict_tmp = pickle.load(pkl)
+                        if i==1000:
+                            features_resnet_dict = features_resnet_dict_tmp
+                        else:
+                            features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+                features_resnet_dict_tmp = pickle.load(pkl)
+                features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+        
+        roi_test = {}
+        name_test = {}
+        key_test = 0
+        for i,name_img in  enumerate(df_label[item_name]):
+            if i%1000==0 and not(i==0):
+                if verbose: print(i,name_img)
+            if database=='VOC2007' or database=='VOC12' or database=='Paintings'  or database=='watercolor':          
+                InSet = (df_label.loc[df_label[item_name]==name_img]['set']=='test').any()
+            elif database=='Wikidata_Paintings_miniset_verif':
+                InSet = (i in index_test)
+            if InSet:
+                rois,roi_scores,fc7 = features_resnet_dict[name_img]
+                #print(rois.shape,roi_scores.shape)
+                if Test_on_k_bag:
+                    rois_reduce,roi_scores,fc7_reduce =  reduce_to_k_regions(k_per_bag,rois, \
+                                                               roi_scores, fc7,new_nms_thresh, \
+                                                               score_threshold,minimal_surface)
+                    if(len(fc7_reduce) >= k_per_bag):
+                        bag = np.expand_dims(fc7_reduce[0:k_per_bag,:],axis=0)
+                    else:
+                        number_repeat = k_per_bag // len(fc7_reduce)  +1
+                        f_repeat = np.repeat(fc7_reduce,number_repeat,axis=0)
+                        bag = np.expand_dims(f_repeat[0:k_per_bag,:],axis=0) 
+                    fc7 = np.array(bag)
+                    
+                    
+                f_test[key_test] = fc7
+                roi_test[key_test] = rois
+                name_test[key_test] = name_img
+                key_test += 1
+            del features_resnet_dict[name_img]
+        del features_resnet_dict
+        if verbose: print("End load test image")
+        
+        for j,classe in enumerate(classes):
+            classifier_trained = dict_clf[j]
+            y_predict_confidence_score_classifier = np.zeros_like(y_test[:,j],dtype=np.float32)
+            labels_test_predited = np.zeros_like(y_test[:,j],dtype=np.float32)
             
             # Test Time
             for k in range(len(f_test)): 
@@ -967,7 +1042,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     decision_function_output = classifier_trained.decision_function(elt_k)
                 
                 y_predict_confidence_score_classifier[k]  = np.max(decision_function_output)
-                roi_with_object_of_the_class = np.argmax(decision_function_output)
+#                roi_with_object_of_the_class = np.argmax(decision_function_output)
                 
                 # For detection 
                 if database=='VOC2007'  or database=='watercolor':
@@ -992,9 +1067,9 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     labels_test_predited[k] =  0 # Label of the class 0 or 1
             AP = average_precision_score(y_test[:,j],y_predict_confidence_score_classifier,average=None)
             if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
-                print("MIL-SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
+                print("Baseline SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
             else:
-                print("MIL-SVM version Average Precision for",classes[j]," = ",AP)
+                print("Baseline SVM version Average Precision for",classes[j]," = ",AP)
             test_precision = precision_score(y_test[:,j],labels_test_predited)
             test_recall = recall_score(y_test[:,j],labels_test_predited)
             F1 = f1_score(y_test[:,j],labels_test_predited)
@@ -1050,7 +1125,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
             output_dir = path_data +'tmp/' + database + '/'
             aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
-            print("Detection scores")
+            print("Detection scores for Baseline algo")
             print(arrayToLatex(aps,per=True))
 
     except KeyboardInterrupt:
@@ -4022,36 +4097,39 @@ if __name__ == '__main__':
 #                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
 #                                  C=1.0,Optimizer='GradientDescent',norm='',
 #                                  transform_output='tanh',with_rois_scores_atEnd=False,
-#                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
 #                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
 #                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_Seuil',
-#                                  gridSearch=True,select_thres=0.5,n_jobs=2)  
+#                                  gridSearch=False,select_thres=-np.inf,n_jobs=2)  
     
     # calcul a lancer plus tard !!! 
+    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
+                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MEAN',verbose = True,
+#                             gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MEAN',verbose = True,
+#                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MEAN',verbose = True,
+#                             gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
 #    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-#                             gridSearch=True,k_per_bag=300,n_jobs=1)
+#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
 #    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
 #                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
 #                             gridSearch=False,k_per_bag=300,n_jobs=2)
 #    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
 #                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
 #                             gridSearch=True,k_per_bag=300,n_jobs=1)
-    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-                             gridSearch=False,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-                             gridSearch=True,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-                             gridSearch=False,k_per_bag=300,n_jobs=2)
-    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-                             gridSearch=True,k_per_bag=300,n_jobs=2)
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                             gridSearch=True,k_per_bag=300,n_jobs=2)
 #    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
 #                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-#                             gridSearch=False,k_per_bag=300,n_jobs=1)
+#                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='defaultSGD') # defaultSGD or LinearSVC
 #    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
 #                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
 #                             gridSearch=True,k_per_bag=300,n_jobs=1)
