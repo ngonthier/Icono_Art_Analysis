@@ -896,7 +896,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     rois,roi_scores,fc7 = features_resnet_dict[name_img]
                     X_trainval_select[index_nav,:] = np.mean(fc7[0,:]) # The roi_scores vector is sorted
                     index_nav += 1 
-            elif baseline_kind == 'MISVM':
+            elif baseline_kind == 'MISVM' or baseline_kind == 'miSVM':
                 number_pos_ex = int(np.sum(y_trainval[:,j]))
                 number_neg_ex = len(y_trainval) - number_pos_ex
                 number_ex = number_pos_ex + number_neg*number_neg_ex
@@ -926,7 +926,6 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 X_trainval_select_neg = np.concatenate(X_trainval_select_neg,axis=0).astype(np.float32)
                 y_trainval_select_neg = np.array(y_trainval_select_neg,dtype=np.float32)
                 y_trainval_select = np.hstack((y_trainval_select_neg,y_trainval_select_pos))
-
             elif baseline_kind=='MAXA':
                 y_trainval_select = []
                 X_trainval_select = []
@@ -975,15 +974,58 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                         
             # Training time
             if verbose: print("Start learning for class",j)
-            if not( baseline_kind == 'MISVM'):
+            if not(baseline_kind in ['miSVM','MISVM']):
                 classifier_trained = TrainClassif(X_trainval_select,y_trainval_select,
                     clf=clf,class_weight='balanced',gridSearch=gridSearch,
                     n_jobs=n_jobs,C_finalSVM=1,cskind='small')  # TODO need to put it in parameters 
                 dict_clf[j] = classifier_trained
-            else:
+            elif baseline_kind=='MISVM':
                 ## Implementation of the MISVM of Andrews 2006
                 #Initialisation  
                 restarts = 1
+                for rr in range(restarts+1):
+                    X_pos = np.empty((number_pos_ex,num_features),dtype=np.float32)
+                    if rr==0:
+                        for k in range(len(X_trainval_select_pos)):
+                            X_pos[k,:] = np.mean(X_trainval_select_pos[k],axis=0).astype(np.float32)
+                    else:
+                        weighted_random = rand_convex(len(X_trainval_select_pos[k]))
+                        for k in range(len(X_trainval_select_pos)):
+                            X_pos[k,:] = np.sum(weighted_random*X_trainval_select_pos[k],axis=0).astype(np.float32)
+                    S_I = [-1]*len(X_trainval_select_pos)
+                    max_iter = 10
+                    iteration = 0
+                    SelectirVar_haveChanged = True
+                    while((iteration < max_iter) and SelectirVar_haveChanged):
+                        iteration +=1
+                        t0=time.time()
+                        X_trainval_select = np.vstack((X_trainval_select_neg,X_pos))
+                        clf = TrainClassif(X_trainval_select,y_trainval_select,clf=clf,
+                                     class_weight='balanced',gridSearch=gridSearch,n_jobs=n_jobs,
+                                     C_finalSVM=1)
+                        
+                        S_I_old = S_I
+                        S_I = []
+                        for k in range(len(X_trainval_select_pos)):
+                            argmax_k = np.argmax(clf.decision_function(X_trainval_select_pos[k]))
+                            S_I += [argmax_k]
+                            X_S_I = X_trainval_select_pos[k][argmax_k,:]
+                            X_pos[k,:] = X_S_I
+                        if S_I==S_I_old:
+                            SelectirVar_haveChanged=False
+                        t1=time.time()
+                        if verbose: print("Duration of one iteration :",str(t1-t0),"s")
+                    if verbose: print("End after ",iteration,"iterations on",max_iter)
+                # Sur Watercolor avec LinearSVC et sans GridSearch on a 7 iterations max
+                # Training ended
+                dict_clf[j] = clf   
+                del X_trainval_select
+                
+            elif baseline_kind=='miSVM':
+                ## Implementation of the MISVM of Andrews 2006
+                #Initialisation
+                raise(NotImplemented) # TODO a faire
+                restarts = 0
                 for rr in range(restarts+1):
                     X_pos = np.empty((number_pos_ex,num_features),dtype=np.float32)
                     if rr==0:
@@ -1987,6 +2029,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
         classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
+    elif database=='WikiTenLabels':
+        ext = '.csv'
+        item_name = 'item'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
+        classes =  ['Saint_Sebastien','turban','crucifixion_of_Jesus','angel',
+                  'capital','Mary','beard','Child_Jesus','nudity','ruins']
     elif database=='clipart':
         ext = '.csv'
         item_name = 'name_img'
@@ -2000,6 +2048,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
         raise NotImplemented # TODO implementer cela !!! 
+    elif(database=='WikiTenLabels'):
+        item_name='item'
+        classes =['Saint_Sebastien','turban','crucifixion_of_Jesus	','angel',
+                  'capital','Mary','beard','child_Jesus','nudity','ruins']
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
     elif(database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
@@ -4205,23 +4258,23 @@ if __name__ == '__main__':
 #                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
 #                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_MAXPos',
 #                                  gridSearch=False,select_thres=-np.inf,n_jobs=2)  
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
-#                                  verbose = True,testMode = False,jtest = 'cow',
-#                                  PlotRegions = False,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,
-#                                  parallel_op=True,CV_Mode='',num_split=2,
-#                                  WR=True,init_by_mean =None,seuil_estimation='',
-#                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                                  C=1.0,Optimizer='GradientDescent',norm='',
-#                                  transform_output='tanh',with_rois_scores_atEnd=False,
-#                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
-#                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_MAXPos',
-#                                  gridSearch=True,select_thres=-np.inf,n_jobs=2)  
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation='',
+                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
+                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+                                  k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                                  gridSearch=True,select_thres=-np.inf,n_jobs=2)  
     
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-                 normalisation= False,baseline_kind = 'MISVM',verbose = True,
-                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'MISVM',verbose = True,
+#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
 #    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
 #                     normalisation= False,baseline_kind = 'MAXA',verbose = True,
 #                     gridSearch=False,k_per_bag=300,n_jobs=1,clf='defaultSGD') # defaultSGD or LinearSVC
