@@ -14,6 +14,7 @@ Page utile sur VOC 2007 :
 @author: gonthier
 """
 
+import time
 import pickle
 import gc
 import tensorflow as tf
@@ -58,7 +59,7 @@ from utils.save_param import create_param_id_file_and_dir,write_results,tabs_to_
 from Transform_Box import py_cpu_modif
 #from hpsklearn import HyperoptEstimator,sgd
 #from hyperopt import tpe
-
+from random import uniform
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -172,7 +173,10 @@ def parser_w_rois_all_class(record,num_classes=10,num_rois=300,num_features=2048
         else:
             roi_scores = parsed['roi_scores']
             return fc7,rois,roi_scores,label,name_img
-        
+
+def rand_convex(n):
+    rand = np.matrix([uniform(0.0, 1.0) for i in range(n)])
+    return(rand / np.sum(rand))
         
 def petitTestIllustratif():
     """
@@ -183,7 +187,7 @@ def petitTestIllustratif():
     path = '/media/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt =path + database + '.txt'
-    df_label = pd.read_csv(databasetxt,sep=",")
+#    df_label = pd.read_csv(databasetxt,sep=",")
     NETS_Pretrained = {'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'}
     demonet = 'res152_COCO'
         #demonet = 'res101_COCO'
@@ -671,7 +675,6 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
     option to train on background part also
     option on  scaling : sklearn.preprocessing.StandardScaler
     option : add a wieghted balanced of the SVM because they are really unbalanced classes
-    TODO : mine hard negative exemple ! 
     
     Cette fonction permet de calculer les performances AP pour les differents dataset 
     Wikidata et Your Paintings avec l'algo de selection de Said et l'entrainement du SVM final 
@@ -682,7 +685,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
     
     """
     # TODO be able to train on background 
-    print(database,demonet,baseline_kind,'gridSearch',gridSearch,'clf',clf)
+    print('==========')
+    print('Baseline for ',database,demonet,baseline_kind,'gridSearch',gridSearch,'clf',clf)
     try:
         if demonet == 'vgg16_COCO':
             num_features = 4096
@@ -761,10 +765,9 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             Compute_Faster_RCNN_features(demonet=demonet,nms_thresh =nms_thresh,
                                          database=database,augmentation=False,L2 =False,
                                          saved='all',verbose=verbose,filesave=filesave)
-            
         
-        if verbose: print("Start loading data",name_pkl)
-        if baseline_kind == 'MAX1' or baseline_kind == 'MEAN':
+        if baseline_kind == 'MAX1' or baseline_kind == 'MEAN' or baseline_kind =='MISVM':
+            if verbose: print("Start loading data",name_pkl)
             with open(name_pkl, 'rb') as pkl:
                 for i,name_img in  enumerate(df_label[item_name]):
                     if i%1000==0 and not(i==0):
@@ -784,9 +787,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         if database=='Wikidata_Paintings_miniset_verif' or database=='VOC2007' or database=='watercolor':
             classes_vectors = df_label.as_matrix(columns=classes)
         f_test = {}
-        
 
-        
         # Parameters important
         new_nms_thresh = 0.0
         score_threshold = 0.1
@@ -813,41 +814,11 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         roi_test = {}
         name_test = {}
         key_test = 0
-        for i,name_img in  enumerate(df_label[item_name]):
-#            if i%1000==0 and not(i==0):
-#                if verbose: print(i,name_img)
-#            if database=='VOC2007' or database=='VOC12' or database=='Paintings'  or database=='watercolor':          
-#                InSet = (df_label.loc[df_label[item_name]==name_img]['set']=='test').any()
-#            elif database=='Wikidata_Paintings_miniset_verif':
-#                InSet = (i in index_test)
-                
-            if database=='VOC12' or database=='Paintings':
-                for j in range(num_classes):
-                    if(classes[j] in df_label['classe'][i]):
-                        classes_vectors[i,j] = 1
-                
-#            if InSet:
-#                del features_resnet_dict[name_img] # To get memory place
-#                rois,roi_scores,fc7 = features_resnet_dict[name_img]
-#                #print(rois.shape,roi_scores.shape)
-#                if Test_on_k_bag:
-#                    rois_reduce,roi_scores,fc7_reduce =  reduce_to_k_regions(k_per_bag,rois, \
-#                                                               roi_scores, fc7,new_nms_thresh, \
-#                                                               score_threshold,minimal_surface)
-#                    if(len(fc7_reduce) >= k_per_bag):
-#                        bag = np.expand_dims(fc7_reduce[0:k_per_bag,:],axis=0)
-#                    else:
-#                        number_repeat = k_per_bag // len(fc7_reduce)  +1
-#                        f_repeat = np.repeat(fc7_reduce,number_repeat,axis=0)
-#                        bag = np.expand_dims(f_repeat[0:k_per_bag,:],axis=0) 
-#                    fc7 = np.array(bag)
-#                    
-#                    
-#                f_test[key_test] = fc7
-#                roi_test[key_test] = rois
-#                name_test[key_test] = name_img
-#                key_test += 1
-#        if verbose: print("End load test image")
+        if database=='VOC12' or database=='Paintings':
+            for i,name_img in  enumerate(df_label[item_name]):
+                    for j in range(num_classes):
+                        if(classes[j] in df_label['classe'][i]):
+                            classes_vectors[i,j] = 1
         
         # Separation training, validation, test set
         if database=='VOC12' or database=='Paintings' or database=='VOC2007'  or database=='watercolor':
@@ -886,7 +857,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         P20_per_class = []
         if baseline_kind == 'MAX1':
             number_neg = 1
-        elif baseline_kind == 'MAXA':
+        elif baseline_kind == 'MAXA' or baseline_kind =='MISVM':
             number_neg = 300
             
         # Training time
@@ -925,6 +896,37 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     rois,roi_scores,fc7 = features_resnet_dict[name_img]
                     X_trainval_select[index_nav,:] = np.mean(fc7[0,:]) # The roi_scores vector is sorted
                     index_nav += 1 
+            elif baseline_kind == 'MISVM':
+                number_pos_ex = int(np.sum(y_trainval[:,j]))
+                number_neg_ex = len(y_trainval) - number_pos_ex
+                number_ex = number_pos_ex + number_neg*number_neg_ex
+#                y_trainval_select_neg = np.zeros((300*number_neg_ex,),dtype=np.float32)
+                y_trainval_select_neg = []
+                y_trainval_select_pos = np.ones((number_pos_ex,),dtype=np.float32)
+                X_trainval_select_neg = []
+                X_trainval_select_pos = [] # TODO change that number
+#                X_trainval_select_neg = np.empty((300*number_neg_ex,num_features),dtype=np.float32)
+#                X_trainval_select_pos = np.empty((number_pos_ex,300,num_features),dtype=np.float32) # TODO change that number
+                for i,name_img in  enumerate(name_trainval):
+                    if i%1000==0 and not(i==0):
+                        if verbose: print(i,name_img)
+                    rois,roi_scores,fc7 = features_resnet_dict[name_img]
+                    if y_trainval[i,j] == 1: # Positive exemple
+                        if not(len(X_trainval_select_pos)==0):
+                            X_trainval_select_pos += [fc7.astype(np.float32)] 
+                        else:
+                            X_trainval_select_pos = [fc7.astype(np.float32)] 
+                    else:
+                        if not(len(X_trainval_select_neg)==0):
+                            X_trainval_select_neg += [fc7.astype(np.float32)] 
+                            y_trainval_select_neg +=[0]*len(fc7)
+                        else:
+                            X_trainval_select_neg = [fc7.astype(np.float32)] 
+                            y_trainval_select_neg =[0]*len(fc7)
+                X_trainval_select_neg = np.concatenate(X_trainval_select_neg,axis=0).astype(np.float32)
+                y_trainval_select_neg = np.array(y_trainval_select_neg,dtype=np.float32)
+                y_trainval_select = np.hstack((y_trainval_select_neg,y_trainval_select_pos))
+
             elif baseline_kind=='MAXA':
                 y_trainval_select = []
                 X_trainval_select = []
@@ -951,10 +953,16 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                                 else:
                                     X_trainval_select = [fc7.astype(np.float32)]
                                     y_trainval_select = [0]*len(fc7)
+                    del features_resnet_dict
                 X_trainval_select = np.concatenate(X_trainval_select,axis=0).astype(np.float32)
-#                print(y_trainval_select)
                 y_trainval_select = np.array(y_trainval_select,dtype=np.float32)
-            if verbose: print("Shape X and y",X_trainval_select.shape,y_trainval_select.shape)
+            if verbose: 
+                try:
+                    print("Shape X and y",X_trainval_select.shape,y_trainval_select.shape)
+                except UnboundLocalError:
+                    if not( baseline_kind == 'MISVM'):
+                        print('UnboundLocalError')
+                        raise(UnboundLocalError)
                 
             if normalisation == True:
                 if verbose: print('Normalisation, never tested')
@@ -967,10 +975,61 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                         
             # Training time
             if verbose: print("Start learning for class",j)
-            classifier_trained = TrainClassif(X_trainval_select,y_trainval_select,
-                clf=clf,class_weight='balanced',gridSearch=gridSearch,
-                n_jobs=n_jobs,C_finalSVM=1)
-            dict_clf[j] = classifier_trained
+            if not( baseline_kind == 'MISVM'):
+                classifier_trained = TrainClassif(X_trainval_select,y_trainval_select,
+                    clf=clf,class_weight='balanced',gridSearch=gridSearch,
+                    n_jobs=n_jobs,C_finalSVM=1,cskind='small')  # TODO need to put it in parameters 
+                dict_clf[j] = classifier_trained
+            else:
+                ## Implementation of the MISVM of Andrews 2006
+                #Initialisation  
+                restarts = 1
+                for rr in range(restarts+1):
+                    X_pos = np.empty((number_pos_ex,num_features),dtype=np.float32)
+                    if rr==0:
+                        for k in range(len(X_trainval_select_pos)):
+                            X_pos[k,:] = np.mean(X_trainval_select_pos[k],axis=0).astype(np.float32)
+                    else:
+                        weighted_random = rand_convex(len(X_trainval_select_pos[k]))
+                        for k in range(len(X_trainval_select_pos)):
+                            X_pos[k,:] = np.sum(weighted_random*X_trainval_select_pos[k],axis=0).astype(np.float32)
+#                        pos_bag_avgs = np.vstack([ * bag for bag in bs.pos_bags])
+            
+    #                X_pos = np.mean(np.vstack(X_trainval_select_pos,axis=0),axis=1)
+                    S_I = [-1]*len(X_trainval_select_pos)
+                    max_iter = 10
+                    iteration = 0
+                    SelectirVar_haveChanged = True
+    #                clf = LinearSVC(penalty='l2',class_weight='balanced', 
+    #                            loss='squared_hinge',max_iter=1000,dual=True)
+                    
+                    while((iteration < max_iter) and SelectirVar_haveChanged):
+                        iteration +=1
+                        t0=time.time()
+                        X_trainval_select = np.vstack((X_trainval_select_neg,X_pos))
+    #                    clf.fit(X_trainval_select,y_trainval_select)
+                        
+                        clf = TrainClassif(X_trainval_select,y_trainval_select,clf=clf,
+                                     class_weight='balanced',gridSearch=gridSearch,n_jobs=n_jobs,
+                                     C_finalSVM=1)
+                        
+                        S_I_old = S_I
+                        S_I = []
+                        for k in range(len(X_trainval_select_pos)):
+                            argmax_k = np.argmax(clf.decision_function(X_trainval_select_pos[k]))
+                            S_I += [argmax_k]
+                            X_S_I = X_trainval_select_pos[k][argmax_k,:]
+                            X_pos[k,:] = X_S_I
+                        if S_I==S_I_old:
+                            SelectirVar_haveChanged=False
+                        t1=time.time()
+                        if verbose: print("Duration of one iteration :",str(t1-t0),"s")
+                    if verbose: print("End after ",iteration,"iterations on",max_iter)
+                # Sur Watercolor avec LinearSVC et sans GridSearch on a 7 iterations max
+                
+                # Training ended
+                dict_clf[j] = clf   
+                del X_trainval_select
             if verbose: print("End learning for class",j)
             
         gc.collect()
@@ -1447,7 +1506,8 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
     
             
             if Stocha:
-                # Cela ne marche pas encore !
+                # TODO Cela ne marche pas encore !
+                raise(NotImplemented)
                 bags = np.vstack((neg_ex,pos_ex))
                 y_pos = np.ones((len(neg_ex),1))
                 y_neg = np.zeros((len(pos_ex),1))
@@ -1903,6 +1963,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     
     
     """
+    print('==========')
     # TODO be able to train on background 
     ext = '.txt'
     if database=='Paintings':
@@ -4088,6 +4149,10 @@ if __name__ == '__main__':
 #                                          database = 'VOC2007', 
 #                                          verbose = True,testMode = False,jtest = 1,
 #                                          PlotRegions = False,RPN=False,CompBest=False,WR=True)
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
+#                         normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                         gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
+    
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
 #                                  verbose = True,testMode = False,jtest = 'cow',
 #                                  PlotRegions = False,saved_clf=False,RPN=False,
@@ -4100,12 +4165,69 @@ if __name__ == '__main__':
 #                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
 #                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
 #                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_Seuil',
+#                                  gridSearch=True,select_thres=-np.inf,n_jobs=2)  
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = False,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='',num_split=2,
+#                                  WR=True,init_by_mean =None,seuil_estimation='',
+#                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                                  C=1.0,Optimizer='GradientDescent',norm='',
+#                                  transform_output='tanh',with_rois_scores_atEnd=False,
+#                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+#                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_Seuil',
 #                                  gridSearch=False,select_thres=-np.inf,n_jobs=2)  
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = False,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='',num_split=2,
+#                                  WR=True,init_by_mean =None,seuil_estimation='',
+#                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                                  C=1.0,Optimizer='GradientDescent',norm='',
+#                                  transform_output='tanh',with_rois_scores_atEnd=False,
+#                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+#                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_Seuil',
+#                                  gridSearch=True,select_thres=-np.inf,n_jobs=2)  
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = False,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='',num_split=2,
+#                                  WR=True,init_by_mean =None,seuil_estimation='',
+#                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                                  C=1.0,Optimizer='GradientDescent',norm='',
+#                                  transform_output='tanh',with_rois_scores_atEnd=False,
+#                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+#                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_MAXPos',
+#                                  gridSearch=False,select_thres=-np.inf,n_jobs=2)  
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = False,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='',num_split=2,
+#                                  WR=True,init_by_mean =None,seuil_estimation='',
+#                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                                  C=1.0,Optimizer='GradientDescent',norm='',
+#                                  transform_output='tanh',with_rois_scores_atEnd=False,
+#                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+#                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_MAXPos',
+#                                  gridSearch=True,select_thres=-np.inf,n_jobs=2)  
+    
+    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+                 normalisation= False,baseline_kind = 'MISVM',verbose = True,
+                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
+#                     normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                     gridSearch=False,k_per_bag=300,n_jobs=1,clf='defaultSGD') # defaultSGD or LinearSVC
     
     # calcul a lancer plus tard !!! 
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
+
 #    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
 #                             normalisation= False,baseline_kind = 'MEAN',verbose = True,
 #                             gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
