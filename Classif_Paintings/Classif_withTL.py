@@ -40,6 +40,7 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',concate
     """
     Inception ResNet v2 take RGB image as input
     """
+    ext = '.txt'
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     if database=='Paintings':
         item_name = 'name_img'
@@ -47,6 +48,10 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',concate
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+    elif(database=='WikiTenLabels'):
+        ext = '.csv'
+        item_name='item'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset'):
         item_name = 'image'
         if not(augmentation):
@@ -58,7 +63,7 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',concate
         path_to_img = '/media/HDD/data/Wikidata_Paintings/299/'
 
         
-    databasetxt = path_data + database + '.txt'
+    databasetxt = path_data + database + ext
     df_label = pd.read_csv(databasetxt,sep=",")
     if augmentation:
         N = 50
@@ -171,7 +176,7 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',concate = Fa
     """
     Inception ResNet v2 take RGB image as input
     """
-    
+    ext = '.txt'
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     if database=='Paintings':
         item_name = 'name_img'
@@ -179,6 +184,10 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',concate = Fa
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+    elif(database=='WikiTenLabels'):
+        ext = '.csv'
+        item_name='item'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset'):
         item_name = 'image'
         if not(augmentation):
@@ -188,7 +197,7 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',concate = Fa
     else:
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
-    databasetxt = path_data + database + '.txt'
+    databasetxt = path_data + database + ext
     df_label = pd.read_csv(databasetxt,sep=",")
 
     if augmentation:
@@ -305,11 +314,15 @@ def Compute_ResNet(kind='2048D',database='Paintings',concate = False,L2=False,au
     """
     Inception ResNet v2 take RGB image as input
     """
-
+    ext = '.txt'
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     if database=='Paintings':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/Painting_Dataset/' 
+        path_to_img = '/media/HDD/data/Painting_Dataset/'
+    elif(database=='WikiTenLabels'):
+        ext = '.csv'
+        item_name='item'
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
@@ -322,7 +335,7 @@ def Compute_ResNet(kind='2048D',database='Paintings',concate = False,L2=False,au
     else:
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
-    databasetxt = path_data + database + '.txt'
+    databasetxt = path_data + database + ext
     df_label = pd.read_csv(databasetxt,sep=",")
     weights_path = '/media/HDD/models/resnet152_weights_tf.h5'
     if augmentation:
@@ -421,7 +434,9 @@ def Compute_ResNet(kind='2048D',database='Paintings',concate = False,L2=False,au
         
     return(features_resnet)
     
-def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings',L2=False,augmentation=False, database_verif = 'Wikidata_Paintings_miniset_verif'):
+def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
+                                   database='Wikidata_Paintings',L2=False,augmentation=False,
+                                   database_verif = 'Wikidata_Paintings_miniset_verif'):
     """
     kindnetwork in  [InceptionResNetv2,ResNet152]
     @param database_verif = 'Wikidata_Paintings_subset_verif'
@@ -440,24 +455,44 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
     else:
         extL2 = ''
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
-    databasetxt = path_data + database_verif + '.txt'
+    
+    if(database=='WikiTenLabels'):
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
+        ext='.csv'
+        item_name='item'
+        depicts = ['Saint_Sebastien','turban','crucifixion_of_Jesus','angel',
+                  'capital','Mary','beard','Child_Jesus','nudity','ruins']
+        colums_selected = depicts
+        database_verif = database
+    elif(database=='Wikidata_Paintings_miniset'):
+        path_to_img= '/media/HDD/data/Wikidata_Paintings/340/'
+        ext = '.txt'
+        item_name = 'image'
+        depicts = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
+        colums_selected = ['image','BadPhoto']+depicts
+        database_verif = 'Wikidata_Paintings_miniset_verif'
+        
+    databasetxt = path_data + database_verif + ext
     df = pd.read_csv(databasetxt,sep=',')
-    print(len(df['image']),'images a la base')
-    depicts = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
-    colums_selected = ['image','BadPhoto']+depicts
+    print(len(df[item_name]),'images a la base')
+
     df_reduc = df[colums_selected]
     name_pkl_values = path_data+'Values_' +kindnetwork+'_'+ kind +'_'+database +'_N'+str(N)+extL2+'.pkl'
     name_pkl_im =   path_data+'Name_' +kindnetwork+'_'+ kind +'_'+database +'_N'+str(N)+extL2+'.pkl'
    
     X = pd.DataFrame(pickle.load(open(name_pkl_values, 'rb')))
-    X = X[df_reduc['BadPhoto'] <= 0.0]
+    if(database=='Wikidata_Paintings_miniset'):
+        X = X[df_reduc['BadPhoto'] <= 0.0]
     name_im_order = pickle.load(open(name_pkl_im, 'rb'))
-    name_im_order_df = pd.DataFrame(pd.Series(name_im_order),columns=['image'])
+    name_im_order_df = pd.DataFrame(pd.Series(name_im_order),columns=[item_name])
     #print(name_im_order_df.head(3))
     
-    df_reduc = pd.merge(df, name_im_order_df, on=['image'], how='inner')
-    df_reduc = df_reduc[df_reduc['BadPhoto'] <= 0.0]
-    print(len(df_reduc['image']),'images gardees')
+    df_reduc = pd.merge(df, name_im_order_df, on=[item_name], how='inner')
+    if(database=='Wikidata_Paintings_miniset'):
+        df_reduc = df_reduc[df_reduc['BadPhoto'] <= 0.0]
+    print(len(df_reduc[item_name]),'images gardees')
+    
+    print(df_reduc.sum())
     #print(df_reduc.head(3))
     
 #    indice_train = df['set']==0
@@ -482,12 +517,16 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
     #index_image_with_at_least_one_of_the_class = np.setdiff1d(np.where(np.sum(np_classes,axis=1) > 0),np.where(indice_train))
     
     for i,classe in enumerate(depicts):
-        classestr = depicts_depictsLabel[classe]
-        print(classe,classestr)
+        if(database=='Wikidata_Paintings_miniset'):
+            classestr = depicts_depictsLabel[classe]
+            print(classe,classestr)
+        else:
+            print(i,classe)
         grid = GridSearchCV(classifier, refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True), param_grid=param_grid,n_jobs=-1)
         y = df_reduc[classe]
-        random_state = 0
-        X_trainval, X_test, y_trainval, y_test = train_test_split(X, y, test_size=0.6, random_state=random_state)
+#        random_state = 2**18
+        random_state = 0 # The normal ones # 0.66431,
+        X_trainval, X_test, y_trainval, y_test = train_test_split(X, y, test_size=0.5, random_state=random_state)
         number_of_positif_train_exemple = np.sum(y_trainval)
         print("Number of training exemple :",len(y_trainval),"number of positive ones :",number_of_positif_train_exemple)
         print("Number of test exemple :",len(y_test),"number of positive ones :",np.sum(y_test))
@@ -503,7 +542,10 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
         # Warning ! predict provide class labels for samples whereas decision_function provide confidence scores for samples.
         AP = average_precision_score(y_test,y_predict_confidence_score,average=None)
         AP_per_class += [AP]
-        print("Average Precision on all the data for",depicts_depictsLabel[classe]," = ",AP)   
+        if(database=='Wikidata_Paintings_miniset'): 
+            print("Average Precision on all the data for",depicts_depictsLabel[classe]," = ",AP)  
+        else:
+            print("Average Precision on all the data for",classe," = ",AP)   
         test_precision = precision_score(y_test,y_predict_test)
         test_recall = recall_score(y_test,y_predict_test)
         R_per_class += [test_recall]
@@ -521,7 +563,7 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
     
         if plot_fp_fn:
             path_output = '/media/HDD/output_exp/html_output/'
-            path_to_img= '/media/HDD/data/Wikidata_Paintings/340/'
+            
             name_trainval_tab = name_im_order
 #    print(len(indice_train),len(y_trainval),len(name_trainval_tab))
             name_test_tab = name_im_order
@@ -535,10 +577,13 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
             index= y_trainval.index
             for j,elt in enumerate(np.array(y_trainval)):
                 if(elt!=y_predict_trainval[j]):
-                    name_tab = name_trainval_tab[index[j]].split('.')
-                    name_tab[-1] = 'jpg'
-                    namejpg = ".".join(name_tab)
-                    name_img = path_to_img + namejpg 
+                    if(database=='Wikidata_Paintings_miniset'):
+                        name_tab = name_trainval_tab[index[j]].split('.')
+                        name_tab[-1] = 'jpg'
+                        namejpg = ".".join(name_tab)
+                        name_img = path_to_img + namejpg 
+                    else:
+                        name_img = path_to_img + name_trainval_tab[index[j]] + '.jpg'
                     data_uri = base64.b64encode(open(name_img, 'rb').read()).decode('utf-8').replace('\n', '')
                     img_tag = '<img src="data:image/png;base64,%s \n">' % data_uri
                     if(elt==0): # cad que y_predict_trainval[j]==1 donc on a un Faux positif
@@ -562,10 +607,13 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
             index= y_test.index
             for j,elt in enumerate(y_test):
                 if(elt!=y_predict_test[j]):
-                    name_tab = name_test_tab[index[j]].split('.')
-                    name_tab[-1] = 'jpg'
-                    namejpg = ".".join(name_tab)
-                    name_img = path_to_img + namejpg 
+                    if(database=='Wikidata_Paintings_miniset'):
+                        name_tab = name_trainval_tab[index[j]].split('.')
+                        name_tab[-1] = 'jpg'
+                        namejpg = ".".join(name_tab)
+                        name_img = path_to_img + namejpg 
+                    else:
+                        name_img = path_to_img + name_trainval_tab[index[j]] + '.jpg'
                     data_uri = base64.b64encode(open(name_img, 'rb').read()).decode('utf-8').replace('\n', '')
                     img_tag = '<img src="data:image/png;base64,%s \n">' % data_uri
                     if(elt==0): # cad que y_predict_trainval[j]==1 donc on a un Faux positif
@@ -1098,6 +1146,15 @@ def vision_of_data():
     
 if __name__ == '__main__':
     
+#    compute_InceptionResNetv2_features(kind='1536D',database='WikiTenLabels',
+#                                       concate = False,L2=False,augmentation=False)
+#    compute_VGG_features(VGG='19',kind='relu7',database='WikiTenLabels',
+#                         L2=False,augmentation=False)
+#    Compute_ResNet(kind='2048D',database='WikiTenLabels',L2=False,augmentation=False)
+#    
+    TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
+                                   database='WikiTenLabels',L2=False,augmentation=False)
+    #TL_RawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
     #compute_InceptionResNetv2_features(kind='1536D',database='Wikidata_Paintings_miniset',concate = False,L2=False,augmentation=True)
    #TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
     #TL_RawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
@@ -1107,9 +1164,9 @@ if __name__ == '__main__':
     #TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
     #Compute_ResNet(kind='2048D',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
     #TransferLearning_onRawFeatures(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
-    compute_VGG_features(VGG='19',kind='relu7',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
-    
-    TransferLearning_onRawFeatures(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
+#    compute_VGG_features(VGG='19',kind='relu7',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
+#    
+#    TransferLearning_onRawFeatures(kind='relu7',kindnetwork='VGG19',database='Wikidata_Paintings_miniset',L2=False,augmentation=True)
 
 #    TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
 #    TransferLearning_onRawFeatures_protocol(kind='2048D',kindnetwork='ResNet152',database='Wikidata_Paintings',L2=False,augmentation=False)
