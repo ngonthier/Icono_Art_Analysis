@@ -460,8 +460,8 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
         path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
         ext='.csv'
         item_name='item'
-        depicts = ['Saint_Sebastien','turban','crucifixion_of_Jesus','angel',
-                  'capital','Mary','beard','Child_Jesus','nudity','ruins']
+        depicts = ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
+                    'Mary','nudity', 'ruins','Saint_Sebastien','turban']
         colums_selected = depicts
         database_verif = database
     elif(database=='Wikidata_Paintings_miniset'):

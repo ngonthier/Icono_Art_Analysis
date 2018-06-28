@@ -647,9 +647,9 @@ def FasterRCNN_TL_MILSVM_newVersion():
 def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test_on_k_bag = False,
                              normalisation= False,baseline_kind = 'MAX1',
                              verbose = True,gridSearch=False,k_per_bag=300,jtest=0,testMode=False,
-                             n_jobs=-1,clf='LinearSVC'):
+                             n_jobs=-1,clf='LinearSVC',restarts = 0,max_iter_MISVM=50):
     """ 
-    18 juin 2018
+    18 juin 2018 ==> voir le fichier Baseline_script.py
     Detection based on CNN features with Transfer Learning on Faster RCNN output
     This is used to compute the baseline MAX1 (only the best score object as training exemple)
     and MAXA (all the regions for the negatives)
@@ -668,6 +668,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
     @param : CompBest : Comparaison with the CompBest classifier trained
     @param : Stocha : Use of a SGD for the MIL SVM SAID [default : False]
     @param : k_per_bag : number of element per batch in the slection phase [defaut : 30]
+    @param : restarts = 0, le nombre de restarts pour les algos de MISVM et miSVM
+    @param : max_iter_MISVM : nombre d iterations maximales dans le cadre des algos MISVM et miSVM
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -703,7 +705,6 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
         elif database=='VOC2007':
             ext = '.csv'
-            isVOC = True
             item_name = 'name_img'
             path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
             classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
@@ -711,6 +712,11 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                'cow', 'diningtable', 'dog', 'horse',
                'motorbike', 'person', 'pottedplant',
                'sheep', 'sofa', 'train', 'tvmonitor']
+        elif(database=='WikiTenLabels'):
+            ext='.csv'
+            item_name='item'
+            classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
+            'Mary','nudity', 'ruins','Saint_Sebastien','turban']
         elif database=='watercolor':
             ext = '.csv'
             item_name = 'name_img'
@@ -766,7 +772,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                                          database=database,augmentation=False,L2 =False,
                                          saved='all',verbose=verbose,filesave=filesave)
         
-        if baseline_kind == 'MAX1' or baseline_kind == 'MEAN' or baseline_kind =='MISVM':
+        if baseline_kind == 'MAX1' or baseline_kind == 'MEAN' or baseline_kind in ['miSVM','MISVM']:
             if verbose: print("Start loading data",name_pkl)
             with open(name_pkl, 'rb') as pkl:
                 for i,name_img in  enumerate(df_label[item_name]):
@@ -806,9 +812,9 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             if database=='clipart' : imdb = get_imdb('clipart_test')
             imdb.set_force_dont_use_07_metric(True)
             num_images = len(imdb.image_index)
-            all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
         else:
-            all_boxes = None
+            num_images = len(df_label[df_label['set']=='test'])
+        all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
     
         # First we save the test images
         roi_test = {}
@@ -857,7 +863,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         P20_per_class = []
         if baseline_kind == 'MAX1':
             number_neg = 1
-        elif baseline_kind == 'MAXA' or baseline_kind =='MISVM':
+        elif baseline_kind == 'MAXA' or baseline_kind in ['miSVM','MISVM']:
             number_neg = 300
             
         # Training time
@@ -959,7 +965,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 try:
                     print("Shape X and y",X_trainval_select.shape,y_trainval_select.shape)
                 except UnboundLocalError:
-                    if not( baseline_kind == 'MISVM'):
+                    if not( baseline_kind in ['miSVM','MISVM']):
                         print('UnboundLocalError')
                         raise(UnboundLocalError)
                 
@@ -982,7 +988,6 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             elif baseline_kind=='MISVM':
                 ## Implementation of the MISVM of Andrews 2006
                 #Initialisation  
-                restarts = 1
                 for rr in range(restarts+1):
                     X_pos = np.empty((number_pos_ex,num_features),dtype=np.float32)
                     if rr==0:
@@ -993,21 +998,21 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                         for k in range(len(X_trainval_select_pos)):
                             X_pos[k,:] = np.sum(weighted_random*X_trainval_select_pos[k],axis=0).astype(np.float32)
                     S_I = [-1]*len(X_trainval_select_pos)
-                    max_iter = 10
+#                    max_iter = 10
                     iteration = 0
                     SelectirVar_haveChanged = True
-                    while((iteration < max_iter) and SelectirVar_haveChanged):
+                    while((iteration < max_iter_MISVM) and SelectirVar_haveChanged):
                         iteration +=1
                         t0=time.time()
                         X_trainval_select = np.vstack((X_trainval_select_neg,X_pos))
-                        clf = TrainClassif(X_trainval_select,y_trainval_select,clf=clf,
+                        clf_MISVM = TrainClassif(X_trainval_select,y_trainval_select,clf=clf,
                                      class_weight='balanced',gridSearch=gridSearch,n_jobs=n_jobs,
                                      C_finalSVM=1)
                         
                         S_I_old = S_I
                         S_I = []
                         for k in range(len(X_trainval_select_pos)):
-                            argmax_k = np.argmax(clf.decision_function(X_trainval_select_pos[k]))
+                            argmax_k = np.argmax(clf_MISVM.decision_function(X_trainval_select_pos[k]))
                             S_I += [argmax_k]
                             X_S_I = X_trainval_select_pos[k][argmax_k,:]
                             X_pos[k,:] = X_S_I
@@ -1018,59 +1023,56 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     if verbose: print("End after ",iteration,"iterations on",max_iter)
                 # Sur Watercolor avec LinearSVC et sans GridSearch on a 7 iterations max
                 # Training ended
-                dict_clf[j] = clf   
+                dict_clf[j] = clf_MISVM   
                 del X_trainval_select
                 
             elif baseline_kind=='miSVM':
                 ## Implementation of the MISVM of Andrews 2006
                 #Initialisation
-                raise(NotImplemented) # TODO a faire
-                restarts = 0
+                X_pos =np.concatenate(X_trainval_select_pos,axis=0).astype(np.float32)
+                X_trainval_select = np.vstack((X_trainval_select_neg,X_pos)).astype(np.float32)
+                size_X_pos = len(X_pos)
+                size_X_trainval_select_neg = len(X_trainval_select_neg)
+                del X_pos
                 for rr in range(restarts+1):
-                    X_pos = np.empty((number_pos_ex,num_features),dtype=np.float32)
-                    if rr==0:
-                        for k in range(len(X_trainval_select_pos)):
-                            X_pos[k,:] = np.mean(X_trainval_select_pos[k],axis=0).astype(np.float32)
-                    else:
-                        weighted_random = rand_convex(len(X_trainval_select_pos[k]))
-                        for k in range(len(X_trainval_select_pos)):
-                            X_pos[k,:] = np.sum(weighted_random*X_trainval_select_pos[k],axis=0).astype(np.float32)
-#                        pos_bag_avgs = np.vstack([ * bag for bag in bs.pos_bags])
-            
-    #                X_pos = np.mean(np.vstack(X_trainval_select_pos,axis=0),axis=1)
-                    S_I = [-1]*len(X_trainval_select_pos)
-                    max_iter = 10
+                    y_pos = np.ones((size_X_pos,)).astype(np.float32)
+#                    max_iter = 10
                     iteration = 0
                     SelectirVar_haveChanged = True
     #                clf = LinearSVC(penalty='l2',class_weight='balanced', 
     #                            loss='squared_hinge',max_iter=1000,dual=True)
-                    
-                    while((iteration < max_iter) and SelectirVar_haveChanged):
+                    while((iteration < max_iter_MISVM) and SelectirVar_haveChanged):
                         iteration +=1
                         t0=time.time()
-                        X_trainval_select = np.vstack((X_trainval_select_neg,X_pos))
+#                        print(y_pos.shape)
+#                        print(np.zeros(len(X_trainval_select_neg),).shape)
+                        y_trainval_select = np.hstack((np.zeros((size_X_trainval_select_neg,)).astype(np.float32),y_pos))
     #                    clf.fit(X_trainval_select,y_trainval_select)
                         
-                        clf = TrainClassif(X_trainval_select,y_trainval_select,clf=clf,
+                        clf_misvm = TrainClassif(X_trainval_select,y_trainval_select,clf=clf,
                                      class_weight='balanced',gridSearch=gridSearch,n_jobs=n_jobs,
                                      C_finalSVM=1)
-                        
-                        S_I_old = S_I
-                        S_I = []
+                        index_k = 0
+                        changed= False
                         for k in range(len(X_trainval_select_pos)):
-                            argmax_k = np.argmax(clf.decision_function(X_trainval_select_pos[k]))
-                            S_I += [argmax_k]
-                            X_S_I = X_trainval_select_pos[k][argmax_k,:]
-                            X_pos[k,:] = X_S_I
-                        if S_I==S_I_old:
+                            predictions_k = clf_misvm.predict(X_trainval_select_pos[k])
+                            size_k = len(X_trainval_select_pos[k])
+                            if not(np.sum(predictions_k) >= 1.):
+                                predictions_k_decision_function = clf_misvm.decision_function(X_trainval_select_pos[k])
+                                predictions_k[np.argmax(predictions_k_decision_function)] = 1.
+                            if not((predictions_k==y_pos[index_k:index_k+size_k]).all()):
+                                changed = True # Il y a eu un changement
+                            y_pos[index_k:index_k+size_k] = predictions_k.astype(np.float32)
+                            index_k +=size_k
+                        if not(changed):
                             SelectirVar_haveChanged=False
                         t1=time.time()
                         if verbose: print("Duration of one iteration :",str(t1-t0),"s")
                     if verbose: print("End after ",iteration,"iterations on",max_iter)
-                # Sur Watercolor avec LinearSVC et sans GridSearch on a 7 iterations max
+                # Sur Watercolor avec LinearSVC et sans GridSearch on tape tout le temps dans les 10 iterations
                 
                 # Training ended
-                dict_clf[j] = clf   
+                dict_clf[j] = clf_misvm   
                 del X_trainval_select
             if verbose: print("End learning for class",j)
             
@@ -1078,7 +1080,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         
         #Load test set 
         if baseline_kind == 'MAXA':
-            del features_resnet_dict
+            #del features_resnet_dict
             with open(name_pkl, 'rb') as pkl:
                 for i,name_img in  enumerate(df_label[item_name]):
                     if i%1000==0 and not(i==0):
@@ -1226,8 +1228,13 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
             output_dir = path_data +'tmp/' + database + '/'
             aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
-            print("Detection scores for Baseline algo")
+            print("Detection scores for Baseline algo ",baseline_kind)
             print(arrayToLatex(aps,per=True))
+            ovthresh_tab = [0.3,0.1,0.]
+            for ovthresh in ovthresh_tab:
+                aps = imdb.evaluate_localisation_ovthresh(all_boxes_order, output_dir,ovthresh)
+                print("Detection score with thres at ",ovthresh)
+                print(arrayToLatex(aps,per=True))
 
     except KeyboardInterrupt:
         gc.collect()
@@ -2032,9 +2039,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     elif database=='WikiTenLabels':
         ext = '.csv'
         item_name = 'item'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
-        classes =  ['Saint_Sebastien','turban','crucifixion_of_Jesus','angel',
-                  'capital','Mary','beard','Child_Jesus','nudity','ruins']
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+        classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
+                    'Mary','nudity', 'ruins','Saint_Sebastien','turban']
     elif database=='clipart':
         ext = '.csv'
         item_name = 'name_img'
@@ -2048,11 +2055,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
         raise NotImplemented # TODO implementer cela !!! 
-    elif(database=='WikiTenLabels'):
-        item_name='item'
-        classes =['Saint_Sebastien','turban','crucifixion_of_Jesus	','angel',
-                  'capital','Mary','beard','child_Jesus','nudity','ruins']
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
     elif(database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
@@ -2278,8 +2280,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
             name_milsvm = pickle.load(f)
             if verbose: print("The cachefile exists")
      
-    num_images =  len(df_label[df_label['set']=='test'][item_name])
-    all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
+    
+    
     if database=='VOC2007':
         imdb = get_imdb('voc_2007_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
@@ -2293,8 +2295,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         num_images = len(imdb.image_index) 
     else:
-        all_boxes = None
-
+        num_images =  len(df_label[df_label['set']=='test'][item_name])
+    all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
    
     data_path_train= dict_name_file['trainval']
     
@@ -2455,14 +2457,18 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
         print("Detection score : ",database)
         print(arrayToLatex(aps,per=True))
-        
+        ovthresh_tab = [0.3,0.1,0.]
+        for ovthresh in ovthresh_tab:
+            aps = imdb.evaluate_localisation_ovthresh(all_boxes_order, output_dir,ovthresh)
+            print("Detection score with thres at ",ovthresh)
+            print(arrayToLatex(aps,per=True))
            
-    print("mean Average Precision for all the data = {0:.3f}".format(np.mean(AP_per_class)))    
+    print("mean Average Precision Classification for all the data = {0:.3f}".format(np.mean(AP_per_class)))    
     if CompBest: print("mean Average Precision for BEst Score = {0:.3f}".format(np.mean(AP_per_classbS))) 
-    print("mean Precision for all the data = {0:.3f}".format(np.mean(P_per_class)))  
-    print("mean Recall for all the data = {0:.3f}".format(np.mean(R_per_class)))  
-    print("mean Precision @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
-    
+    print("mean Precision Classification for all the data = {0:.3f}".format(np.mean(P_per_class)))  
+    print("mean Recall Classification for all the data = {0:.3f}".format(np.mean(R_per_class)))  
+    print("mean Precision Classification @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
+    print('Mean Average Precision Classification :')
     print(AP_per_class)
     print(arrayToLatex(AP_per_class))
     
@@ -3085,7 +3091,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
 #                if predict_with=='LinearSVC':
                     
                 for k in range(len(labels)):
-                    if database in ['VOC2007','watercolor','Paintings','clipart'] :
+                    if database in ['VOC2007','watercolor','Paintings','clipart','WikiTenLabels'] :
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
                     else:
                          complet_name = path_to_img + name_imgs[k] + '.jpg'
@@ -3120,7 +3126,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     i+=1
     
                 for l in range(len(name_imgs)): 
-                    if database in ['VOC2007','watercolor','clipart']:
+                    if database in ['VOC2007','watercolor','clipart','WikiTenLabels']:
                         name_all_test += [[str(name_imgs[l].decode("utf-8"))]]
                     else:
                         name_all_test += [[name_imgs[l]]]
@@ -3134,12 +3140,12 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     for k in range(len(labels)):   
                         if ii > number_im:
                             continue
-                        if  database in ['VOC2007','watercolor','clipart']:
+                        if  database in ['VOC2007','watercolor','clipart','WikiTenLabels']:
                             name_img = str(name_imgs[k].decode("utf-8") )
                         else:
                             name_img = name_imgs[k]
                         rois = roiss[k,:]
-                        if database=='VOC12' or database=='Paintings' or database=='VOC2007' or database=='watercolor':
+                        if database=='VOC12' or database=='Paintings' or database=='VOC2007' or database=='watercolor' or database=='WikiTenLabels':
                             complet_name = path_to_img + name_img + '.jpg'
                             name_sans_ext = name_img
                         elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -3355,7 +3361,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
 #                if predict_with=='LinearSVC':
                     
                 for k in range(len(labels)):
-                    if database=='VOC2007' or database=='watercolor':
+                    if database=='VOC2007' or database=='watercolor' or database =='WikiTenLabels':
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
                     im = cv2.imread(complet_name)
                     blobs, im_scales = get_blobs(im)
@@ -3386,7 +3392,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                             name_img = str(name_imgs[k].decode("utf-8") )
                             rois = roiss[k,:]
                             #if verbose: print(name_img)
-                            if database=='VOC12' or database=='Paintings' or database=='VOC2007' or database =='watercolor':
+                            if database=='VOC12' or database=='Paintings' or database=='VOC2007' or database =='watercolor' or database=='WikiTenLabels':
                                 complet_name = path_to_img + name_img + '.jpg'
                                 name_sans_ext = name_img
                             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -4258,7 +4264,7 @@ if __name__ == '__main__':
 #                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
 #                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_MAXPos',
 #                                  gridSearch=False,select_thres=-np.inf,n_jobs=2)  
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
                                   verbose = True,testMode = False,jtest = 'cow',
                                   PlotRegions = False,saved_clf=False,RPN=False,
                                   CompBest=False,Stocha=True,k_per_bag=300,
@@ -4270,10 +4276,14 @@ if __name__ == '__main__':
                                   with_scores=False,epsilon=0.01,restarts_paral='paral',
                                   Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
                                   k_intopk=1,C_Searching=False,predict_with='MILSVM',
-                                  gridSearch=True,select_thres=-np.inf,n_jobs=2)  
+                                  gridSearch=False,select_thres=-np.inf,n_jobs=2)  
     
 #    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'MISVM',verbose = True,
+#                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
+#                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
+    
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
 #                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
 #    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
 #                     normalisation= False,baseline_kind = 'MAXA',verbose = True,

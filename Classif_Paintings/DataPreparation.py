@@ -76,13 +76,52 @@ depicts_depictsLabel_with_Underscore = {'Q51636':'crucifixion_of_Jesus','Q109607
 
 
 # Chercher des chapitaux dans stairs et steps, column 
-
+def VerifChildJesus():
+    df = pd.read_csv('/media/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv',sep=',')
+#    df[['nudity','turban']] = df[['nudity','turban']].apply(pd.to_numeric)
+    print(len(df))
+    print(df.sum())
+#    df['nudity'] = df['nudity'].astype('float32')
+    df_test = df[df['set']=='train']
+    print(len(df_test))
+    d_test2 = df_test[df_test['Child_Jesus']==1.0]
+    print(len(d_test2))
+    d_test3 = d_test2[d_test2['nudity']==0.0]
+    print(len(d_test3))
+    list_name = d_test3.as_matrix(['item']).ravel()
+    list_name = d_test3['item']
+    print(len(list_name))
+    path_to_save = ''
+    read_data = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
+    dstfolder = path_to_save + 'Here' + '/'
+    do_mkdir(dstfolder)
+    im = 0
+    for name in list_name:
+        namejpg = name + '.jpg'
+        src = read_data + namejpg
+        dst = dstfolder + namejpg
+        copyfile(src, dst)
+        im +=1
+    print(im)
+    
+    dff = pd.read_csv('here.txt')
+    eltst = list(dff.values)
+    for elt in eltst:
+        itemi = elt[0].split('.')[0]
+        df.loc[df['item']==itemi,'nudity'] = 1.0
+    df.sum()
+    df.to_csv('/media/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
+    
+    
+    
 def splitData():
+    """ Split the base in training and testing """
     from sklearn.model_selection import train_test_split
     df = pd.read_csv('/media/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
+#    df['nudity'] = df['nudity'].astype('float32')
     random_state = 1
     elt_intraining = ['Q18565885','Q18579032']
-    df_trainval,df_test = train_test_split(df['item'], test_size=0.5, random_state=random_state)
+    df_test,df_trainval = train_test_split(df['item'], test_size=0.5, random_state=random_state)
     df['set'] = 'test'
     for elt in df_trainval:
         df.loc[df['item']==elt,'set']='train'
@@ -97,7 +136,38 @@ def splitData():
     print('All')
     print(df.sum())
     df.to_csv('/media/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
-
+    
+def SplitForBoundingBox():
+    """split the set in 5 blocks for bounding box annotations"""
+    df = pd.read_csv('/media/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
+    path_to_save = '/home/gonthier/owncloud/Miniset10c/BoundingBox/'
+    read_data = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
+    df_test = df[df['set']=='train']
+    name_of_folders = ['Nicolas','Yann','Said','Subset4','Subset5']
+    array = df_test.as_matrix(['item']).ravel()
+    np.random.shuffle(array)
+    array_tmp1 = array[0:2500]
+    array_tmp = array[2500:]
+    splits = np.split(array_tmp1,5)
+    num = 0
+    for folder,split in zip(name_of_folders,splits):
+        dstfolder = path_to_save + folder + '/'
+        do_mkdir(dstfolder)
+        for name in split:
+            namejpg = name + '.jpg'
+            src = read_data + namejpg
+            dst = dstfolder + namejpg
+            copyfile(src, dst)
+            num += 1
+        if folder=='Subset5':
+            for name in array_tmp:
+                namejpg = name + '.jpg'
+                src = read_data + namejpg
+                dst = dstfolder + namejpg
+                copyfile(src, dst)
+                num += 1
+    print('Nombre d images :',num)
+    
 def prepareVOC12():
      classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
      path_to_VOC12_imageset = '/media/HDD/data/VOCdevkit/VOC2012/ImageSets/Main'

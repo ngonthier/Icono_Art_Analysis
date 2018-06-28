@@ -226,6 +226,7 @@ def loc_metric(detpath,
              use_07_metric=False,
              use_diff=False):
   """ Fonction commencee a etre ecrite par nicolas mais jamais fini """
+  raise(NotImplemented)
   if not os.path.isdir(cachedir):
     os.mkdir(cachedir)
   cachefile = os.path.join(cachedir, '%s_annots.pkl' % imagesetfile)

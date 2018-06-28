@@ -1428,9 +1428,9 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     elif database=='WikiTenLabels':
         ext = '.csv'
         item_name = 'item'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
-        classes =  ['Saint_Sebastien','turban','crucifixion_of_Jesus','angel',
-                  'capital','Mary','beard','Child_Jesus','nudity','ruins']
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+        classes = ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
+                    'Mary','nudity', 'ruins','Saint_Sebastien','turban']
         num_classes = 10
     elif database=='VOC2007':
         item_name = 'name_img'

@@ -9,6 +9,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import os
 
 __sets = {}
 from ..datasets.pascal_voc import pascal_voc
@@ -19,8 +20,8 @@ from ..datasets.CrossMod_db import CrossMod_db
 for year in ['2007', '2012']:
   for split in ['train', 'val', 'trainval', 'test']:
     name = 'voc_{}_{}'.format(year, split)
-    __sets[name] = (lambda split=split, year=year: pascal_voc(split, year,devkit_path='/media/HDD/data/VOCdevkit',test_ext=True))
-
+    __sets[name] = (lambda split=split, year=year: pascal_voc(split, year,devkit_path= '/media/HDD/data/VOCdevkit',test_ext=True))
+    
 for year in ['2007', '2012']:
   for split in ['train', 'val', 'trainval', 'test']:
     name = 'voc_{}_{}_diff'.format(year, split)
