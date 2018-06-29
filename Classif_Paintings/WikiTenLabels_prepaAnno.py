@@ -9,7 +9,9 @@ the goal of this script is to compute the statistiques on your database WikiTenL
 """
 
 import pandas as pd
+import cv2
 import os
+from pascal_voc_writer import Writer
 from tf_faster_rcnn.lib.datasets import voc_eval
 
 def Stats_and_testFile():
@@ -33,7 +35,7 @@ def Stats_and_testFile():
         file.write(str_w) 
     file.close()
 
-    size_min = 400 # 15*15
+    size_min = 25*25 # 15*15
 
     path_b ='/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/test.txt'
     pd_b = pd.read_csv(path_b,sep=r"\s*",names=['item'],dtype=str)
@@ -72,15 +74,69 @@ def Stats_and_testFile():
         print(c,' : ',dict_elts_total[c])
         num_obj+=dict_elts_total[c]
     print('Nombre d instances totales',num_obj)
-    print('Nombre d instances des differentes classes avec une taille superieur a :',size_min,'pixels')
+    print('Nombre d instances des differentes classes avec une taille superieur a :',size_min,'pixels',num_obj)
     num_obj = 0
     for c in classes:
         print(c,' : ',dict_elts_sizemin[c])
-        num_obj+=dict_elts_total[c]
+        num_obj+=dict_elts_sizemin[c]
     print('Nombre d instances de taille superieur a ',size_min,'pixels',num_obj)
-                        
+ 
+def addColumns_IfAnnotation():
+    """ This function add a column to the csv files about the fact that we have annotation or not
+    """
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    name_file = path_data + 'WikiTenLabels.csv'
+    df = pd.read_csv(name_file,sep=',')  
+    path_b ='/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/test.txt'
+    pd_b = pd.read_csv(path_b,sep=r"\s*",names=['item'],dtype=str)
+    df['Anno'] = 0.0
+    for index, row in pd_b.iterrows():
+        i = row['item']
+        df.loc[df['item']==i,'Anno'] = 1.0
     
+    df  = df.sort_values(by=['item'])    
+    print(df.sum())
+    df.to_csv(name_file, index=None, sep=',')               
+    
+def WriteDifficultsBoxes():
+    """
+    This function will mark as difficult all the tiny objects in the xml files 
+    """
+    size_min = 25*25 # 20*20 Au moins un truc de taille superieur a 17*17
+    path_b ='/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/test.txt'
+    path_to_im = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+    pd_b = pd.read_csv(path_b,sep=r"\s*",names=['item'],dtype=str)
+    for index, row in pd_b.iterrows():
+        Erase = False
+        i = row['item']
+        path_i = path_to_im + i +'.jpg'
+        im = cv2.imread(path_i)
+        height = im.shape[0]
+        width = im.shape[1]
+        writer = Writer(path_i, width, height)
+        pathxml = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/%s.xml'%(i)
+        read_file = voc_eval.parse_rec(pathxml)
+        for element in read_file:
+            classe_elt = element['name']
+            bbox = element['bbox']
+            xmin = bbox[0]
+            ymin = bbox[1]
+            xmax = bbox[2]
+            ymax = bbox[3]
+            area = (xmax -xmin)*(ymax-ymin)
+            if area <= size_min:
+                # Marked as difficult
+                element['difficult']=1
+                Erase = True
+                writer.addObject(classe_elt, xmin, ymin, xmax, ymax, difficult=1)
+            else:
+                writer.addObject(classe_elt, xmin, ymin, xmax, ymax)
+        if Erase:
+             writer.save(annotation_path=pathxml)
+             print('Modified :',i)
+    return(0)
     
 if __name__ == '__main__':
-     Stats_and_testFile()
+    WriteDifficultsBoxes()
+#     Stats_and_testFile()
     

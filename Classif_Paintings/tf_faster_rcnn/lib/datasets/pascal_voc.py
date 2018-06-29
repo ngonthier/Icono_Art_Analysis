@@ -226,6 +226,10 @@ class pascal_voc(imdb):
                            dets[k, 0] + 1, dets[k, 1] + 1,
                            dets[k, 2] + 1, dets[k, 3] + 1))
 
+  def set_use_diff(self,boolean):
+      print('Modification')
+      self.config['use_diff']=boolean
+
   def set_force_dont_use_07_metric(self,boolean):
       self.force_dont_use_07_metric=boolean
       
