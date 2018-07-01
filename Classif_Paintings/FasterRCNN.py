@@ -1460,6 +1460,11 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     databasetxt = path_data + database + ext
     if database=='VOC2007' or database=='watercolor' or database=='clipart':
         df_label = pd.read_csv(databasetxt,sep=",",dtype=str)
+    elif database=='WikiTenLabels':
+        dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
+                  'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
+                  'turban':int,'set':str,'Anno':int}
+        df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
     else:
         df_label = pd.read_csv(databasetxt,sep=",")
     if database=='Wikidata_Paintings_miniset_verif':
@@ -2039,6 +2044,11 @@ def Illus_box_ratio():
     # Soit H/16 et W/16 pour une image de 600*600
     blobs, im_scales = get_blobs(im)
     roi =  rois[:,1:5] / im_scales[0]
+    list_area = []
+    for i in range(len(roi)):
+        list_area +=[(roi[i,2] - roi[i,0])*(roi[i,3] - roi[i,1])]
+    print('Min area of the rois : ',np.min(list_area),'list len',len(list_area))
+    
     scores = np.reshape(cls_prob, [cls_prob.shape[0], -1])
     boxes = np.tile(roi,21)
     if 'COCO' in demonet:
@@ -2522,5 +2532,6 @@ if __name__ == '__main__':
 #                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
 #    
 #    run_FRCNN_Detection_perf(database='VOC2007')
-   run_FRCNN_Detection_perf(database='watercolor')
+#   run_FRCNN_Detection_perf(database='watercolor')
+    Illus_box_ratio()
 #     Illus_box_ratio()

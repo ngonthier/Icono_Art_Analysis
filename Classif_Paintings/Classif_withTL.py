@@ -1146,16 +1146,16 @@ def vision_of_data():
     
 if __name__ == '__main__':
     
-    compute_InceptionResNetv2_features(kind='1536D',database='WikiTenLabels',
-                                       concate = False,L2=False,augmentation=False)
-    compute_VGG_features(VGG='19',kind='relu7',database='WikiTenLabels',
-                         L2=False,augmentation=False)
-    Compute_ResNet(kind='2048D',database='WikiTenLabels',L2=False,augmentation=False)
-    
+#    compute_InceptionResNetv2_features(kind='1536D',database='WikiTenLabels',
+#                                       concate = False,L2=False,augmentation=False)
+#    compute_VGG_features(VGG='19',kind='relu7',database='WikiTenLabels',
+#                         L2=False,augmentation=False)
+#    Compute_ResNet(kind='2048D',database='WikiTenLabels',L2=False,augmentation=False)
+#    
     TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
                                    database='WikiTenLabels',L2=False,augmentation=False)
-    TL_RawFeatures_JustAP(kind='2048D',kindnetwork='ResNet152',database='WikiTenLabels',L2=False,augmentation=False)
-    TL_RawFeatures_JustAP(kind='relu7',kindnetwork='VGG19',database='WikiTenLabels',L2=False,augmentation=False)
+    TransferLearning_onRawFeatures(kind='2048D',kindnetwork='ResNet152',database='WikiTenLabels',L2=False,augmentation=False)
+    TransferLearning_onRawFeatures(kind='relu7',kindnetwork='VGG19',database='WikiTenLabels',L2=False,augmentation=False)
     #TL_RawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)
     #compute_InceptionResNetv2_features(kind='1536D',database='Wikidata_Paintings_miniset',concate = False,L2=False,augmentation=True)
    #TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',database='Wikidata_Paintings_MiniSet',L2=False,augmentation=False)

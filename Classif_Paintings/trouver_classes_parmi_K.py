@@ -755,6 +755,9 @@ class tf_MILSVM():
         if self.class_indice>-1 and self.restarts_paral_Dim: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_V2: raise(NotImplemented)
         if self.class_indice>-1 and (self.Max_version=='sparsemax' or self.seuillage_by_score or self.Max_version=='mintopk'): raise(NotImplemented)
+        if self.restarts_paral_V2 and (self.restarts==0): 
+            print('This don t work at all, bug not solved about the argmin')
+            raise(NotImplemented)
         self.paral_number_W = self.restarts +1
         if self.C_Searching:
             if not(self.C_Searching and self.WR):

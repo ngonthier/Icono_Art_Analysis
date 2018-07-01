@@ -745,6 +745,11 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                       'pottedplant':int,'sheep':int,'sofa':int,'train':int,'tvmonitor':int,'set':str}
             df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
             df_label[classes] = df_label[classes].apply(lambda x: np.floor((x + 1.0) /2.0))
+        elif database=='WikiTenLabels':
+            dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
+                      'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
+                      'turban':int,'set':str,'Anno':int}
+            df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
         else:
             df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
             if database=='Wikidata_Paintings_miniset_verif':
@@ -1101,7 +1106,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         roi_test = {}
         name_test = {}
         key_test = 0
-        key_annotated = []
+        key_annotated = []        
         for i,name_img in  enumerate(df_label[item_name]):
             if i%1000==0 and not(i==0):
                 if verbose: print(i,name_img)
@@ -1110,7 +1115,13 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             elif database=='Wikidata_Paintings_miniset_verif':
                 InSet = (i in index_test)
             if database=='WikiTenLabels':
+#                print(df_label.sum())
+#                print(df_label.loc[df_label[item_name]==name_img])
+#                print(df_label.loc[df_label[item_name]==name_img]['Anno'])
+#                print((df_label.loc[df_label[item_name]==name_img]['Anno'].value==1.0))
+#                print((df_label.loc[df_label[item_name]==name_img]['Anno'].value==1.0).any())
                 if (df_label.loc[df_label[item_name]==name_img]['Anno']==1.0).any() :
+#                    print('key_annotated')
                     key_annotated += [key_test]
             if InSet:
                 rois,roi_scores,fc7 = features_resnet_dict[name_img]
@@ -1135,7 +1146,10 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             del features_resnet_dict[name_img]
         del features_resnet_dict
         if verbose: print("End load test image")
-        
+#        print('key_annotated',key_annotated)
+#        print('len(f_test)',len(f_test))
+#        print('jtest',jtest,'testMode',testMode)
+#        print('database',database)
 
         for j,classe in enumerate(classes):
             if testMode and not(j==jtest):
@@ -1162,7 +1176,6 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 
                 y_predict_confidence_score_classifier[k]  = np.max(decision_function_output)
 #                roi_with_object_of_the_class = np.argmax(decision_function_output)
-                
                 # For detection 
                 if database in ['VOC2007','watercolor','clipart','WikiTenLabels']:
                     thresh = 0.05 # Threshold score or distance MILSVM
@@ -1215,11 +1228,11 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         print("mean Precision @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
         print('~~~~ Classification ~~~~')
         print(AP_per_class)
-        print(arrayToLatex(AP_per_class))
+        print(arrayToLatex(AP_per_class,per=True))
         print('~~~~~~~~')
 
         if database in ['VOC2007','watercolor','clipart','WikiTenLabels']:
-            print(name_all_test)
+#            print('name_all_test',name_all_test)
             if testMode:
                 for j in range(0, imdb.num_classes-1):
                     if not(j==jtest):
@@ -1240,7 +1253,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 if len(name_img_ind)==0:
                     print('Name not in the  name_all_test array',name_img_wt_ext)
                     raise(Exception)
-                print(name_img_ind[0])
+#                print(name_img_ind[0])
                 for j in range(1, imdb.num_classes):
                     j_minus_1 = j-1
                     all_boxes_order[j][i]  = all_boxes[j_minus_1][name_img_ind[0]]
@@ -1371,7 +1384,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
             df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
             if database=='Wikidata_Paintings_miniset_verif':
                 df_label = df_label[df_label['BadPhoto'] <= 0.0]
-    
+
         num_classes = len(classes)
         N = 1
         extL2 = ''
@@ -1959,7 +1972,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   with_scores=False,epsilon=0.0,restarts_paral='',
                                   Max_version=None,w_exp=1.0,seuillage_by_score=True,
                                   seuil=0.5,k_intopk=3,C_Searching=False,gridSearch=False,n_jobs=1,
-                                  predict_with='MILSVM',select_thres=0.5):
+                                  predict_with='MILSVM',thres_FinalClassifier=0.5,
+                                  thresh_evaluation=0.05,TEST_NMS=0.3):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2027,7 +2041,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     @param : gridSearch=False, use a grid search on the C parameter of the final classifier if predict_with is LeanarSVC
     @param : n_jobs=1, number of jobs for the grid search hyperparamter optimisation
     @param : predict_with='MILSVM', final classifier 
-    @param : select_thres : parameter to choose some of the exemple before feeding the final classifier LinearSVC
+    @param : thres_FinalClassifier : parameter to choose some of the exemple before feeding the final classifier LinearSVC
+            if you add a final classifier after the MIL or MILS hyperplan separation
+    @param : thresh_evaluation : 0.05 : seuillage avant de fournir les boites a l evaluation de detections
+    @param : TEST_NMS : 0.3 : recouvrement autorise avant le NMS avant l evaluation de detections
     
     The idea of thi algo is : 
         1/ Compute CNN features
@@ -2106,9 +2123,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         
     
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
-#    path_data = path_data_old+ 'MILSVM/'
     databasetxt =path_data + database + ext
-    df_label = pd.read_csv(databasetxt,sep=",")
+    if database=='WikiTenLabels':
+        dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
+                      'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
+                      'turban':int,'set':str,'Anno':int}
+        df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)    
+    else:
+        df_label = pd.read_csv(databasetxt,sep=",")
     str_val = 'val'
     if database=='Wikidata_Paintings_miniset_verif':
         df_label = df_label[df_label['BadPhoto'] <= 0.0]
@@ -2270,7 +2292,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     Number_of_positif_elt = 1 
     number_zone = k_per_bag
     
-    thresh_evaluation,TEST_NMS = 0.05,0.3
+#    thresh_evaluation,TEST_NMS = 0.05,0.3
     dont_use_07_metric = True
     symway = True
     
@@ -2280,7 +2302,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                   Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
                   TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
-                  k_intopk,C_Searching,gridSearch,select_thres]
+                  k_intopk,C_Searching,gridSearch,thres_FinalClassifier]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2288,7 +2310,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                      'optimArg','Number_of_positif_elt','number_zone','seuil_estimation'
                      ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
-                     'seuil','k_intopk','C_Searching','gridSearch','select_thres']
+                     'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2331,7 +2353,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     elif database=='WikiTenLabels':
         imdb = get_imdb('WikiTenLabels_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
-        num_images = len(imdb.image_index) 
+        #num_images = len(imdb.image_index) 
+        num_images =  len(df_label[df_label['set']=='test'][item_name])
     else:
         num_images =  len(df_label[df_label['set']=='test'][item_name])
     all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
@@ -2370,7 +2393,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
                cachefile_model_base=cachefile_model_base,transform_output=transform_output,
                with_rois_scores_atEnd=with_rois_scores_atEnd,scoreInMILSVM=(with_scores or seuillage_by_score),
-               gridSearch=gridSearch,n_jobs=n_jobs,select_thres=select_thres)
+               gridSearch=gridSearch,n_jobs=n_jobs,thres_FinalClassifier=thres_FinalClassifier)
    
         for j,classe in enumerate(classes):
             AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
@@ -2435,8 +2458,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                seuil_estimation,thresh_evaluation,TEST_NMS,
                                all_boxes=all_boxes,with_tanh=with_tanh)
                   
-            # Regroupement des informations     
-           
+            # Regroupement des informations    
+            if database=='WikiTenLabels': 
+                name_all_test = df_label[df_label['set']=='test'].as_matrix([item_name])
+                print(name_all_test)
+                print(name_all_test.shape)
+        
             AP = average_precision_score(true_label_all_test,predict_label_all_test,average=None)
             if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 print("MIL-SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
@@ -2466,12 +2493,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         with open(det_file, 'wb') as f:
             pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
         max_per_image = 100
-        all_boxes_order = [[[] for _ in range(num_images)] for _ in range(imdb.num_classes)]
-        for i in range(num_images):
+        num_images_detect = len(imdb.image_index)  # We do not have the same number of images in the WikiTenLabels case
+        all_boxes_order = [[[] for _ in range(num_images_detect)] for _ in range(imdb.num_classes)]
+        for i in range(num_images_detect):
             name_img = imdb.image_path_at(i)
             name_img_wt_ext = name_img.split('/')[-1]
             name_img_wt_ext =name_img_wt_ext.split('.')[0]
             #print(name_img_wt_ext)
+            
             name_img_ind = np.where(np.array(name_all_test)==name_img_wt_ext)[0]
             #print(name_img_ind)
             if len(name_img_ind)==0:
@@ -2493,7 +2522,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
             pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
         output_dir = path_data +'tmp/' + database+'_mAP.txt'
         aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
-        print("Detection score : ",database)
+        print("Detection score (thres = 0.5): ",database)
         print(arrayToLatex(aps,per=True))
         ovthresh_tab = [0.3,0.1,0.]
         for ovthresh in ovthresh_tab:
@@ -2515,7 +2544,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     print("mean Precision Classification @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
     print('Mean Average Precision Classification :')
     print(AP_per_class)
-    print(arrayToLatex(AP_per_class))
+    print(arrayToLatex(AP_per_class,per=True))
     
     param_name,path_data_file,file_param = \
     create_param_id_file_and_dir(path_data+'/SauvParam/',arrayParam,arrayParamStr)
@@ -2534,7 +2563,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=None,
                cachefile_model_base='',number_im=200,transform_output=None,
                with_rois_scores_atEnd=False,scoreInMILSVM=False,seuillage_by_score=False,
-               gridSearch=False,n_jobs=1,select_thres=0.5):
+               gridSearch=False,n_jobs=1,thres_FinalClassifier=0.5):
      """
      @param : seuil_estimation : ByHist or MaxDesNeg
      @param : number_im : number of image plot at maximum
@@ -2700,13 +2729,13 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         for k in range(len(labels)):
                             if index_im > number_im:
                                 continue
-                            if database in ['VOC2007','watercolor','Paintings','clipart']:
+                            if database in ['VOC2007','watercolor','Paintings','clipart','WikiTenLabels']:
                                 name_img = str(name_imgs[k].decode("utf-8") )
                             else:
                                 name_img = name_imgs[k]
                             rois = roiss[k,:]
                             #if verbose: print(name_img)
-                            if database=='VOC12' or database=='Paintings' or database=='VOC2007' or database =='watercolor':
+                            if database in ['VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels']:
                                 complet_name = path_to_img + name_img + '.jpg'
                                 name_sans_ext = name_img
                             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -2742,6 +2771,9 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                 roi_boxes_and_score = np.vstack((roi_boxes_and_score,best_RPN_roi_boxes_score))
                             else:
                                 cls = local_cls
+                            if roi_boxes_and_score is None:
+                                # Pour les images qui ne contiennent aucune classe du tout
+                                roi_boxes_and_score = []
                             vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
                             name_output = path_to_output2 +'Train/' + name_sans_ext + '_Regions.jpg'
                             plt.savefig(name_output)
@@ -2860,7 +2892,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                     y_trainval_select = y_trainval_select_tmp
                             elif predict_with=='LinearSVC_Seuil':
                                 if labels[i,j] == 1:
-                                    index_pos = np.where(PositiveExScoreAll[j,i,:] > select_thres)
+                                    index_pos = np.where(PositiveExScoreAll[j,i,:] > thres_FinalClassifier)
 
                                     y_trainval_select_tmp = np.ones((len(index_pos[0]),),dtype=np.float32) 
                                     if not(len(X_trainval_select)==0):
@@ -4270,7 +4302,7 @@ if __name__ == '__main__':
 #                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
 #                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
 #                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_Seuil',
-#                                  gridSearch=True,select_thres=-np.inf,n_jobs=2)  
+#                                  gridSearch=True,thres_FinalClassifier=-np.inf,n_jobs=2)  
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
 #                                  verbose = True,testMode = False,jtest = 'cow',
 #                                  PlotRegions = False,saved_clf=False,RPN=False,
@@ -4283,7 +4315,7 @@ if __name__ == '__main__':
 #                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
 #                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
 #                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_Seuil',
-#                                  gridSearch=False,select_thres=-np.inf,n_jobs=2)  
+#                                  gridSearch=False,thres_FinalClassifier=-np.inf,n_jobs=2)  
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
 #                                  verbose = True,testMode = False,jtest = 'cow',
 #                                  PlotRegions = False,saved_clf=False,RPN=False,
@@ -4296,7 +4328,7 @@ if __name__ == '__main__':
 #                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
 #                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
 #                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_Seuil',
-#                                  gridSearch=True,select_thres=-np.inf,n_jobs=2)  
+#                                  gridSearch=True,thres_FinalClassifier=-np.inf,n_jobs=2)  
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
 #                                  verbose = True,testMode = False,jtest = 'cow',
 #                                  PlotRegions = False,saved_clf=False,RPN=False,
@@ -4309,8 +4341,64 @@ if __name__ == '__main__':
 #                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
 #                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
 #                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_MAXPos',
-#                                  gridSearch=False,select_thres=-np.inf,n_jobs=2)  
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'VOC2007', 
+#                                  gridSearch=False,thres_FinalClassifier=-np.inf,n_jobs=2)  
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = False,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='',num_split=2,
+#                                  WR=True,init_by_mean ='All',seuil_estimation='',
+#                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                                  C=1.0,Optimizer='GradientDescent',norm='',
+#                                  transform_output='tanh',with_rois_scores_atEnd=False,
+#                                  with_scores=False,epsilon=0.01,restarts_paral='Dim',
+#                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+#                                  k_intopk=1,C_Searching=False,predict_with='MILSVM',
+#                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                                  thresh_evaluation=0.05,TEST_NMS=0.3)   
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation='',
+                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
+                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_Seuil',
+                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                  thresh_evaluation=0.05,TEST_NMS=0.3)   
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation='',
+                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
+                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_Sign',
+                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                  thresh_evaluation=0.05,TEST_NMS=0.3)  
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation='',
+                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
+                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
+                                  k_intopk=1,C_Searching=False,predict_with='LinearSVC_MAXPos',
+                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                  thresh_evaluation=0.05,TEST_NMS=0.3)  
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
 #                                  verbose = True,testMode = False,jtest = 'cow',
 #                                  PlotRegions = False,saved_clf=False,RPN=False,
 #                                  CompBest=False,Stocha=True,k_per_bag=300,
@@ -4322,15 +4410,25 @@ if __name__ == '__main__':
 #                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
 #                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.1,
 #                                  k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                                  gridSearch=False,select_thres=-np.inf,n_jobs=2)  
+#                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                                  thresh_evaluation=0.5,TEST_NMS=0.7)  
     
 #    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
 #                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
 #                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
     
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'MAX1',verbose = True,
+#                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'MAX1',verbose = True,
+#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
     Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
-                 normalisation= False,baseline_kind = 'MAX1',verbose = True,
+                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
                  gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
+    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
+                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
+                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
 #    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
 #                     normalisation= False,baseline_kind = 'MAXA',verbose = True,
 #                     gridSearch=False,k_per_bag=300,n_jobs=1,clf='defaultSGD') # defaultSGD or LinearSVC
