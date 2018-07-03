@@ -1003,7 +1003,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             if not(baseline_kind in ['miSVM','MISVM']):
                 classifier_trained = TrainClassif(X_trainval_select,y_trainval_select,
                     clf=clf,class_weight='balanced',gridSearch=gridSearch,
-                    n_jobs=n_jobs,C_finalSVM=1,cskind='small')  # TODO need to put it in parameters 
+                    n_jobs=n_jobs,C_finalSVM=1,cskind='small')
                 dict_clf[j] = classifier_trained
             elif baseline_kind=='MISVM':
                 ## Implementation of the MISVM of Andrews 2006
@@ -1027,7 +1027,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                         X_trainval_select = np.vstack((X_trainval_select_neg,X_pos))
                         clf_MISVM = TrainClassif(X_trainval_select,y_trainval_select,clf=clf,
                                      class_weight='balanced',gridSearch=gridSearch,n_jobs=n_jobs,
-                                     C_finalSVM=1)
+                                     C_finalSVM=1,cskind='small')
                         
                         S_I_old = S_I
                         S_I = []
@@ -1071,7 +1071,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                         
                         clf_misvm = TrainClassif(X_trainval_select,y_trainval_select,clf=clf,
                                      class_weight='balanced',gridSearch=gridSearch,n_jobs=n_jobs,
-                                     C_finalSVM=1)
+                                     C_finalSVM=1,cskind='small')
                         index_k = 0
                         changed= False
                         for k in range(len(X_trainval_select_pos)):
@@ -2786,12 +2786,9 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                 name_img = name_imgs[k]
                             rois = roiss[k,:]
                             #if verbose: print(name_img)
-                            if database in ['VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels']:
+                            if database in ['VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt']:
                                 complet_name = path_to_img + name_img + '.jpg'
                                 name_sans_ext = name_img
-                            elif database=='PeopleArt':
-                                complet_name = path_to_img + name_img
-                                name_sans_ext = os.path.splitext(name_img)[0]
                             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                                 name_sans_ext = os.path.splitext(name_img)[0]
                                 complet_name = path_to_img +name_sans_ext + '.jpg'
@@ -2830,6 +2827,9 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                 roi_boxes_and_score = []
                             vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
                             name_output = path_to_output2 +'Train/' + name_sans_ext + '_Regions.jpg'
+                            if database=='PeopleArt':
+                                path_tmp = '/'.join(name_output.split('/')[0:-1])
+                                pathlib.Path(path_tmp).mkdir(parents=True, exist_ok=True) 
                             plt.savefig(name_output)
                             plt.close()
                             index_im +=1
@@ -3285,13 +3285,9 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         else:
                             name_img = name_imgs[k]
                         rois = roiss[k,:]
-                        if database in ['VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels']:
+                        if database in ['VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt']:
                             complet_name = path_to_img + name_img + '.jpg'
                             name_sans_ext = name_img
-                        elif database=='PeopleArt':
-                            complet_name = path_to_img + name_img
-                            name_sans_ext = os.path.splitext(name_img)[0]
-                            print('Here',complet_name,name_sans_ext)
                         elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                             name_sans_ext = os.path.splitext(name_img)[0]
                             complet_name = path_to_img +name_sans_ext + '.jpg'
@@ -3331,6 +3327,9 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         #print(len(cls),len(roi_boxes_and_score))
                         vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
                         name_output = path_to_output2 +'Test/' + name_sans_ext + '_Regions.jpg'
+                        if database=='PeopleArt':
+                            path_tmp = '/'.join(name_output.split('/')[0:-1])
+                            pathlib.Path(path_tmp).mkdir(parents=True, exist_ok=True) 
                         plt.savefig(name_output)
                         plt.close()
             except tf.errors.OutOfRangeError:
@@ -4393,14 +4392,14 @@ if __name__ == '__main__':
 #                     normalisation= False,baseline_kind = 'MAXA',verbose = True,
 #                     gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
     
-    
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', 
+#    
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
                               verbose = True,testMode = False,jtest = 'cow',
                               PlotRegions = False,saved_clf=False,RPN=False,
                               CompBest=False,Stocha=True,k_per_bag=300,
                               parallel_op=True,CV_Mode='',num_split=2,
                               WR=True,init_by_mean =None,seuil_estimation='',
-                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                              restarts=11,max_iters_all_base=500,LR=0.001,with_tanh=True,
                               C=1.0,Optimizer='GradientDescent',norm='',
                               transform_output='tanh',with_rois_scores_atEnd=False,
                               with_scores=False,epsilon=0.01,restarts_paral='paral',
@@ -4408,6 +4407,20 @@ if __name__ == '__main__':
                               k_intopk=1,C_Searching=False,predict_with='MILSVM',
                               gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
                               thresh_evaluation=0.05,TEST_NMS=0.3) 
+#    tfR_FRCNN(demonet = 'res101_VOC07',database = 'PeopleArt', 
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = False,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                              thresh_evaluation=0.05,TEST_NMS=0.3) 
     
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', 
 #                              verbose = True,testMode = False,jtest = 'cow',

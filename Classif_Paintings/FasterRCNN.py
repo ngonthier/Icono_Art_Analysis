@@ -363,6 +363,14 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
         num_classes = imdb.num_classes-1
         corr_watercolor_coco = [0,2,15,3,16,17,1] # From Cooc to watercolor
         corr_watercolor_voc = [0,2,3,7,8,12,15]
+    elif database=='PeopleArt':
+        per =True
+        ext = '.csv'
+        classes =  ["person"]
+        imdb = get_imdb('PeopleArt_test')
+        num_classes = imdb.num_classes-1
+        corr_watercolor_coco = [0,1] # From Cooc to PeopleArt
+        corr_watercolor_voc = [0,15]
     
     imdb.set_force_dont_use_07_metric(True)
     num_images = len(imdb.image_index)
@@ -373,6 +381,8 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
     if database=='VOC2007'  or  database=='clipart':
         y_true = df_test.as_matrix(columns=CLASSESVOC[1:])
     elif database=='watercolor':
+        y_true = df_test.as_matrix(columns=classes)
+    elif database=='PeopleArt':
         y_true = df_test.as_matrix(columns=classes)
     y_predict = np.zeros((num_images,num_classes))
     assert(y_true.shape==y_predict.shape)
@@ -425,15 +435,15 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
             if 'COCO' in demonet:
                 if database=='VOC2007':
                     scores = scores[:,corr_voc_coco]
-                elif database=='watercolor':
+                elif database=='watercolor' or database=='PeopleArt':
                     scores = scores[:,corr_watercolor_coco]
                 boxes_tmp = np.zeros((len(scores),21*4))
                 for j in range(1, imdb.num_classes):
                     if database=='VOC2007': j_tmp = corr_voc_coco[j]
-                    elif database=='watercolor':j_tmp = corr_watercolor_coco[j]
+                    elif database=='watercolor'or database=='PeopleArt':j_tmp = corr_watercolor_coco[j]
                     boxes_tmp[:,j*4:(j+1)*4] = boxes[:,j_tmp*4:(j_tmp+1)*4]
                 boxes = boxes_tmp
-            elif  'VOC' in demonet and database=='watercolor':
+            elif  'VOC' in demonet and (database=='watercolor'or database=='PeopleArt'):
                 scores = scores[:,corr_watercolor_voc]
                 boxes_tmp = np.zeros((len(scores),21*4))
                 for j in range(1, imdb.num_classes):
@@ -576,9 +586,9 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
             if 'COCO' in demonet:
                 if database=='VOC2007':
                     scores = scores[:,corr_voc_coco]
-                elif database=='watercolor':
+                elif database=='watercolor'or database=='PeopleArt':
                     scores = scores[:,corr_watercolor_coco]
-            elif 'VOC' in demonet and database=='watercolor':
+            elif 'VOC' in demonet and (database=='watercolor'or database=='PeopleArt'):
                 scores = scores[:,corr_watercolor_voc]
                     
             # skip j = 0, because it's the background class
@@ -2575,6 +2585,6 @@ if __name__ == '__main__':
 #                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
 #    
 #    run_FRCNN_Detection_perf(database='VOC2007')
-#   run_FRCNN_Detection_perf(database='watercolor')
-    Illus_box_ratio()
+   run_FRCNN_Detection_perf(database='PeopleArt')
+#    Illus_box_ratio()
 #     Illus_box_ratio()

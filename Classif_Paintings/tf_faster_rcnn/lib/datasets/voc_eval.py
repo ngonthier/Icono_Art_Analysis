@@ -109,7 +109,6 @@ def voc_eval(detpath,
     lines = f.readlines()
   imagenames = [x.strip() for x in lines]
   #print(annopath)
-  #print(cachefile)
 
   if not os.path.isfile(cachefile):
     # load annotations
@@ -131,7 +130,6 @@ def voc_eval(detpath,
       except:
         print(f)
         recs = pickle.load(f, encoding='bytes')
-
   # extract gt objects for this class
   class_recs = {}
   npos = 0
@@ -147,6 +145,7 @@ def voc_eval(detpath,
     class_recs[imagename] = {'bbox': bbox,
                              'difficult': difficult,
                              'det': det}
+
 
   # read dets
   detfile = detpath.format(classname)
