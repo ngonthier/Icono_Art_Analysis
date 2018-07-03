@@ -136,6 +136,30 @@ def Watercolor():
 
     df=pd.read_csv(output_name,dtype=str)
     print(df.iloc[[45,46,47]])
+    
+def PeopleArt():
+    df = None
+    classes = ["person"]
+    sets = [('PeopleArt','train'),('PeopleArt','test'),('PeopleArt','val')]
+    for base,image_set in sets:
+        path_b = '/media/HDD/data/PeopleArt/ImageSets/Main/person_%s.txt'%(image_set)
+        pd_b = pd.read_csv(path_b,sep=r"\s*",names=['name_img','person'],dtype=str)
+        pd_b['set'] = image_set
+        if df is None:
+            df = pd_b
+        else:
+            df = df.append(pd_b)
+    import numpy as np
+    print(np.sum(df['person']==0))
+    output_name = path_output + 'PeopleArt' + '.csv'
+    # On remplace les 0 par des 1  ! les cas difficiles par des certitudes
+    for c in classes: 
+        df.loc[df[c]==0,c] = 1
+    df.to_csv(output_name,index=None)
+
+#    df=pd.read_csv(output_name,dtype=str)
+    
+    
 
 def Clipart():
     df = None

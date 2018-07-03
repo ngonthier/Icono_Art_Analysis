@@ -41,6 +41,8 @@ class CrossMod_db(imdb):
 #    print(self._data_path)
     if self._image_db == 'watercolor' or self._image_db == 'comic':
         self._classes = ('__background__',"bicycle", "bird","car", "cat", "dog", "person") 
+    elif self._image_db == 'PeopleArt':
+        self._classes = ('__background__', "person") 
     elif self._image_db == 'clipart': # In the clipart case
         self._classes = ('__background__',  # always index 0
                          'aeroplane', 'bicycle', 'bird', 'boat',

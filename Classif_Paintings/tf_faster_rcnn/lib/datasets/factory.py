@@ -33,6 +33,11 @@ for db in ['watercolor','comic','clipart']:
         name = '{}_{}'.format(db,split)
         __sets[name] = (lambda split=split, db=db: CrossMod_db(db,split,devkit_path='/media/HDD/data/cross-domain-detection/datasets',test_ext=True))
  
+for db in ['PeopleArt']:
+    for split in ['train', 'test','trainval','val']:
+        name = '{}_{}'.format(db,split)
+        __sets[name] = (lambda split=split, db=db: CrossMod_db(db,split,devkit_path='/media/HDD/data/',test_ext=True))
+ 
 for db in ['WikiTenLabels']:
     for split in ['test']:
         name = '{}_{}'.format(db,split)

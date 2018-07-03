@@ -1405,7 +1405,7 @@ def FasterRCNN_TransferLearning_misvm():
         
 def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
                                  augmentation=False,L2 =False,
-                                 saved='all',verbose=True,filesave='pkl'):
+                                 saved='all',verbose=True,filesave='pkl',k_regions=300):
     """
     @param : demonet : teh kind of inside network used it can be 'vgg16_VOC07',
         'vgg16_VOC12','vgg16_COCO','res101_VOC12','res101_COCO','res152_COCO'
@@ -1436,6 +1436,11 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
         num_classes = 20
+        ext = '.csv'
+    elif database=='PeopleArt':
+        item_name = 'name_img'
+        path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
+        num_classes = 1
         ext = '.csv'
     elif database=='watercolor':
         num_classes = 6
@@ -1530,13 +1535,19 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     
     sets = ['train','val','trainval','test']
     
+    
+    
     if filesave == 'pkl':
         name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
         pkl = open(name_pkl_all_features, 'wb')
     elif filesave =='tfrecords':
+        if k_regions==300:
+            k_per_bag_str = ''
+        else:
+            k_per_bag_str = '_k'+str(k_regions)
         dict_writers = {}
         for set_str in sets:
-            name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
+            name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
             dict_writers[set_str] = tf.python_io.TFRecordWriter(name_pkl_all_features)
         if database=='Paintings':
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
@@ -1548,14 +1559,14 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                'sheep', 'sofa', 'train', 'tvmonitor']
         if database=='watercolor':
             classes = ["bicycle", "bird","car", "cat", "dog", "person"]
-    
-    # Important variable : number of regions !   
-    k_regions = 300    
-    
+        if database=='PeopleArt':
+            classes = ["person"]
     
     Itera = 1000
     for i,name_img in  enumerate(df_label[item_name]):
         if filesave=='pkl':
+            if not(k_regions==300):
+                raise(NotImplemented)
             if i%Itera==0:
                 if verbose : print(i,name_img)
                 if not(i==0):
@@ -1563,6 +1574,9 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     features_resnet_dict= {}
             if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels']:
                 complet_name = path_to_img + name_img + '.jpg'
+            elif database=='PeopleArt':
+                complet_name = path_to_img + name_img
+                name_sans_ext = os.path.splitext(name_img)[0]
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 name_sans_ext = os.path.splitext(name_img)[0]
                 complet_name = path_to_img +name_sans_ext + '.jpg'
@@ -1582,6 +1596,9 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels']:
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
+            elif database=='PeopleArt':
+                complet_name = path_to_img + name_img
+                name_sans_ext = os.path.splitext(name_img)[0]
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 name_sans_ext = os.path.splitext(name_img)[0]
                 complet_name = path_to_img +name_sans_ext + '.jpg'
@@ -1589,27 +1606,53 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             height = im.shape[0]
             width = im.shape[1]
             cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
-            num_regions = fc7.shape[0]
-            num_features = fc7.shape[1]
-            dim1_rois = rois.shape[1]
-            classes_vectors = np.zeros((num_classes,1))
             
-            # We will 
-            rois_tmp = np.zeros((k_regions,5))
-            roi_scores_tmp = np.zeros((k_regions,1))
-            fc7_tmp = np.zeros((k_regions,size_output))
-            rois_tmp[0:rois.shape[0],0:rois.shape[1]] = rois
-            roi_scores_tmp[0:roi_scores.shape[0],0:roi_scores.shape[1]] = roi_scores
-            fc7_tmp[0:fc7.shape[0],0:fc7.shape[1]] = fc7           
-            rois = rois_tmp
-            roi_scores =roi_scores_tmp
-            fc7 = fc7_tmp
+            if k_regions==300:
+                num_regions = fc7.shape[0]
+                num_features = fc7.shape[1]
+                dim1_rois = rois.shape[1]
+                classes_vectors = np.zeros((num_classes,1))
+                rois_tmp = np.zeros((k_regions,5))
+                roi_scores_tmp = np.zeros((k_regions,1))
+                fc7_tmp = np.zeros((k_regions,size_output))
+                rois_tmp[0:rois.shape[0],0:rois.shape[1]] = rois
+                roi_scores_tmp[0:roi_scores.shape[0],0:roi_scores.shape[1]] = roi_scores
+                fc7_tmp[0:fc7.shape[0],0:fc7.shape[1]] = fc7           
+                rois = rois_tmp
+                roi_scores =roi_scores_tmp
+                fc7 = fc7_tmp
+            else:
+                # We will select only k_regions 
+                new_nms_thresh = 0.0
+                score_threshold = 0.1
+                minimal_surface = 36*36
+                
+                num_regions = k_regions
+                num_features = fc7.shape[1]
+                dim1_rois = rois.shape[1]
+                classes_vectors = np.zeros((num_classes,1))
+                rois_reduce,roi_scores_reduce,fc7_reduce =  reduce_to_k_regions(k_regions,rois, \
+                                                       roi_scores, fc7,new_nms_thresh, \
+                                                       score_threshold,minimal_surface)
+                if(len(fc7_reduce) >= k_regions):
+                    rois = rois_reduce[0:k_regions,:]
+                    roi_scores =roi_scores_reduce[0:k_regions,]
+                    fc7 = fc7_reduce[0:k_regions,:]
+                else:
+                    number_repeat = k_regions // len(fc7_reduce)  +1
+                    f_repeat = np.repeat(fc7_reduce,number_repeat,axis=0)
+                    roi_scores_repeat = np.repeat(roi_scores_reduce,number_repeat,axis=0)
+                    rois_reduce_repeat = np.repeat(rois_reduce,number_repeat,axis=0)
+                    rois = rois_reduce_repeat[0:k_regions,:]
+                    roi_scores =roi_scores_repeat[0:k_regions,]
+                    fc7 = f_repeat[0:k_regions,:]
+               
             
             if database=='Paintings':
                 for j in range(num_classes):
                     if(classes[j] in df_label['classe'][i]):
                         classes_vectors[j] = 1
-            if database in ['VOC2007','clipart','watercolor']:
+            if database in ['VOC2007','clipart','watercolor','PeopleArt']:
                 for j in range(num_classes):
                     value = int((int(df_label[classes[j]][i])+1.)/2.)
                     #print(value)
@@ -1645,7 +1688,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     'name_img' : _bytes_feature(str.encode(name_sans_ext))})
             example = tf.train.Example(features=features)    
             
-            if database=='VOC2007':
+            if database=='VOC2007' or database=='PeopleArt':
                 if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
                     dict_writers['train'].write(example.SerializeToString())
                     dict_writers['trainval'].write(example.SerializeToString())
