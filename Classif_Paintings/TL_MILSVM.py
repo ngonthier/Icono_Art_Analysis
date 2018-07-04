@@ -647,7 +647,7 @@ def old_FasterRCNN_TL_MILSVM_newVersion():
 def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test_on_k_bag = False,
                              normalisation= False,baseline_kind = 'MAX1',
                              verbose = True,gridSearch=False,k_per_bag=300,jtest=0,testMode=False,
-                             n_jobs=-1,clf='LinearSVC',restarts = 0,max_iter_MILSVM=50):
+                             n_jobs=-1,clf='LinearSVC',restarts = 0,max_iter_MILSVM=500):
     """ 
     18 juin 2018 ==> voir le fichier Baseline_script.py
     Detection based on CNN features with Transfer Learning on Faster RCNN output
@@ -743,7 +743,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         
         path_data = '/media/HDD/output_exp/ClassifPaintings/'
         databasetxt =path_data + database + ext    
-        if database=='VOC2007' or database=='watercolor':
+        if database=='VOC2007' or database=='watercolor' or database=='PeopleArt':
             dtypes = {0:str,'name_img':str,'aeroplane':int,'bicycle':int,'bird':int, \
                       'boat':int,'bottle':int,'bus':int,'car':int,'cat':int,'cow':int,\
                       'dinningtable':int,'dog':int,'horse':int,'motorbike':int,'person':int,\
@@ -846,7 +846,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                             classes_vectors[i,j] = 1
         
         # Separation training, validation, test set
-        if database=='VOC12' or database=='Paintings' or database=='VOC2007'  or database=='watercolor' or database=='WikiTenLabels':
+        if database=='VOC12' or database=='Paintings' or database=='VOC2007'  or database=='watercolor' or database=='WikiTenLabels' or database=='PeopleArt':
             if database=='VOC2007'  or database=='watercolor' or database=='WikiTenLabels' or database=='PeopleArt':
                 str_val ='val' 
             else: 
@@ -1190,7 +1190,10 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt']:
                     thresh = 0.05 # Threshold score or distance MILSVM
                     TEST_NMS = 0.3 # Recouvrement entre les classes
-                    complet_name = path_to_img + str(name_test[k]) + '.jpg'
+                    if not(database=='PeopleArt'):
+                        complet_name = path_to_img + str(name_test[k]) + '.jpg'
+                    else:
+                        complet_name = path_to_img + str(name_test[k])
                     im = cv2.imread(complet_name)
                     blobs, im_scales = get_blobs(im)
                     inds = np.where(decision_function_output > thresh)[0]
@@ -1216,6 +1219,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 else: 
                     labels_test_predited[k] =  0 # Label of the class 0 or 1
 
+            print(y_predict_confidence_score_classifier)
+            print(y_test[:,j])
             AP = average_precision_score(y_test[:,j],y_predict_confidence_score_classifier,average=None)
             if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 print("Baseline SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
@@ -1253,17 +1258,22 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
             max_per_image = 100
             all_boxes_order = [[[] for _ in range(num_images)] for _ in range(imdb.num_classes)]
+            number_im = 0
             for i in range(num_images):
                 name_img = imdb.image_path_at(i)
-                name_img_wt_ext = name_img.split('/')[-1]
-                name_img_wt_ext =name_img_wt_ext.split('.')[0]
-                #print(name_img_wt_ext)
+                if database=='PeopleArt':
+                    name_img_wt_ext = name_img.split('/')[-2] +'/' +name_img.split('/')[-1]
+                else:
+                    name_img_wt_ext = name_img.split('/')[-1]
+                    name_img_wt_ext =name_img_wt_ext.split('.')[0]
                 name_img_ind = np.where(np.array(name_all_test)==name_img_wt_ext)[0]
                 #print(name_img_ind)
                 if len(name_img_ind)==0:
-                    print('Name not in the  name_all_test array',name_img_wt_ext)
+                    print('len(name_img_ind), images not found in the all_boxes')
+                    print(name_img_wt_ext)
                     raise(Exception)
-#                print(name_img_ind[0])
+                else:
+                    number_im += 1 
                 for j in range(1, imdb.num_classes):
                     j_minus_1 = j-1
                     all_boxes_order[j][i]  = all_boxes[j_minus_1][name_img_ind[0]]
@@ -4375,6 +4385,39 @@ if __name__ == '__main__':
 #    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
 #                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
 #                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
+     
+    
+     # Baseline on WikiTenLabels
+#    print('================ Wiki ======================')
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'MISVM',verbose = True,
+#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'WikiTenLabels',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
+#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
+#    print('======================================')
+    # Baseline on PeopleArt
+    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watecolor',Test_on_k_bag=False,
+                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
+                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False,restarts = 0,max_iter_MILSVM=50) # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'PeopleArt',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'MAX1',verbose = True,
+#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'PeopleArt',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'PeopleArt',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'PeopleArt',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'MAX1',verbose = True,
+#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'PeopleArt',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
     
 #    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
 #                 normalisation= False,baseline_kind = 'MAX1',verbose = True,
@@ -4393,23 +4436,25 @@ if __name__ == '__main__':
 #                     gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
     
 #    
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
-                              verbose = True,testMode = False,jtest = 'cow',
-                              PlotRegions = False,saved_clf=False,RPN=False,
-                              CompBest=False,Stocha=True,k_per_bag=300,
-                              parallel_op=True,CV_Mode='',num_split=2,
-                              WR=True,init_by_mean =None,seuil_estimation='',
-                              restarts=11,max_iters_all_base=500,LR=0.001,with_tanh=True,
-                              C=1.0,Optimizer='GradientDescent',norm='',
-                              transform_output='tanh',with_rois_scores_atEnd=False,
-                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                              thresh_evaluation=0.05,TEST_NMS=0.3) 
+  
+    # Pour afficher les zones de People Art 
 #    tfR_FRCNN(demonet = 'res101_VOC07',database = 'PeopleArt', 
 #                              verbose = True,testMode = False,jtest = 'cow',
 #                              PlotRegions = False,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                              thresh_evaluation=0.05,TEST_NMS=0.3) 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', 
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = True,saved_clf=False,RPN=False,
 #                              CompBest=False,Stocha=True,k_per_bag=300,
 #                              parallel_op=True,CV_Mode='',num_split=2,
 #                              WR=True,init_by_mean =None,seuil_estimation='',
@@ -4422,20 +4467,7 @@ if __name__ == '__main__':
 #                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
 #                              thresh_evaluation=0.05,TEST_NMS=0.3) 
     
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3) 
+
     
     # A faire
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', 
@@ -4454,10 +4486,13 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3) 
 #    
     # calcul a lancer plus tard !!! 
-
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MEAN',verbose = True,
+#
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
 #                             gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'PeopleArt',Test_on_k_bag=False,
+#                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
+#                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
 #    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
 #                             normalisation= False,baseline_kind = 'MEAN',verbose = True,
 #                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
