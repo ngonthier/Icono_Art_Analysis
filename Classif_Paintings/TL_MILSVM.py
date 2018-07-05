@@ -736,6 +736,9 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             item_name = 'image'
             path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
             classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
+        else:
+            print(database,'is unknown')
+            raise NotImplemented
         
         if(jtest>len(classes)) and testMode:
            print("We are in test mode but jtest>len(classes), we will use jtest =0" )
@@ -2010,7 +2013,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   Max_version=None,w_exp=1.0,seuillage_by_score=True,
                                   seuil=0.5,k_intopk=3,C_Searching=False,gridSearch=False,n_jobs=1,
                                   predict_with='MILSVM',thres_FinalClassifier=0.5,
-                                  thresh_evaluation=0.05,TEST_NMS=0.3,eval_onk300=False):
+                                  thresh_evaluation=0.05,TEST_NMS=0.3,eval_onk300=False,optim_wt_Reg=False):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2129,7 +2132,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
         classes =  ["person"]
-    elif database=='WikiTenLabels':
+    elif database=='WikiTenLabels' or database=='MiniTrain_WikiTenLabels':
         ext = '.csv'
         item_name = 'item'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
@@ -2166,11 +2169,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     databasetxt =path_data + database + ext
-    if database=='WikiTenLabels':
+    if database=='WikiTenLabels'or database=='MiniTrain_WikiTenLabels':
         dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
                       'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
                       'turban':int,'set':str,'Anno':int}
         df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)    
+        
     else:
         df_label = pd.read_csv(databasetxt,sep=",")
     str_val = 'val'
@@ -2246,6 +2250,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         restarts_paral_str=''
     # InternalError: Dst tensor is not initialized. can mean that you are running out of GPU memory
     mini_batch_size = min(sizeMax,num_trainval_im)
+    if CV_Mode=='1000max':
+        mini_batch_size = min(sizeMax,1000)
     buffer_size = 10000
     if testMode:
         ext_test = '_Test_Mode'
@@ -2294,9 +2300,13 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max par rapport au nombre de split
         extCV = '_la'+str(num_split)
     elif CV_Mode=='CV' and WR==True:
-        extCV = '_cv'+str(num_split)+'_wr'
+        extCV = '_cv'+str(num_split)
+    elif CV_Mode == '1000max':
+        extCV = '_1000max'
     elif CV_Mode is None or CV_Mode=='':
         extCV =''
+    else:
+        raise(NotImplemented)
     if WR: extCV += '_wr'
 
     if Optimizer=='Adam':
@@ -2337,6 +2347,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         shuffle_str = ''
     else:
         shuffle_str = '_allBase'
+    if optim_wt_Reg:
+        optim_wt_Reg_str = '_OptimWTReg'
+    else:
+        optim_wt_Reg_str =''
     Number_of_positif_elt = 1 
     number_zone = k_per_bag
     
@@ -2350,7 +2364,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                   Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
                   TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
-                  k_intopk,C_Searching,gridSearch,thres_FinalClassifier]
+                  k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2358,7 +2372,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                      'optimArg','Number_of_positif_elt','number_zone','seuil_estimation'
                      ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
-                     'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier']
+                     'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2369,7 +2383,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     cachefile_model_base= database +'_'+demonet+'_r'+str(restarts)+'_s' \
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
-        +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str
+        +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str
     cachefile_model = path_data +  cachefile_model_base+'_MILSVM.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
@@ -2402,7 +2416,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         imdb = get_imdb('clipart_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         num_images = len(imdb.image_index) 
-    elif database=='WikiTenLabels':
+    elif database=='WikiTenLabels'or database=='MiniTrain_WikiTenLabels':
         imdb = get_imdb('WikiTenLabels_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         #num_images = len(imdb.image_index) 
@@ -2422,7 +2436,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                    mini_batch_size=mini_batch_size,num_features=num_features,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
                    Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
-                   k_intopk=k_intopk) 
+                   k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg) 
              export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                    WR=WR,performance=performance,restarts_paral=restarts_paral,
@@ -2535,7 +2549,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         pickle.dump(name_milsvm, f)
     
     # Detection evaluation
-    if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt']:
+    if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels']:
         if testMode:
             for j in range(0, imdb.num_classes-1):
                 if not(j==jtest):
@@ -2790,13 +2804,13 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         for k in range(len(labels)):
                             if index_im > number_im:
                                 continue
-                            if database in ['VOC2007','watercolor','Paintings','clipart','WikiTenLabels','PeopleArt']:
+                            if database in ['VOC2007','watercolor','Paintings','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels']:
                                 name_img = str(name_imgs[k].decode("utf-8") )
                             else:
                                 name_img = name_imgs[k]
                             rois = roiss[k,:]
                             #if verbose: print(name_img)
-                            if database in ['VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt']:
+                            if database in ['VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels']:
                                 complet_name = path_to_img + name_img + '.jpg'
                                 name_sans_ext = name_img
                             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -3240,7 +3254,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
 #                if predict_with=='LinearSVC':
                     
                 for k in range(len(labels)):
-                    if database in ['VOC2007','watercolor','Paintings','clipart','WikiTenLabels','PeopleArt'] :
+                    if database in ['VOC2007','watercolor','Paintings','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels'] :
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
                     else:
                          complet_name = path_to_img + name_imgs[k] + '.jpg'
@@ -3276,7 +3290,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     i+=1
     
                 for l in range(len(name_imgs)): 
-                    if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt']:
+                    if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels']:
                         name_all_test += [[str(name_imgs[l].decode("utf-8"))]]
                     else:
                         name_all_test += [[name_imgs[l]]]
@@ -3290,12 +3304,12 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     for k in range(len(labels)):   
                         if ii > number_im:
                             continue
-                        if  database in ['VOC2007','Paintings','watercolor','clipart','WikiTenLabels','PeopleArt']:
+                        if  database in ['VOC2007','Paintings','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels']:
                             name_img = str(name_imgs[k].decode("utf-8") )
                         else:
                             name_img = name_imgs[k]
                         rois = roiss[k,:]
-                        if database in ['VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt']:
+                        if database in ['VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels']:
                             complet_name = path_to_img + name_img + '.jpg'
                             name_sans_ext = name_img
                         elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -3645,7 +3659,6 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
      labels_test_predited = (np.sign(predict_label_all_test) +1.)/2
      return(true_label_all_test,predict_label_all_test,name_all_test,
             labels_test_predited,all_boxes)
-            
 
 def detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Paintings_miniset_verif'):
     if database=='Paintings':
@@ -4400,9 +4413,9 @@ if __name__ == '__main__':
 #                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
 #    print('======================================')
     # Baseline on PeopleArt
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watecolor',Test_on_k_bag=False,
-                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
-                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False,restarts = 0,max_iter_MILSVM=50) # defaultSGD or LinearSVC
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
+#                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False,restarts = 0,max_iter_MILSVM=50) # defaultSGD or LinearSVC
 #    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'PeopleArt',Test_on_k_bag=False,
 #                 normalisation= False,baseline_kind = 'MAX1',verbose = True,
 #                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
@@ -4452,20 +4465,20 @@ if __name__ == '__main__':
 #                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
 #                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
 #                              thresh_evaluation=0.05,TEST_NMS=0.3) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = True,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='1000max',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3) 
     
 
     

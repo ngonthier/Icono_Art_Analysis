@@ -1435,7 +1435,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         num_classes = 20
         ext = '.txt'
         raise(NotImplementedError)
-    elif database=='WikiTenLabels':
+    elif database=='WikiTenLabels' or database=='MiniTrain_WikiTenLabels':
         ext = '.csv'
         item_name = 'item'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
@@ -1475,7 +1475,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     databasetxt = path_data + database + ext
     if database=='VOC2007' or database=='watercolor' or database=='clipart':
         df_label = pd.read_csv(databasetxt,sep=",",dtype=str)
-    elif database=='WikiTenLabels':
+    elif database=='WikiTenLabels'or database=='MiniTrain_WikiTenLabels':
         dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
                   'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
                   'turban':int,'set':str,'Anno':int}
@@ -1582,7 +1582,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 if not(i==0):
                     pickle.dump(features_resnet_dict,pkl) # Save the data
                     features_resnet_dict= {}
-            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels']:
+            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels']:
                 complet_name = path_to_img + name_img + '.jpg'
             elif database=='PeopleArt':
                 complet_name = path_to_img + name_img
@@ -1603,7 +1603,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         elif filesave=='tfrecords':
             if i%Itera==0:
                 if verbose : print(i,name_img)
-            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels']:
+            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels']:
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
             elif database=='PeopleArt':
@@ -1667,7 +1667,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     value = int((int(df_label[classes[j]][i])+1.)/2.)
                     #print(value)
                     classes_vectors[j] = value
-            if database in ['WikiTenLabels']:
+            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels']:
                 for j in range(num_classes):
                     value = int(df_label[classes[j]][i])
                     classes_vectors[j] = value
@@ -1716,7 +1716,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     dict_writers['trainval'].write(example.SerializeToString())
                 elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
                     dict_writers['test'].write(example.SerializeToString())
-            if database=='watercolor' or database=='clipart' or database=='WikiTenLabels':
+            if database=='watercolor' or database=='clipart' or database=='WikiTenLabels'or database=='MiniTrain_WikiTenLabels':
                 if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
                     dict_writers['train'].write(example.SerializeToString())
                     dict_writers['trainval'].write(example.SerializeToString())

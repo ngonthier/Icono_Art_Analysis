@@ -306,7 +306,7 @@ class tf_MILSVM():
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
                   is_betweenMinus1and1=False,CV_Mode=None,num_split=2,with_scores=False,
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
-                  seuil= 0.5,k_intopk=3):
+                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False):
         # TODOD enelver les trucs inutiles ici
         # TODO faire des tests unitaire sur les differentes parametres
         """
@@ -347,6 +347,7 @@ class tf_MILSVM():
         @param k_intopk : number of regions used
         @param seuillage_by_score : default False : remove the region with a score under seuil
         @param seuil : used to eliminate some regions : it remove all the image with an objectness score under seuil
+        @param optim_wt_Reg : do the optimization without regularisation on the W vectors
         """
         self.LR = LR
         self.C = C
@@ -400,6 +401,8 @@ class tf_MILSVM():
             raise(NotImplemented) 
         if not(self.Max_version in ['mintopk','sparsemax','max','','softmax'] or self.Max_version is None):
             raise(NotImplemented)
+        self.optim_wt_Reg= optim_wt_Reg
+        
         
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 
@@ -750,7 +753,11 @@ class tf_MILSVM():
             self.restarts_paral_V2 = True
         if self.init_by_mean and self.restarts_paral_Dim: raise(NotImplemented)
         if self.init_by_mean and self.restarts_paral_V2: raise(NotImplemented)
+        if self.optim_wt_Reg and not(self.restarts_paral_V2): raise(NotImplemented)
         if self.init_by_mean and self.C_Searching: raise(NotImplemented)
+        if self.optim_wt_Reg and self.C_Searching: 
+            print('That is not compatible')
+            raise(NotImplemented)
         if self.class_indice>-1 and self.C_Searching: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_Dim: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_V2: raise(NotImplemented)
@@ -778,6 +785,9 @@ class tf_MILSVM():
                 train_dataset_tmp2 = train_dataset_init.shard(self.num_split,i)
                 train_dataset_tmp = train_dataset_tmp.concatenate(train_dataset_tmp2)
             train_dataset = train_dataset_tmp
+        elif self.CV_Mode=='1000max':
+            if self.verbose: print('Use of the 1000 element maximum in the training set')
+            train_dataset = train_dataset_init.take(1000)
         else: # Case where elf.CV_Mode=='LA" or None
             train_dataset = train_dataset_init
             # The second argument is the index of the subset used
@@ -855,6 +865,15 @@ class tf_MILSVM():
                 train_dataset_tmp = train_dataset_tmp.concatenate(train_dataset_tmp2)
             train_dataset2 = train_dataset_tmp
             train_dataset = train_dataset_init.shard(self.num_split,self.num_split-1) 
+            # The last fold is keep for doing the cross validation
+            iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
+            if self.with_scores:
+                X_batch,scores_batch, label_batch = iterator_batch.get_next()
+            else:
+                X_batch, label_batch = iterator_batch.get_next() 
+        elif self.CV_Mode=='1000max':
+            train_dataset2 = train_dataset_init.take(1000) # The one used for learning
+            train_dataset = train_dataset_init.skip(1000) 
             # The last fold is keep for doing the cross validation
             iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
             if self.with_scores:
@@ -982,7 +1001,8 @@ class tf_MILSVM():
                     loss= tf.add(Tan,tf.multiply(C_value_repeat,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
                 else:
                     loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
-
+                if self.optim_wt_Reg:
+                    loss=Tan
             else:
                 loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
             # Shape 20 and if self.restarts_paral_Dim shape (number_W) x 20
@@ -1016,7 +1036,7 @@ class tf_MILSVM():
             else:
                 weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
             Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
-            if self.WR:
+            if self.WR or self.optim_wt_Reg:
                 loss_batch= Tan_batch
             else:
                 if self.restarts_paral_V2:
