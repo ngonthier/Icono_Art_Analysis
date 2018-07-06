@@ -2210,7 +2210,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
             data_precomputeed = False
 
 #    sLength_all = len(df_label[item_name])
-    if demonet == 'vgg16_COCO':
+    if demonet in ['vgg16_COCO','vgg16_VOC07','vgg16_VOC12']:
         num_features = 4096
     elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
         num_features = 2048
@@ -2233,12 +2233,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         sizeMax = 30*10000 // (k_per_bag*num_classes) 
     else:
         sizeMax = 30*10000 // k_per_bag
-    if not(init_by_mean is None) and not(init_by_mean==''):
-        if not(CV_Mode=='CV' and num_split==2):
-            sizeMax //= 2
-     # boolean paralleliation du W
-    if not(num_features==2048):
-        sizeMax //= (num_features//2048)
     if restarts_paral=='Dim': # It will create a new dimension
         restarts_paral_str = '_RP'
         sizeMax //= max(int((restarts+1)//2),1) # To avoid division by zero
@@ -2248,6 +2242,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         sizeMax = 30*200000 // (k_per_bag*20)
     else:
         restarts_paral_str=''
+    if not(init_by_mean is None) and not(init_by_mean==''):
+        if not(CV_Mode=='CV' and num_split==2):
+            sizeMax //= 2
+     # boolean paralleliation du W
+    if not(num_features==2048):
+        sizeMax //= (num_features//2048)
     # InternalError: Dst tensor is not initialized. can mean that you are running out of GPU memory
     mini_batch_size = min(sizeMax,num_trainval_im)
     if CV_Mode=='1000max':
@@ -2338,7 +2338,15 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         Max_version_str ='_MVSM'
     elif Max_version=='mintopk':
         Max_version_str ='_MVMT'+str(k_intopk)
-    optimArg= None
+    optimArg = None
+    #optimArg = {'learning_rate':LR,'beta1':0.9,'beta2':0.999,'epsilon':1}
+    if optimArg== None or Optimizer=='GradientDescent':
+        optimArg_str = ''
+    else:
+        if  Optimizer=='Adam' and str(optimArg).replace(' ','_')=="{'learning_rate':_0.01,_'beta1':_0.9,_'beta2':_0.999,_'epsilon':_1e-08}":
+            optimArg_str = ''
+        else:
+            optimArg_str =  str(optimArg).replace(' ','_')
     verboseMILSVM = True
     shuffle = True
     if num_trainval_im==mini_batch_size:
@@ -2383,7 +2391,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     cachefile_model_base= database +'_'+demonet+'_r'+str(restarts)+'_s' \
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
-        +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str
+        +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str
     cachefile_model = path_data +  cachefile_model_base+'_MILSVM.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
@@ -2430,6 +2438,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     if parallel_op:
         # For Pascal VOC2007 pour les 20 classes cela prend environ 2500s par iteration 
         if not os.path.isfile(cachefile_model) or ReDo:
+             if verbose: t0 = time.time() 
              classifierMILSVM = tf_MILSVM(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,num_rois=k_per_bag,
                    max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
@@ -2441,6 +2450,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                    WR=WR,performance=performance,restarts_paral=restarts_paral,
                    C_Searching=C_Searching)
+             if verbose: 
+                 t1 = time.time() 
+                 print('Total duration training part :',str(t1-t0))
              np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
              name_milsvm =export_dir,np_pos_value,np_neg_value
              with open(cachefile_model, 'wb') as f:
@@ -4465,13 +4477,55 @@ if __name__ == '__main__':
 #                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
 #                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
 #                              thresh_evaluation=0.05,TEST_NMS=0.3) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+    tfR_FRCNN(demonet = 'vgg16_VOC12',database = 'PeopleArt', 
                               verbose = True,testMode = False,jtest = 'cow',
                               PlotRegions = False,saved_clf=False,RPN=False,
                               CompBest=False,Stocha=True,k_per_bag=300,
-                              parallel_op=True,CV_Mode='1000max',num_split=2,
+                              parallel_op=True,CV_Mode='',num_split=2,
                               WR=True,init_by_mean =None,seuil_estimation='',
                               restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3) 
+    tfR_FRCNN(demonet = 'vgg16_VOC07',database = 'PeopleArt', 
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3) 
+    tfR_FRCNN(demonet = 'vgg16_VOC07',database = 'PeopleArt', 
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', 
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=19,max_iters_all_base=300,LR=0.01,with_tanh=True,
                               C=1.0,Optimizer='GradientDescent',norm='',
                               transform_output='tanh',with_rois_scores_atEnd=False,
                               with_scores=False,epsilon=0.01,restarts_paral='paral',
