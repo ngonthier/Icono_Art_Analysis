@@ -306,7 +306,8 @@ class tf_MILSVM():
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
                   is_betweenMinus1and1=False,CV_Mode=None,num_split=2,with_scores=False,
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
-                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False):
+                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,
+                  votingW=False,proportionToKeep=0.25):
         # TODOD enelver les trucs inutiles ici
         # TODO faire des tests unitaire sur les differentes parametres
         """
@@ -404,6 +405,12 @@ class tf_MILSVM():
             raise(NotImplemented)
         self.optim_wt_Reg= optim_wt_Reg
         self.AveragingW = AveragingW
+        self.votingW = votingW
+        assert(not(self.votingW and self.AveragingW))
+        self.proportionToKeep = proportionToKeep
+        if self.votingW:
+            assert(proportionToKeep > 0.0)
+            assert(proportionToKeep <= 1.0)
         
         
         
@@ -765,6 +772,7 @@ class tf_MILSVM():
         if self.class_indice>-1 and self.restarts_paral_Dim: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_V2: raise(NotImplemented)
         if self.AveragingW and not(self.restarts_paral_V2): raise(NotImplemented)
+        if self.votingW and not(self.restarts_paral_V2): raise(NotImplemented)
         if self.class_indice>-1 and (self.Max_version=='sparsemax' or self.seuillage_by_score or self.Max_version=='mintopk'): raise(NotImplemented)
         if self.restarts_paral_V2 and (self.restarts==0) and self.C_Searching: 
             print('This don t work at all, bug not solved about the argmin')
@@ -1179,7 +1187,7 @@ class tf_MILSVM():
                     print("bestloss",loss_value_min)
                     t1 = time.time()
                     print("durations :",str(t1-t0),' s')
-            elif self.restarts_paral_V2:
+            elif self.restarts_paral_V2 and not(self.votingW):
                 loss_value_min = []
                 W_best = np.zeros((self.num_classes,self.num_features),dtype=np.float32)
                 b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
@@ -1201,6 +1209,22 @@ class tf_MILSVM():
                     W_best = W_tmp
                     b_best = b_tmp
                     loss_value_min = loss_value
+            elif self.restarts_paral_V2 and self.votingW:
+                loss_value_min = []
+                self.numberWtoKeep = min(int(np.ceil((self.restarts+1))*self.proportionToKeep),self.restarts+1)
+                W_best = np.zeros((self.numberWtoKeep,self.num_classes,self.num_features),dtype=np.float32)
+                b_best = np.zeros((self.numberWtoKeep,self.num_classes,1,1),dtype=np.float32)
+                for j in range(self.num_classes):
+                    loss_value_j = loss_value[j:-1:self.num_classes]
+                    loss_value_j_sorted_descending = np.argsort(loss_value_j)[::-1]
+                    index_keep = loss_value_j_sorted_descending[0:self.numberWtoKeep]
+                    for i,argmin in enumerate(index_keep):
+                        W_best[i,j,:] = W_tmp[j+argmin*self.num_classes,:]
+                        b_best[i,j,:,:] = b_tmp[j+argmin*self.num_classes]
+                    if self.verbose: 
+                        loss_value_j_min = np.argsort(loss_value_j)[::-1][0:self.numberWtoKeep]
+                        loss_value_min+=[loss_value_j_min]
+                
             if self.verbose : 
                 print("bestloss",loss_value_min)
                 t1 = time.time()
@@ -1273,6 +1297,8 @@ class tf_MILSVM():
 
         saver = tf.train.Saver()
         X_= tf.identity(X_, name="X")
+        print(X_)
+        print(tf.convert_to_tensor(W_best))
         if self.norm=='L2':
             X_ = tf.nn.l2_normalize(X_,axis=-1, name="L2norm")
         elif self.norm=='STD_all':
@@ -1283,16 +1309,24 @@ class tf_MILSVM():
         y_ = tf.identity(y_, name="y")
         if self.with_scores or self.seuillage_by_score:
             scores_ = tf.identity(scores_,name="scores")
-        if class_indice==-1:
-            if self.restarts_paral_V2:
-                Prod_best=tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
-                                 ,b_best,name='Prod')
+        if not(self.votingW):
+            if class_indice==-1:
+                if self.restarts_paral_V2:
+                        Prod_best=tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
+                                         ,b_best,name='Prod')
+            else:
+                Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
+            if self.with_scores: 
+                Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
+            elif self.seuillage_by_score:
+                Prod_score=tf.multiply(Prod_best,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.),name='ProdScore')
         else:
-            Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
-        if self.with_scores: 
-            Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
-        elif self.seuillage_by_score:
-            Prod_score=tf.multiply(Prod_best,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.),name='ProdScore')
+            Prod_best=tf.add(tf.einsum('bak,ijk->baij',tf.convert_to_tensor(W_best),X_)\
+                                         ,b_best)
+            if self.with_scores: 
+                Prod_score=tf.reduce_mean(tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore'),axis=0)
+            else:
+                Prod_best = tf.reduce_mean(Prod_best,axis=0,name='Prod')
         export_dir = ('/').join(data_path.split('/')[:-1])
         export_dir += '/MILSVM/' + str(time.time())
         name_model = export_dir + '/model'

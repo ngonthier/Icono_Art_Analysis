@@ -2020,7 +2020,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   seuil=0.5,k_intopk=3,C_Searching=False,gridSearch=False,n_jobs=1,
                                   predict_with='MILSVM',thres_FinalClassifier=0.5,
                                   thresh_evaluation=0.05,TEST_NMS=0.3,eval_onk300=False,
-                                  optim_wt_Reg=False,AveragingW=False):
+                                  optim_wt_Reg=False,AveragingW=False,votingW=False,proportionToKeep=0.25):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2371,6 +2371,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         AveragingW_str = '_AveragingW'
     else:
         AveragingW_str =''
+    if votingW:
+        votingW_str = '_VW'+str(proportionToKeep)
+    else: 
+        votingW_str  =''
     Number_of_positif_elt = 1 
     number_zone = k_per_bag
     
@@ -2384,7 +2388,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                   Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
                   TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
-                  k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AveragingW]
+                  k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AveragingW,votingW,
+                  proportionToKeep]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2393,7 +2398,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                      ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
                      'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
-                     'AveragingW']
+                     'AveragingW','votingW','proportionToKeep']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2405,7 +2410,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
         +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
-        + AveragingW_str
+        + AveragingW_str+votingW_str
     cachefile_model = path_data +  cachefile_model_base+'_MILSVM.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
@@ -2459,7 +2464,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                    mini_batch_size=mini_batch_size,num_features=num_features,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
                    Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
-                   k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AveragingW=AveragingW) 
+                   k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AveragingW=AveragingW,votingW=votingW,
+                   proportionToKeep=proportionToKeep) 
              export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                    WR=WR,performance=performance,restarts_paral=restarts_paral,
@@ -4562,6 +4568,36 @@ if __name__ == '__main__':
                               CompBest=False,Stocha=True,k_per_bag=300,
                               parallel_op=True,CV_Mode='',num_split=2,
                               WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=11,max_iters_all_base=1,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+                              votingW=True,proportionToKeep=0.25) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=49,max_iters_all_base=1,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+                              votingW=True,proportionToKeep=0.25) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
                               restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
                               C=1.0,Optimizer='GradientDescent',norm='',
                               transform_output='tanh',with_rois_scores_atEnd=False,
@@ -4569,7 +4605,53 @@ if __name__ == '__main__':
                               Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
                               k_intopk=1,C_Searching=False,predict_with='MILSVM',
                               gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=True) 
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+                              votingW=True,proportionToKeep=0.5) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+                              votingW=True,proportionToKeep=1.0) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=11,max_iters_all_base=1,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+                              votingW=True,proportionToKeep=0.25) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=49,max_iters_all_base=1,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+                              votingW=True,proportionToKeep=0.25) 
     tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
                               verbose = True,testMode = False,jtest = 'cow',
                               PlotRegions = False,saved_clf=False,RPN=False,
@@ -4583,7 +4665,38 @@ if __name__ == '__main__':
                               Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
                               k_intopk=1,C_Searching=False,predict_with='MILSVM',
                               gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=True) 
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+                              votingW=True,proportionToKeep=0.5) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+                              votingW=True,proportionToKeep=1.0) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=True,
+                              votingW=False,proportionToKeep=0.25) 
     
 
     
