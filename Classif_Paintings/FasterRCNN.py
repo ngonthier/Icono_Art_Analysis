@@ -890,7 +890,7 @@ def vis_detections(im, class_name, dets, thresh=0.5,with_title=True):
     plt.tight_layout()
     plt.draw()
     
-def vis_detections_list(im, class_name_list, dets_list, thresh=0.5):
+def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=None):
     """Draw detected bounding boxes."""
 
     list_colors = ['#e6194b','#3cb44b','#ffe119','#0082c8',	'#f58231','#911eb4','#46f0f0','#f032e6',	
@@ -900,12 +900,17 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5):
     im = im[:, :, (2, 1, 0)]
     fig, ax = plt.subplots(figsize=(12, 12))
     ax.imshow(im, aspect='equal')
+   
     for class_name,dets in zip(class_name_list,dets_list):
         #print(class_name,dets)
         inds = np.where(dets[:, -1] >= thresh)[0]
         if not(len(inds) == 0):
-            color = list_colors[i_color]
-            i_color = ((i_color + 1) % len(list_colors))
+            if list_class is None:
+                color = list_colors[i_color]
+                i_color = ((i_color + 1) % len(list_colors))
+            else:
+                i_color = np.where(np.array(list_class)==class_name)[0][0] % len(list_colors)
+                color = list_colors[i_color]
             for i in inds:
                 bbox = dets[i, :4]
                 score = dets[i, -1]
@@ -920,6 +925,7 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5):
                         '{:s} {:.3f}'.format(class_name, score),
                         bbox=dict(facecolor=color, alpha=0.5),
                         fontsize=14, color='white')
+                            
     plt.axis('off')
     plt.tight_layout()
     plt.draw()
@@ -1435,7 +1441,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         num_classes = 20
         ext = '.txt'
         raise(NotImplementedError)
-    elif database=='WikiTenLabels' or database=='MiniTrain_WikiTenLabels':
+    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
         ext = '.csv'
         item_name = 'item'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
@@ -1475,7 +1481,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     databasetxt = path_data + database + ext
     if database=='VOC2007' or database=='watercolor' or database=='clipart':
         df_label = pd.read_csv(databasetxt,sep=",",dtype=str)
-    elif database=='WikiTenLabels'or database=='MiniTrain_WikiTenLabels':
+    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
         dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
                   'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
                   'turban':int,'set':str,'Anno':int}
@@ -1582,7 +1588,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 if not(i==0):
                     pickle.dump(features_resnet_dict,pkl) # Save the data
                     features_resnet_dict= {}
-            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels']:
+            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 complet_name = path_to_img + name_img + '.jpg'
             elif database=='PeopleArt':
                 complet_name = path_to_img + name_img
@@ -1603,7 +1609,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         elif filesave=='tfrecords':
             if i%Itera==0:
                 if verbose : print(i,name_img)
-            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels']:
+            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
             elif database=='PeopleArt':
@@ -1667,7 +1673,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     value = int((int(df_label[classes[j]][i])+1.)/2.)
                     #print(value)
                     classes_vectors[j] = value
-            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels']:
+            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 for j in range(num_classes):
                     value = int(df_label[classes[j]][i])
                     classes_vectors[j] = value
@@ -1716,7 +1722,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     dict_writers['trainval'].write(example.SerializeToString())
                 elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
                     dict_writers['test'].write(example.SerializeToString())
-            if database=='watercolor' or database=='clipart' or database=='WikiTenLabels'or database=='MiniTrain_WikiTenLabels':
+            if database in ['watercolor','clipart','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
                     dict_writers['train'].write(example.SerializeToString())
                     dict_writers['trainval'].write(example.SerializeToString())

@@ -306,7 +306,7 @@ class tf_MILSVM():
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
                   is_betweenMinus1and1=False,CV_Mode=None,num_split=2,with_scores=False,
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
-                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False):
+                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False):
         # TODOD enelver les trucs inutiles ici
         # TODO faire des tests unitaire sur les differentes parametres
         """
@@ -348,6 +348,7 @@ class tf_MILSVM():
         @param seuillage_by_score : default False : remove the region with a score under seuil
         @param seuil : used to eliminate some regions : it remove all the image with an objectness score under seuil
         @param optim_wt_Reg : do the optimization without regularisation on the W vectors
+        @param AveragingW : average the W vectors to define the best one
         """
         self.LR = LR
         self.C = C
@@ -402,6 +403,8 @@ class tf_MILSVM():
         if not(self.Max_version in ['mintopk','sparsemax','max','','softmax'] or self.Max_version is None):
             raise(NotImplemented)
         self.optim_wt_Reg= optim_wt_Reg
+        self.AveragingW = AveragingW
+        
         
         
     def fit_w_CV(self,data_pos,data_neg):
@@ -761,8 +764,9 @@ class tf_MILSVM():
         if self.class_indice>-1 and self.C_Searching: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_Dim: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_V2: raise(NotImplemented)
+        if self.AveragingW and not(self.restarts_paral_V2): raise(NotImplemented)
         if self.class_indice>-1 and (self.Max_version=='sparsemax' or self.seuillage_by_score or self.Max_version=='mintopk'): raise(NotImplemented)
-        if self.restarts_paral_V2 and (self.restarts==0): 
+        if self.restarts_paral_V2 and (self.restarts==0) and self.C_Searching: 
             print('This don t work at all, bug not solved about the argmin')
             raise(NotImplemented)
         self.paral_number_W = self.restarts +1
@@ -1120,6 +1124,8 @@ class tf_MILSVM():
         init_op = tf.group(W.initializer,b.initializer,tf.global_variables_initializer()\
                            ,tf.local_variables_initializer())
 #        sess.graph.finalize()   
+        
+            
         if self.restarts_paral_Dim or self.restarts_paral_V2:
             if self.verbose : 
                 print('Start with the restarts in parallel')
@@ -1177,15 +1183,24 @@ class tf_MILSVM():
                 loss_value_min = []
                 W_best = np.zeros((self.num_classes,self.num_features),dtype=np.float32)
                 b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
-                for j in range(self.num_classes):
-                    loss_value_j = loss_value[j:-1:self.num_classes]
-                    argmin = np.argmin(loss_value_j,axis=0)
-                    loss_value_j_min = np.min(loss_value_j,axis=0)
-                    W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
-                    b_best[j,:,:] = b_tmp[j+argmin*self.num_classes]
-                    if self.verbose: loss_value_min+=[loss_value_j_min]
-                    if self.C_Searching and self.verbose:
-                        print('Best C values : ',C_value_repeat[j+argmin*self.num_classes],'class ',j)
+                if self.restarts>0:
+                    for j in range(self.num_classes):
+                        loss_value_j = loss_value[j:-1:self.num_classes]
+                        argmin = np.argmin(loss_value_j,axis=0)
+                        loss_value_j_min = np.min(loss_value_j,axis=0)
+                        W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
+                        b_best[j,:,:] = b_tmp[j+argmin*self.num_classes]
+                        if self.verbose: loss_value_min+=[loss_value_j_min]
+                        if self.C_Searching and self.verbose:
+                            print('Best C values : ',C_value_repeat[j+argmin*self.num_classes],'class ',j)
+                elif  self.AveragingW:
+                    for j in range(self.num_classes):
+                        W_best[j,:] = np.mean(W_tmp[j:-1:self.num_classes,:],axis=0)
+                        b_best[j,:,:] = np.mean(b_tmp[j:-1:self.num_classes])
+                else:
+                    W_best = W_tmp
+                    b_best = b_tmp
+                    loss_value_min = loss_value
             if self.verbose : 
                 print("bestloss",loss_value_min)
                 t1 = time.time()
