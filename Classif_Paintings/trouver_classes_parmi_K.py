@@ -306,8 +306,8 @@ class tf_MILSVM():
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
                   is_betweenMinus1and1=False,CV_Mode=None,num_split=2,with_scores=False,
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
-                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,
-                  votingW=False,proportionToKeep=0.25):
+                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,AveragingWportion=False,
+                  votingW=False,proportionToKeep=0.25,votingWmedian=False):
         # TODOD enelver les trucs inutiles ici
         # TODO faire des tests unitaire sur les differentes parametres
         """
@@ -350,6 +350,9 @@ class tf_MILSVM():
         @param seuil : used to eliminate some regions : it remove all the image with an objectness score under seuil
         @param optim_wt_Reg : do the optimization without regularisation on the W vectors
         @param AveragingW : average the W vectors to define the best one
+        @param votingW : Take the mean of the different scalar product
+        @param proportionToKeep : proportion to keep in the votingW or votingWmedian case
+        @param votingWmedian : that the median of the scalar product of the other element
         """
         self.LR = LR
         self.C = C
@@ -405,8 +408,15 @@ class tf_MILSVM():
             raise(NotImplemented)
         self.optim_wt_Reg= optim_wt_Reg
         self.AveragingW = AveragingW
+        self.AveragingWportion = AveragingWportion
         self.votingW = votingW
+        self.votingWmedian = votingWmedian
         assert(not(self.votingW and self.AveragingW))
+        assert(not(self.votingW and self.AveragingWportion))
+        assert(not(self.AveragingWportion and self.AveragingW))
+        assert(not(self.votingWmedian and self.AveragingW))
+        assert(not(self.votingWmedian and self.AveragingWportion))
+        assert(not(self.votingWmedian and self.votingW))
         self.proportionToKeep = proportionToKeep
         if self.votingW:
             assert(proportionToKeep > 0.0)
@@ -772,6 +782,7 @@ class tf_MILSVM():
         if self.class_indice>-1 and self.restarts_paral_Dim: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_V2: raise(NotImplemented)
         if self.AveragingW and not(self.restarts_paral_V2): raise(NotImplemented)
+        if self.AveragingWportion and not(self.restarts_paral_V2): raise(NotImplemented)
         if self.votingW and not(self.restarts_paral_V2): raise(NotImplemented)
         if self.class_indice>-1 and (self.Max_version=='sparsemax' or self.seuillage_by_score or self.Max_version=='mintopk'): raise(NotImplemented)
         if self.restarts_paral_V2 and (self.restarts==0) and self.C_Searching: 
@@ -1187,7 +1198,7 @@ class tf_MILSVM():
                     print("bestloss",loss_value_min)
                     t1 = time.time()
                     print("durations :",str(t1-t0),' s')
-            elif self.restarts_paral_V2 and not(self.votingW):
+            elif self.restarts_paral_V2 and not(self.votingW or self.votingWmedian or self.AveragingWportion):
                 loss_value_min = []
                 W_best = np.zeros((self.num_classes,self.num_features),dtype=np.float32)
                 b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
@@ -1209,21 +1220,25 @@ class tf_MILSVM():
                     W_best = W_tmp
                     b_best = b_tmp
                     loss_value_min = loss_value
-            elif self.restarts_paral_V2 and self.votingW:
+            elif self.restarts_paral_V2 and (self.votingW or self.AveragingWportion or self.votingWmedian):
                 loss_value_min = []
                 self.numberWtoKeep = min(int(np.ceil((self.restarts+1))*self.proportionToKeep),self.restarts+1)
                 W_best = np.zeros((self.numberWtoKeep,self.num_classes,self.num_features),dtype=np.float32)
                 b_best = np.zeros((self.numberWtoKeep,self.num_classes,1,1),dtype=np.float32)
                 for j in range(self.num_classes):
                     loss_value_j = loss_value[j:-1:self.num_classes]
-                    loss_value_j_sorted_descending = np.argsort(loss_value_j)[::-1]
-                    index_keep = loss_value_j_sorted_descending[0:self.numberWtoKeep]
+                    loss_value_j_sorted_ascending = np.argsort(loss_value_j)  # We want to keep the one with the smallest value 
+                    index_keep = loss_value_j_sorted_ascending[0:self.numberWtoKeep]
                     for i,argmin in enumerate(index_keep):
                         W_best[i,j,:] = W_tmp[j+argmin*self.num_classes,:]
                         b_best[i,j,:,:] = b_tmp[j+argmin*self.num_classes]
                     if self.verbose: 
-                        loss_value_j_min = np.argsort(loss_value_j)[::-1][0:self.numberWtoKeep]
+                        loss_value_j_min = np.sort(loss_value_j)[0:self.numberWtoKeep]
                         loss_value_min+=[loss_value_j_min]
+                if self.AveragingWportion:
+                    W_best = np.mean(W_best,axis=0)
+                    b_best =  np.mean(b_best,axis=0)
+
                 
             if self.verbose : 
                 print("bestloss",loss_value_min)
@@ -1297,8 +1312,6 @@ class tf_MILSVM():
 
         saver = tf.train.Saver()
         X_= tf.identity(X_, name="X")
-        print(X_)
-        print(tf.convert_to_tensor(W_best))
         if self.norm=='L2':
             X_ = tf.nn.l2_normalize(X_,axis=-1, name="L2norm")
         elif self.norm=='STD_all':
@@ -1309,7 +1322,22 @@ class tf_MILSVM():
         y_ = tf.identity(y_, name="y")
         if self.with_scores or self.seuillage_by_score:
             scores_ = tf.identity(scores_,name="scores")
-        if not(self.votingW):
+        if self.votingW:
+            Prod_best=tf.add(tf.einsum('bak,ijk->baij',tf.convert_to_tensor(W_best),X_)\
+                                         ,b_best)
+            if self.with_scores: 
+                Prod_score=tf.reduce_mean(tf.multiply(Prod_best,tf.add(scores_,self.epsilon)),axis=0,name='ProdScore')
+            else:
+                Prod_best = tf.reduce_mean(Prod_best,axis=0,name='Prod')
+        elif self.votingWmedian:
+            Prod_best=tf.add(tf.einsum('bak,ijk->baij',tf.convert_to_tensor(W_best),X_)\
+                                         ,b_best)
+            if self.with_scores: 
+                Prod_score= tf.identity(tf.contrib.distributions.percentile(tf.multiply(Prod_best,tf.add(scores_,self.epsilon)),50.0,axis=0),name='ProdScore')
+            else:
+                Prod_best = tf.identity(tf.contrib.distributions.percentile(Prod_best,50.0,axis=0),name='Prod')
+                # TODO posibility to take an other percentile than median
+        else:
             if class_indice==-1:
                 if self.restarts_paral_V2:
                         Prod_best=tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
@@ -1320,13 +1348,9 @@ class tf_MILSVM():
                 Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
             elif self.seuillage_by_score:
                 Prod_score=tf.multiply(Prod_best,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.),name='ProdScore')
-        else:
-            Prod_best=tf.add(tf.einsum('bak,ijk->baij',tf.convert_to_tensor(W_best),X_)\
-                                         ,b_best)
-            if self.with_scores: 
-                Prod_score=tf.reduce_mean(tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore'),axis=0)
-            else:
-                Prod_best = tf.reduce_mean(Prod_best,axis=0,name='Prod')
+        
+                
+
         export_dir = ('/').join(data_path.split('/')[:-1])
         export_dir += '/MILSVM/' + str(time.time())
         name_model = export_dir + '/model'
