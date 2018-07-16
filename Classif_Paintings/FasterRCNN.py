@@ -902,7 +902,7 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=No
     ax.imshow(im, aspect='equal')
    
     for class_name,dets in zip(class_name_list,dets_list):
-        #print(class_name,dets)
+        print(class_name,np.array(dets).shape)
         inds = np.where(dets[:, -1] >= thresh)[0]
         if not(len(inds) == 0):
             if list_class is None:
@@ -914,7 +914,6 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=No
             for i in inds:
                 bbox = dets[i, :4]
                 score = dets[i, -1]
-        
                 ax.add_patch(
                     plt.Rectangle((bbox[0], bbox[1]),
                                   bbox[2] - bbox[0],
@@ -976,7 +975,10 @@ def FasterRCNN_bigImage():
     saver.restore(sess, tfmodel)
 
     print('Loaded network {:s}'.format(tfmodel))
-    im_name = 'L Adoration des mages - Jan Mabuse - 1515.jpg'
+    #im_name = 'L Adoration des mages - Jan Mabuse - 1515.jpg'
+    im_name = '000002.jpg'
+    path = '/media/HDD/data/VOCdevkit/VOC2007test/JPEGImages/'
+    im_name = path + im_name
     print('Demo for data/demo/{}'.format(im_name))
     imfile = os.path.join(DATA_DIR, im_name)
     im = cv2.imread(imfile)
@@ -984,22 +986,110 @@ def FasterRCNN_bigImage():
    # Only single-image batch implemented !
     print('scores.shape',scores.shape)
     #print(scores)
+    CONF_THRESH_LIST = [0.05,0.75]
+    for CONF_THRESH in CONF_THRESH_LIST:
+#    CONF_THRESH = 0.75
+        NMS_THRESH = 0.3 # non max suppression
+        for cls_ind, cls in enumerate(CLASSES[1:]):
+            cls_ind += 1 # because we skipped background
+            cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
+            cls_scores = scores[:, cls_ind]
+            dets = np.hstack((cls_boxes,
+                          cls_scores[:, np.newaxis])).astype(np.float32)
+            keep = nms(dets, NMS_THRESH)
+            dets = dets[keep, :]
+            inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
+            if(len(inds)>0):
+                print('CLASSES[cls_ind]',CLASSES[cls_ind])
+            vis_detections(im, cls, dets, thresh=CONF_THRESH)
+        plt.show()
+        input('Wait for plot next image')
+    sess.close()
+    
+def FasterRCNN_demo2():
+    DATA_DIR =  '/media/HDD/data/Art Paintings from Web/'
+    demonet = 'res152_COCO'
+    tf.reset_default_graph() # Needed to use different nets one after the other
+    print(demonet)
+    if 'VOC'in demonet:
+        CLASSES = CLASSES_SET['VOC']
+        anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+    elif 'COCO'in demonet:
+        CLASSES = CLASSES_SET['COCO']
+        anchor_scales = [4, 8, 16, 32]
+    nbClasses = len(CLASSES)
+    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+    
+    #tfmodel = os.path.join(path_to_model,DATASETS[dataset][0],NETS[demonet][0])
+    print(tfmodel)
+#    tfmodel = os.path.join('output', demonet, DATASETS[dataset][0], 'default',
+#                              NETS[demonet][0])
+    
+    tfconfig = tf.ConfigProto(allow_soft_placement=True)
+    tfconfig.gpu_options.allow_growth=True
 
-    CONF_THRESH = 0.8
-    NMS_THRESH = 0.3 # non max suppression
-    for cls_ind, cls in enumerate(CLASSES[1:]):
-        cls_ind += 1 # because we skipped background
-        cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
-        cls_scores = scores[:, cls_ind]
-        dets = np.hstack((cls_boxes,
-                      cls_scores[:, np.newaxis])).astype(np.float32)
-        keep = nms(dets, NMS_THRESH)
-        dets = dets[keep, :]
-        inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
-        if(len(inds)>0):
-            print('CLASSES[cls_ind]',CLASSES[cls_ind])
-        vis_detections(im, cls, dets, thresh=CONF_THRESH)
-    plt.show()
+    # init session
+    sess = tf.Session(config=tfconfig)
+    
+    # load network
+    if  'vgg16' in demonet:
+      net = vgg16()
+    elif demonet == 'res50':
+      raise NotImplementedError
+    elif 'res101' in demonet:
+      net = resnetv1(num_layers=101)
+    elif 'res152' in demonet:
+      net = resnetv1(num_layers=152)
+    elif demonet == 'mobile':
+      raise NotImplementedError
+    else:
+      raise NotImplementedError
+      
+    net.create_architecture("TEST", nbClasses,
+                          tag='default', anchor_scales=anchor_scales)
+    saver = tf.train.Saver()
+    saver.restore(sess, tfmodel)
+
+    print('Loaded network {:s}'.format(tfmodel))
+    #im_name = 'L Adoration des mages - Jan Mabuse - 1515.jpg'
+    im_name = '000002.jpg'
+    path = '/media/HDD/data/VOCdevkit/VOC2007test/JPEGImages/'
+    im_name = path + im_name
+    print('Demo for data/demo/{}'.format(im_name))
+    imfile = os.path.join(DATA_DIR, im_name)
+    im = cv2.imread(imfile)
+    scores, boxes = im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+   # Only single-image batch implemented !
+    print('scores.shape',scores.shape)
+    #print(scores)
+    CONF_THRESH_LIST = [0.05,0.75]
+    for CONF_THRESH in CONF_THRESH_LIST:
+#    CONF_THRESH = 0.75
+        NMS_THRESH = 0.3 # non max suppression
+        dets_list = []
+        cls_list = []
+        for cls_ind, cls in enumerate(CLASSES[1:]):
+            cls_ind += 1 # because we skipped background
+            cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
+            cls_scores = scores[:, cls_ind]
+            dets = np.hstack((cls_boxes,
+                          cls_scores[:, np.newaxis])).astype(np.float32)
+            keep = nms(dets, NMS_THRESH)
+            dets = dets[keep, :]
+            print(dets.shape)
+            dets_list += [dets]
+            cls_list += [cls]
+        cls = cls_list
+#        dets = np.concatenate(dets_list)
+#        print(dets.shape)
+#            inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
+#            if(len(inds)>0):
+#                print('CLASSES[cls_ind]',CLASSES[cls_ind])
+                
+        vis_detections_list(im, cls, dets_list, thresh=CONF_THRESH)
+        plt.show()
+        input('Wait for plot next image')
     sess.close()
     
 def FasterRCNN_TransferLearning_outlier():
@@ -2591,6 +2681,7 @@ if __name__ == '__main__':
 #                                  nms_thresh = 0.7,database='Wikidata_Paintings_miniset_verif') # Pour calculer les performances sur les paintings de Crowley 
 #    
 #    run_FRCNN_Detection_perf(database='VOC2007')
-   run_FRCNN_Detection_perf(database='PeopleArt')
+#   run_FRCNN_Detection_perf(database='PeopleArt')
 #    Illus_box_ratio()
 #     Illus_box_ratio()
+    FasterRCNN_demo2()

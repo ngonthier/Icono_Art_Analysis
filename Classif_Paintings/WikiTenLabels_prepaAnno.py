@@ -62,7 +62,9 @@ def StatsOnWikiTenLabels():
         dict_elts_total[c] = 0
         dict_elts_sizemin[c] = 0
     without_class = 0
+    numberofIm = 0
     for index, row in pd_b.iterrows():
+        numberofIm += 1
         i = row['item']
         path_i = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/%s.xml'%(i)
         read_file = voc_eval.parse_rec(path_i)
@@ -93,6 +95,7 @@ def StatsOnWikiTenLabels():
     for c in classes_a_garder:
         print(c,' : ',dict_elts_total[c])
         num_obj+=dict_elts_total[c]
+    print('Nombre d images totales',numberofIm)
     print('Nombre d instances totales',num_obj)
     print("Nombre d images sans classes",without_class)
     print('Nombre d instances des differentes classes avec une taille superieur a :',size_min,'pixels',num_obj)
@@ -116,17 +119,19 @@ def Stats_and_testFile():
     classes = ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
                     'Mary','nudity', 'ruins','Saint_Sebastien','turban']
     list_elt= os.listdir(annotations_folder)
-    file_test = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/test.txt'
-    file = open(file_test,"w") 
-    for elt in list_elt:
-        elt_wt_jpg = elt.split('.')[0]
-        str_w = elt_wt_jpg +' \n'
-        file.write(str_w) 
-    file.close()
+    write_test_file = False
+    if write_test_file:
+        file_test = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/ImageSets/test.txt'
+        file = open(file_test,"w") 
+        for elt in list_elt:
+            elt_wt_jpg = elt.split('.')[0]
+            str_w = elt_wt_jpg +' \n'
+            file.write(str_w) 
+        file.close()
 
     size_min = 25*25 # 15*15
 
-    path_b ='/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/test.txt'
+    path_b ='/media/HDD/data/Wikidata_Paintings/WikiTenLabels/ImageSets/Main/test.txt'
     pd_b = pd.read_csv(path_b,sep=r"\s*",names=['item'],dtype=str)
     
     dict_elts_total = {}
@@ -227,5 +232,6 @@ def WriteDifficultsBoxes():
     
 if __name__ == '__main__':
 #    WriteDifficultsBoxes()
-     Stats_and_testFile()
+#     Stats_and_testFile()
+     StatsOnWikiTenLabels()
     

@@ -2006,7 +2006,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
         gc.collect()
         tf.reset_default_graph()
     
-def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', 
+def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   verbose = True,testMode = True,jtest = 0,
                                   PlotRegions = True,saved_clf=False,RPN=False,
                                   CompBest=True,Stocha=True,k_per_bag=300,
@@ -2020,9 +2020,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                                   seuil=0.5,k_intopk=3,C_Searching=False,gridSearch=False,n_jobs=1,
                                   predict_with='MILSVM',thres_FinalClassifier=0.5,
                                   thresh_evaluation=0.05,TEST_NMS=0.3,eval_onk300=False,
-                                  optim_wt_Reg=False,AveragingW=False,votingW=False,
-                                  proportionToKeep=0.25,AveragingWportion=False,
-                                  votingWmedian=False):
+                                  optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
+                                  plot_onSubSet=None):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2039,6 +2038,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         'vgg16_VOC12','vgg16_COCO','res101_VOC12','res101_COCO','res152_COCO'
     @param : database : the database used for the classification task
     @param : verbose : Verbose option classical
+    @param : ReDo = False : Erase the former computation
     @param : testMode : boolean True we only run on one class
     @param : jtest : the class on which we run the test
     @param : PlotRegions : plot the regions used for learn and the regions in 
@@ -2094,6 +2094,17 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
             if you add a final classifier after the MIL or MILS hyperplan separation
     @param : thresh_evaluation : 0.05 : seuillage avant de fournir les boites a l evaluation de detections
     @param : TEST_NMS : 0.3 : recouvrement autorise avant le NMS avant l evaluation de detections
+    @param proportionToKeep : proportion to keep in the votingW or votingWmedian case
+        @param AggregW (default =None ) The different solution for the aggregation 
+        of the differents W vectors :
+            Choice : None or '', we only take the vector that minimize the loss (with ou without CV)
+            'AveragingW' : that the average of the proportionToKeep*numberW first vectors
+            'meanOfProd' : Take the mean of the product the first vectors
+            'medianOfProd' : Take the meadian of the product of the first vectors
+            'maxOfProd' : Take the max of the product of the first vectors
+            'meanOfTanh' : Take the mean of the tanh of the product of the first vectors
+            'medianOfTanh' : Take the meadian of the tanh of product of the first vectors
+            'maxOfTanh' : Take the max of the tanh of product of the first vectors
     
     The idea of thi algo is : 
         1/ Compute CNN features
@@ -2278,9 +2289,16 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     AP_per_classbS = []
     final_clf = None
     class_weight = None
-    ReDo = False
-    if C_Searching:C_Searching_str ='_Csearch'
-    else: C_Searching_str = ''
+    
+    if C == 1.0:
+        C_str=''
+    else:
+        C_str = '_C'+str(C) # regularisation term 
+    if C_Searching:
+        C_Searching_str ='_Csearch'
+        C_str = ''
+    else:
+        C_Searching_str = ''
     if with_scores:
         with_scores_str = '_WRC'+str(epsilon)
     else:
@@ -2313,6 +2331,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         extCV = '_cv'+str(num_split)
     elif CV_Mode == '1000max':
         extCV = '_1000max'
+    elif CV_Mode == 'CVforCsearch':
+        extCV = '_CVforCsearch'
     elif CV_Mode is None or CV_Mode=='':
         extCV =''
     else:
@@ -2335,10 +2355,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         LR_str = ''
     else:
         LR_str='_LR'+str(LR)
-    if C == 1.0:
-        C_str=''
-    else:
-        C_str = '_C'+str(C) # regularisation term 
+    
     if Max_version=='max' or Max_version=='' or Max_version is None:
         Max_version_str =''
     elif Max_version=='softmax':
@@ -2357,7 +2374,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
             optimArg_str = ''
         else:
             optimArg_str =  str(optimArg).replace(' ','_')
-    verboseMILSVM = True
+    verboseMILSVM = verbose
     shuffle = True
     if num_trainval_im==mini_batch_size:
         shuffle = False
@@ -2369,22 +2386,29 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         optim_wt_Reg_str = '_OptimWTReg'
     else:
         optim_wt_Reg_str =''
-    if AveragingW:
-        AveragingW_str = '_AveragingW'
-    else:
-        AveragingW_str =''
-    if votingW:
-        votingW_str = '_VW'+str(proportionToKeep)
-    else: 
-        votingW_str  =''
-    if votingWmedian:
-        votingWmedian_str = '_VMedW'+str(proportionToKeep)
-    else: 
-        votingWmedian_str  =''
-    if AveragingWportion:
-        AveragingWportion_str = '_AvW'+str(proportionToKeep)
-    else: 
-        AveragingWportion_str  =''
+    if AggregW is None or AggregW=='':
+        AggregW_str =''
+    elif AggregW=='AveragingWportion' and not(proportionToKeep==1.0):
+        AggregW_str = '_AvW'+str(proportionToKeep) 
+    elif AggregW=='AveragingW' or (AggregW=='AveragingWportion' and (proportionToKeep==1.0)):
+        AggregW_str = '_AveragingW'
+    elif AggregW=='meanOfProd':
+        AggregW_str = '_VW'+str(proportionToKeep)
+    elif AggregW=='medianOfProd':
+        AggregW_str = '_VMedW'+str(proportionToKeep)
+    elif AggregW=='maxOfProd':
+        AggregW_str = '_VMaxW'+str(proportionToKeep)
+    elif AggregW=='minOfProd':
+        AggregW_str = '_VMinW'+str(proportionToKeep)
+    elif AggregW=='meanOfTanh':
+        AggregW_str = '_VTanh'+str(proportionToKeep)
+    elif AggregW=='medianOfTanh':
+        AggregW_str = '_VMedTanh'+str(proportionToKeep)
+    elif AggregW=='maxOfTanh':
+        AggregW_str = '_VMaxTanh'+str(proportionToKeep)
+    elif AggregW=='minOfTanh':
+        AggregW_str = '_VMinTanh'+str(proportionToKeep)
+    
     Number_of_positif_elt = 1 
     number_zone = k_per_bag
     
@@ -2398,8 +2422,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                   Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
                   TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
-                  k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AveragingW,votingW,
-                  proportionToKeep,AveragingWportion,votingWmedian]
+                  k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
+                  proportionToKeep]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2408,7 +2432,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                      ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
                      'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
-                     'AveragingW','votingW','proportionToKeep','AveragingWportion','votingWmedian']
+                     'AggregW','proportionToKeep']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2420,7 +2444,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
         +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
-        + AveragingW_str+votingW_str+AveragingWportion_str+votingWmedian_str
+        + AggregW_str
     cachefile_model = path_data +  cachefile_model_base+'_MILSVM.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
@@ -2434,8 +2458,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
         with open(cachefile_model, 'rb') as f:
             name_milsvm = pickle.load(f)
             if verbose: print("The cachefile exists")
-     
-    
     
     if database=='VOC2007':
         imdb = get_imdb('voc_2007_test')
@@ -2467,20 +2489,20 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     if parallel_op:
         # For Pascal VOC2007 pour les 20 classes cela prend environ 2500s par iteration 
         if not os.path.isfile(cachefile_model) or ReDo:
-             if verbose: t0 = time.time() 
+             if verbose: t0 = time.time()
+             
              classifierMILSVM = tf_MILSVM(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,num_rois=k_per_bag,
                    max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,num_features=num_features,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
                    Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
-                   k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AveragingW=AveragingW,votingW=votingW,
-                   proportionToKeep=proportionToKeep,AveragingWportion=AveragingWportion,
-                   votingWmedian=votingWmedian) 
+                   k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep)
              export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                    WR=WR,performance=performance,restarts_paral=restarts_paral,
-                   C_Searching=C_Searching)
+                   C_Searching=C_Searching)                
+                 
              if verbose: 
                  t1 = time.time() 
                  print('Total duration training part :',str(t1-t0))
@@ -2490,8 +2512,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                  pickle.dump(name_milsvm, f)
         else:
             export_dir,np_pos_value,np_neg_value= name_milsvm
-        plot_onSubSet =  ['angel','Child_Jesus', 'crucifixion_of_Jesus','Mary','nudity', 'ruins','Saint_Sebastien'] 
-        plot_onSubSet =  None
+#        plot_onSubSet =  ['angel','Child_Jesus', 'crucifixion_of_Jesus','Mary','nudity', 'ruins','Saint_Sebastien'] 
+#        
         dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
         parameters=PlotRegions,RPN,Stocha,CompBest
         param_clf = k_per_bag,Number_of_positif_elt,num_features
@@ -2504,7 +2526,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
                cachefile_model_base=cachefile_model_base,transform_output=transform_output,
                with_rois_scores_atEnd=with_rois_scores_atEnd,scoreInMILSVM=(with_scores or seuillage_by_score),
                gridSearch=gridSearch,n_jobs=n_jobs,thres_FinalClassifier=thres_FinalClassifier,
-               k_per_bag=k_per_bag,eval_onk300=eval_onk300,plot_onSubSet=plot_onSubSet)
+               k_per_bag=k_per_bag,eval_onk300=eval_onk300,plot_onSubSet=plot_onSubSet,AggregW=AggregW)
    
         for j,classe in enumerate(classes):
             AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
@@ -2642,11 +2664,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
             pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
         output_dir = path_data +'tmp/' + database+'_mAP.txt'
         aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
+        apsAt05 = aps
         print("Detection score (thres = 0.5): ",database)
         print(arrayToLatex(aps,per=True))
         ovthresh_tab = [0.3,0.1,0.]
         for ovthresh in ovthresh_tab:
             aps = imdb.evaluate_localisation_ovthresh(all_boxes_order, output_dir,ovthresh)
+            if ovthresh == 0.1:
+                apsAt01 = aps
             print("Detection score with thres at ",ovthresh)
             print(arrayToLatex(aps,per=True))
         imdb.set_use_diff(True) # Modification of the use_diff attribute in the imdb 
@@ -2672,9 +2697,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings',
     if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
         write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class),aps,np.mean(aps)],
                       ['classes','AP_per_class','mAP Classif','AP detection','mAP detection'])
+        return(apsAt05,apsAt01,AP_per_class)
     else:
         write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class)],
                       ['classes','AP_per_class','mAP Classif'])
+        return(AP_per_class)
 
 
 def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
@@ -2683,7 +2710,8 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=None,
                cachefile_model_base='',number_im=np.inf,transform_output=None,
                with_rois_scores_atEnd=False,scoreInMILSVM=False,seuillage_by_score=False,
-               gridSearch=False,n_jobs=1,thres_FinalClassifier=0.5,k_per_bag=300,eval_onk300=False,plot_onSubSet=None):
+               gridSearch=False,n_jobs=1,thres_FinalClassifier=0.5,k_per_bag=300,
+               eval_onk300=False,plot_onSubSet=None,AggregW=None):
      """
      @param : seuil_estimation : ByHist or MaxDesNeg
      @param : number_im : number of image plot at maximum
@@ -2723,6 +2751,11 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
          if seuil_estimation_bool: print('It may cause problem of doing softmax and tangent estimation')
      elif  transform_output=='softmaxTraining':
          with_softmax_a_intraining = True
+     with_tanh_alreadyApplied = False
+     if not(AggregW is None): 
+        if'Tanh' in AggregW: # The tanh transformation have already be done
+            with_tanh = False
+            with_tanh_alreadyApplied = True
      seuil_estimation_debug = True
      plot_hist = False
 
@@ -2790,16 +2823,22 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             y = graph.get_tensor_by_name("y:0")
             if scoreInMILSVM: 
                 scores_tf = graph.get_tensor_by_name("scores:0")
-                Prod_best = graph.get_tensor_by_name("ProdScore:0")
+                if with_tanh_alreadyApplied:
+                    Prod_best = graph.get_tensor_by_name("Tanh_2:0")
+                else:
+                    Prod_best = graph.get_tensor_by_name("ProdScore:0")
             else:
-                Prod_best = graph.get_tensor_by_name("Prod:0")
+                if with_tanh_alreadyApplied:
+                    Prod_best = graph.get_tensor_by_name("Tanh_2:0")
+                else:
+                    Prod_best = graph.get_tensor_by_name("Prod:0")
             if with_tanh:
-                print('use of tanh')
+                if verbose: print('use of tanh')
                 Tanh = tf.tanh(Prod_best)
                 mei = tf.argmax(Tanh,axis=2)
                 score_mei = tf.reduce_max(Tanh,axis=2)
             elif with_softmax:
-                print('use of softmax')
+                if verbose: print('use of softmax')
                 Softmax = tf.nn.softmax(Prod_best,axis=-1)
                 mei = tf.argmax(Softmax,axis=2)
                 score_mei = tf.reduce_max(Softmax,axis=2)
@@ -2920,6 +2959,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      # Training the differents SVC for each class 
      # Training Time !! 
      if 'LinearSVC' in predict_with:
+        if not(AggregW is None or AggregW==''): raise(NotImplemented)
         if verbose: print('predict_with',predict_with)
         classifier_trained_dict = {}
         load_model = True
@@ -3065,7 +3105,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      if seuil_estimation=='byHist':
          list_thresh = []
          plt.ion()
-         print('Seuil Estimation Time')
+         if verbose: print('Seuil Estimation Time')
          num_bins = 100
          # Concatenation of the element
          for l in range(num_classes):
@@ -3214,7 +3254,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                          plt.savefig(name_output)
                          plt.close() 
                          
-     print("Testing Time")            
+     if verbose: print("Testing Time")            
      # Testing time !
      train_dataset = tf.data.TFRecordDataset(dict_name_file['test'])
      if not(k_per_bag==300) and eval_onk300:
@@ -3246,9 +3286,15 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 y = graph.get_tensor_by_name("y:0")
             if scoreInMILSVM: 
                 scores_tf = graph.get_tensor_by_name("scores:0")
-                Prod_best = graph.get_tensor_by_name("ProdScore:0")
+                if with_tanh_alreadyApplied:
+                    Prod_best = graph.get_tensor_by_name("Tanh_2:0")
+                else:
+                    Prod_best = graph.get_tensor_by_name("ProdScore:0")
             else:
-                Prod_best = graph.get_tensor_by_name("Prod:0")
+                if with_tanh_alreadyApplied:
+                    Prod_best = graph.get_tensor_by_name("Tanh_2:0")
+                else:
+                    Prod_best = graph.get_tensor_by_name("Prod:0")
             if with_tanh:
                 print('use of tanh')
                 Tanh = tf.tanh(Prod_best)
@@ -3263,8 +3309,9 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 mei = tf.argmax(Softmax,axis=2)
                 score_mei = tf.reduce_max(Softmax,axis=2)
             else:
-                mei = tf.argmax(Prod_best,axis=2)
-                score_mei = tf.reduce_max(Prod_best,axis=2)
+                print('Tanh in testing time',Prod_best)
+                mei = tf.argmax(Prod_best,axis=-1)
+                score_mei = tf.reduce_max(Prod_best,axis=-1)
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
 
@@ -3292,7 +3339,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         PositiveExScoreAll = PositiveExScoreAll*rois_scores
                         get_RegionsScore = np.max(PositiveExScoreAll,axis=2)
                         PositiveRegions = np.amax(PositiveExScoreAll,axis=2)
-                    if with_tanh: assert(np.max(PositiveExScoreAll) <= 1.)
+                    if with_tanh or with_tanh_alreadyApplied: assert(np.max(PositiveExScoreAll) <= 1.)
 
                 true_label_all_test += [labels]
                 
@@ -3437,6 +3484,14 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                 class_name = plot_onSubSet[j_subset]
                                 if not(len(cls_dets)==0):
                                     vis_detections(im, class_name, cls_dets, thresh=0.25,with_title=False)
+                                    name_output = path_to_output2 +'Test/' + name_sans_ext + '_'+class_name+'_'+'_over25.jpg'
+                                    plt.savefig(name_output)
+                                    plt.close()
+                                    vis_detections(im, class_name, cls_dets, thresh=0.5,with_title=False)
+                                    name_output = path_to_output2 +'Test/' + name_sans_ext + '_'+class_name+'_'+'_over25.jpg'
+                                    plt.savefig(name_output)
+                                    plt.close()
+                                    vis_detections(im, class_name, cls_dets, thresh=0.75,with_title=False)
                                     name_output = path_to_output2 +'Test/' + name_sans_ext + '_'+class_name+'_'+'_over25.jpg'
                                     plt.savefig(name_output)
                                     plt.close()
@@ -4603,54 +4658,276 @@ if __name__ == '__main__':
 #                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
 #                              votingW=True,proportionToKeep=0.25) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                              votingW=True,proportionToKeep=0.5) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                              votingW=True,proportionToKeep=1.0) 
+    
+    
+    listAggregOnProdorTanh = ['AveragingW','meanOfProd','medianOfProd','maxOfProd','maxOfTanh',\
+                                       'meanOfTanh','medianOfTanh','minOfTanh','minOfProd']
     with_scores = True
-    database = 'watercolor'
-    tfR_FRCNN(demonet = 'res152_COCO',database = database, 
-                              verbose = True,testMode = False,jtest = 'cow',
-                              PlotRegions = False,saved_clf=False,RPN=False,
-                              CompBest=False,Stocha=True,k_per_bag=300,
-                              parallel_op=True,CV_Mode='',num_split=2,
-                              WR=True,init_by_mean =None,seuil_estimation='',
-                              restarts=11,max_iters_all_base=1,LR=0.01,with_tanh=True,
-                              C=1.0,Optimizer='GradientDescent',norm='',
-                              transform_output='tanh',with_rois_scores_atEnd=False,
-                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-                              gridSearch=with_scores,thres_FinalClassifier=0.5,n_jobs=1,
-                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-                              votingW=False,proportionToKeep=0.25,AveragingWportion=False,
-                              votingWmedian=True) 
+    for elt in listAggregOnProdorTanh:
+        print(elt)
+        tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation='',
+                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                                  k_intopk=1,C_Searching=False,predict_with='MILSVM',
+                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=elt,proportionToKeep=0.25) 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = True,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='CV',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                              k_intopk=1,C_Searching=True,predict_with='MILSVM',
+#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+#                              votingW=False,proportionToKeep=1.0,
+#                              plot_onSubSet =['angel','Child_Jesus', 'crucifixion_of_Jesus','Mary','nudity', 'ruins','Saint_Sebastien']) 
+#    
+
+#    database_tab = ['PeopleArt','WikiTenLabels','watercolor']
+#    number_restarts = 10
+#    max_iters_all_base = 300
+#    C_Searching = True
+#    CV_Mode = 'CV'
+#    for database in database_tab:
+#        ll = []
+#        l01 = []
+#        lclassif = []
+#        for i in range(number_restarts):
+#            aps,aps010,apsClassif = tfR_FRCNN(demonet = 'res152_COCO',database = database,ReDo=True,
+#                                      verbose = False,testMode = False,jtest = 'cow',
+#                                      PlotRegions = False,saved_clf=False,RPN=False,
+#                                      CompBest=False,Stocha=True,k_per_bag=300,
+#                                      parallel_op=True,CV_Mode=CV_Mode,num_split=2,
+#                                      WR=True,init_by_mean =None,seuil_estimation='',
+#                                      restarts=11,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+#                                      C=1.0,Optimizer='GradientDescent',norm='',
+#                                      transform_output='tanh',with_rois_scores_atEnd=False,
+#                                      with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                                      Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                                      k_intopk=1,C_Searching=C_Searching,predict_with='MILSVM',
+#                                      gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                                      thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+#                                      votingW=False,proportionToKeep=0.5,AveragingWportion=True,
+#                                      votingWmedian=False)
+#            tf.reset_default_graph()
+#            # aps ne contient pas le mean sur les classes en fait
+#            ll += [aps]
+#            l01 += [aps010]
+#            lclassif += [apsClassif]
+#        ll_all = np.vstack(ll)
+#        l01_all = np.vstack(l01)
+#        apsClassif_all = np.vstack(lclassif)
+#        if database=='WikiTenLabels':
+#            ll_all = np.delete(ll_all, [1,2,9], axis=1)         
+##        print(ll_all.shape)
+#        ll_all_mean = np.mean(ll_all,axis=0) # Moyenne par ligne / reboot
+##        print(ll_all_mean.shape)
+#        mean_ll_all_mean= np.mean(ll_all_mean)
+#        std_ll_all_mean= np.std(ll_all_mean)
+#        print('~~~~ !! ~~~~ ')
+#        print(database,'with ',number_restarts,' reboot of the method')
+#        print('For IuO >= 0.5')
+#        print(ll_all_mean)
+#        print(arrayToLatex(ll_all_mean,per=True))
+#        print('std of the mean of mean :',100*std_ll_all_mean)
+#        
+#        print('~~~~')
+#        print(np.mean(ll_all,axis=0))
+#        print(np.min(ll_all,axis=0))
+#        print(np.max(ll_all,axis=0))
+#        print(np.std(ll_all,axis=0))
+#        print('~~~~')
+#        
+#        ll_all = l01_all
+#        if database=='WikiTenLabels':
+#            ll_all = np.delete(ll_all, [1,2,9], axis=1)         
+##        print(ll_all.shape)
+#        ll_all_mean = np.mean(ll_all,axis=0) # Moyenne par ligne / reboot
+##        print(ll_all_mean.shape)
+#        mean_ll_all_mean= np.mean(ll_all_mean)
+#        std_ll_all_mean= np.std(ll_all_mean)
+#        print('~~~~ !! ~~~~ ')
+#        print('For IuO >= 0.1')
+#        print(ll_all_mean)
+#        print(arrayToLatex(ll_all_mean,per=True))
+#        print('std of the mean of mean :',100*std_ll_all_mean)
+#        print('~~~~')
+#        print(np.mean(ll_all,axis=0))
+#        print(np.min(ll_all,axis=0))
+#        print(np.max(ll_all,axis=0))
+#        print(np.std(ll_all,axis=0))
+#        print('~~~~')
+#        
+#        ll_all = apsClassif_all
+#        if database=='WikiTenLabels':
+#            ll_all = np.delete(ll_all, [1,2,9], axis=1)         
+##        print(ll_all.shape)
+#        ll_all_mean = np.mean(ll_all,axis=0) # Moyenne par ligne / reboot
+##        print(ll_all_mean.shape)
+#        mean_ll_all_mean= np.mean(ll_all_mean)
+#        std_ll_all_mean= np.std(ll_all_mean)
+#        print('~~~~ !! ~~~~ ')
+#        print('For Classification')
+#        print(ll_all_mean)
+#        print(arrayToLatex(ll_all_mean,per=True))
+#        print('std of the mean of mean :',100*std_ll_all_mean)
+#        print('~~~~')
+#        print(np.mean(ll_all,axis=0))
+#        print(np.min(ll_all,axis=0))
+#        print(np.max(ll_all,axis=0))
+#        print(np.std(ll_all,axis=0))
+#        print('~~~~')
+        
+#    database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
+#    number_restarts = 10
+#    
+#    for database in database_tab:
+#        ll = []
+#        for i in range(number_restarts):
+#            aps = tfR_FRCNN(demonet = 'res152_COCO',database = database,ReDo=True,
+#                                      verbose = False,testMode = False,jtest = 'cow',
+#                                      PlotRegions = False,saved_clf=False,RPN=False,
+#                                      CompBest=False,Stocha=True,k_per_bag=300,
+#                                      parallel_op=True,CV_Mode='',num_split=2,
+#                                      WR=True,init_by_mean =None,seuil_estimation='',
+#                                      restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                                      C=1.0,Optimizer='GradientDescent',norm='',
+#                                      transform_output='tanh',with_rois_scores_atEnd=False,
+#                                      with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                                      Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                                      k_intopk=1,C_Searching=False,predict_with='MILSVM',
+#                                      gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                                      thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+#                                      votingW=False,proportionToKeep=0.25,AveragingWportion=False,
+#                                      votingWmedian=False) 
+#            ll += [aps]
+#        ll_all = np.vstack(ll)
+#        if database=='WikiTenLabels':
+#            ll_all = np.delete(ll_all, [1,2,9], axis=1)
+#            ll_all_wt_mean = np.delete(ll_all, [-1], axis=1)
+#            ll_all[:,-1] = np.mean(ll_all_wt_mean,axis=1)
+#        print(ll_all)
+#        print('~~~~')
+#        print(database,'with ',number_restarts,' restarts')
+#        print(np.mean(ll_all,axis=0))
+#        print(np.min(ll_all,axis=0))
+#        print(np.max(ll_all,axis=0))
+#        print(np.std(ll_all,axis=0))
+#        print('~~~~')
+#        
+#    database_tab = ['VOC2007']
+#    number_restarts = 10
+#    
+#    for database in database_tab:
+#        ll = []
+#        for i in range(number_restarts):
+#            aps = tfR_FRCNN(demonet = 'res101_VOC07',database = database,ReDo=True,
+#                                      verbose = False,testMode = False,jtest = 'cow',
+#                                      PlotRegions = False,saved_clf=False,RPN=False,
+#                                      CompBest=False,Stocha=True,k_per_bag=300,
+#                                      parallel_op=True,CV_Mode='',num_split=2,
+#                                      WR=True,init_by_mean =None,seuil_estimation='',
+#                                      restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                                      C=1.0,Optimizer='GradientDescent',norm='',
+#                                      transform_output='tanh',with_rois_scores_atEnd=False,
+#                                      with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                                      Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                                      k_intopk=1,C_Searching=False,predict_with='MILSVM',
+#                                      gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                                      thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+#                                      votingW=False,proportionToKeep=0.25,AveragingWportion=False,
+#                                      votingWmedian=False) 
+#            ll += [aps]
+#        ll_all = np.vstack(ll)
+#        if database=='WikiTenLabels':
+#            ll_all = np.delete(ll_all, [1,2,9], axis=1)
+#            ll_all_wt_mean = np.delete(ll_all, [-1], axis=1)
+#            ll_all[:,-1] = np.mean(ll_all_wt_mean,axis=1)
+#        print(ll_all)
+#        print('~~~~')
+#        print(database,'with ',number_restarts,' restarts')
+#        print(np.mean(ll_all,axis=0))
+#        print(np.min(ll_all,axis=0))
+#        print(np.max(ll_all,axis=0))
+#        print(np.std(ll_all,axis=0))
+#        print('~~~~')
+#
+#                           
+        
+        
+##    C_Searching = True
+##    print('=========== Csearch + CV =============')
+##    for database in database_tab:
+##        tfR_FRCNN(demonet = 'res152_COCO',database = database, 
+##                                  verbose = True,testMode = False,jtest = 'cow',
+##                                  PlotRegions = False,saved_clf=False,RPN=False,
+##                                  CompBest=False,Stocha=True,k_per_bag=300,
+##                                  parallel_op=True,CV_Mode='CV',num_split=2,
+##                                  WR=True,init_by_mean =None,seuil_estimation='',
+##                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+##                                  C=1.0,Optimizer='GradientDescent',norm='',
+##                                  transform_output='tanh',with_rois_scores_atEnd=False,
+##                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+##                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+##                                  k_intopk=1,C_Searching=C_Searching,predict_with='MILSVM',
+##                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+##                                  thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+##                                  votingW=False,proportionToKeep=0.25,AveragingWportion=False,
+##                                  votingWmedian=False) 
+#    
+#    for database in database_tab:
+#        tfR_FRCNN(demonet = 'res152_COCO',database = database, 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = False,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='CV',num_split=2,
+#                                  WR=True,init_by_mean =None,seuil_estimation='',
+#                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                                  C=0.500000001,Optimizer='GradientDescent',norm='',
+#                                  transform_output='tanh',with_rois_scores_atEnd=False,
+#                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+#                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                                  k_intopk=1,C_Searching=False,predict_with='MILSVM',
+#                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                                  thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+#                                  votingW=False,proportionToKeep=0.5,AveragingWportion=False,
+#                                  votingWmedian=False) 
+#    C_values =  np.arange(0.5,1.5,0.1,dtype=np.float32)
+#    database = 'VOC2007'
+#    for C in C_values:
+#        tfR_FRCNN(demonet = 'res152_COCO',database = database, 
+#                                  verbose = True,testMode = False,jtest = 'cow',
+#                                  PlotRegions = False,saved_clf=False,RPN=False,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
+#                                  parallel_op=True,CV_Mode='CV',num_split=2,
+#                                  WR=True,init_by_mean =None,seuil_estimation='',
+#                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                                  C=C,Optimizer='GradientDescent',norm='',
+#                                  transform_output='tanh',with_rois_scores_atEnd=False,
+#                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+#                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                                  k_intopk=1,C_Searching=False,predict_with='MILSVM',
+#                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                                  thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
+#                                  votingW=False,proportionToKeep=0.25,AveragingWportion=False,
+#                                  votingWmedian=False)
+       
+        
+        
 #    tfR_FRCNN(demonet = 'res152_COCO',database = database, 
 #                              verbose = True,testMode = False,jtest = 'cow',
 #                              PlotRegions = False,saved_clf=False,RPN=False,
