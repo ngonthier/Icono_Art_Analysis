@@ -45,7 +45,7 @@ from Classifier_Evaluation import Classification_evaluation
 import os.path
 import misvm # Library to do Multi Instance Learning with SVM
 from sklearn.preprocessing import StandardScaler
-from trouver_classes_parmi_K import MILSVM,TrainClassif,tf_MILSVM
+from trouver_classes_parmi_K import MI_max,TrainClassif,tf_MI_max
 from LatexOuput import arrayToLatex
 from FasterRCNN import vis_detections_list,vis_detections,Compute_Faster_RCNN_features
 import pathlib
@@ -181,7 +181,7 @@ def rand_convex(n):
 def petitTestIllustratif():
     """
     We will try on 20 image from the Art UK Your paintings database and see what 
-    we get as best zone with the MILSVM de Said 
+    we get as best zone with the MI_max de Said 
     """
     path_to_img = '/media/HDD/data/Painting_Dataset/'
     path = '/media/HDD/output_exp/ClassifPaintings/'
@@ -228,9 +228,9 @@ def petitTestIllustratif():
     path_to_img = '/media/HDD/data/Painting_Dataset/'
     symway = True
     if symway:
-        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MILSVM/'
+        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max/'
     else:
-        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MILSVM_NotSymWay/'
+        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max_NotSymWay/'
     list_dog = ['ny_yag_yorag_326_624x544', 'dur_dbm_770_624x544', 'ntii_skh_1196043_624x544', 'nti_ldk_884912_624x544', 'syo_bha_90009742_624x544', 'tate_tate_t00888_10_624x544', 'ntii_lyp_500458_624x544', 'ny_yag_yorag_37_b_624x544', 'ngs_ngs_ng_1193_f_624x544', 'dur_dbm_533_624x544']
     list_not_dog = ['nid_qub_qub_264_624x544', 'gmiii_mosi_a1978_72_3_624x544', 'ny_nrm_1979_7964_624x544', 'che_crhc_pcf40_624x544', 'not_ntmag_1997_31_624x544', 'stf_strm_832_624x544', 'ny_nrm_1986_9418_624x544', 'ny_nrm_2004_7349_624x544', 'ny_nrm_1986_9421_624x544', 'ny_nrm_1996_7374_624x544', 'llr_rlrh_l_h38_1988_3_0_624x544', 'iwm_iwm_ld_5509_624x544', 'ny_nrm_1977_5834_624x544', 'cw_mte_45_624x544', 'ny_yam_260367_624x544', 'lne_rafm_fa03538_624x544', 'dur_dbm_769_624x544', 'ny_yag_yorag_66_624x544', 'lw_narm_131900_624x544', 'syo_cg_cp_tr_156_624x544']
     list_nms_thresh = [0.0,0.1,0.5,0.7]
@@ -297,14 +297,14 @@ def petitTestIllustratif():
             # Train the MIL SVM 
             restarts = 20
             max_iters = 300
-            classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+            classifierMI_max = MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
                                           max_iters=max_iters,symway=symway,n_jobs=-1,
                                           all_notpos_inNeg=False,gridSearch=False,
                                           verbose=False,final_clf='None')     
-            classifierMILSVM.fit(pos_ex, neg_ex)
+            classifierMI_max.fit(pos_ex, neg_ex)
             
-            PositiveRegions = classifierMILSVM.get_PositiveRegions()
-            get_PositiveRegionsScore = classifierMILSVM.get_PositiveRegionsScore()
+            PositiveRegions = classifierMI_max.get_PositiveRegions()
+            get_PositiveRegionsScore = classifierMI_max.get_PositiveRegionsScore()
         
             # Draw 
             for i,name_img in  enumerate(list_dog):
@@ -319,7 +319,7 @@ def petitTestIllustratif():
                 best_RPN_roi = rois[0,:]
                 best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
                 best_RPN_roi_scores = [get_PositiveRegionsScore[0]]
-                cls = ['RPN','MILSVM']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                cls = ['RPN','MI_max']  # Comparison of the best region according to the faster RCNN and according to the MI_max de Said
         #            print(roi_boxes)
                 
                 roi_scores = [get_PositiveRegionsScore[i]]
@@ -328,14 +328,14 @@ def petitTestIllustratif():
                 roi_boxes_score = np.expand_dims(np.expand_dims(np.concatenate((roi_boxes,roi_scores)),axis=0),axis=0)
                 roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
                 vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
-                name_output = path_to_output + name_img + '_threshold_'+str(nms_thresh)+'k_'+str(k_per_bag)+'_MILSVMbestROI.jpg'
+                name_output = path_to_output + name_img + '_threshold_'+str(nms_thresh)+'k_'+str(k_per_bag)+'_MI_maxbestROI.jpg'
                 plt.savefig(name_output)
             plt.close('all') 
             
 def petitTestIllustratif_RefineRegions():
     """
     We will try on 20 image from the Art UK Your paintings database and see what 
-    we get as best zone with the MILSVM de Said 
+    we get as best zone with the MI_max de Said 
     in this function we try to refine regions, ie remove not important regions
     """
     path_to_img = '/media/HDD/data/Painting_Dataset/'
@@ -383,9 +383,9 @@ def petitTestIllustratif_RefineRegions():
     path_to_img = '/media/HDD/data/Painting_Dataset/'
     symway = True
     if symway:
-        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MILSVM_Refine/'
+        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max_Refine/'
     else:
-        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MILSVM_NotSymWay_Refine/'
+        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max_NotSymWay_Refine/'
     list_dog = ['ny_yag_yorag_326_624x544', 'dur_dbm_770_624x544', 'ntii_skh_1196043_624x544', 'nti_ldk_884912_624x544', 'syo_bha_90009742_624x544', 'tate_tate_t00888_10_624x544', 'ntii_lyp_500458_624x544', 'ny_yag_yorag_37_b_624x544', 'ngs_ngs_ng_1193_f_624x544', 'dur_dbm_533_624x544']
     list_not_dog = ['nid_qub_qub_264_624x544', 'gmiii_mosi_a1978_72_3_624x544', 'ny_nrm_1979_7964_624x544', 'che_crhc_pcf40_624x544', 'not_ntmag_1997_31_624x544', 'stf_strm_832_624x544', 'ny_nrm_1986_9418_624x544', 'ny_nrm_2004_7349_624x544', 'ny_nrm_1986_9421_624x544', 'ny_nrm_1996_7374_624x544', 'llr_rlrh_l_h38_1988_3_0_624x544', 'iwm_iwm_ld_5509_624x544', 'ny_nrm_1977_5834_624x544', 'cw_mte_45_624x544', 'ny_yam_260367_624x544', 'lne_rafm_fa03538_624x544', 'dur_dbm_769_624x544', 'ny_yag_yorag_66_624x544', 'lw_narm_131900_624x544', 'syo_cg_cp_tr_156_624x544']
     
@@ -465,15 +465,15 @@ def petitTestIllustratif_RefineRegions():
     # Train the MIL SVM 
     restarts = 20
     max_iters = 300
-    classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+    classifierMI_max = MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
                                   max_iters=max_iters,symway=symway,n_jobs=-1,
                                   all_notpos_inNeg=False,gridSearch=False,
                                   verbose=False,final_clf='None')     
-    print("Start Learning MILSVM")
-    classifierMILSVM.fit(pos_ex, neg_ex)
-    print("End Learning MILSVM")
-    PositiveRegions = classifierMILSVM.get_PositiveRegions()
-    get_PositiveRegionsScore = classifierMILSVM.get_PositiveRegionsScore()
+    print("Start Learning MI_max")
+    classifierMI_max.fit(pos_ex, neg_ex)
+    print("End Learning MI_max")
+    PositiveRegions = classifierMI_max.get_PositiveRegions()
+    get_PositiveRegionsScore = classifierMI_max.get_PositiveRegionsScore()
 
     # Draw 
     for i,name_img in  enumerate(list_dog):
@@ -488,7 +488,7 @@ def petitTestIllustratif_RefineRegions():
         best_RPN_roi = rois[0,:]
         best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
         best_RPN_roi_scores = [get_PositiveRegionsScore[0]]
-        cls = ['RPN','MILSVM']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+        cls = ['RPN','MI_max']  # Comparison of the best region according to the faster RCNN and according to the MI_max de Said
 #            print(roi_boxes)
         
         roi_scores = [get_PositiveRegionsScore[i]]
@@ -497,16 +497,16 @@ def petitTestIllustratif_RefineRegions():
         roi_boxes_score = np.expand_dims(np.expand_dims(np.concatenate((roi_boxes,roi_scores)),axis=0),axis=0)
         roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
         vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
-        name_output = path_to_output + name_img + '_threshold_'+str(nms_thresh)+'k_'+str(k_per_bag)+'_MILSVMbestROI.jpg'
+        name_output = path_to_output + name_img + '_threshold_'+str(nms_thresh)+'k_'+str(k_per_bag)+'_MI_maxbestROI.jpg'
         plt.savefig(name_output)
     plt.close('all')
     
     
 
-def old_FasterRCNN_TL_MILSVM_newVersion():
+def old_FasterRCNN_TL_MI_max_newVersion():
     """ Function to test if you can refind the same AP metric by reading the saved 
     CNN features 
-    Older version of the function than FasterRCNN_TL_MILSVM_ClassifOutMILSVM
+    Older version of the function than FasterRCNN_TL_MI_max_ClassifOutMI_max
     """
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
@@ -575,7 +575,7 @@ def old_FasterRCNN_TL_MILSVM_newVersion():
     restarts = 20
     max_iters = 300
     n_jobs = -1
-    #from trouver_classes_parmi_K import MILSVM
+    #from trouver_classes_parmi_K import MI_max
     X_train = features_resnet[df_label['set']=='train',:,:]
     y_train = classes_vectors[df_label['set']=='train',:]
     X_test= features_resnet[df_label['set']=='test',:,:]
@@ -604,12 +604,12 @@ def old_FasterRCNN_TL_MILSVM_newVersion():
     for j,classe in enumerate(classes):
         neg_ex = X_trainval[y_trainval[:,j]==0,:,:]
         pos_ex =  X_trainval[y_trainval[:,j]==1,:,:]
-        classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+        classifierMI_max = MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
                                       max_iters=max_iters,symway=True,n_jobs=n_jobs,
                                       all_notpos_inNeg=False,gridSearch=True,
                                       verbose=False,final_clf=final_clf)     
-        classifier = classifierMILSVM.fit(pos_ex, neg_ex)
-        #print("End training the MILSVM")
+        classifier = classifierMI_max.fit(pos_ex, neg_ex)
+        #print("End training the MI_max")
         y_predict_confidence_score_classifier = np.zeros_like(y_test[:,j])
         labels_test_predited = np.zeros_like(y_test[:,j])
         
@@ -647,7 +647,7 @@ def old_FasterRCNN_TL_MILSVM_newVersion():
 def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test_on_k_bag = False,
                              normalisation= False,baseline_kind = 'MAX1',
                              verbose = True,gridSearch=False,k_per_bag=300,jtest=0,testMode=False,
-                             n_jobs=-1,clf='LinearSVC',restarts = 0,max_iter_MILSVM=500):
+                             n_jobs=-1,clf='LinearSVC',restarts = 0,max_iter_MI_max=500):
     """ 
     18 juin 2018 ==> voir le fichier Baseline_script.py
     Detection based on CNN features with Transfer Learning on Faster RCNN output
@@ -669,7 +669,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
     @param : Stocha : Use of a SGD for the MIL SVM SAID [default : False]
     @param : k_per_bag : number of element per batch in the slection phase [defaut : 30]
     @param : restarts = 0, le nombre de restarts pour les algos de MISVM et miSVM
-    @param : max_iter_MILSVM : nombre d iterations maximales dans le cadre des algos MISVM et miSVM
+    @param : max_iter_MI_max : nombre d iterations maximales dans le cadre des algos MISVM et miSVM
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -1027,7 +1027,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
 #                    max_iter = 10
                     iteration = 0
                     SelectirVar_haveChanged = True
-                    while((iteration < max_iter_MILSVM) and SelectirVar_haveChanged):
+                    while((iteration < max_iter_MI_max) and SelectirVar_haveChanged):
                         iteration +=1
                         t0=time.time()
                         X_trainval_select = np.vstack((X_trainval_select_neg,X_pos))
@@ -1046,7 +1046,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                             SelectirVar_haveChanged=False
                         t1=time.time()
                         if verbose: print("Duration of one iteration :",str(t1-t0),"s")
-                    if verbose: print("End after ",iteration,"iterations on",max_iter_MILSVM)
+                    if verbose: print("End after ",iteration,"iterations on",max_iter_MI_max)
                 # Sur Watercolor avec LinearSVC et sans GridSearch on a 7 iterations max
                 # Training ended
                 dict_clf[j] = clf_MISVM   
@@ -1067,7 +1067,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     SelectirVar_haveChanged = True
     #                clf = LinearSVC(penalty='l2',class_weight='balanced', 
     #                            loss='squared_hinge',max_iter=1000,dual=True)
-                    while((iteration < max_iter_MILSVM) and SelectirVar_haveChanged):
+                    while((iteration < max_iter_MI_max) and SelectirVar_haveChanged):
                         iteration +=1
                         t0=time.time()
 #                        print(y_pos.shape)
@@ -1094,7 +1094,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                             SelectirVar_haveChanged=False
                         t1=time.time()
                         if verbose: print("Duration of one iteration :",str(t1-t0),"s")
-                    if verbose: print("End after ",iteration,"iterations on",max_iter_MILSVM)
+                    if verbose: print("End after ",iteration,"iterations on",max_iter_MI_max)
                 # Sur Watercolor avec LinearSVC et sans GridSearch on tape tout le temps dans les 10 iterations
                 
                 # Training ended
@@ -1194,7 +1194,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
 #                roi_with_object_of_the_class = np.argmax(decision_function_output)
                 # For detection 
                 if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt']:
-                    thresh = 0.05 # Threshold score or distance MILSVM
+                    thresh = 0.05 # Threshold score or distance MI_max
                     TEST_NMS = 0.3 # Recouvrement entre les classes
                     if not(database=='PeopleArt'):
                         complet_name = path_to_img + str(name_test[k]) + '.jpg'
@@ -1316,7 +1316,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         gc.collect()
         tf.reset_default_graph()
 
-def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Paintings', 
+def FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Paintings', 
                                           verbose = True,testMode = True,jtest = 0,
                                           PlotRegions = True,saved_clf=False,RPN=False,
                                           CompBest=True,Stocha=False,k_per_bag=30,
@@ -1564,7 +1564,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
             max_iters = 300
         print('restarts',restarts,'max_iters',max_iters)
         n_jobs = 1
-        #from trouver_classes_parmi_K import MILSVM
+        #from trouver_classes_parmi_K import MI_max
         
     #    del features_resnet_dict
         gc.collect()
@@ -1625,9 +1625,9 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                 else:
                     extensionStocha = ''
                 if database=='Wikidata_Paintings_miniset_verif':
-                    path_to_output2  = path_data + '/MILSVMRegion/'+extensionStocha+depicts_depictsLabel[classes[j]]
+                    path_to_output2  = path_data + '/MI_maxRegion/'+extensionStocha+depicts_depictsLabel[classes[j]]
                 else:
-                    path_to_output2  = path_data + '/MILSVMRegion/'+extensionStocha+classes[j]
+                    path_to_output2  = path_data + '/MI_maxRegion/'+extensionStocha+classes[j]
                 if RPN:
                     path_to_output2 += '_RPNetMISVM/'
                 elif CompBest:
@@ -1643,7 +1643,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
             pos_ex =  X_trainval[y_trainval[:,j]==1,:,:]
             pos_name = name_trainval[y_trainval[:,j]==1]
             
-            if verbose: print("Start train the MILSVM")
+            if verbose: print("Start train the MI_max")
     
             
             if Stocha:
@@ -1661,23 +1661,23 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                 max_iters = n_batch*max_iters_wt_minibatch
                 Optimizer='GradientDescent'
                 optimArg=None
-                classifierMILSVM = tf_MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+                classifierMI_max = tf_MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
                    max_iters=max_iters,symway=True,n_jobs=n_jobs,
                    all_notpos_inNeg=False,gridSearch=True,
                    verbose=verboseMIL,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,WR=True) 
-                classifierMILSVM.fit_Stocha(bags,labels,shuffle=True)
+                classifierMI_max.fit_Stocha(bags,labels,shuffle=True)
             else:
-                classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+                classifierMI_max = MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
                    max_iters=max_iters,symway=True,n_jobs=n_jobs,
                    all_notpos_inNeg=False,gridSearch=True,
                    verbose=verboseMIL,final_clf=final_clf,WR=True)   
-                classifierMILSVM.fit(pos_ex, neg_ex)
+                classifierMI_max.fit(pos_ex, neg_ex)
                 #durations : between 26 and durations : 8 for Paintings
             
-            PositiveRegions = classifierMILSVM.get_PositiveRegions()
-            get_PositiveRegionsScore = classifierMILSVM.get_PositiveRegionsScore()
-            PositiveExScoreAll =  classifierMILSVM.get_PositiveExScoreAll()
+            PositiveRegions = classifierMI_max.get_PositiveRegions()
+            get_PositiveRegionsScore = classifierMI_max.get_PositiveRegionsScore()
+            PositiveExScoreAll =  classifierMI_max.get_PositiveExScoreAll()
             
             if PlotRegions:
                 # Just des verifications
@@ -1685,12 +1685,12 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                 assert((a==PositiveRegions).all())
                 assert(len(pos_name)==len(PositiveRegions))
             
-            if verbose: print("End training the MILSVM")
+            if verbose: print("End training the MI_max")
             
-            pos_ex_after_MILSVM = np.zeros((len(pos_ex),size_output))
+            pos_ex_after_MI_max = np.zeros((len(pos_ex),size_output))
             neg_ex_keep = np.zeros((len(neg_ex),num_features))
             for k,name_imgtab in enumerate(pos_name):
-                pos_ex_after_MILSVM[k,:] = pos_ex[k,PositiveRegions[k],:] # We keep the positive exemple according to the MILSVM from Said
+                pos_ex_after_MI_max[k,:] = pos_ex[k,PositiveRegions[k],:] # We keep the positive exemple according to the MI_max from Said
                 
                 if PlotRegions:
                     if verbose: print(k,name_img)
@@ -1717,11 +1717,11 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                         best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
                         best_RPN_roi_scores = [PositiveExScoreAll[k,0]]
                         assert((get_PositiveRegionsScore[k] >= PositiveExScoreAll[k,0]).all())
-                        cls = ['RPN','MILSVM']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                        cls = ['RPN','MI_max']  # Comparison of the best region according to the faster RCNN and according to the MI_max de Said
                         best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
                         roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
                     else:
-                        cls = ['MILSVM']
+                        cls = ['MI_max']
                         roi_boxes_and_score = roi_boxes_score
                     vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
                     name_output = path_to_output2 +'Train/' + name_sans_ext + '_Regions.jpg'
@@ -1730,8 +1730,8 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
             
             neg_ex_keep = neg_ex.reshape(-1,num_features)
             
-            X = np.vstack((pos_ex_after_MILSVM,neg_ex_keep))
-            y_pos = np.ones((len(pos_ex_after_MILSVM),1))
+            X = np.vstack((pos_ex_after_MI_max,neg_ex_keep))
+            y_pos = np.ones((len(pos_ex_after_MI_max),1))
             y_neg = np.zeros((len(neg_ex_keep),1))
             y = np.vstack((y_pos,y_neg)).ravel()
             if verbose: print('Start Learning Final Classifier X.shape,y.shape',X.shape,y.shape)
@@ -1775,7 +1775,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                 
                 # For detection 
                 if database=='VOC2007'  or database=='watercolor'or database=='WikiTenLabels':
-                    thresh = 0.05 # Threshold score or distance MILSVM
+                    thresh = 0.05 # Threshold score or distance MI_max
                     TEST_NMS = 0.3 # Recouvrement entre les classes
                     complet_name = path_to_img + str(name_test[k]) + '.jpg'
                     im = cv2.imread(complet_name)
@@ -1826,7 +1826,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                             best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
                             best_RPN_roi_scores = [decision_function_output[0]]
                             assert((np.max(decision_function_output) >= decision_function_output[0]).all())
-                            cls = ['RPN','Classif']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                            cls = ['RPN','Classif']  # Comparison of the best region according to the faster RCNN and according to the MI_max de Said
                             best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
                             roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
                         elif CompBest:
@@ -1835,7 +1835,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                             roi_boxes2 =  roi2[1:5] / im_scales[0]
                             roi_scores2 =  [np.max(decision_function_output_bS)]
                             roi_boxes_score2 = np.expand_dims(np.expand_dims(np.concatenate((roi_boxes2,roi_scores2)),axis=0),axis=0)
-                            cls = ['BestObject','Classif']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                            cls = ['BestObject','Classif']  # Comparison of the best region according to the faster RCNN and according to the MI_max de Said
                             roi_boxes_and_score = np.vstack((roi_boxes_score2,roi_boxes_score))
                         else:
                             cls = ['Classif']
@@ -1924,7 +1924,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                 dict_clf[classe] = classifier
                 classe_str += depicts_depictsLabel[classe]
                 
-            path_to_output2  = path_data + '/MILSVMRegion/TestIllust/'
+            path_to_output2  = path_data + '/MI_maxRegion/TestIllust/'
             pathlib.Path(path_to_output2).mkdir(parents=True, exist_ok=True)
             CONF_THRESH = 0.7
             NMS_THRESH = 0.3 # non max suppression
@@ -1964,7 +1964,7 @@ def FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Pa
                 plt.savefig(name_output)
                 plt.close()
                 
-                path_to_output2  = path_data + '/MILSVMRegion/TestIllust2/'
+                path_to_output2  = path_data + '/MI_maxRegion/TestIllust2/'
                 pathlib.Path(path_to_output2).mkdir(parents=True, exist_ok=True)
                 CONF_THRESH = 0.7
                 NMS_THRESH = 0.3 # non max suppression
@@ -2018,7 +2018,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   with_scores=False,epsilon=0.0,restarts_paral='',
                                   Max_version=None,w_exp=1.0,seuillage_by_score=True,
                                   seuil=0.5,k_intopk=3,C_Searching=False,gridSearch=False,n_jobs=1,
-                                  predict_with='MILSVM',thres_FinalClassifier=0.5,
+                                  predict_with='MI_max',thres_FinalClassifier=0.5,
                                   thresh_evaluation=0.05,TEST_NMS=0.3,eval_onk300=False,
                                   optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
                                   plot_onSubSet=None):
@@ -2050,9 +2050,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     @param : k_per_bag : number of element per batch in the slection phase [defaut : 300] 
     !!!!! for the moment it is not possible to use something else than 300 if the dataset is not 
     records with the selection of the regions already !!!! TODO change that
-    @param : parallel_op : use of the parallelisation version of the MILSVM 
+    @param : parallel_op : use of the parallelisation version of the MI_max 
         for the all classes same time
-    @param : CV_Mode : cross validation mode in the MILSVM : possibility ; 
+    @param : CV_Mode : cross validation mode in the MI_max : possibility ; 
         None, CV in k split or LA for Leave apart one of the split
     @param : num_split  : Number of split for the CV or LA
     @param : WR   :  use of not of the regularisation term in the evaluation of 
@@ -2062,12 +2062,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         the regions of the image
     @param : seuil_estimation : ByHist or MaxDesNeg :  Estimation of the seuil 
         for the prediction detection 
-    @param : restarts  :  number of restart in the MILSVM [default=19]
+    @param : restarts  :  number of restart in the MI_max [default=19]
     @param : max_iters_all_base  :  number of maximum iteration on the going on 
         the full database 
-    @param : LR  :  Learning rate for the optimizer in the MILSVM 
-    @param : C  :  Regularisation term for the optimizer in the MILSVM 
-    @param : Optimizer  : Optimizer for the MILSVM GradientDescent or Adam
+    @param : LR  :  Learning rate for the optimizer in the MI_max 
+    @param : C  :  Regularisation term for the optimizer in the MI_max 
+    @param : Optimizer  : Optimizer for the MI_max GradientDescent or Adam
     @param : norm : normalisation of the data or not : possible : None or ''
             'L2' : normalisation L2 or 'STDall' : Standardisation on all data 
             'STD' standardisation by feature maps
@@ -2089,7 +2089,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     @param seuil : used to eliminate some regions : it remove all the image with an objectness score under seuil
     @param : gridSearch=False, use a grid search on the C parameter of the final classifier if predict_with is LeanarSVC
     @param : n_jobs=1, number of jobs for the grid search hyperparamter optimisation
-    @param : predict_with='MILSVM', final classifier 
+    @param : predict_with='MI_max', final classifier 
     @param : thres_FinalClassifier : parameter to choose some of the exemple before feeding the final classifier LinearSVC
             if you add a final classifier after the MIL or MILS hyperplan separation
     @param : thresh_evaluation : 0.05 : seuillage avant de fournir les boites a l evaluation de detections
@@ -2247,7 +2247,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True  
             
-    # Data for the MILSVM Latent SVM
+    # Data for the MI_max Latent SVM
     # All those parameter are design for my GPU 1080 Ti memory size 
     performance = False
     if parallel_op:
@@ -2374,7 +2374,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
             optimArg_str = ''
         else:
             optimArg_str =  str(optimArg).replace(' ','_')
-    verboseMILSVM = verbose
+    verboseMI_max = verbose
     shuffle = True
     if num_trainval_im==mini_batch_size:
         shuffle = False
@@ -2445,7 +2445,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
         +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
         + AggregW_str
-    cachefile_model = path_data +  cachefile_model_base+'_MILSVM.pkl'
+    cachefile_model = path_data +  cachefile_model_base+'_MI_max.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
 #        input_str = input('Answer yes or not')
@@ -2491,14 +2491,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         if not os.path.isfile(cachefile_model) or ReDo:
              if verbose: t0 = time.time()
              
-             classifierMILSVM = tf_MILSVM(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,num_rois=k_per_bag,
+             classifierMI_max = tf_MI_max(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,num_rois=k_per_bag,
                    max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
-                   verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
+                   verbose=verboseMI_max,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,num_features=num_features,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
                    Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
                    k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep)
-             export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
+             export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                    WR=WR,performance=performance,restarts_paral=restarts_paral,
                    C_Searching=C_Searching)                
@@ -2506,7 +2506,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
              if verbose: 
                  t1 = time.time() 
                  print('Total duration training part :',str(t1-t0))
-             np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
+             np_pos_value,np_neg_value = classifierMI_max.get_porportions()
              name_milsvm =export_dir,np_pos_value,np_neg_value
              with open(cachefile_model, 'wb') as f:
                  pickle.dump(name_milsvm, f)
@@ -2524,7 +2524,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                path_to_img,path_data,param_clf,classes,parameters,verbose,
                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
                cachefile_model_base=cachefile_model_base,transform_output=transform_output,
-               with_rois_scores_atEnd=with_rois_scores_atEnd,scoreInMILSVM=(with_scores or seuillage_by_score),
+               with_rois_scores_atEnd=with_rois_scores_atEnd,scoreInMI_max=(with_scores or seuillage_by_score),
                gridSearch=gridSearch,n_jobs=n_jobs,thres_FinalClassifier=thres_FinalClassifier,
                k_per_bag=k_per_bag,eval_onk300=eval_onk300,plot_onSubSet=plot_onSubSet,AggregW=AggregW)
    
@@ -2549,7 +2549,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
             if testMode and not(j==jtest):
                 continue
             if verbose : print(j,classes[j])       
-            if verbose: print("Start train the MILSVM")
+            if verbose: print("Start train the MI_max")
 
             
             #data_path_train=  '/home/gonthier/Data_tmp/FasterRCNN_res152_COCO_Paintings_N1_TLforMIL_nms_0.7_all_trainval.tfrecords'
@@ -2557,21 +2557,21 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
             if not(ReDo):
                 try:
                     export_dir,np_pos_value,np_neg_value= name_milsvm[j]
-                    print('The model of MILSVM exists')
+                    print('The model of MI_max exists')
                 except(KeyError):
-                    print('The model of MILSVM doesn t exist')
+                    print('The model of MI_max doesn t exist')
                     needToDo = True
             if ReDo or needToDo:
-                classifierMILSVM = tf_MILSVM(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,
+                classifierMI_max = tf_MI_max(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,
                    max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
-                   verbose=verboseMILSVM,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
+                   verbose=verboseMI_max,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                    mini_batch_size=mini_batch_size,num_features=num_features,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
                    Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil) 
-                export_dir = classifierMILSVM.fit_MILSVM_tfrecords(data_path=data_path_train, \
+                export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,\
                    WR=WR,performance=performance,restarts_paral=restarts_paral)
-                np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
+                np_pos_value,np_neg_value = classifierMI_max.get_porportions()
                 name_milsvm[j]=export_dir,np_pos_value,np_neg_value
                 with open(cachefile_model, 'wb') as f:
                     pickle.dump(name_milsvm, f)
@@ -2581,7 +2581,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
             dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
             #print(export_dir)
            
-            ## Predicition with the MILSVM
+            ## Predicition with the MI_max
             parameters=PlotRegions,RPN,Stocha,CompBest
             param_clf = k_per_bag,Number_of_positif_elt,num_features
             true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited,all_boxes = \
@@ -2709,7 +2709,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                path_to_img,path_data,param_clf,classes,parameters,verbose,
                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=None,
                cachefile_model_base='',number_im=np.inf,transform_output=None,
-               with_rois_scores_atEnd=False,scoreInMILSVM=False,seuillage_by_score=False,
+               with_rois_scores_atEnd=False,scoreInMI_max=False,seuillage_by_score=False,
                gridSearch=False,n_jobs=1,thres_FinalClassifier=0.5,k_per_bag=300,
                eval_onk300=False,plot_onSubSet=None,AggregW=None):
      """
@@ -2739,7 +2739,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      if verbose: print('thresh_evaluation',thresh_evaluation,'TEST_NMS',TEST_NMS,'seuil_estimation',seuil_estimation)
      
      k_per_bag,positive_elt,num_features = param_clf
-     thresh = thresh_evaluation # Threshold score or distance MILSVM
+     thresh = thresh_evaluation # Threshold score or distance MI_max
      #TEST_NMS = 0.7 # Recouvrement entre les classes
      thres_max = False
      load_model = False
@@ -2763,7 +2763,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
          extensionStocha = cachefile_model_base 
          if not(plot_onSubSet is None):
              extensionStocha += 'ForIllustraion'
-         path_to_output2  = path_data + '/tfMILSVMRegion_paral/'+database+'/'+extensionStocha
+         path_to_output2  = path_data + '/tfMI_maxRegion_paral/'+database+'/'+extensionStocha
          if RPN:
              path_to_output2 += '/RPNetMISVM/'
          elif CompBest:
@@ -2801,11 +2801,11 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
              dict_seuil_estim[i] = {}
              for str_name in list_arrays:
                  dict_seuil_estim[i][str_name] = []  # Array of the scalar product of the negative examples  
-     get_roisScore = (with_rois_scores_atEnd or scoreInMILSVM)
+     get_roisScore = (with_rois_scores_atEnd or scoreInMI_max)
 
      if (PlotRegions or seuil_estimation_bool) and not('LinearSVC' in predict_with):
         index_im = 0
-        if verbose: print("Start ploting Regions selected by the MILSVM in training phase")
+        if verbose: print("Start ploting Regions selected by the MI_max in training phase")
         train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
         train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
             num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,num_rois=k_per_bag))
@@ -2821,7 +2821,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             graph= tf.get_default_graph()
             X = graph.get_tensor_by_name("X:0")
             y = graph.get_tensor_by_name("y:0")
-            if scoreInMILSVM: 
+            if scoreInMI_max: 
                 scores_tf = graph.get_tensor_by_name("scores:0")
                 if with_tanh_alreadyApplied:
                     Prod_best = graph.get_tensor_by_name("Tanh_2:0")
@@ -2857,11 +2857,11 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
 #                    print(sess.run(next_element))
                     next_element_value = sess.run(next_element)
 #                    print(len(next_element_value))
-                    if not(with_rois_scores_atEnd) and not(scoreInMILSVM):
+                    if not(with_rois_scores_atEnd) and not(scoreInMI_max):
                         fc7s,roiss, labels,name_imgs = next_element_value
                     else:
                         fc7s,roiss,rois_scores,labels,name_imgs = next_element_value
-                    if scoreInMILSVM:
+                    if scoreInMI_max:
                         feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
                     else:
                         feed_dict_value = {X: fc7s, y: labels}
@@ -2878,7 +2878,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         PositiveExScoreAll = PositiveExScoreAll*rois_scores
                         score_mei = np.max(PositiveExScoreAll,axis=2)
                         mei = np.amax(PositiveExScoreAll,axis=2)
-                    if with_tanh: assert(np.max(PositiveExScoreAll) <= 1.)
+#                    if with_tanh: assert(np.max(PositiveExScoreAll) <= 1.)
                                                     
                     if seuil_estimation_bool:
                         for k in range(len(fc7s)):
@@ -2936,7 +2936,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                 best_RPN_roi = rois[0,:]
                                 best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
                                 best_RPN_roi_scores = [PositiveExScoreAll[j,k,0]]
-                                cls = local_cls + ['RPN']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                                cls = local_cls + ['RPN']  # Comparison of the best region according to the faster RCNN and according to the MI_max de Said
                                 best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
                                 roi_boxes_and_score = np.vstack((roi_boxes_and_score,best_RPN_roi_boxes_score))
                             else:
@@ -2979,7 +2979,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             graph= tf.get_default_graph()
             X = graph.get_tensor_by_name("X:0")
             y = graph.get_tensor_by_name("y:0")
-            if scoreInMILSVM: 
+            if scoreInMI_max: 
                 scores_tf = graph.get_tensor_by_name("scores:0")
                 Prod_best = graph.get_tensor_by_name("ProdScore:0")
             else:
@@ -3010,11 +3010,11 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 while True:
                     try:
                         next_element_value = sess.run(next_element)
-                        if not(with_rois_scores_atEnd) and not(scoreInMILSVM):
+                        if not(with_rois_scores_atEnd) and not(scoreInMI_max):
                             fc7s,roiss, labels,name_imgs = next_element_value
                         else:
                             fc7s,roiss,rois_scores,labels,name_imgs = next_element_value
-                        if scoreInMILSVM:
+                        if scoreInMI_max:
                             feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
                         else:
                             feed_dict_value = {X: fc7s, y: labels}
@@ -3284,7 +3284,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             else:
                 X = graph.get_tensor_by_name("X:0")
                 y = graph.get_tensor_by_name("y:0")
-            if scoreInMILSVM: 
+            if scoreInMI_max: 
                 scores_tf = graph.get_tensor_by_name("scores:0")
                 if with_tanh_alreadyApplied:
                     Prod_best = graph.get_tensor_by_name("Tanh_2:0")
@@ -3317,12 +3317,12 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
 
         while True:
             try:
-                if not(with_rois_scores_atEnd) and not(scoreInMILSVM):
+                if not(with_rois_scores_atEnd) and not(scoreInMI_max):
                     fc7s,roiss, labels,name_imgs = sess.run(next_element)
                 else:
                     fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
-                if predict_with=='MILSVM':
-                    if scoreInMILSVM:
+                if predict_with=='MI_max':
+                    if scoreInMI_max:
                         feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
                     else:
                         feed_dict_value = {X: fc7s, y: labels}
@@ -3339,11 +3339,13 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         PositiveExScoreAll = PositiveExScoreAll*rois_scores
                         get_RegionsScore = np.max(PositiveExScoreAll,axis=2)
                         PositiveRegions = np.amax(PositiveExScoreAll,axis=2)
-                    if with_tanh or with_tanh_alreadyApplied: assert(np.max(PositiveExScoreAll) <= 1.)
+#                    if with_tanh or with_tanh_alreadyApplied: 
+#                        print('np.max(PositiveExScoreAll)',np.max(PositiveExScoreAll))
+#                        assert(np.max(PositiveExScoreAll) <= 1.)
 
                 true_label_all_test += [labels]
                 
-                if predict_with=='MILSVM':
+                if predict_with=='MI_max':
                     predict_label_all_test +=  [get_RegionsScore]
                 elif 'LinearSVC' in predict_with:
                     predict_label_all_test_tmp = []
@@ -3364,7 +3366,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                          complet_name = path_to_img + name_imgs[k] + '.jpg'
                     im = cv2.imread(complet_name)
                     blobs, im_scales = get_blobs(im)
-                    if predict_with=='MILSVM':
+                    if predict_with=='MI_max':
                         scores_all = PositiveExScoreAll[:,k,:]
                     elif 'LinearSVC' in predict_with:
                         scores_all = predict_label_all_test_batch[:,k,:]
@@ -3399,7 +3401,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     else:
                         name_all_test += [[name_imgs[l]]]
                 
-                if PlotRegions and predict_with=='MILSVM':
+                if PlotRegions and predict_with=='MI_max':
                     if verbose and (ii%1000==0):
                         print("Plot the images :",ii)
                     if verbose and FirstTime: 
@@ -3446,7 +3448,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                             best_RPN_roi = rois[0,:]
                             best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
                             best_RPN_roi_scores = [PositiveExScoreAll[j,k,0]]
-                            cls = local_cls + ['RPN']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                            cls = local_cls + ['RPN']  # Comparison of the best region according to the faster RCNN and according to the MI_max de Said
                             #best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
                             best_RPN_roi_boxes_score =  np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0)
 #                            print(best_RPN_roi_boxes_score.shape)
@@ -3522,7 +3524,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
     
      PlotRegions,RPN,Stocha,CompBest=parameters
      k_per_bag,positive_elt,size_output = param_clf
-     thresh = thresh_evaluation # Threshold score or distance MILSVM
+     thresh = thresh_evaluation # Threshold score or distance MI_max
 #     TEST_NMS = 0.7 # Recouvrement entre les classes
      
      load_model = False
@@ -3533,9 +3535,9 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
          else:
              extensionStocha = ''
          if database=='Wikidata_Paintings_miniset_verif':
-             path_to_output2  = path_data + '/tfMILSVMRegion/'+database+'/'+extensionStocha+depicts_depictsLabel[classes[j]]
+             path_to_output2  = path_data + '/tfMI_maxRegion/'+database+'/'+extensionStocha+depicts_depictsLabel[classes[j]]
          else:
-             path_to_output2  = path_data + '/tfMILSVMRegion/'+database+'/'+extensionStocha+classes[j]
+             path_to_output2  = path_data + '/tfMI_maxRegion/'+database+'/'+extensionStocha+classes[j]
          if RPN:
              path_to_output2 += '_RPNetMISVM/'
          elif CompBest:
@@ -3560,7 +3562,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
          x_array_ind = 0
      
      if PlotRegions or predict_with=='LinearSVC':
-        if verbose: print("Start ploting Regions selected by the MILSVM in training phase")
+        if verbose: print("Start ploting Regions selected by the MI_max in training phase")
         train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
         train_dataset = train_dataset.map(lambda r: parser_w_rois(r,classe_index=j,num_classes=num_classes))
         dataset_batch = train_dataset.batch(mini_batch_size)
@@ -3619,11 +3621,11 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                                     best_RPN_roi = rois[0,:]
                                     best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
                                     best_RPN_roi_scores = [PositiveExScoreAll[k,0]]
-                                    cls = ['RPN','MILSVM']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                                    cls = ['RPN','MI_max']  # Comparison of the best region according to the faster RCNN and according to the MI_max de Said
                                     best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
                                     roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
                                 else:
-                                    cls = ['MILSVM']
+                                    cls = ['MI_max']
                                     roi_boxes_and_score = roi_boxes_score
                                 vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
                                 name_output = path_to_output2 +'Train/' + name_sans_ext + '_Regions.jpg'
@@ -3672,7 +3674,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                 PositiveRegions,get_RegionsScore,PositiveExScoreAll = sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
                 #print(PositiveExScoreAll.shape)
                 true_label_all_test += [labels]
-                if predict_with=='MILSVM':
+                if predict_with=='MI_max':
                     predict_label_all_test +=  [get_RegionsScore]
 #                if predict_with=='LinearSVC':
                     
@@ -3681,7 +3683,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
                     im = cv2.imread(complet_name)
                     blobs, im_scales = get_blobs(im)
-                    if predict_with=='MILSVM':
+                    if predict_with=='MI_max':
                         scores = PositiveExScoreAll[k,:]
                     elif predict_with=='LinearSVC':
                         scores = clf.decision_function(fc7s[k,:])
@@ -3699,7 +3701,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                     
                 for l in range(len(name_imgs)): 
                     name_all_test += [[str(name_imgs[l].decode("utf-8"))]]
-                if PlotRegions and predict_with=='MILSVM':
+                if PlotRegions and predict_with=='MI_max':
                     if verbose and FirstTime: 
                         FirstTime = False
                         print("Start ploting Regions selected")
@@ -3725,11 +3727,11 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                                 best_RPN_roi = rois[0,:]
                                 best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
                                 best_RPN_roi_scores = [PositiveExScoreAll[k,0]]
-                                cls = ['RPN','MILSVM']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                                cls = ['RPN','MI_max']  # Comparison of the best region according to the faster RCNN and according to the MI_max de Said
                                 best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
                                 roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
                             else:
-                                cls = ['MILSVM']
+                                cls = ['MI_max']
                                 roi_boxes_and_score = roi_boxes_score
                             vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
                             name_output = path_to_output2 +'Test/' + name_sans_ext + '_Regions.jpg'
@@ -3778,7 +3780,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
 #            
 #            return(0)
 #        elif predict_with =='SGDClassif_sk': # SGD Classifier of scikit learn
-##            np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
+##            np_pos_value,np_neg_value = classifierMI_max.get_porportions()
 ##            Number_of_positif_elt = 1 
 ##            number_zone = k_per_bag
 ##            dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
@@ -3789,7 +3791,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
 #            
 #        elif predict_with =='hpsklearn_sgd': # SGD Classifier of scikit learn
 ##            # Use of the hyperopt optimisation 
-##            np_pos_value,np_neg_value = classifierMILSVM.get_porportions()
+##            np_pos_value,np_neg_value = classifierMI_max.get_porportions()
 ##            Number_of_positif_elt = 1 
 ##            number_zone = k_per_bag
 ##            dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
@@ -3938,7 +3940,7 @@ def FasterRCNN_TL_MISVM(demonet = 'res152_COCO',database = 'Paintings',
     @param : testMode : boolean True we only run on one class
     @param : jtest : the class on which we run the test
     @param : PlotRegions : plot the regions used for learn and the regions in the positive output response
-    @param : Type of MILSVM used or not : choice :  ['MISVM','miSVM','LinearMISVC','LinearmiSVC'] # TODO in the future also SGD
+    @param : Type of MI_max used or not : choice :  ['MISVM','miSVM','LinearMISVC','LinearmiSVC'] # TODO in the future also SGD
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -4137,9 +4139,9 @@ def FasterRCNN_TL_MISVM(demonet = 'res152_COCO',database = 'Paintings',
         if verbose : print(j,classes[j])
         if PlotRegions:
             if database=='Wikidata_Paintings_miniset_verif':
-                path_to_output2  = path_data + '/MILSVMRegion/'+depicts_depictsLabel[classes[j]] + '/'
+                path_to_output2  = path_data + '/MI_maxRegion/'+depicts_depictsLabel[classes[j]] + '/'
             else:
-                path_to_output2  = path_data + '/MILSVMRegion/'+classes[j] + '/'
+                path_to_output2  = path_data + '/MI_maxRegion/'+classes[j] + '/'
             path_to_output2_bis = path_to_output2 + 'Train'
             path_to_output2_ter = path_to_output2 + 'Test'
             pathlib.Path(path_to_output2_bis).mkdir(parents=True, exist_ok=True) 
@@ -4149,22 +4151,22 @@ def FasterRCNN_TL_MISVM(demonet = 'res152_COCO',database = 'Paintings',
 #        pos_ex =  X_trainval[y_trainval[:,j]==1,:,:]
 #        pos_name = name_trainval[y_trainval[:,j]==1]
         
-        if verbose: print("Start train the MILSVM")
+        if verbose: print("Start train the MI_max")
         
         if misvm_type=='miSVM':
-            classifierMILSVM = misvm.miSVM(kernel='linear', C=1.0, max_iters=10)
+            classifierMI_max = misvm.miSVM(kernel='linear', C=1.0, max_iters=10)
         elif misvm_type=='MISVM':
-            classifierMILSVM = misvm.MISVM(kernel='linear', C=1.0, max_iters=10,verbose=True,restarts=0)
+            classifierMI_max = misvm.MISVM(kernel='linear', C=1.0, max_iters=10,verbose=True,restarts=0)
         elif misvm_type=='LinearMISVC':
-            classifierMILSVM = mi_linearsvm.MISVM(C=1.0, max_iters=10,verbose=True,restarts=0)
+            classifierMI_max = mi_linearsvm.MISVM(C=1.0, max_iters=10,verbose=True,restarts=0)
         elif misvm_type=='LinearmiSVC':
-            classifierMILSVM = mi_linearsvm.miSVM(C=1.0, max_iters=10,verbose=True,restarts=0)
+            classifierMI_max = mi_linearsvm.miSVM(C=1.0, max_iters=10,verbose=True,restarts=0)
         
-        classifierMILSVM.fit(train_bags, y_trainval)
-        classifier = classifierMILSVM
+        classifierMI_max.fit(train_bags, y_trainval)
+        classifier = classifierMI_max
 
         
-        if verbose: print("End training the MILSVM")
+        if verbose: print("End training the MI_max")
         
        
         
@@ -4212,9 +4214,9 @@ def FasterRCNN_TL_MISVM(demonet = 'res152_COCO',database = 'Paintings',
     print(arrayToLatex(AP_per_class))
     
     
-def PlotRegionsLearnByMILSVM():
+def PlotRegionsLearnByMI_max():
     """ 
-   This function will plot the regions considered as dog by the MILSVM of Said
+   This function will plot the regions considered as dog by the MI_max of Said
    during the training and after during the testing
     """
     verbose = True
@@ -4332,7 +4334,7 @@ def PlotRegionsLearnByMILSVM():
     restarts = 20
     max_iters = 300
     n_jobs = -1
-    #from trouver_classes_parmi_K import MILSVM
+    #from trouver_classes_parmi_K import MI_max
     X_train = features_resnet[df_label['set']=='train',:,:]
     y_train = classes_vectors[df_label['set']=='train',:]
     X_test= features_resnet[df_label['set']=='test',:,:]
@@ -4370,7 +4372,7 @@ def PlotRegionsLearnByMILSVM():
         if testMode and not(j==jtest):
             continue
         print(j,classes[j])
-        path_to_output2  = path_data + '/MILSVMRegion/'+classes[j] + '/'
+        path_to_output2  = path_data + '/MI_maxRegion/'+classes[j] + '/'
         path_to_output2_bis = path_to_output2 + 'Train'
         path_to_output2_ter = path_to_output2 + 'Test'
         pathlib.Path(path_to_output2_bis).mkdir(parents=True, exist_ok=True) 
@@ -4379,27 +4381,27 @@ def PlotRegionsLearnByMILSVM():
         pos_ex =  X_trainval[y_trainval[:,j]==1,:,:]
         pos_name = name_trainval[y_trainval[:,j]==1]
         #print(pos_name)
-        classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+        classifierMI_max = MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
                max_iters=max_iters,symway=True,n_jobs=n_jobs,
                all_notpos_inNeg=False,gridSearch=True,
                verbose=False,final_clf=final_clf)     
-        classifierMILSVM.fit(pos_ex, neg_ex)
-        PositiveRegions = classifierMILSVM.get_PositiveRegions()
-        get_PositiveRegionsScore = classifierMILSVM.get_PositiveRegionsScore()
-        PositiveExScoreAll =  classifierMILSVM.get_PositiveExScoreAll()
+        classifierMI_max.fit(pos_ex, neg_ex)
+        PositiveRegions = classifierMI_max.get_PositiveRegions()
+        get_PositiveRegionsScore = classifierMI_max.get_PositiveRegionsScore()
+        PositiveExScoreAll =  classifierMI_max.get_PositiveExScoreAll()
         
         a = np.argmax(PositiveExScoreAll,axis=1)
         assert((a==PositiveRegions).all())
         assert(len(pos_name)==len(PositiveRegions))
         
-#        get_PositiveRegionsScore = classifierMILSVM.get_PositiveRegionsScore()
+#        get_PositiveRegionsScore = classifierMI_max.get_PositiveRegionsScore()
         
-        if verbose: print("End training the MILSVM")
+        if verbose: print("End training the MI_max")
         
-        pos_ex_after_MILSVM = np.zeros((len(pos_ex),size_output))
+        pos_ex_after_MI_max = np.zeros((len(pos_ex),size_output))
         neg_ex_keep = np.zeros((len(neg_ex),size_output))
         for k,name_imgtab in enumerate(pos_name):
-            pos_ex_after_MILSVM[k,:] = pos_ex[k,PositiveRegions[k],:] # We keep the positive exemple according to the MILSVM from Said
+            pos_ex_after_MI_max[k,:] = pos_ex[k,PositiveRegions[k],:] # We keep the positive exemple according to the MI_max from Said
             
             if verbose: print(k,name_img)
             name_img = name_imgtab[0]
@@ -4416,20 +4418,20 @@ def PlotRegionsLearnByMILSVM():
             best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
             best_RPN_roi_scores = [PositiveExScoreAll[k,0]]
             assert((get_PositiveRegionsScore[k] >= PositiveExScoreAll[k,0]).all())
-            cls = ['RPN','MILSVM']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+            cls = ['RPN','MI_max']  # Comparison of the best region according to the faster RCNN and according to the MI_max de Said
             best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
             roi_boxes_score = np.expand_dims(np.expand_dims(np.concatenate((roi_boxes,roi_scores)),axis=0),axis=0)
             roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
             vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
             name_output = path_to_output2 +'Train/' + name_img + '_Regions.jpg'
-            #+ '_threshold_'+str(nms_thresh)+'k_'+str(k_per_bag)+'_MILSVMbestROI.jpg'
+            #+ '_threshold_'+str(nms_thresh)+'k_'+str(k_per_bag)+'_MI_maxbestROI.jpg'
             plt.savefig(name_output)
             plt.close()
         
         neg_ex_keep = neg_ex.reshape(-1,size_output)
         
-        X = np.vstack((pos_ex_after_MILSVM,neg_ex_keep))
-        y_pos = np.ones((len(pos_ex_after_MILSVM),1))
+        X = np.vstack((pos_ex_after_MI_max,neg_ex_keep))
+        y_pos = np.ones((len(pos_ex_after_MI_max),1))
         y_neg = np.zeros((len(neg_ex_keep),1))
         y = np.vstack((y_pos,y_neg)).ravel()
         if verbose: print('X.shape,y.shape',X.shape,y.shape)
@@ -4467,14 +4469,14 @@ def PlotRegionsLearnByMILSVM():
                 best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
                 best_RPN_roi_scores = [decision_function_output[0]]
                 assert((np.max(decision_function_output) >= decision_function_output[0]).all())
-                cls = ['RPN','Classif']  # Comparison of the best region according to the faster RCNN and according to the MILSVM de Said
+                cls = ['RPN','Classif']  # Comparison of the best region according to the faster RCNN and according to the MI_max de Said
                 roi_scores =  [np.max(decision_function_output)]
                 best_RPN_roi_boxes_score =  np.expand_dims(np.expand_dims(np.concatenate((best_RPN_roi_boxes,best_RPN_roi_scores)),axis=0),axis=0)
                 roi_boxes_score = np.expand_dims(np.expand_dims(np.concatenate((roi_boxes,roi_scores)),axis=0),axis=0)
                 roi_boxes_and_score = np.vstack((best_RPN_roi_boxes_score,roi_boxes_score))
                 vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf)
                 name_output = path_to_output2 +'Test/' + name_img  + '_Regions.jpg'
-                #'_threshold_'+str(nms_thresh)+'k_'+str(k_per_bag)+'_MILSVMbestROI.jpg'
+                #'_threshold_'+str(nms_thresh)+'k_'+str(k_per_bag)+'_MI_maxbestROI.jpg'
                 plt.savefig(name_output)
                 plt.close()
             else: 
@@ -4499,630 +4501,199 @@ def PlotRegionsLearnByMILSVM():
     print(AP_per_class)
     print(arrayToLatex(AP_per_class))
         
+def VariationStudy():
+    '''
+    The goal of this function is to study the variation of the performance of our 
+    method
+    '''
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
+#    database_tab = ['PeopleArt','watercolor']
+    number_restarts = 100
+    max_iters_all_base = 300
+    
+    Dict = {}
+    metric_tab = ['AP@.5','AP@.1','APClassif']
+    
+    for i in range(6):
+        print('Scenario :',i)
+        if i==0:
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+        elif i==1:
+#             ['AveragingW','meanOfProd','medianOfProd','maxOfProd','maxOfTanh',\
+#                                       'meanOfTanh','medianOfTanh','minOfTanh','minOfProd']
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = 'maxOfTanh'
+            proportionToKeep = 0.25
+        elif i==2:
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = 'minOfTanh'
+            proportionToKeep = 0.25
+        elif i==3:
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = 'AveragingW'
+            proportionToKeep = 0.25
+        elif i==4:
+            C_Searching = False
+            CV_Mode = 'CVforCsearch'
+            AggregW = None
+            proportionToKeep = 0.25
+        elif i==5:
+            C_Searching = True
+            CV_Mode = 'CV'
+            AggregW = None
+            proportionToKeep = 0.25
+    
+        for database in database_tab:
+            ll = []
+            l01 = []
+            lclassif = []
+            for i in range(number_restarts):
+                aps,aps010,apsClassif = tfR_FRCNN(demonet = 'res152_COCO',database = database,ReDo=True,
+                                          verbose = False,testMode = False,jtest = 'cow',
+                                          PlotRegions = False,saved_clf=False,RPN=False,
+                                          CompBest=False,Stocha=True,k_per_bag=300,
+                                          parallel_op=True,CV_Mode=CV_Mode,num_split=2,
+                                          WR=True,init_by_mean =None,seuil_estimation='',
+                                          restarts=11,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+                                          C=1.0,Optimizer='GradientDescent',norm='',
+                                          transform_output='tanh',with_rois_scores_atEnd=False,
+                                          with_scores=True,epsilon=0.01,restarts_paral='paral',
+                                          Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                                          k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                          gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                          thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW,proportionToKeep=proportionToKeep)
+                tf.reset_default_graph()
+                # aps ne contient pas le mean sur les classes en fait
+                ll += [aps]
+                l01 += [aps010]
+                lclassif += [apsClassif]
+                
+            ll_all = np.vstack(ll)
+            l01_all = np.vstack(l01)
+            apsClassif_all = np.vstack(lclassif)
+            
+            
+            Dict[database] = {}
+            Dict[database]['AP@.5'] =  ll_all
+            Dict[database]['AP@.1'] =  l01_all
+            Dict[database]['APClassif'] =  apsClassif_all
+    
+            if database=='WikiTenLabels':
+                ll_all = np.delete(ll_all, [1,2,9], axis=1)         
+            if not(database=='PeopleArt'):
+                ll_all_mean = np.mean(ll_all,axis=0) # Moyenne par ligne / reboot
+            else:
+                ll_all_mean = ll_all.ravel()
+            std_ll_all_mean= np.std(ll_all_mean)
+            print('~~~~ !! ~~~~ ')
+            print(database,'with ',number_restarts,' reboot of the method')
+            print('For IuO >= 0.5')
+            print(ll_all_mean)
+            print(arrayToLatex(ll_all_mean,per=True))
+            print('std of the mean of mean :',100*std_ll_all_mean)
+            
+            print('~~~~')
+            print('All data :')
+            print(ll_all)
+            print('Mean :',np.mean(ll_all,axis=0))
+            print('Min :',np.min(ll_all,axis=0))
+            print('Max :',np.max(ll_all,axis=0))
+            print('Std :',np.std(ll_all,axis=0))
+            print('~~~~')
+            
+            ll_all = l01_all
+            if database=='WikiTenLabels':
+                ll_all = np.delete(ll_all, [1,2,9], axis=1)         
+            if database=='WikiTenLabels':
+                ll_all = np.delete(ll_all, [1,2,9], axis=1)         
+            if not(database=='PeopleArt'):
+                ll_all_mean = np.mean(ll_all,axis=0) # Moyenne par ligne / reboot
+            else:
+                ll_all_mean =ll_all.ravel()
+            std_ll_all_mean= np.std(ll_all_mean)
+            print('~~~~ !! ~~~~ ')
+            print('For IuO >= 0.1')
+            print(ll_all_mean)
+            print(arrayToLatex(ll_all_mean,per=True))
+            print('std of the mean of mean :',100*std_ll_all_mean)
+            print('~~~~')
+            print('All data :')
+            print(ll_all)
+            print('Mean :',np.mean(ll_all,axis=0))
+            print('Min :',np.min(ll_all,axis=0))
+            print('Max :',np.max(ll_all,axis=0))
+            print('Std :',np.std(ll_all,axis=0))
+            print('~~~~')
+            
+            ll_all = apsClassif_all
+            if database=='WikiTenLabels':
+                ll_all = np.delete(ll_all, [1,2,9], axis=1)         
+            if database=='WikiTenLabels':
+                ll_all = np.delete(ll_all, [1,2,9], axis=1)         
+            if not(database=='PeopleArt'):
+                ll_all_mean = np.mean(ll_all,axis=0) # Moyenne par ligne / reboot
+            else:
+                ll_all_mean = ll_all.ravel()
+            std_ll_all_mean= np.std(ll_all_mean)
+            print('~~~~ !! ~~~~ ')
+            print('For Classification')
+            print(ll_all_mean)
+            print(arrayToLatex(ll_all_mean,per=True))
+            print('std of the mean of mean :',100*std_ll_all_mean)
+            print('~~~~')
+            print('All data :')
+            print(ll_all)
+            print('Mean :',np.mean(ll_all,axis=0))
+            print('Min :',np.min(ll_all,axis=0))
+            print('Max :',np.max(ll_all,axis=0))
+            print('Std :',np.std(ll_all,axis=0))
+            print('~~~~')
+        name_dict = path_data + 'C_Searching'+str(C_Searching) + '_' +CV_Mode+ str(AggregW) +str(proportionToKeep)
+        with open(name_dict, 'wb') as f:
+            pickle.dump(Dict, f, pickle.HIGHEST_PROTOCOL)
+    
+    
 if __name__ == '__main__':
-#    FasterRCNN_TL_MILSVM_newVersion()
+#    FasterRCNN_TL_MI_max_newVersion()
 #    petitTestIllustratif()
-#    FasterRCNN_TL_MILSVM_ClassifOutMILSVM()
+#    FasterRCNN_TL_MI_max_ClassifOutMI_max()
 #    petitTestIllustratif_RefineRegions()
-#    PlotRegionsLearnByMILSVM()
-#    FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',database = 'Paintings', 
-#                                          verbose = True,testMode = True,jtest = 6,
-#                                          PlotRegions = False)
-#    FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',
-#                                          database = 'Paintings', 
-#                                          verbose = True,testMode = True,jtest = 6,
-#                                          PlotRegions = False,RPN=False,Stocha=False,
-#                                          k_per_bag=30)
-#    FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',
-#                                          database = 'VOC12', 
-#                                          verbose = True,testMode = True,jtest = 0,
-#                                          PlotRegions = False,RPN=False,Stocha=False,
-#                                          k_per_bag=30)
-#
-#    FasterRCNN_TL_MILSVM_ClassifOutMILSVM(demonet = 'res152_COCO',
-#                                          database = 'WikiTenLabels', 
-#                                          verbose = True,testMode = True,jtest = 0,
-#                                          PlotRegions = False,RPN=False,CompBest=False,WR=True)
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
-#                         normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                         gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
+#    PlotRegionsLearnByMI_max()
+#    FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Paintings', 
+    # Baseline on PeopleArt
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+#                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
+#                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False,restarts = 0,max_iter_MI_max=50) # defaultSGD or LinearSVC
+
+    VariationStudy()
     
-    
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
+#    listAggregOnProdorTanh = ['AveragingW','meanOfProd','medianOfProd','maxOfProd','maxOfTanh',\
+#                                       'meanOfTanh','medianOfTanh','minOfTanh','minOfProd']
+#    with_scores = True
+#    for elt in listAggregOnProdorTanh:
+#        print(elt)
+#        tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
 #                                  verbose = True,testMode = False,jtest = 'cow',
 #                                  PlotRegions = False,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=30,
+#                                  CompBest=False,Stocha=True,k_per_bag=300,
 #                                  parallel_op=True,CV_Mode='',num_split=2,
 #                                  WR=True,init_by_mean =None,seuil_estimation='',
 #                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
 #                                  C=1.0,Optimizer='GradientDescent',norm='',
 #                                  transform_output='tanh',with_rois_scores_atEnd=False,
-#                                  with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                                  k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                                  thresh_evaluation=0.05,TEST_NMS=0.3,eval_onk300=True)  
- 
-    
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
-#                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
-     
-    
-     # Baseline on WikiTenLabels
-#    print('================ Wiki ======================')
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'MISVM',verbose = True,
-#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'WikiTenLabels',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
-#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-#    print('======================================')
-    # Baseline on PeopleArt
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
-#                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False,restarts = 0,max_iter_MILSVM=50) # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'PeopleArt',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'MAX1',verbose = True,
-#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'PeopleArt',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'PeopleArt',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'PeopleArt',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'MAX1',verbose = True,
-#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'PeopleArt',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-    
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'MAX1',verbose = True,
-#                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'MAX1',verbose = True,
-#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
-#                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-##    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
-##                 normalisation= False,baseline_kind = 'MAXA',verbose = True,
-##                 gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False) # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'WikiTenLabels',Test_on_k_bag=False,
-#                     normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                     gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
-    
-#    
-  
-    # Pour afficher les zones de People Art 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'MiniTrain_WikiTenLabels', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=0,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'MiniTrain_WikiTenLabels', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=0,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                              votingW=True,proportionToKeep=0.25) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=49,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                              votingW=True,proportionToKeep=0.25) 
-    
-    
-    listAggregOnProdorTanh = ['AveragingW','meanOfProd','medianOfProd','maxOfProd','maxOfTanh',\
-                                       'meanOfTanh','medianOfTanh','minOfTanh','minOfProd']
-    with_scores = True
-    for elt in listAggregOnProdorTanh:
-        print(elt)
-        tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
-                                  verbose = True,testMode = False,jtest = 'cow',
-                                  PlotRegions = False,saved_clf=False,RPN=False,
-                                  CompBest=False,Stocha=True,k_per_bag=300,
-                                  parallel_op=True,CV_Mode='',num_split=2,
-                                  WR=True,init_by_mean =None,seuil_estimation='',
-                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                                  C=1.0,Optimizer='GradientDescent',norm='',
-                                  transform_output='tanh',with_rois_scores_atEnd=False,
-                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-                                  k_intopk=1,C_Searching=False,predict_with='MILSVM',
-                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=elt,proportionToKeep=0.25) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = True,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='CV',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=True,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                              votingW=False,proportionToKeep=1.0,
-#                              plot_onSubSet =['angel','Child_Jesus', 'crucifixion_of_Jesus','Mary','nudity', 'ruins','Saint_Sebastien']) 
-#    
-
-#    database_tab = ['PeopleArt','WikiTenLabels','watercolor']
-#    number_restarts = 10
-#    max_iters_all_base = 300
-#    C_Searching = True
-#    CV_Mode = 'CV'
-#    for database in database_tab:
-#        ll = []
-#        l01 = []
-#        lclassif = []
-#        for i in range(number_restarts):
-#            aps,aps010,apsClassif = tfR_FRCNN(demonet = 'res152_COCO',database = database,ReDo=True,
-#                                      verbose = False,testMode = False,jtest = 'cow',
-#                                      PlotRegions = False,saved_clf=False,RPN=False,
-#                                      CompBest=False,Stocha=True,k_per_bag=300,
-#                                      parallel_op=True,CV_Mode=CV_Mode,num_split=2,
-#                                      WR=True,init_by_mean =None,seuil_estimation='',
-#                                      restarts=11,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
-#                                      C=1.0,Optimizer='GradientDescent',norm='',
-#                                      transform_output='tanh',with_rois_scores_atEnd=False,
-#                                      with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                                      Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                                      k_intopk=1,C_Searching=C_Searching,predict_with='MILSVM',
-#                                      gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                                      thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                                      votingW=False,proportionToKeep=0.5,AveragingWportion=True,
-#                                      votingWmedian=False)
-#            tf.reset_default_graph()
-#            # aps ne contient pas le mean sur les classes en fait
-#            ll += [aps]
-#            l01 += [aps010]
-#            lclassif += [apsClassif]
-#        ll_all = np.vstack(ll)
-#        l01_all = np.vstack(l01)
-#        apsClassif_all = np.vstack(lclassif)
-#        if database=='WikiTenLabels':
-#            ll_all = np.delete(ll_all, [1,2,9], axis=1)         
-##        print(ll_all.shape)
-#        ll_all_mean = np.mean(ll_all,axis=0) # Moyenne par ligne / reboot
-##        print(ll_all_mean.shape)
-#        mean_ll_all_mean= np.mean(ll_all_mean)
-#        std_ll_all_mean= np.std(ll_all_mean)
-#        print('~~~~ !! ~~~~ ')
-#        print(database,'with ',number_restarts,' reboot of the method')
-#        print('For IuO >= 0.5')
-#        print(ll_all_mean)
-#        print(arrayToLatex(ll_all_mean,per=True))
-#        print('std of the mean of mean :',100*std_ll_all_mean)
-#        
-#        print('~~~~')
-#        print(np.mean(ll_all,axis=0))
-#        print(np.min(ll_all,axis=0))
-#        print(np.max(ll_all,axis=0))
-#        print(np.std(ll_all,axis=0))
-#        print('~~~~')
-#        
-#        ll_all = l01_all
-#        if database=='WikiTenLabels':
-#            ll_all = np.delete(ll_all, [1,2,9], axis=1)         
-##        print(ll_all.shape)
-#        ll_all_mean = np.mean(ll_all,axis=0) # Moyenne par ligne / reboot
-##        print(ll_all_mean.shape)
-#        mean_ll_all_mean= np.mean(ll_all_mean)
-#        std_ll_all_mean= np.std(ll_all_mean)
-#        print('~~~~ !! ~~~~ ')
-#        print('For IuO >= 0.1')
-#        print(ll_all_mean)
-#        print(arrayToLatex(ll_all_mean,per=True))
-#        print('std of the mean of mean :',100*std_ll_all_mean)
-#        print('~~~~')
-#        print(np.mean(ll_all,axis=0))
-#        print(np.min(ll_all,axis=0))
-#        print(np.max(ll_all,axis=0))
-#        print(np.std(ll_all,axis=0))
-#        print('~~~~')
-#        
-#        ll_all = apsClassif_all
-#        if database=='WikiTenLabels':
-#            ll_all = np.delete(ll_all, [1,2,9], axis=1)         
-##        print(ll_all.shape)
-#        ll_all_mean = np.mean(ll_all,axis=0) # Moyenne par ligne / reboot
-##        print(ll_all_mean.shape)
-#        mean_ll_all_mean= np.mean(ll_all_mean)
-#        std_ll_all_mean= np.std(ll_all_mean)
-#        print('~~~~ !! ~~~~ ')
-#        print('For Classification')
-#        print(ll_all_mean)
-#        print(arrayToLatex(ll_all_mean,per=True))
-#        print('std of the mean of mean :',100*std_ll_all_mean)
-#        print('~~~~')
-#        print(np.mean(ll_all,axis=0))
-#        print(np.min(ll_all,axis=0))
-#        print(np.max(ll_all,axis=0))
-#        print(np.std(ll_all,axis=0))
-#        print('~~~~')
-        
-#    database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
-#    number_restarts = 10
-#    
-#    for database in database_tab:
-#        ll = []
-#        for i in range(number_restarts):
-#            aps = tfR_FRCNN(demonet = 'res152_COCO',database = database,ReDo=True,
-#                                      verbose = False,testMode = False,jtest = 'cow',
-#                                      PlotRegions = False,saved_clf=False,RPN=False,
-#                                      CompBest=False,Stocha=True,k_per_bag=300,
-#                                      parallel_op=True,CV_Mode='',num_split=2,
-#                                      WR=True,init_by_mean =None,seuil_estimation='',
-#                                      restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                                      C=1.0,Optimizer='GradientDescent',norm='',
-#                                      transform_output='tanh',with_rois_scores_atEnd=False,
-#                                      with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                                      Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                                      k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                                      gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                                      thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                                      votingW=False,proportionToKeep=0.25,AveragingWportion=False,
-#                                      votingWmedian=False) 
-#            ll += [aps]
-#        ll_all = np.vstack(ll)
-#        if database=='WikiTenLabels':
-#            ll_all = np.delete(ll_all, [1,2,9], axis=1)
-#            ll_all_wt_mean = np.delete(ll_all, [-1], axis=1)
-#            ll_all[:,-1] = np.mean(ll_all_wt_mean,axis=1)
-#        print(ll_all)
-#        print('~~~~')
-#        print(database,'with ',number_restarts,' restarts')
-#        print(np.mean(ll_all,axis=0))
-#        print(np.min(ll_all,axis=0))
-#        print(np.max(ll_all,axis=0))
-#        print(np.std(ll_all,axis=0))
-#        print('~~~~')
-#        
-#    database_tab = ['VOC2007']
-#    number_restarts = 10
-#    
-#    for database in database_tab:
-#        ll = []
-#        for i in range(number_restarts):
-#            aps = tfR_FRCNN(demonet = 'res101_VOC07',database = database,ReDo=True,
-#                                      verbose = False,testMode = False,jtest = 'cow',
-#                                      PlotRegions = False,saved_clf=False,RPN=False,
-#                                      CompBest=False,Stocha=True,k_per_bag=300,
-#                                      parallel_op=True,CV_Mode='',num_split=2,
-#                                      WR=True,init_by_mean =None,seuil_estimation='',
-#                                      restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                                      C=1.0,Optimizer='GradientDescent',norm='',
-#                                      transform_output='tanh',with_rois_scores_atEnd=False,
-#                                      with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                                      Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                                      k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                                      gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                                      thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                                      votingW=False,proportionToKeep=0.25,AveragingWportion=False,
-#                                      votingWmedian=False) 
-#            ll += [aps]
-#        ll_all = np.vstack(ll)
-#        if database=='WikiTenLabels':
-#            ll_all = np.delete(ll_all, [1,2,9], axis=1)
-#            ll_all_wt_mean = np.delete(ll_all, [-1], axis=1)
-#            ll_all[:,-1] = np.mean(ll_all_wt_mean,axis=1)
-#        print(ll_all)
-#        print('~~~~')
-#        print(database,'with ',number_restarts,' restarts')
-#        print(np.mean(ll_all,axis=0))
-#        print(np.min(ll_all,axis=0))
-#        print(np.max(ll_all,axis=0))
-#        print(np.std(ll_all,axis=0))
-#        print('~~~~')
-#
-#                           
-        
-        
-##    C_Searching = True
-##    print('=========== Csearch + CV =============')
-##    for database in database_tab:
-##        tfR_FRCNN(demonet = 'res152_COCO',database = database, 
-##                                  verbose = True,testMode = False,jtest = 'cow',
-##                                  PlotRegions = False,saved_clf=False,RPN=False,
-##                                  CompBest=False,Stocha=True,k_per_bag=300,
-##                                  parallel_op=True,CV_Mode='CV',num_split=2,
-##                                  WR=True,init_by_mean =None,seuil_estimation='',
-##                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-##                                  C=1.0,Optimizer='GradientDescent',norm='',
-##                                  transform_output='tanh',with_rois_scores_atEnd=False,
-##                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-##                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-##                                  k_intopk=1,C_Searching=C_Searching,predict_with='MILSVM',
-##                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-##                                  thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-##                                  votingW=False,proportionToKeep=0.25,AveragingWportion=False,
-##                                  votingWmedian=False) 
-#    
-#    for database in database_tab:
-#        tfR_FRCNN(demonet = 'res152_COCO',database = database, 
-#                                  verbose = True,testMode = False,jtest = 'cow',
-#                                  PlotRegions = False,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,
-#                                  parallel_op=True,CV_Mode='CV',num_split=2,
-#                                  WR=True,init_by_mean =None,seuil_estimation='',
-#                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                                  C=0.500000001,Optimizer='GradientDescent',norm='',
-#                                  transform_output='tanh',with_rois_scores_atEnd=False,
 #                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
 #                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                                  k_intopk=1,C_Searching=False,predict_with='MILSVM',
+#                                  k_intopk=1,C_Searching=False,predict_with='MI_max',
 #                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                                  thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                                  votingW=False,proportionToKeep=0.5,AveragingWportion=False,
-#                                  votingWmedian=False) 
-#    C_values =  np.arange(0.5,1.5,0.1,dtype=np.float32)
-#    database = 'VOC2007'
-#    for C in C_values:
-#        tfR_FRCNN(demonet = 'res152_COCO',database = database, 
-#                                  verbose = True,testMode = False,jtest = 'cow',
-#                                  PlotRegions = False,saved_clf=False,RPN=False,
-#                                  CompBest=False,Stocha=True,k_per_bag=300,
-#                                  parallel_op=True,CV_Mode='CV',num_split=2,
-#                                  WR=True,init_by_mean =None,seuil_estimation='',
-#                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                                  C=C,Optimizer='GradientDescent',norm='',
-#                                  transform_output='tanh',with_rois_scores_atEnd=False,
-#                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-#                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                                  k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                                  thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                                  votingW=False,proportionToKeep=0.25,AveragingWportion=False,
-#                                  votingWmedian=False)
-       
-        
-        
-#    tfR_FRCNN(demonet = 'res152_COCO',database = database, 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=with_scores,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                              votingW=False,proportionToKeep=0.5,AveragingWportion=True) 
-#    database = 'watercolor'
-#    tfR_FRCNN(demonet = 'res152_COCO',database = database, 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=with_scores,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                              votingW=False,proportionToKeep=0.25,AveragingWportion=True) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = database, 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=with_scores,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                              votingW=False,proportionToKeep=0.5,AveragingWportion=True) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = database, 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                              votingW=True,proportionToKeep=1.0) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'WikiTenLabels', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=True,
-#                              votingW=False,proportionToKeep=0.25) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=True,
-#                              votingW=False,proportionToKeep=0.25) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                              votingW=True,proportionToKeep=0.25) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=True,
-#                              votingW=False,proportionToKeep=0.25) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AveragingW=False,
-#                              votingW=True,proportionToKeep=0.25) 
-    
-
-    
-    # A faire
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', 
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MILSVM',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3) 
-#    
-    # calcul a lancer plus tard !!! 
+#                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=elt,proportionToKeep=0.25) 
 #
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'WikiTenLabels',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-#                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'PeopleArt',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-#                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MEAN',verbose = True,
-#                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MEAN',verbose = True,
-#                             gridSearch=True,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC') # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                             gridSearch=False,k_per_bag=300,n_jobs=2)
-#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                             gridSearch=True,k_per_bag=300,n_jobs=1)
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'watercolor',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                             gridSearch=True,k_per_bag=300,n_jobs=2)
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-#                             gridSearch=False,k_per_bag=300,n_jobs=1,clf='defaultSGD') # defaultSGD or LinearSVC
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MAX1',verbose = True,
-#                             gridSearch=True,k_per_bag=300,n_jobs=1)
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                             gridSearch=False,k_per_bag=300,n_jobs=1)
-#    Baseline_FRCNN_TL_Detect(demonet = 'res101_VOC07',database = 'VOC2007',Test_on_k_bag=False,
-#                             normalisation= False,baseline_kind = 'MAXA',verbose = True,
-#                             gridSearch=True,k_per_bag=300,n_jobs=1)
-
-
 
    # A comparer avec du 93s par restart pour les 6 classes de watercolor
 

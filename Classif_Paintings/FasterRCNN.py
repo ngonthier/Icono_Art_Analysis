@@ -46,7 +46,7 @@ from Custom_Metrics import ranking_precision_score
 from Classifier_Evaluation import Classification_evaluation
 import os.path
 import misvm # Library to do Multi Instance Learning with SVM
-from trouver_classes_parmi_K import MILSVM
+from trouver_classes_parmi_K import MI_max
 import pathlib
 from tool_on_Regions import reduce_to_k_regions
 from tf_faster_rcnn.lib.datasets.factory import get_imdb
@@ -718,7 +718,7 @@ def read_features_computePerfPaintings():
     
     restarts = 0
     max_iters = 300
-    #from trouver_classes_parmi_K import MILSVM
+    #from trouver_classes_parmi_K import MI_max
     X_train = features_resnet[df_label['set']=='train',:]
     y_train = classes_vectors[df_label['set']=='train',:]
     X_test= features_resnet[df_label['set']=='test',:]
@@ -736,11 +736,11 @@ def read_features_computePerfPaintings():
         pos_ex =  np.expand_dims(X_trainval[y_trainval[:,j]==1,:],axis=1)
         print(pos_ex.shape)
         
-        classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+        classifierMI_max = MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
                                       max_iters=max_iters,symway=True,
                                       all_notpos_inNeg=False,gridSearch=True,
                                       verbose=True)     
-        classifier = classifierMILSVM.fit(pos_ex, neg_ex)
+        classifier = classifierMI_max.fit(pos_ex, neg_ex)
         
         decision_function_output = classifier.decision_function(X_test)
         y_predict_confidence_score_classifier  = decision_function_output
@@ -2225,18 +2225,18 @@ def Illus_box_ratio():
     return(0) # Not really necessary indead
          
         
-def FasterRCNN_TL_MILSVM(reDo = False,normalisation=False):
+def FasterRCNN_TL_MI_max(reDo = False,normalisation=False):
     """
     Compute the performance on the Your Paintings subset ie Crowley
     on the fc7 output but with an Multi Instance SVM classifier for classifier the
     bag with the Said method
     @param reDo : recompute the feature even if it exists saved on the disk and erases the old one
-    @param normalisation : normalisation of the date before doing the MILSVM from Said
+    @param normalisation : normalisation of the date before doing the MI_max from Said
     Attention cette fonction ne fonctionne pas et je n'ai pas trouver le bug, il ne 
-    faut pas utiliser cette fonction mais plutot aller voir TL_MILSVM
+    faut pas utiliser cette fonction mais plutot aller voir TL_MI_max
     Cette fonction ne marche pas
     """
-    print("Attention cette fonction ne fonctionne pas et je n'ai pas trouver le bug, il ne faut pas utiliser cette fonction mais plutot aller voir TL_MILSVM")
+    print("Attention cette fonction ne fonctionne pas et je n'ai pas trouver le bug, il ne faut pas utiliser cette fonction mais plutot aller voir TL_MI_max")
     raise NotImplemented # TODO remove this function !
     TestMode_ComparisonWithBestObjectScoreKeep = True
     path_to_img = '/media/HDD/data/Painting_Dataset/'
@@ -2419,15 +2419,15 @@ def FasterRCNN_TL_MILSVM(reDo = False,normalisation=False):
             print("Learning of the Multiple Instance Learning SVM")
             restarts = 0
             max_iters = 300
-            #from trouver_classes_parmi_K import MILSVM
-            classifierMILSVM = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
+            #from trouver_classes_parmi_K import MI_max
+            classifierMI_max = MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=restarts,
                                       max_iters=max_iters,symway=True,
                                       all_notpos_inNeg=False,gridSearch=True,
                                       verbose=True)
             if normalisation == True:
-                classifier = classifierMILSVM.fit(pos_ex_norm, neg_ex_norm)
+                classifier = classifierMI_max.fit(pos_ex_norm, neg_ex_norm)
             else:
-                classifier = classifierMILSVM.fit(pos_ex, neg_ex)
+                classifier = classifierMI_max.fit(pos_ex, neg_ex)
             print("End training")
             y_predict_confidence_score_classifier = np.zeros_like(y_test)
             labels_test_predited  =  np.zeros_like(y_test)
@@ -2652,10 +2652,10 @@ if __name__ == '__main__':
     ## Faster RCNN re-scale  the  images  such  that  their  shorter  side  = 600 pixels  
 #    Illus_NMS_threshold_test()
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=True)
-#    FasterRCNN_TL_MILSVM(reDo = False,normalisation=False)
+#    FasterRCNN_TL_MI_max(reDo = False,normalisation=False)
 #    read_features_computePerfPaintings()
 #    FasterRCNN_TransferLearning_misvm()
-#    FasterRCNN_TL_MILSVM()
+#    FasterRCNN_TL_MI_max()
     #FasterRCNN_ImagesObject()
     #run_FasterRCNN_demo()
     #run_FasterRCNN_Perf_Paintings()

@@ -84,7 +84,7 @@ def reduce_std(x, axis=None, keepdims=False):
     """
     return tf.sqrt(reduce_var(x, axis=axis, keepdims=keepdims))
 
-class MILSVM():
+class MI_max():
     """
     The MIL-SVM approach of Said Ladjal
     We advise you to normalized you input data ! by 
@@ -291,7 +291,7 @@ class MILSVM():
         return(self.NegativeRegionsScore.copy())
 
 
-class tf_MILSVM():
+class tf_MI_max():
     """
     The MIL-SVM approach of Said Ladjal, try to get a tf version that used the 
     different tf optimizer
@@ -336,7 +336,7 @@ class tf_MILSVM():
         @param max_iters_sgdc : Nombre d iterations pour la descente de gradient stochastique classification
         @param debug : default False : if we want to debug 
         @param is_betweenMinus1and1 : default False : if we have the label value alreaddy between -1 and 1
-        @param CV_Mode : default None : cross validation mode in the MILSVM : possibility ; None, CV in k split or LA for Leave apart one of the split
+        @param CV_Mode : default None : cross validation mode in the MI_max : possibility ; None, CV in k split or LA for Leave apart one of the split
         @param num_split : default 2 : the number of split/fold used in the cross validation method
         @param with_scores : default False : Multiply the scalar product before the max by the objectness score from the FasterRCNN
         @param epsilon : default 0. : The term we add to the object score
@@ -728,7 +728,7 @@ class tf_MILSVM():
 #        tf.reset_default_graph()
         return(W_tmp,b_tmp)
         
-    def fit_MILSVM_tfrecords(self,data_path,class_indice,shuffle=True,WR=False,
+    def fit_MI_max_tfrecords(self,data_path,class_indice,shuffle=True,WR=False,
                              init_by_mean=None,norm=None,performance=False,
                              restarts_paral='',C_Searching=False):
         """" 
@@ -1747,14 +1747,14 @@ class tf_MILSVM():
                 
 
         export_dir = ('/').join(data_path.split('/')[:-1])
-        export_dir += '/MILSVM/' + str(time.time())
+        export_dir += '/MI_max/' + str(time.time())
         name_model = export_dir + '/model'
         saver.save(sess,name_model)
         
         sess.close()
-        if self.verbose : print("Return MILSVM weights")
+        if self.verbose : print("Return MI_max weights")
         return(name_model) 
-        
+        # End of the function !!        
 
 
     def blabla(self,data_path):
@@ -1921,6 +1921,8 @@ class tf_MILSVM():
         sess.close()
         if self.verbose : print("End SGDC training")
         return(name_model)
+        
+    
         
         
     def fit_Stocha(self,bags,bags_label,shuffle=True):
@@ -2355,7 +2357,7 @@ def test_Stocha():
     N,k,d = bags.shape
     n_batch = N // mini_batch_size + (N % mini_batch_size != 0)
     max_iters = n_batch*max_iters_wt_minibatch
-    classifier= tf_MILSVM(LR=0.02,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=max_iters,
+    classifier= tf_MI_max(LR=0.02,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=max_iters,
                  symway=True,final_clf=None,verbose=True,Optimizer='Adam',
                  mini_batch_size=mini_batch_size)
     
@@ -2462,16 +2464,16 @@ def test_selection():
     
     classifiers = {}
     
-    classifiers['classifMIL'] = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
+    classifiers['classifMIL'] = MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
                  symway=True,all_notpos_inNeg=True,final_clf=None,verbose=True)
-    classifiers['GradientDescent'] = tf_MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
+    classifiers['GradientDescent'] = tf_MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
                  symway=True,final_clf=None,verbose=True,Optimizer='GradientDescent')
-    classifiers['Adam'] = tf_MILSVM(LR=0.005,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
+    classifiers['Adam'] = tf_MI_max(LR=0.005,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
                  symway=True,final_clf=None,verbose=True,Optimizer='Adam')
-    classifiers['Momentum'] = tf_MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
+    classifiers['Momentum'] = tf_MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
                  symway=True,final_clf=None,verbose=True,Optimizer='Momentum',
                  optimArg={'learning_rate':0.01,'momentum': 0.01})
-    classifiers['Adagrad'] = tf_MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
+    classifiers['Adagrad'] = tf_MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
                  symway=True,final_clf=None,verbose=True,Optimizer='Adagrad')
 
     score = {}
@@ -2563,7 +2565,7 @@ def test_classif():
     print(data_p1.shape) #(200, 30, 2048)
     print(data_p2.shape) #(4000, 30, 2048)
     
-    classifMIL = MILSVM(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
+    classifMIL = MI_max(LR=0.01,C=1.0,C_finalSVM=1.0,restarts=10, max_iters=300,
                  symway=True,all_notpos_inNeg=True,final_clf='LinearSVC',verbose=True)
     classifier = classifMIL.fit(data_p1,data_p2)
     
@@ -2709,7 +2711,7 @@ def test():
     #%%   FORME 2 NON ENCORE IMPLEMENTEE
     
     
-#%% Code pour tf_MILSVM autre facon    
+#%% Code pour tf_MI_max autre facon    
     
     # #            tab_W = [[] for _ in range(self.num_classes)]
 #            tab_W_r = [[] for _ in range(self.num_classes)]
