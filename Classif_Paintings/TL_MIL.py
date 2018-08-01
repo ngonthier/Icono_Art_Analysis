@@ -2021,7 +2021,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   predict_with='MI_max',thres_FinalClassifier=0.5,
                                   thresh_evaluation=0.05,TEST_NMS=0.3,eval_onk300=False,
                                   optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
-                                  plot_onSubSet=None):
+                                  plot_onSubSet=None,loss_type=None):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2409,6 +2409,17 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     elif AggregW=='minOfTanh':
         AggregW_str = '_VMinTanh'+str(proportionToKeep)
     
+    if loss_type is None or loss_type=='':
+        loss_type_str =''
+    elif loss_type=='MSE':
+        loss_type_str = 'LossMSE'
+    elif loss_type=='hinge':
+        loss_type_str = 'Losshinge'
+    elif loss_type=='hinge_tanh':
+        loss_type_str = 'LosshingeTanh'
+    else:
+        raise(NotImplemented)
+    
     Number_of_positif_elt = 1 
     number_zone = k_per_bag
     
@@ -2423,7 +2434,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                   TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
-                  proportionToKeep]
+                  proportionToKeep,loss_type]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2432,7 +2443,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                      ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
                      'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
-                     'AggregW','proportionToKeep']
+                     'AggregW','proportionToKeep','loss_type']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2444,7 +2455,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
         +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
-        + AggregW_str
+        + AggregW_str + loss_type_str
     cachefile_model = path_data +  cachefile_model_base+'_MI_max.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
@@ -2497,7 +2508,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                    mini_batch_size=mini_batch_size,num_features=num_features,debug=False,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
                    Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
-                   k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep)
+                   k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
+                   loss_type=loss_type)
              export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                    WR=WR,performance=performance,restarts_paral=restarts_paral,
@@ -4672,7 +4684,7 @@ if __name__ == '__main__':
 #                 normalisation= False,baseline_kind = 'miSVM',verbose = True,
 #                 gridSearch=False,k_per_bag=300,n_jobs=1,clf='LinearSVC',testMode=False,restarts = 0,max_iter_MI_max=50) # defaultSGD or LinearSVC
 
-    VariationStudy()
+#    VariationStudy()
     
 #    listAggregOnProdorTanh = ['AveragingW','meanOfProd','medianOfProd','maxOfProd','maxOfTanh',\
 #                                       'meanOfTanh','medianOfTanh','minOfTanh','minOfProd']
@@ -4693,6 +4705,21 @@ if __name__ == '__main__':
 #                                  k_intopk=1,C_Searching=False,predict_with='MI_max',
 #                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
 #                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=elt,proportionToKeep=0.25) 
+        tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
+                                  verbose = True,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode='',num_split=2,
+                                  WR=True,init_by_mean =None,seuil_estimation='',
+                                  restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=True,epsilon=0.01,restarts_paral='paral',
+                                  Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                                  k_intopk=1,C_Searching=False,predict_with='MI_max',
+                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
+                                  loss_type='hinge') 
 #
 
    # A comparer avec du 93s par restart pour les 6 classes de watercolor

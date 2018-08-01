@@ -301,7 +301,7 @@ class tf_MI_max():
 
     def __init__(self,LR=0.01,C=1.0,C_finalSVM=1.0,restarts=0, max_iters=300,
                  symway=True,all_notpos_inNeg=True,gridSearch=False,n_jobs=-1,
-                 final_clf='LinearSVC',verbose=True,Optimizer='GradientDescent',
+                 final_clf='LinearSVC',verbose=True,Optimizer='GradientDescent',loss_type=None,
                   optimArg=None,mini_batch_size=200,buffer_size=10000,num_features=2048,
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
                   is_betweenMinus1and1=False,CV_Mode=None,num_split=2,with_scores=False,
@@ -330,6 +330,8 @@ class tf_MI_max():
         @param verbose : print optimization status messages [default: True]
         @param mini_batch_size : taille des mini_batch_size
         @param buffer_size : taille du buffer
+        @param loss_type : Type of the loss :
+            
         @param num_features : pnumbre de features
         @param num_rois : nombre de regions d interet
         @param num_classes : numbre de classes dans la base
@@ -367,6 +369,7 @@ class tf_MI_max():
         self.C_finalSVM = C_finalSVM
         self.restarts = restarts
         self.max_iters = max_iters
+        self.loss_type = loss_type
         if max_iters_sgdc is None:
             self.max_iters_sgdc = max_iters
         else:
@@ -783,6 +786,8 @@ class tf_MI_max():
         if self.class_indice>-1 and self.restarts_paral_Dim: raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_V2: raise(NotImplemented)
         if not((self.AggregW =='' or self.AggregW is  None)) and not(self.restarts_paral_V2): raise(NotImplemented)
+        if not((self.loss_type =='' or self.loss_type is  None)) and not(self.restarts_paral_V2): raise(NotImplemented)
+        if not((self.loss_type =='' or self.loss_type is  None)) and (self.CV_Mode=='CVforCsearch'): raise(NotImplemented) # TODO !!!!
         if self.class_indice>-1 and (self.Max_version=='sparsemax' or self.seuillage_by_score or self.Max_version=='mintopk'): raise(NotImplemented)
         if self.restarts_paral_V2 and (self.restarts==0) and self.C_Searching: 
             print('This don t work at all, bug not solved about the argmin')
@@ -1017,9 +1022,30 @@ class tf_MI_max():
                 weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value)
             if self.restarts_paral_V2:
                 weights_bags_ratio = tf.tile(tf.transpose(weights_bags_ratio,[1,0]),[self.paral_number_W,1])
+                y_long_pm1 = tf.tile(tf.transpose(tf.add(tf.multiply(y_,2),-1),[1,0]), [self.paral_number_W,1])
             else:
                 weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0])
-            Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
+            
+            y_tilde_i = tf.tanh(Max)
+            if self.loss_type == '' or self.loss_type is None:
+                Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
+            elif self.loss_type=='MSE':
+                if self.verbose: print('Used of the mean squared Error')
+                # y_ in [0,1]  et y_tilde_i in [-1,1]
+                squared = tf.pow(tf.add(-y_tilde_i,y_long_pm1),2)
+                Tan = tf.multiply(tf.reduce_sum(tf.multiply(squared,tf.abs(weights_bags_ratio)),axis=-1),0.25)
+                #Tan = tf.losses.mean_squared_error(tf.add(tf.multiply(y_,2),-1),tf.transpose(y_tilde_i,,weights=tf.abs(weights_bags_ratio))
+            elif self.loss_type=='hinge_tanh':
+                if self.verbose: print('Used of the hinge loss with tanh')
+                # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
+                hinge = tf.maximum(tf.add(-tf.multiply(y_tilde_i,y_long_pm1),1.),0.)
+                Tan = tf.reduce_sum(tf.multiply(hinge,tf.abs(weights_bags_ratio)),axis=-1)
+            elif self.loss_type=='hinge':
+                if self.verbose: print('Used of the hinge loss without tanh')
+                hinge = tf.maximum(tf.add(-tf.multiply(Max,y_long_pm1),1.),0.)
+                Tan = tf.reduce_sum(tf.multiply(hinge,tf.abs(weights_bags_ratio)),axis=-1)
+                
+#            Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
             if self.restarts_paral_V2:
                 if self.C_Searching:    
                     loss= tf.add(Tan,tf.multiply(C_value_repeat,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
@@ -1058,9 +1084,27 @@ class tf_MI_max():
                 weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
             if self.restarts_paral_V2:
                 weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
+                y_long_pm1_batch =  tf.tile(tf.transpose(tf.add(tf.multiply(label_batch,2),-1),[1,0]), [self.paral_number_W,1])
             else:
                 weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
-            Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
+            y_tilde_i_batch = tf.tanh(Max_batch)
+            if self.loss_type == '' or self.loss_type is None:
+                Tan_batch= tf.reduce_sum(tf.multiply(y_tilde_i_batch,weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
+            elif self.loss_type=='MSE':
+                squared_batch = tf.pow(tf.add(-y_tilde_i,y_long_pm1_batch),2)
+                Tan_batch = tf.multiply(tf.reduce_sum(tf.multiply(squared_batch,tf.abs(weights_bags_ratio_batch)),axis=-1),0.25)
+#                Tan_batch = tf.losses.mean_squared_error(tf.add(tf.multiply(label_batch,2),-1),y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
+            elif self.loss_type=='hinge_tanh':
+                # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
+                hinge_batch = tf.maximum(tf.add(-tf.multiply(y_tilde_i_batch,y_long_pm1_batch),1.),0.)
+                Tan_batch = tf.reduce_sum(tf.multiply(hinge_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
+#                Tan_batch = tf.losses.hinge_loss(label_batch,y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
+            elif self.loss_type=='hinge':
+                hinge_batch = tf.maximum(tf.add(-tf.multiply(Max_batch,y_long_pm1_batch),1.),0.)
+                Tan_batch = tf.reduce_sum(tf.multiply(hinge_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
+
+                
+#            Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
             if self.WR or self.optim_wt_Reg:
                 loss_batch= Tan_batch
             else:
@@ -1153,7 +1197,7 @@ class tf_MI_max():
                 t0 = time.time()
             sess.run(init_op)
             sess.run(shuffle_iterator.initializer)
-           
+#            print('print y_',sess.run(y_))
             for step in range(self.max_iters):
                 if self.debug: t2 = time.time()
                 sess.run(train)
@@ -1486,7 +1530,21 @@ class tf_MI_max():
                     weights_bags_ratio = tf.tile(tf.transpose(weights_bags_ratio,[1,0]),[self.paral_number_W,1])
                 else:
                     weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0])
-                Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
+                y_tilde_i = tf.tanh(Max)
+                if self.loss_type == '' or self.loss_type is None:
+                    Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
+                elif self.loss_type=='MSE':
+                    if self.verbose: print('Used of the mean squared Error')
+                    # y_ in [0,1]  et y_tilde_i in [-1,1]
+                    Tan = tf.losses.mean_squared_error(tf.add(tf.multiply(y_,2),-1),y_tilde_i,weights=tf.abs(weights_bags_ratio))
+                elif self.loss_type=='hinge_tanh':
+                    if self.verbose: print('Used of the hinge loss with tanh')
+                    # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
+                    Tan = tf.losses.hinge_loss(y_,y_tilde_i,weights=tf.abs(weights_bags_ratio))
+                elif self.loss_type=='hinge':
+                    if self.verbose: print('Used of the hinge loss without tanh')
+                    Tan = tf.losses.hinge_loss(y_,Max,weights=tf.abs(weights_bags_ratio))
+                   
                 if self.restarts_paral_V2:
                     
                     loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
@@ -1525,7 +1583,18 @@ class tf_MI_max():
                     weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
                 else:
                     weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
-                Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
+                y_tilde_i_batch = tf.tanh(Max_batch)
+                if self.loss_type == '' or self.loss_type is None:
+                    Tan_batch= tf.reduce_sum(tf.multiply(y_tilde_i_batch,weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
+                elif self.loss_type=='MSE':
+                    print('Here !!!!')
+                    Tan_batch = tf.losses.mean_squared_error(tf.add(tf.multiply(label_batch,2),-1),y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
+                elif self.loss_type=='hinge_tanh':
+                    # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
+                    Tan_batch = tf.losses.hinge_loss(label_batch,y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
+                elif self.loss_type=='hinge':
+                    Tan_batch = tf.losses.hinge_loss(label_batch,Max,weights=tf.abs(weights_bags_ratio_batch))
+
                 if self.WR or self.optim_wt_Reg:
                     loss_batch= Tan_batch
                 else:
