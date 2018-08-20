@@ -2457,6 +2457,7 @@ class ModelHyperplan():
                 for j in range(self.num_classes):
 #                    print(loss_value.shape)
                     loss_value_j = loss_value[j::self.num_classes]
+#                    print(loss_value_j)
 #                    print(loss_value_j.shape)
                     argmin = np.argmin(loss_value_j,axis=0)
                     loss_value_j_min = np.min(loss_value_j,axis=0)
@@ -2489,6 +2490,7 @@ class ModelHyperplan():
             if self.AggregW=='AveragingW':
                 W_best = np.mean(W_best,axis=0)
                 b_best = np.mean(b_best,axis=0)
+        if self.verbose: print('loss_value_min',loss_value_min)
         sess = tf.Session()
         sess.run(init_op)
         saver = tf.train.Saver()
