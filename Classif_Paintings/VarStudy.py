@@ -282,5 +282,18 @@ def Etude_Wvectors():
     plt.title('Histogram of the loss values')
     print('extrema of the loss',np.min(Lossstored),np.max(Lossstored))
 
+def plotDecroissanceFct():
+    """
+    Le but de cette fonction est d afficher la decroissance de la fonction de cout 
+    au cours du temps
+    """
+    export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max/1535041879.8656893/model'
+    with open(export_dir, 'rb') as f:
+        Dict = pickle.load(f)
+    all_loss_value = Dict['all_loss_value']
+    print(all_loss_value.shape)
+    loss_value = np.reshape(all_loss_value,(-1,),order='F')
+    print(loss_value.shape)
+
 if __name__ == '__main__':
     Etude_Wvectors()

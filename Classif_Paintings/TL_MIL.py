@@ -2022,7 +2022,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   predict_with='MI_max',thres_FinalClassifier=0.5,
                                   thresh_evaluation=0.05,TEST_NMS=0.3,eval_onk300=False,
                                   optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
-                                  plot_onSubSet=None,loss_type=None,storeVectors=False):
+                                  plot_onSubSet=None,loss_type=None,storeVectors=False,
+                                  storeLossValues=False):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2124,6 +2125,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     
     
     """
+    debug = True
     print('==========')
     # TODO be able to train on background 
     ext = '.txt'
@@ -2514,7 +2516,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
              classifierMI_max = tf_MI_max(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,num_rois=k_per_bag,
                    max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
                    verbose=verboseMI_max,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
-                   mini_batch_size=mini_batch_size,num_features=num_features,debug=False,
+                   mini_batch_size=mini_batch_size,num_features=num_features,debug=debug,
                    num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
                    Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
                    k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
@@ -2522,13 +2524,13 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
              export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                    class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                    WR=WR,performance=performance,restarts_paral=restarts_paral,
-                   C_Searching=C_Searching,storeVectors=storeVectors)                
+                   C_Searching=C_Searching,storeVectors=storeVectors,storeLossValues=storeLossValues)                
                  
              if verbose: 
                  t1 = time.time() 
                  print('Total duration training part :',str(t1-t0))
                  
-             if storeVectors:
+             if storeVectors or storeLossValues:
                  print(export_dir)
                  return(export_dir,arrayParam)
                  
@@ -4706,9 +4708,9 @@ def VariationStudyPart2():
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
-    database_tab = ['watercolor']
-#    database_tab = ['VOC2007','PeopleArt']
-    database_tab = ['PeopleArt','watercolor']
+#    database_tab = ['watercolor']
+##    database_tab = ['VOC2007','PeopleArt']
+#    database_tab = ['PeopleArt','watercolor']
     number_of_reboots = 100
     number_restarts = 100*12-1
     max_iters_all_base = 300
@@ -5117,12 +5119,441 @@ def VariationStudyPart2():
                 
                     with open(name_dictAP, 'wb') as f:
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+                        
+def VariationStudyPart2bis():
+    '''
+    The goal of this function is to study the variation of the performance of our 
+    method
+    The second part compute the score in AP 
+    
+    In this script we only consider keeping one vector to see if picking the best among 12 improve results
+    
+    '''
+    demonet = 'res152_COCO'
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data_output = path_data +'VarStudy/'
+    database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
+#    database_tab = ['watercolor']
+##    database_tab = ['VOC2007','PeopleArt']
+#    database_tab = ['PeopleArt','watercolor']
+    number_of_reboots = 100
+    number_restarts = 100*12-1
+    max_iters_all_base = 300
+    k_per_bag = 300
+    numberofW_to_keep = 1
+#    numberofW_to_keep = 12
+    
+    dont_use_07_metric  =True
+    Dict = {}
+    metric_tab = ['AP@.5','AP@.1','APClassif']
+    start_i = 0
+    end_i = 10
+    seuil = 0.9 
+    
+    data_path = '/media/HDD/output_exp/ClassifPaintings/'
+    
+#    listi = range(start_i,end_i+1) 
+    listi = [0,5]
+    
+    for i in listi:
+        print('Scenario :',i)
+        listAggregW = [None]
+        if i==0:
+            listAggregW = [None]
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            loss_type = ''
+            WR = True
+            with_scores = True
+            seuillage_by_score=False
+        elif i==1:
+            listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+            loss_type='MSE'
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = True
+            seuillage_by_score=False
+        elif i==2:
+            loss_type='hinge_tanh'
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = True
+            seuillage_by_score=False
+        elif i==3:
+            loss_type='hinge'
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = True
+            seuillage_by_score=False
+        elif i==4:
+            loss_type=''
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = False
+            with_scores = True
+            seuillage_by_score=False
+        if i==5:
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            loss_type = ''
+            WR = True
+            with_scores = False
+            seuillage_by_score=False
+        elif i==6:
+            loss_type='MSE'
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = False
+            seuillage_by_score=False
+        elif i==7:
+            loss_type=''
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = False
+            seuillage_by_score=True
+            seuil=0.9
+        elif i==8:
+            loss_type=''
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = False
+            seuillage_by_score=True
+            seuil=0.5
+        elif i==9:
+            loss_type=''
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = False
+            seuillage_by_score=True
+            seuil=0.3
+        elif i==10:
+            loss_type=''
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = False
+            seuillage_by_score=True
+            seuil=0.1
+       
+        
+        for database in database_tab:
+            # Name of the vectors pickle
+            name_dict = path_data_output +database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            CV_Mode+'_'+str(loss_type)
+            if not(WR):
+                name_dict += '_withRegularisationTermInLoss'
+            if with_scores:
+                 name_dict += '_WithScore'
+                
+            name_dictW = name_dict + '.pkl'
+            
+
+            ext = '.txt'
+            if database=='Paintings':
+                item_name = 'name_img'
+                path_to_img = '/media/HDD/data/Painting_Dataset/'
+                classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+            elif database=='VOC12':
+                item_name = 'name_img'
+                path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+            elif database=='VOC2007':
+                ext = '.csv'
+                item_name = 'name_img'
+                path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+                classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
+                   'bottle', 'bus', 'car', 'cat', 'chair',
+                   'cow', 'diningtable', 'dog', 'horse',
+                   'motorbike', 'person', 'pottedplant',
+                   'sheep', 'sofa', 'train', 'tvmonitor']
+            elif database=='watercolor':
+                ext = '.csv'
+                item_name = 'name_img'
+                path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+                classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
+            elif database=='PeopleArt':
+                ext = '.csv'
+                item_name = 'name_img'
+                path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
+                classes =  ["person"]
+            elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+                ext = '.csv'
+                item_name = 'item'
+                path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+                classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
+                            'Mary','nudity', 'ruins','Saint_Sebastien','turban']
+            elif database=='clipart':
+                ext = '.csv'
+                item_name = 'name_img'
+                path_to_img = '/media/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
+                classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
+                   'bottle', 'bus', 'car', 'cat', 'chair',
+                   'cow', 'diningtable', 'dog', 'horse',
+                   'motorbike', 'person', 'pottedplant',
+                   'sheep', 'sofa', 'train', 'tvmonitor']
+            elif(database=='Wikidata_Paintings'):
+                item_name = 'image'
+                path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+                raise NotImplemented # TODO implementer cela !!! 
+            elif(database=='Wikidata_Paintings_miniset_verif'):
+                item_name = 'image'
+                path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+                classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
+            else:
+                raise NotImplemented
+            
+            path_data = '/media/HDD/output_exp/ClassifPaintings/'
+            databasetxt =path_data + database + ext
+            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+                dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
+                              'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
+                              'turban':int,'set':str,'Anno':int}
+                df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)    
+            else:
+                df_label = pd.read_csv(databasetxt,sep=",")
+            str_val = 'val'
+            if database=='Wikidata_Paintings_miniset_verif':
+                df_label = df_label[df_label['BadPhoto'] <= 0.0]
+                str_val = 'validation'
+            elif database=='Paintings':
+                str_val = 'validation'
+            elif database in ['VOC2007','watercolor','clipart','PeopleArt']:
+                str_val = 'val'
+                df_label[classes] = df_label[classes].apply(lambda x:(x + 1.0)/2.0)
+            num_trainval_im = len(df_label[df_label['set']=='train'][item_name]) + len(df_label[df_label['set']==str_val][item_name])
+            num_classes = len(classes)
+#                print(database,'with ',num_trainval_im,' images in the trainval set')
+            N = 1
+            extL2 = ''
+            nms_thresh = 0.7
+            savedstr = '_all'
+            
+            sets = ['train','val','trainval','test']
+            dict_name_file = {}
+            data_precomputeed= True
+            if k_per_bag==300:
+                k_per_bag_str = ''
+            else:
+                k_per_bag_str = '_k'+str(k_per_bag)
+            for set_str in sets:
+                name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
+                if not(k_per_bag==300) and eval_onk300 and set_str=='test': # We will evaluate on all the 300 regions and not only the k_per_bag ones
+                    name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
+                dict_name_file[set_str] = name_pkl_all_features
+        
+        #    sLength_all = len(df_label[item_name])
+            if demonet in ['vgg16_COCO','vgg16_VOC07','vgg16_VOC12']:
+                num_features = 4096
+            elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
+                num_features = 2048
+                   
+            # Config param for TF session 
+            config = tf.ConfigProto()
+            config.gpu_options.allow_growth = True  
+
+            
+            if database=='VOC2007':
+                imdb = get_imdb('voc_2007_test')
+                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+                num_images = len(imdb.image_index)
+            elif database=='watercolor':
+                imdb = get_imdb('watercolor_test')
+                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+                num_images = len(imdb.image_index)
+            elif database=='PeopleArt':
+                imdb = get_imdb('PeopleArt_test')
+                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+                num_images = len(imdb.image_index)
+            elif database=='clipart':
+                imdb = get_imdb('clipart_test')
+                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+                num_images = len(imdb.image_index) 
+            elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+                imdb = get_imdb('WikiTenLabels_test')
+                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+                #num_images = len(imdb.image_index) 
+                num_images =  len(df_label[df_label['set']=='test'][item_name])
+            else:
+                num_images =  len(df_label[df_label['set']=='test'][item_name])
+            
+                           
+               
+                
+            with open(name_dictW, 'rb') as f:
+                 Dict = pickle.load(f)
+            Wstored = Dict['Wstored']
+            Bstored =  Dict['Bstored']
+            Lossstored = Dict['Lossstored']
+            np_pos_value =  Dict['np_pos_value'] 
+            np_neg_value =  Dict['np_neg_value']
+    #            print(Wstored.shape)
+            
+            for AggregW in listAggregW:
+                
+                name_dictAP = name_dict  + '_' +str(AggregW)  + '_APscore_WithOneVector.pkl'
+                # Here we modify the name 
+                ReDo  =False
+                if not os.path.isfile(name_dictAP) or ReDo:
+                    
+                    DictAP = {}
+                
+                    ll = []
+                    l01 = []
+                    lclassif = []
+                    ## Create the model
+                    modelcreator = ModelHyperplan(norm='',AggregW=AggregW,epsilon=0.01,mini_batch_size=1000,num_features=num_features,num_rois=k_per_bag,num_classes=num_classes,
+                         with_scores=with_scores,seuillage_by_score=seuillage_by_score,proportionToKeep=proportionToKeep,restarts=numberofW_to_keep-1,seuil=seuil)
+                    class_indice = -1
+                    ## Compute the best vectors 
+                    for l in range(number_of_reboots): 
+                        all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
+                        Wstored_extract = Wstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep,:]
+                        W_tmp = np.reshape(Wstored_extract,(-1,num_features),order='F')
+                        b_tmp =np.reshape( Bstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep],(-1,1,1),order='F')
+                        Lossstoredextract = Lossstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep]
+                        loss_value = np.reshape(Lossstoredextract,(-1,),order='F')
+                        ## Creation of the model
+                        export_dir =  modelcreator.createIt(data_path,class_indice,W_tmp.astype(np.float32),b_tmp.astype(np.float32),loss_value)
+                        number_zone = 300
+                        Number_of_positif_elt = 1
+                        dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
+                        parameters=False,False,False,False
+    #                    parameters=PlotRegions,RPN,Stocha,CompBest
+                        param_clf = k_per_bag,1,num_features
+    #                    param_clf = k_per_bag,Number_of_positif_elt,num_features
+                        thresh_evaluation = 0.05
+                        TEST_NMS = 0.3
+                        predict_with= 'MI_max'
+                        transform_output = 'tanh'
+                        seuil_estimation= False
+                        mini_batch_size = 1000
+                        verbose = False
+                        true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited \
+                        ,all_boxes = \
+                        tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
+                               export_dir,dict_name_file,mini_batch_size,config,
+                               path_to_img,path_data,param_clf,classes,parameters,verbose,
+                               seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
+                               cachefile_model_base='',transform_output=transform_output,
+                               scoreInMI_max=(with_scores or seuillage_by_score)
+                               ,AggregW=AggregW)
+                        
+                        # Classification Perf
+                        AP_per_class = []
+                        for j,classe in enumerate(classes):
+                            AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
+                            AP_per_class += [AP]    
+                        
+                        # Detection Perf 
+#                        det_file = os.path.join(path_data, 'detections_aux.pkl')
+#                        with open(det_file, 'wb') as f:
+#                            pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+                        max_per_image = 100
+                        num_images_detect = len(imdb.image_index)  # We do not have the same number of images in the WikiTenLabels case
+                        all_boxes_order = [[[] for _ in range(num_images_detect)] for _ in range(imdb.num_classes)]
+                        number_im = 0
+                        for i in range(num_images_detect):
+                            name_img = imdb.image_path_at(i)
+                            if database=='PeopleArt':
+                                name_img_wt_ext = name_img.split('/')[-2] +'/' +name_img.split('/')[-1]
+                                name_img_wt_ext_tab =name_img_wt_ext.split('.')
+                                name_img_wt_ext = '.'.join(name_img_wt_ext_tab[0:-1])
+                            else:
+                                name_img_wt_ext = name_img.split('/')[-1]
+                                name_img_wt_ext =name_img_wt_ext.split('.')[0]
+                            name_img_ind = np.where(np.array(name_all_test)==name_img_wt_ext)[0]
+                            #print(name_img_ind)
+                            if len(name_img_ind)==0:
+                                print('len(name_img_ind), images not found in the all_boxes')
+                                print(name_img_wt_ext)
+                                raise(Exception)
+                            else:
+                                number_im += 1 
+                            #print(name_img_ind[0])
+                            for j in range(1, imdb.num_classes):
+                                j_minus_1 = j-1
+                                all_boxes_order[j][i]  = all_boxes[j_minus_1][name_img_ind[0]]
+                            if max_per_image > 0:
+                                image_scores = np.hstack([all_boxes_order[j][i][:, -1]
+                                            for j in range(1, imdb.num_classes)])
+                                if len(image_scores) > max_per_image:
+                                    image_thresh = np.sort(image_scores)[-max_per_image]
+                                    for j in range(1, imdb.num_classes):
+                                        keep = np.where(all_boxes_order[j][i][:, -1] >= image_thresh)[0]
+                                        all_boxes_order[j][i] = all_boxes_order[j][i][keep, :]
+                        assert (number_im==num_images_detect) # To check that we have the all the images in the detection prediction
+                        det_file = os.path.join(path_data, 'detections.pkl')
+                        with open(det_file, 'wb') as f:
+                            pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
+                        output_dir = path_data +'tmp/' + database+'_mAP.txt'
+                        aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
+                        apsAt05 = aps
+#                        print("Detection score (thres = 0.5): ",database)
+#                        print(arrayToLatex(aps,per=True))
+                        ovthresh_tab = [0.1]
+                        for ovthresh in ovthresh_tab:
+                            aps = imdb.evaluate_localisation_ovthresh(all_boxes_order, output_dir,ovthresh)
+                            if ovthresh == 0.1:
+                                apsAt01 = aps
+#                            print("Detection score with thres at ",ovthresh)
+#                            print(arrayToLatex(aps,per=True))
+#                        imdb.set_use_diff(True) # Modification of the use_diff attribute in the imdb 
+#                        aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
+#                        print("Detection score with the difficult element")
+#                        print(arrayToLatex(aps,per=True))
+#                        imdb.set_use_diff(False)
+                        
+                        print(apsAt05,apsAt01,AP_per_class)
+                        tf.reset_default_graph()
+                        # aps ne contient pas le mean sur les classes en fait
+                        ll += [apsAt05]
+                        l01 += [apsAt01]
+                        lclassif += [AP_per_class]
+                    # End of the 100 experiment for a specific AggreW
+                    ll_all = np.vstack(ll)
+                    l01_all = np.vstack(l01)
+                    apsClassif_all = np.vstack(lclassif)
+
+                    DictAP['AP@.5'] =  ll_all
+                    DictAP['AP@.1'] =  l01_all
+                    DictAP['APClassif'] =  apsClassif_all
+                
+                    with open(name_dictAP, 'wb') as f:
+                        pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
       
 def VariationStudyPart3():
     '''
     The goal of this function is to study the variation of the performance of our 
     method
-    The second part compute the score in AP 
+    The third part print the results 
     '''
     demonet = 'res152_COCO'
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
@@ -5141,7 +5572,7 @@ def VariationStudyPart3():
     start_i = 0
     end_i = 10
     seuil = 0.9 
-    listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+    listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
     data_path = '/media/HDD/output_exp/ClassifPaintings/'
     
     for database  in database_tab:
@@ -5269,7 +5700,7 @@ def VariationStudyPart3():
                     DictAP = pickle.load(f)
                     for Metric in DictAP.keys():
                         
-                        string_to_print =  str(Metric) + ' & ' +'Mimax'
+                        string_to_print =  str(Metric) + ' & ' +'Mimax ' + str(loss_type) + ' ' 
                         if C_Searching:
                             string_to_print += 'C_Searching '
                         if CV_Mode=='CV':
@@ -5287,32 +5718,231 @@ def VariationStudyPart3():
                             ll_all = np.delete(ll_all, [1,2,9], axis=1)         
                         if not(database=='PeopleArt'):
                             mean_over_reboot = np.mean(ll_all,axis=1) # Moyenne par ligne / reboot 
-                            print(mean_over_reboot.shape)
+#                            print(mean_over_reboot.shape)
                             std_of_mean_over_reboot = np.std(mean_over_reboot)
                             mean_of_mean_over_reboot = np.mean(mean_over_reboot)
                             mean_over_class = np.mean(ll_all,axis=0) # Moyenne par column
                             std_over_class = np.std(ll_all,axis=0) # Moyenne par column 
-                            print('ll_all.shape',ll_all.shape)
-                            print(mean_over_class.shape)
-                            print(std_over_class.shape)
-                            input('wait')
+#                            print('ll_all.shape',ll_all.shape)
+#                            print(mean_over_class.shape)
+#                            print(std_over_class.shape)
+#                            input('wait')
                             for mean_c,std_c in zip(mean_over_class,std_over_class):
-                                s =  "{0:.1f} ".format(mean_c*multi) + ' \pm ' +  "{0:.1f}".format(std_c*multi)
+                                s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
                                 string_to_print += s + ' & '
-                            s =  "{0:.1f}  ".format(mean_of_mean_over_reboot*multi) + ' \pm ' +  "{0:.1f} & ".format(std_of_mean_over_reboot*multi)
-                            string_to_print += s + ' \\  '
+                            s =  "{0:.1f}  ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f}  ".format(std_of_mean_over_reboot*multi)
+                            string_to_print += s + ' \\\  '
                         else:
                             std_of_mean_over_reboot = np.std(ll_all)
                             mean_of_mean_over_reboot = np.mean(ll_all)
-                            s =  "{0:.1f} ".format(mean_of_mean_over_reboot*multi) + ' \pm ' +  "{0:.1f} ".format(std_of_mean_over_reboot*multi)
-                            string_to_print += s + ' \\ '
+                            s =  "{0:.1f} ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f} ".format(std_of_mean_over_reboot*multi)
+                            string_to_print += s + ' \\\ '
+                        string_to_print = string_to_print.replace('_','\_')
                         print(string_to_print)
-                            
-                    
+
                 except FileNotFoundError:
                     #print(name_dictAP,'don t exist')
                     pass
-        
+    
+def VariationStudyPart3bis():
+    '''
+    The goal of this function is to study the variation of the performance of our 
+    method
+    The third part print the results 
+    '''
+    demonet = 'res152_COCO'
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data_output = path_data +'VarStudy/'
+    database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
+#    database_tab = ['VOC2007','PeopleArt']
+#    database_tab = ['PeopleArt']
+    number_restarts = 100*12-1
+    max_iters_all_base = 300
+    k_per_bag = 300
+    numberofW_to_keep = 12
+    
+    dont_use_07_metric  =True
+    Dict = {}
+    metric_tab = ['AP@.5','AP@.1','APClassif']
+    start_i = 0
+    end_i = 10
+    seuil = 0.9 
+    listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
+    data_path = '/media/HDD/output_exp/ClassifPaintings/'
+    listi = [0,4]
+    for database  in database_tab:
+        print('--------------------------------')
+        print(database)
+        listi = [0,5]
+    
+        for i in listi:
+            print('Scenario :',i)
+            listAggregW = [None]
+            if i==0:
+                listAggregW = [None]
+                C_Searching = False
+                CV_Mode = ''
+                AggregW = None
+                proportionToKeep = 0.25
+                loss_type = ''
+                WR = True
+                with_scores = True
+                seuillage_by_score=False
+            elif i==1:
+                listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+                loss_type='MSE'
+                C_Searching = False
+                CV_Mode = ''
+                AggregW = None
+                proportionToKeep = 0.25
+                WR = True
+                with_scores = True
+                seuillage_by_score=False
+            elif i==2:
+                loss_type='hinge_tanh'
+                C_Searching = False
+                CV_Mode = ''
+                AggregW = None
+                proportionToKeep = 0.25
+                WR = True
+                with_scores = True
+                seuillage_by_score=False
+            elif i==3:
+                loss_type='hinge'
+                C_Searching = False
+                CV_Mode = ''
+                AggregW = None
+                proportionToKeep = 0.25
+                WR = True
+                with_scores = True
+                seuillage_by_score=False
+            elif i==4:
+                loss_type=''
+                C_Searching = False
+                CV_Mode = ''
+                AggregW = None
+                proportionToKeep = 0.25
+                WR = False
+                with_scores = True
+                seuillage_by_score=False
+            if i==5:
+                C_Searching = False
+                CV_Mode = ''
+                AggregW = None
+                proportionToKeep = 0.25
+                loss_type = ''
+                WR = True
+                with_scores = False
+                seuillage_by_score=False
+            elif i==6:
+                loss_type='MSE'
+                C_Searching = False
+                CV_Mode = ''
+                AggregW = None
+                proportionToKeep = 0.25
+                WR = True
+                with_scores = False
+                seuillage_by_score=False
+            elif i==7:
+                loss_type=''
+                C_Searching = False
+                CV_Mode = ''
+                AggregW = None
+                proportionToKeep = 0.25
+                WR = True
+                with_scores = False
+                seuillage_by_score=True
+                seuil=0.9
+            elif i==8:
+                loss_type=''
+                C_Searching = False
+                CV_Mode = ''
+                AggregW = None
+                proportionToKeep = 0.25
+                WR = True
+                with_scores = False
+                seuillage_by_score=True
+                seuil=0.5
+            elif i==9:
+                loss_type=''
+                C_Searching = False
+                CV_Mode = ''
+                AggregW = None
+                proportionToKeep = 0.25
+                WR = True
+                with_scores = False
+                seuillage_by_score=True
+                seuil=0.3
+            elif i==10:
+                loss_type=''
+                C_Searching = False
+                CV_Mode = ''
+                AggregW = None
+                proportionToKeep = 0.25
+                WR = True
+                with_scores = False
+                seuillage_by_score=True
+                seuil=0.1        
+                    
+                
+            name_dict = path_data_output +database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            CV_Mode+'_'+str(loss_type)
+            if not(WR):
+                name_dict += '_withRegularisationTermInLoss'
+            if with_scores:
+                 name_dict += '_WithScore'
+
+            for AggregW in listAggregW:
+                name_dictAP = name_dict +  '_' + str(AggregW)+ '_APscore_WithOneVector.pkl'
+                multi = 100
+                try:
+                    f= open(name_dictAP, 'rb')
+                    DictAP = pickle.load(f)
+                    for Metric in DictAP.keys():
+                        
+                        string_to_print =  str(Metric) + ' & ' +'Mimax 1Vect ' + str(loss_type) + ' ' 
+                        if C_Searching:
+                            string_to_print += 'C_Searching '
+                        if CV_Mode=='CV':
+                            string_to_print += 'CV '
+                        if with_scores:
+                            string_to_print += 'with_scores '
+                        if not(WR):
+                            string_to_print += 'with regularisation'
+                        if seuillage_by_score:
+                            string_to_print += 'seuillage score at ' +str(seuil)
+                        string_to_print += ' & '
+                        string_to_print += str(AggregW) + ' & '  
+                        ll_all = DictAP[Metric] 
+                        if database=='WikiTenLabels':
+                            ll_all = np.delete(ll_all, [1,2,9], axis=1)         
+                        if not(database=='PeopleArt'):
+                            mean_over_reboot = np.mean(ll_all,axis=1) # Moyenne par ligne / reboot 
+#                            print(mean_over_reboot.shape)
+                            std_of_mean_over_reboot = np.std(mean_over_reboot)
+                            mean_of_mean_over_reboot = np.mean(mean_over_reboot)
+                            mean_over_class = np.mean(ll_all,axis=0) # Moyenne par column
+                            std_over_class = np.std(ll_all,axis=0) # Moyenne par column 
+#                            print('ll_all.shape',ll_all.shape)
+#                            print(mean_over_class.shape)
+#                            print(std_over_class.shape)
+#                            input('wait')
+                            for mean_c,std_c in zip(mean_over_class,std_over_class):
+                                s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
+                                string_to_print += s + ' & '
+                            s =  "{0:.1f}  ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f}  ".format(std_of_mean_over_reboot*multi)
+                            string_to_print += s + ' \\\  '
+                        else:
+                            std_of_mean_over_reboot = np.std(ll_all)
+                            mean_of_mean_over_reboot = np.mean(ll_all)
+                            s =  "{0:.1f} ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f} ".format(std_of_mean_over_reboot*multi)
+                            string_to_print += s + ' \\\ '
+                        string_to_print = string_to_print.replace('_','\_')
+                        print(string_to_print)
+
+                except FileNotFoundError:
+                    #print(name_dictAP,'don t exist')
+                    pass    
         
         
         
@@ -5569,24 +6199,27 @@ if __name__ == '__main__':
 #                                  k_intopk=1,C_Searching=False,predict_with='MI_max',
 #                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
 #                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=elt,proportionToKeep=1.0) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MI_max',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
-#                              loss_type='log',storeVectors=False) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='CV',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=5,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=True,predict_with='MI_max',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
+                              loss_type='',storeVectors=True,storeLossValues=False) 
 #
-    VariationStudyPart2()
+#    VariationStudyPart2bis()
+#    VariationStudyPart2()
+
 #    VariationStudyPart3()
+#    VariationStudyPart3bis()
 
    # A comparer avec du 93s par restart pour les 6 classes de watercolor
 

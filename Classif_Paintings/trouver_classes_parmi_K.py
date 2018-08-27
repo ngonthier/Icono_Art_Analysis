@@ -741,7 +741,8 @@ class tf_MI_max():
         
     def fit_MI_max_tfrecords(self,data_path,class_indice,shuffle=True,WR=False,
                              init_by_mean=None,norm=None,performance=False,
-                             restarts_paral='',C_Searching=False,storeVectors=False):
+                             restarts_paral='',C_Searching=False,storeVectors=False,
+                             storeLossValues=False):
         """" 
         This function run per batch on the tfrecords data folder
         @param : data_path : 
@@ -762,6 +763,7 @@ class tf_MI_max():
             two versions exist 'Dim','paral' : in the first case we create a new dimension 
             so that take a lot of place on the GPU memory
         @param : storeVectors : in this case all the computed vectors are stored to be used for something else
+        @param : storeLossValues : To store the loss function value 
         """
         # Idees pour ameliorer cette fonction : 
         # Ajouter la possibilite de choisir les regions avec un nms lors de la 
@@ -785,6 +787,10 @@ class tf_MI_max():
         self.restarts_paral_Dim,self.restarts_paral_V2 = False,False
         self.restarts_paral =restarts_paral
         self.storeVectors = storeVectors
+        self.storeLossValues = storeLossValues
+        if self.storeLossValues:
+            if self.verbose: print("This will save the loss function and vectors values.")
+            self.storeVectors  = True
         if self.restarts_paral=='Dim':
             self.restarts_paral_Dim = True
         elif self.restarts_paral=='paral':
@@ -797,7 +803,6 @@ class tf_MI_max():
             print('That is not compatible')
             raise(NotImplemented)
         if self.class_indice>-1 and self.C_Searching: raise(NotImplemented)
-        if self.storeVectors and self.C_Searching: raise(NotImplemented)
         if self.storeVectors and self.CV_Mode=='CVforCsearch': raise(NotImplemented)
         if self.class_indice>-1 and self.restarts_paral_Dim: raise(NotImplemented)
         if self.class_indice>-1 and self.storeVectors: raise(NotImplemented)
@@ -810,23 +815,6 @@ class tf_MI_max():
             print('This don t work at all, bug not solved about the argmin')
             raise(NotImplemented)
             
-        self.storeVectors = storeVectors
-        if self.storeVectors:
-            self.maximum_numberofparallW_multiClass = 10*12*10 # Independemant du numbre de class 
-            if self.maximum_numberofparallW_multiClass < (self.restarts +1)*self.num_classes:
-                self.paral_number_W = self.maximum_numberofparallW_multiClass//self.num_classes 
-                self.num_groups_ofW = (self.restarts +1) // self.paral_number_W
-                if not(((self.restarts +1) % self.paral_number_W)==0):
-                    self.num_groups_ofW += 1
-            else:
-                self.num_groups_ofW = 1
-                self.paral_number_W = (self.restarts +1)
-            self.numberOfWVectors = self.num_groups_ofW*self.paral_number_W
-            if self.verbose:
-                print('Stored Vectors with',self.num_groups_ofW,'groups of',self.paral_number_W,'vectors per class')
-        else:
-            self.paral_number_W = self.restarts +1
-            
         if self.C_Searching or self.CV_Mode == 'CVforCsearch':
             if not((self.C_Searching or self.CV_Mode == 'CVforCsearch') and self.WR) :
                 print("!! You should not do that, you will not choose the W vector on the right reason")
@@ -834,9 +822,47 @@ class tf_MI_max():
 #            C_values =  np.arange(0.5,1.5,0.1,dtype=np.float32)
             C_values =  np.arange(0.5,2.75,0.25,dtype=np.float32)
             self.Cbest = np.zeros((self.num_classes,))
-            C_value_repeat = np.repeat(C_values,repeats=(self.paral_number_W*self.num_classes),axis=0)
-            self.paral_number_W *= len(C_values)
-            if self.verbose: print('We will compute :',len(C_value_repeat),'W vectors due to the C searching')
+            if not(self.storeVectors):
+                C_value_repeat = np.repeat(C_values,repeats=(self.paral_number_W*self.num_classes),axis=0)
+                self.paral_number_W *= len(C_values)
+                if self.verbose: print('We will compute :',len(C_value_repeat),'W vectors due to the C searching')
+            
+        self.storeVectors = storeVectors
+        if self.storeVectors:
+            self.maximum_numberofparallW_multiClass = 10*12*10 # Independemant du numbre de class 
+            
+            if not(self.C_Searching):
+                if self.maximum_numberofparallW_multiClass < (self.restarts +1)*self.num_classes:
+                    self.paral_number_W = self.maximum_numberofparallW_multiClass//self.num_classes 
+                    self.num_groups_ofW = (self.restarts +1) // self.paral_number_W
+                    if not(((self.restarts +1) % self.paral_number_W)==0):
+                        self.num_groups_ofW += 1
+                else:
+                    self.num_groups_ofW = 1
+                    self.paral_number_W = (self.restarts +1)
+                self.numberOfWVectors = self.num_groups_ofW*self.paral_number_W
+                if self.verbose:
+                    print('Stored Vectors with',self.num_groups_ofW,'groups of',self.paral_number_W,'vectors per class')
+            else:
+                if self.maximum_numberofparallW_multiClass < (self.restarts +1)*self.num_classes*len(C_values):
+                    self.paral_number_W_WithC = self.maximum_numberofparallW_multiClass // ((self.num_classes)*len(C_values)) # have to be a multiple of len(C_values)
+                    self.paral_number_W = self.paral_number_W_WithC*len(C_values)
+                    self.num_groups_ofW = (self.restarts +1) // self.paral_number_W
+                    if not((((self.restarts +1))  % self.paral_number_W)==0):
+                        self.num_groups_ofW += 1
+                else:
+                    self.num_groups_ofW = 1
+                    self.paral_number_W_WithC =  (self.restarts +1)
+                    self.paral_number_W = (self.restarts +1)*len(C_values)
+                self.numberOfWVectors = self.num_groups_ofW*self.paral_number_W
+                C_value_repeat = np.repeat(C_values,repeats=(self.paral_number_W_WithC*self.num_classes),axis=0)
+                print(C_value_repeat.shape)
+                if self.verbose:
+                    print('Stored Vectors with',self.num_groups_ofW,'groups of',self.paral_number_W,'vectors per class')
+        else:
+            self.paral_number_W = self.restarts +1
+            
+        
         ## Debut de la fonction        
         self.cpu_count = multiprocessing.cpu_count()
         train_dataset_init = tf.data.TFRecordDataset(data_path)
@@ -1243,6 +1269,15 @@ class tf_MI_max():
             if self.verbose : 
                 print('Start with the restarts in parallel')
                 t0 = time.time()
+            if self.storeLossValues:
+                if class_indice==-1:
+                    if self.restarts_paral_V2:
+                        all_loss_value = np.empty((self.max_iters,self.paral_number_W*self.num_classes,),dtype=np.float32)
+                    elif self.restarts_paral_Dim:
+                        all_loss_value = np.empty((self.max_iters,self.paral_number_W,self.num_classes,),dtype=np.float32)
+                else:
+                    all_loss_value = np.empty((self.max_iters,self.paral_number_W),dtype=np.float32)
+                 
                 
             if not(self.storeVectors):
                 sess.run(init_op)
@@ -1338,12 +1373,28 @@ class tf_MI_max():
                     print("durations :",str(t1-t0),' s')
             else: # We will store the vectors
                 if not(self.restarts_paral_V2): raise(NotImplemented)
+                if self.storeLossValues:
+                    all_loss_value = np.empty((self.num_classes,self.max_iters,self.numberOfWVectors,),dtype=np.float32)
                 for group_i in range(self.num_groups_ofW):
                     if self.verbose: print('group of vectors number :',group_i)
                     sess.run(init_op)
                     sess.run(shuffle_iterator.initializer)
                     for step in range(self.max_iters):
                         sess.run(train)
+                        
+                        if self.storeLossValues:
+                            loss_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
+                            sess.run(iterator_batch.initializer)
+                            while True:
+                                try:
+                                    loss_value += sess.run(loss_batch)
+                                    break
+                                except tf.errors.OutOfRangeError:
+                                    break
+                            for j in range(self.num_classes):
+                                all_loss_value[j,step,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(loss_value[j::self.num_classes])
+                            
+                    # Evaluation of the loss function
                     if class_indice==-1:
                         if self.restarts_paral_V2:
                             loss_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
@@ -1832,6 +1883,10 @@ class tf_MI_max():
             Dict['Lossstored'] = Lossstored
             Dict['np_pos_value'] = np_pos_value
             Dict['np_neg_value'] = np_neg_value
+            if  self.storeLossValues:
+                Dict['all_loss_value'] = all_loss_value
+            if self.C_Searching:
+                Dict['C_value_repeat'] = C_value_repeat
             export_dir = ('/').join(data_path.split('/')[:-1])
             export_dir += '/MI_max_StoredW/' + str(time.time()) + '.pkl'
             with open(export_dir, 'wb') as f:
