@@ -47,7 +47,7 @@ import misvm # Library to do Multi Instance Learning with SVM
 from sklearn.preprocessing import StandardScaler
 from trouver_classes_parmi_K import MI_max,TrainClassif,tf_MI_max,ModelHyperplan
 from LatexOuput import arrayToLatex
-from FasterRCNN import vis_detections_list,vis_detections,Compute_Faster_RCNN_features
+from FasterRCNN import vis_detections_list,vis_detections,Compute_Faster_RCNN_features,vis_GT_list
 import pathlib
 from milsvm import mi_linearsvm # Version de nicolas avec LinearSVC et TODO SGD 
 from sklearn.externals import joblib # To save the classifier
@@ -2125,7 +2125,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     
     
     """
-    debug = True
+    debug = False
     print('==========')
     # TODO be able to train on background 
     ext = '.txt'
@@ -2173,12 +2173,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     elif(database=='Wikidata_Paintings'):
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        print(database,' is not implemented yet')
         raise NotImplemented # TODO implementer cela !!! 
     elif(database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
         classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
     else:
+        print('This database don t exist :',database)
         raise NotImplemented
     
     if testMode and not(type(jtest)==int):
@@ -2707,8 +2709,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         print("Detection score with the difficult element")
         print(arrayToLatex(aps,per=True))
         imdb.set_use_diff(False)
-
-           
+        
+#    with open('Prediction.pkl', 'wb') as f:
+#        pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)   
+        
     print('~~~~~~~~')        
     print("mean Average Precision Classification for all the data = {0:.3f}".format(np.mean(AP_per_class)))    
     if CompBest: print("mean Average Precision for BEst Score = {0:.3f}".format(np.mean(AP_per_classbS))) 
@@ -2729,7 +2733,96 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     else:
         write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class)],
                       ['classes','AP_per_class','mAP Classif'])
-        return(AP_per_class)
+        return(AP_per_class) 
+
+def plot_Correct_Incorrect_Images(all_boxes,imbd,database):
+    # imbd = get_imdb('watercolor_test')
+    GT= imbd.gt_roidb()
+    ii = 0 
+    thresh = 0.75
+    for k,boxGT in enumerate(GT):
+        complet_name = imbd.image_path_at(k)
+        im = cv2.imread(complet_name)
+        blobs, im_scales = get_blobs(im)
+        roi_boxes_and_score = []
+        local_cls = []
+        Correct = 'Correct'
+        for j in range(imbd.num_classes):
+            cls_dets = all_boxes[j][ii] # Here we have #classe x box dim + score
+            if len(cls_dets) > 0:
+                roi_boxes_score = cls_dets
+                inds = np.where(roi_boxes_score[:, -1] >= thresh)[0]
+                if not(len(inds) == 0):
+                    roi_boxes_score =  roi_boxes_score[inds,:]
+                    local_cls += [imbd.classes[j]]
+                    if roi_boxes_and_score is None:
+                        roi_boxes_and_score = [roi_boxes_score]
+                    else:
+                        roi_boxes_and_score += [roi_boxes_score]
+                    if not(j in boxGT['gt_classes']):
+                         Correct = 'Incorrect'   
+                    else:
+#                        get_iou
+                        print('pas fini')
+            else:
+                # This class is not predected
+                if j in boxGT['gt_classes']:
+                    if not(Correct=='Incorrect'):
+                        Correct = 'ClassMissing'
+                    
+                    
+                
+        ii += 1        
+
+def get_iou(bb1, bb2):
+    """
+    Calculate the Intersection over Union (IoU) of two bounding boxes.
+
+    Parameters
+    ----------
+    bb1 : dict
+        Keys: {'x1', 'x2', 'y1', 'y2'}
+        The (x1, y1) position is at the top left corner,
+        the (x2, y2) position is at the bottom right corner
+    bb2 : dict
+        Keys: {'x1', 'x2', 'y1', 'y2'}
+        The (x, y) position is at the top left corner,
+        the (x2, y2) position is at the bottom right corner
+
+    Returns
+    -------
+    float
+        in [0, 1]
+    """
+    assert bb1['x1'] < bb1['x2']
+    assert bb1['y1'] < bb1['y2']
+    assert bb2['x1'] < bb2['x2']
+    assert bb2['y1'] < bb2['y2']
+
+    # determine the coordinates of the intersection rectangle
+    x_left = max(bb1['x1'], bb2['x1'])
+    y_top = max(bb1['y1'], bb2['y1'])
+    x_right = min(bb1['x2'], bb2['x2'])
+    y_bottom = min(bb1['y2'], bb2['y2'])
+
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+
+    # The intersection of two axis-aligned bounding boxes is always an
+    # axis-aligned bounding box
+    intersection_area = (x_right - x_left) * (y_bottom - y_top)
+
+    # compute the area of both AABBs
+    bb1_area = (bb1['x2'] - bb1['x1']) * (bb1['y2'] - bb1['y1'])
+    bb2_area = (bb2['x2'] - bb2['x1']) * (bb2['y2'] - bb2['y1'])
+
+    # compute the intersection over union by taking the intersection
+    # area and dividing it by the sum of prediction + ground-truth
+    # areas - the interesection area
+    iou = intersection_area / float(bb1_area + bb2_area - intersection_area)
+    assert iou >= 0.0
+    assert iou <= 1.0
+    return iou
 
 def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                export_dir,dict_name_file,mini_batch_size,config,
@@ -4540,6 +4633,218 @@ def PlotRegionsLearnByMI_max():
     print(AP_per_class)
     print(arrayToLatex(AP_per_class))
  
+def plotGT(name):
+     plot_onSubSet =  ['angel','Child_Jesus', 'crucifixion_of_Jesus','Mary','nudity', 'ruins','Saint_Sebastien'] 
+     imbd = get_imdb('WikiTenLabels_test')
+     complet_name = imbd.image_path_from_index(name)
+     complet_name_tab = ('.'.join(complet_name.split('.')[0:-1])).split('/')
+     complet_name_tab[-2] = 'Annotations'
+     complet_name_xml = '/'.join(complet_name_tab) + '.xml'
+     im = cv2.imread(complet_name)
+     blobs, im_scales = get_blobs(im)
+     import voc_eval
+     read_file = voc_eval.parse_rec(complet_name_xml)
+     cls = []
+     dict_bbox = {}
+     for element in read_file:
+        classe_elt_xml = element['name']
+        if classe_elt_xml in plot_onSubSet:
+            bbox = element['bbox']
+            if not(classe_elt_xml in cls):
+                cls += [classe_elt_xml]
+                dict_bbox[classe_elt_xml]= np.array(bbox).reshape(1,4)
+            else:
+                bboxs = np.vstack((dict_bbox[classe_elt_xml],bbox))
+                dict_bbox[classe_elt_xml] = bboxs
+     dets = []
+     for classe_elt_xml in cls:
+        dets += [dict_bbox[classe_elt_xml]] 
+    
+     vis_GT_list(im, cls, dets,list_class=plot_onSubSet)
+     plt.show()
+     input('close ?')
+ 
+def VariationStudyPart1_forVOC07():
+    '''
+    The goal of this function is to study the variation of the performance of our 
+    method
+    First Part Store thevectors computed
+    '''
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data_output = path_data +'VarStudy/'
+    database_tab = ['VOC2007','PeopleArt','watercolor','WikiTenLabels']
+#    database_tab = ['VOC2007','PeopleArt']
+#    database_tab = ['PeopleArt']
+    number_restarts = 100*12-1
+    max_iters_all_base = 300
+    
+    Dict = {}
+    metric_tab = ['AP@.5','AP@.1','APClassif']
+    start_i = 0
+    end_i = 1
+    listi = range(start_i,end_i+1)
+    listi = [0,5]
+    seuil = 0.9 
+
+    for i in listi:
+        print('Scenario :',i)
+        if i==0:
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            loss_type = ''
+            WR = True
+            with_scores = True
+            seuillage_by_score=False
+        elif i==1:
+            loss_type='MSE'
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = True
+            seuillage_by_score=False
+        elif i==2:
+            loss_type='hinge_tanh'
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = True
+            seuillage_by_score=False
+        elif i==3:
+            loss_type='hinge'
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = True
+            seuillage_by_score=False
+        elif i==4:
+            loss_type=''
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = False
+            with_scores = True
+            seuillage_by_score=False
+        if i==5:
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            loss_type = ''
+            WR = True
+            with_scores = False
+            seuillage_by_score=False
+        elif i==6:
+            loss_type='MSE'
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = False
+            seuillage_by_score=False
+        elif i==7:
+            loss_type=''
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = False
+            seuillage_by_score=True
+            seuil=0.9
+        elif i==8:
+            loss_type=''
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = False
+            seuillage_by_score=True
+            seuil=0.5
+        elif i==9:
+            loss_type=''
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = False
+            seuillage_by_score=True
+            seuil=0.3
+        elif i==10:
+            loss_type=''
+            C_Searching = False
+            CV_Mode = ''
+            AggregW = None
+            proportionToKeep = 0.25
+            WR = True
+            with_scores = False
+            seuillage_by_score=True
+            seuil=0.1
+        elif i==11:
+            C_Searching = True
+            CV_Mode = 'CV'
+            AggregW = None
+            proportionToKeep = 0.25
+            loss_type = ''
+            WR = True
+            with_scores = True
+            seuillage_by_score=False   
+        elif i==12:
+            C_Searching = True
+            CV_Mode = 'CV'
+            AggregW = None
+            proportionToKeep = 0.25
+            loss_type = ''
+            WR = True
+            with_scores = False
+            seuillage_by_score=False   
+            
+            
+       # TODO rajouter ici un cas ou l on fait normalise les features
+    
+        for database in database_tab:
+            ## Compte the vectors and bias W
+            exportname,arrayParam = tfR_FRCNN(demonet = 'res101_VOC07',database = database,ReDo=True,
+                                          verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                          PlotRegions = False,saved_clf=False,RPN=False,
+                                          CompBest=False,Stocha=True,k_per_bag=300,
+                                          parallel_op=True,CV_Mode=CV_Mode,num_split=2,
+                                          WR=WR,init_by_mean =None,seuil_estimation='',
+                                          restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+                                          C=1.0,Optimizer='GradientDescent',norm='',
+                                          transform_output='tanh',with_rois_scores_atEnd=False,
+                                          with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+                                          Max_version='',w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                          k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                          gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                          thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
+                                          ,proportionToKeep=proportionToKeep,storeVectors=True)
+            tf.reset_default_graph()
+            name_dict = path_data_output +database+'res101_VOC07_'+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            CV_Mode+'_'+str(loss_type)
+            
+            if not(WR):
+                name_dict += '_withRegularisationTermInLoss'
+            if with_scores:
+                name_dict += '_WithScore'
+            if seuillage_by_score:
+                name_dict += 'SC'+str(seuil)
+            name_dict += '.pkl'
+            copyfile(exportname,name_dict)
+            print(name_dict,'copied')
+    
+             
 def VariationStudyPart1():
     '''
     The goal of this function is to study the variation of the performance of our 
@@ -4556,8 +4861,8 @@ def VariationStudyPart1():
     
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
-    start_i = 7
-    end_i = 10
+    start_i = 11
+    end_i = 12
     seuil = 0.9 
 
     for i in range(start_i,end_i+1):
@@ -4665,6 +4970,26 @@ def VariationStudyPart1():
             with_scores = False
             seuillage_by_score=True
             seuil=0.1
+        elif i==11:
+            C_Searching = True
+            CV_Mode = 'CV'
+            AggregW = None
+            proportionToKeep = 0.25
+            loss_type = ''
+            WR = True
+            with_scores = True
+            seuillage_by_score=False   
+        elif i==12:
+            C_Searching = True
+            CV_Mode = 'CV'
+            AggregW = None
+            proportionToKeep = 0.25
+            loss_type = ''
+            WR = True
+            with_scores = False
+            seuillage_by_score=False   
+            
+            
        # TODO rajouter ici un cas ou l on fait normalise les features
     
         for database in database_tab:
@@ -4698,6 +5023,47 @@ def VariationStudyPart1():
             copyfile(exportname,name_dict)
             print(name_dict,'copied')
             
+def ComputationForLossPlot(database= 'PeopleArt'):
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data_output = path_data +'VarStudy/'
+    C_Searching = False
+    loss_type = ''
+    CV_Mode = ''
+    seuillage_by_score = False
+    seuil = 0.9
+    with_scores_list = [True,False]
+    WR = True
+    for with_scores in with_scores_list:
+        # A faire tourner plus tard pour tracer les decroissances des courbes 
+        exportname,arrayParam =  tfR_FRCNN(demonet = 'res152_COCO',database=database,ReDo=True,
+                                  verbose = False,testMode = False,jtest = 'cow',
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
+                                  parallel_op=True,CV_Mode=CV_Mode,num_split=2,
+                                  WR=WR,init_by_mean =None,seuil_estimation='',
+                                  restarts=24,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                  C=1.0,Optimizer='GradientDescent',norm='',
+                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+                                  Max_version='',w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                  k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
+                                  loss_type=loss_type,storeVectors=False,storeLossValues=True) 
+        tf.reset_default_graph()
+        name_dict = path_data_output+'storeLossValues_' +database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+        CV_Mode+'_'+str(loss_type)
+        
+        if not(WR):
+            name_dict += '_withRegularisationTermInLoss'
+        if with_scores:
+            name_dict += '_WithScore'
+        if seuillage_by_score:
+            name_dict += 'SC'+str(seuil)
+        name_dict += '.pkl'
+        copyfile(exportname,name_dict)
+        print(name_dict,'copied')
+            
 def VariationStudyPart2():
     '''
     The goal of this function is to study the variation of the performance of our 
@@ -4715,14 +5081,14 @@ def VariationStudyPart2():
     number_restarts = 100*12-1
     max_iters_all_base = 300
     k_per_bag = 300
-    numberofW_to_keep = 12
+    numberofW_to_keep_base = 12
 #    numberofW_to_keep = 12
     
     dont_use_07_metric  =True
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
     start_i = 0
-    end_i = 10
+    end_i = 12
     seuil = 0.9 
     
     data_path = '/media/HDD/output_exp/ClassifPaintings/'
@@ -4835,7 +5201,31 @@ def VariationStudyPart2():
             with_scores = False
             seuillage_by_score=True
             seuil=0.1
+        elif i==11:
+            listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+            C_Searching = True
+            CV_Mode = 'CV'
+            AggregW = None
+            proportionToKeep = 0.25
+            loss_type = ''
+            WR = True
+            with_scores = True
+            seuillage_by_score=False   
+        elif i==12:
+            listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+            C_Searching = True
+            CV_Mode = 'CV'
+            AggregW = None
+            proportionToKeep = 0.25
+            loss_type = ''
+            WR = True
+            with_scores = False
+            seuillage_by_score=False 
        
+        if C_Searching:
+            numberofW_to_keep = numberofW_to_keep_base*9 #Number of element in C
+        else:
+            numberofW_to_keep = numberofW_to_keep_base
         
         for database in database_tab:
             # Name of the vectors pickle
@@ -4987,13 +5377,16 @@ def VariationStudyPart2():
             np_pos_value =  Dict['np_pos_value'] 
             np_neg_value =  Dict['np_neg_value']
     #            print(Wstored.shape)
-            
+
             for AggregW in listAggregW:
                 
                 name_dictAP = name_dict  + '_' +str(AggregW)  + '_APscore.pkl'
                 ReDo  =False
                 if not os.path.isfile(name_dictAP) or ReDo:
-                    
+#                    print('name_dictAP',name_dictAP)
+#                    print('Wstored',Wstored.shape)
+#                    print('numberofW_to_keep',numberofW_to_keep)
+#                    input('wait')
                     DictAP = {}
                 
                     ll = []
@@ -5147,7 +5540,7 @@ def VariationStudyPart2bis():
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
     start_i = 0
-    end_i = 10
+    end_i = 12
     seuil = 0.9 
     
     data_path = '/media/HDD/output_exp/ClassifPaintings/'
@@ -5570,7 +5963,7 @@ def VariationStudyPart3():
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
     start_i = 0
-    end_i = 10
+    end_i = 12
     seuil = 0.9 
     listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
     data_path = '/media/HDD/output_exp/ClassifPaintings/'
@@ -5682,7 +6075,25 @@ def VariationStudyPart3():
                 WR = True
                 with_scores = False
                 seuillage_by_score=True
-                seuil=0.1          
+                seuil=0.1     
+            elif i==11:
+                C_Searching = True
+                CV_Mode = 'CV'
+                AggregW = None
+                proportionToKeep = 0.25
+                loss_type = ''
+                WR = True
+                with_scores = True
+                seuillage_by_score=False   
+            elif i==12:
+                C_Searching = True
+                CV_Mode = 'CV'
+                AggregW = None
+                proportionToKeep = 0.25
+                loss_type = ''
+                WR = True
+                with_scores = False
+                seuillage_by_score=False 
                     
                 
             name_dict = path_data_output +database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
@@ -5765,7 +6176,7 @@ def VariationStudyPart3bis():
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
     start_i = 0
-    end_i = 10
+    end_i = 12
     seuil = 0.9 
     listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
     data_path = '/media/HDD/output_exp/ClassifPaintings/'
@@ -6199,29 +6610,67 @@ if __name__ == '__main__':
 #                                  k_intopk=1,C_Searching=False,predict_with='MI_max',
 #                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
 #                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=elt,proportionToKeep=1.0) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
-                              verbose = True,testMode = False,jtest = 'cow',
-                              PlotRegions = False,saved_clf=False,RPN=False,
-                              CompBest=False,Stocha=True,k_per_bag=300,
-                              parallel_op=True,CV_Mode='CV',num_split=2,
-                              WR=True,init_by_mean =None,seuil_estimation='',
-                              restarts=5,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                              C=1.0,Optimizer='GradientDescent',norm='',
-                              transform_output='tanh',with_rois_scores_atEnd=False,
-                              with_scores=True,epsilon=0.01,restarts_paral='paral',
-                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-                              k_intopk=1,C_Searching=True,predict_with='MI_max',
-                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
-                              loss_type='',storeVectors=True,storeLossValues=False) 
-#
-#    VariationStudyPart2bis()
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = True,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                              k_intopk=1,C_Searching=False,predict_with='MI_max',
+#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
+#                              loss_type='',storeVectors=False,storeLossValues=False,
+#                              plot_onSubSet=['bicycle', 'bird', 'car', 'cat', 'dog', 'person']) 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = True,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                              k_intopk=1,C_Searching=False,predict_with='MI_max',
+#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
+#                              loss_type='',storeVectors=False,storeLossValues=False,
+#                              plot_onSubSet=['person']) 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = True,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='CV',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                              k_intopk=1,C_Searching=True,predict_with='MI_max',
+#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
+#                              loss_type='',storeVectors=False,storeLossValues=False) 
+
+
+#    VariationStudyPart1()
+##    VariationStudyPart2bis()
 #    VariationStudyPart2()
 
 #    VariationStudyPart3()
 #    VariationStudyPart3bis()
+    ComputationForLossPlot()
+    VariationStudyPart1_forVOC07()
 
    # A comparer avec du 93s par restart pour les 6 classes de watercolor
 
     ## TODO : tester avec une image constante en entrée et voir ce que cela donne de couleur différentes
     # Peut etre a rajouter dans les exemples negatifs 
+#    plotGT('Q28810789')
+#    plotGT('Q28926315')

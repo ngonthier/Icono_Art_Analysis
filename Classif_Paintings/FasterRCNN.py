@@ -890,7 +890,7 @@ def vis_detections(im, class_name, dets, thresh=0.5,with_title=True):
     plt.tight_layout()
     plt.draw()
     
-def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=None):
+def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=None,Correct=None):
     """Draw detected bounding boxes."""
 
     list_colors = ['#e6194b','#3cb44b','#ffe119','#0082c8',	'#f58231','#911eb4','#46f0f0','#f032e6',	
@@ -902,7 +902,7 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=No
     ax.imshow(im, aspect='equal')
    
     for class_name,dets in zip(class_name_list,dets_list):
-        print(class_name,np.array(dets).shape)
+#        print(class_name,np.array(dets).shape)
         inds = np.where(dets[:, -1] >= thresh)[0]
         if not(len(inds) == 0):
             if list_class is None:
@@ -924,6 +924,59 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=No
                         '{:s} {:.3f}'.format(class_name, score),
                         bbox=dict(facecolor=color, alpha=0.5),
                         fontsize=14, color='white')
+                            
+    plt.axis('off')
+    plt.tight_layout()
+    if not (Correct is None):
+        print("This have never been tested")
+        # In this case, we will draw a rectangle green or red around the image
+        if Correct=='Correct':
+            color = 'g'
+        elif Correct=='Incorrect':
+            color=  'r'
+        elif Correct=='Missing':
+            color=  'o'
+        elif Correct=='MultipleDetect':
+            color=  'p'
+        linewidth = 10
+        x = linewidth
+        y = linewidth
+        h = im.shape[0] - x
+        w = im.shape[1] - y
+        ax.add_patch(plt.Rectangle((x,y),h,w, fill=False,
+                      edgecolor=color, linewidth=linewidth)) 
+    plt.draw()
+    
+def vis_GT_list(im, class_name_list, dets_list,list_class=None):
+    """Draw detected bounding boxes."""
+
+    list_colors = ['#e6194b','#3cb44b','#ffe119','#0082c8',	'#f58231','#911eb4','#46f0f0','#f032e6',	
+                   '#d2f53c','#fabebe',	'#008080','#e6beff','#aa6e28','#fffac8','#800000',
+                   '#aaffc3','#808000','#ffd8b1','#000080','#808080','#FFFFFF','#000000']	
+    i_color = 0
+    im = im[:, :, (2, 1, 0)]
+    fig, ax = plt.subplots(figsize=(12, 12))
+    ax.imshow(im, aspect='equal')
+   
+    for class_name,dets in zip(class_name_list,dets_list):
+        if list_class is None:
+            color = list_colors[i_color]
+            i_color = ((i_color + 1) % len(list_colors))
+        else:
+            i_color = np.where(np.array(list_class)==class_name)[0][0] % len(list_colors)
+            color = list_colors[i_color]
+        for i in range(len(dets)):
+            bbox = dets[i,:]
+            ax.add_patch(
+                plt.Rectangle((bbox[0], bbox[1]),
+                              bbox[2] - bbox[0],
+                              bbox[3] - bbox[1], fill=False,
+                              edgecolor=color, linewidth=3.5)
+                )
+            ax.text(bbox[0], bbox[1] - 2,
+                    '{:s}'.format(class_name),
+                    bbox=dict(facecolor=color, alpha=0.5),
+                    fontsize=14, color='white')
                             
     plt.axis('off')
     plt.tight_layout()

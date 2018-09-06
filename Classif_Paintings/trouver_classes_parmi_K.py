@@ -307,7 +307,8 @@ class tf_MI_max():
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
                   is_betweenMinus1and1=False,CV_Mode=None,num_split=2,with_scores=False,
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
-                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25):
+                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
+                  obj_score_add_tanh=False,lambdas=0.5):
 #                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,AveragingWportion=False,
 #                  votingW=False,proportionToKeep=0.25,votingWmedian=False):
         # TODOD enelver les trucs inutiles ici
@@ -368,6 +369,8 @@ class tf_MI_max():
             'meanOfTanh' : Take the mean of the tanh of the product of the first vectors
             'medianOfTanh' : Take the meadian of the tanh of product of the first vectors
             'maxOfTanh' : Take the max of the tanh of product of the first vectors
+        @param obj_score_add_tanh : the objectness_score is add to the tanh of the dot product
+        @param lambdas : the lambda ratio between the tanh scalar product and the objectness score
         """
         self.LR = LR
         self.C = C
@@ -433,9 +436,9 @@ class tf_MI_max():
         assert(proportionToKeep > 0.0)
         assert(proportionToKeep <= 1.0)
         self.Cbest =None
-        
-        
-        
+        self.obj_score_add_tanh = obj_score_add_tanh
+        self.lambdas = lambdas
+ 
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 
         # KFold From sklearn.model_selection 
@@ -822,12 +825,13 @@ class tf_MI_max():
 #            C_values =  np.arange(0.5,1.5,0.1,dtype=np.float32)
             C_values =  np.arange(0.5,2.75,0.25,dtype=np.float32)
             self.Cbest = np.zeros((self.num_classes,))
+            self.paral_number_W = self.restarts +1
             if not(self.storeVectors):
                 C_value_repeat = np.repeat(C_values,repeats=(self.paral_number_W*self.num_classes),axis=0)
                 self.paral_number_W *= len(C_values)
                 if self.verbose: print('We will compute :',len(C_value_repeat),'W vectors due to the C searching')
             
-        self.storeVectors = storeVectors
+        
         if self.storeVectors:
             self.maximum_numberofparallW_multiClass = 10*12*10 # Independemant du numbre de class 
             
@@ -847,7 +851,7 @@ class tf_MI_max():
                 if self.maximum_numberofparallW_multiClass < (self.restarts +1)*self.num_classes*len(C_values):
                     self.paral_number_W_WithC = self.maximum_numberofparallW_multiClass // ((self.num_classes)*len(C_values)) # have to be a multiple of len(C_values)
                     self.paral_number_W = self.paral_number_W_WithC*len(C_values)
-                    self.num_groups_ofW = (self.restarts +1) // self.paral_number_W
+                    self.num_groups_ofW = (self.restarts +1)*len(C_values) // self.paral_number_W
                     if not((((self.restarts +1))  % self.paral_number_W)==0):
                         self.num_groups_ofW += 1
                 else:
@@ -881,19 +885,19 @@ class tf_MI_max():
             train_dataset = train_dataset_init
             # The second argument is the index of the subset used
         if self.class_indice==-1:
-            if self.with_scores or self.seuillage_by_score:
+            if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
                 self.first_parser = self.parser_all_classes_wRoiScore
             else:
                 self.first_parser = self.parser_all_classes
         else:
-            if self.with_scores or self.seuillage_by_score:
+            if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
                 self.first_parser = self.parser_wRoiScore
             else:
                 self.first_parser = self.parser
             
         iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
         
-        if self.with_scores or self.seuillage_by_score:
+        if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
             X_batch,scores_batch, label_batch = iterator_batch.get_next()
         else:
             X_batch, label_batch = iterator_batch.get_next()
@@ -956,7 +960,7 @@ class tf_MI_max():
             train_dataset = train_dataset_init.shard(self.num_split,self.num_split-1) 
             # The last fold is keep for doing the cross validation
             iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
-            if self.with_scores:
+            if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
                 X_batch,scores_batch, label_batch = iterator_batch.get_next()
             else:
                 X_batch, label_batch = iterator_batch.get_next() 
@@ -965,7 +969,7 @@ class tf_MI_max():
             train_dataset = train_dataset_init.skip(1000) 
             # The last fold is keep for doing the cross validation
             iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
-            if self.with_scores:
+            if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
                 X_batch,scores_batch, label_batch = iterator_batch.get_next()
             else:
                 X_batch, label_batch = iterator_batch.get_next() 
@@ -1002,7 +1006,7 @@ class tf_MI_max():
             dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) # https://stackoverflow.com/questions/46444018/meaning-of-buffer-size-in-dataset-map-dataset-prefetch-and-dataset-shuffle/47025850#47025850
 
         shuffle_iterator = dataset_shuffle.make_initializable_iterator()
-        if self.with_scores or self.seuillage_by_score:
+        if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
             X_,scores_, y_ = shuffle_iterator.get_next()
         else:
             X_, y_ = shuffle_iterator.get_next()
@@ -1063,6 +1067,9 @@ class tf_MI_max():
             elif self.seuillage_by_score:
                 if self.verbose: print('score seuil')
                 Prod=tf.multiply(Prod,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.))
+            elif self.obj_score_add_tanh:
+                if self.verbose: print('Linear product between score and tanh')
+                Prod=self.lambdas*tf.tanh(Prod)+(1-self.lambdas)*scores_*tf.sign(Prod)
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
             elif self.Max_version=='mintopk':
@@ -1086,7 +1093,10 @@ class tf_MI_max():
             else:
                 weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0])
             
-            y_tilde_i = tf.tanh(Max)
+            if not(self.obj_score_add_tanh):
+                y_tilde_i = tf.tanh(Max)
+            else:
+                y_tilde_i = Max
             if self.loss_type == '' or self.loss_type is None:
                 Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
             elif self.loss_type=='MSE':
@@ -1134,6 +1144,8 @@ class tf_MI_max():
                 Prod_batch=tf.multiply(Prod_batch,tf.add(scores_batch,self.epsilon))
             elif self.seuillage_by_score:
                 Prod_batch=tf.multiply(Prod_batch,tf.divide(tf.add(tf.sign(tf.add(scores_batch,-self.seuil)),1.),2.))
+            elif self.obj_score_add_tanh:
+                Prod_batch=self.lambdas*tf.tanh(Prod_batch)+(1-self.lambdas)*scores_batch*tf.sign(Prod_batch)
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
             elif self.Max_version=='mintopk':
@@ -1494,19 +1506,19 @@ class tf_MI_max():
             train_dataset = train_dataset_init
             # The second argument is the index of the subset used
             if self.class_indice==-1:
-                if self.with_scores or self.seuillage_by_score:
+                if self.with_scores or self.seuillage_by_score or  self.obj_score_add_tanh:
                     self.first_parser = self.parser_all_classes_wRoiScore
                 else:
                     self.first_parser = self.parser_all_classes
             else:
-                if self.with_scores or self.seuillage_by_score:
+                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
                     self.first_parser = self.parser_wRoiScore
                 else:
                     self.first_parser = self.parser
                 
             iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
             
-            if self.with_scores or self.seuillage_by_score:
+            if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
                 X_batch,scores_batch, label_batch = iterator_batch.get_next()
             else:
                 X_batch, label_batch = iterator_batch.get_next()
@@ -1577,7 +1589,7 @@ class tf_MI_max():
                 dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) # https://stackoverflow.com/questions/46444018/meaning-of-buffer-size-in-dataset-map-dataset-prefetch-and-dataset-shuffle/47025850#47025850
     
             shuffle_iterator = dataset_shuffle.make_initializable_iterator()
-            if self.with_scores or self.seuillage_by_score:
+            if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
                 X_,scores_, y_ = shuffle_iterator.get_next()
             else:
                 X_, y_ = shuffle_iterator.get_next()
@@ -1638,6 +1650,9 @@ class tf_MI_max():
                 elif self.seuillage_by_score:
                     if self.verbose: print('score seuil')
                     Prod=tf.multiply(Prod,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.))
+                elif self.obj_score_add_tanh:
+                    if self.verbose: print('Linear product between score and tanh')
+                    Prod=self.lambdas*tf.tanh(Prod)+(1-self.lambdas)*scores_*tf.sign(Prod)
                 if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                     Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
                 elif self.Max_version=='mintopk':
@@ -1659,7 +1674,12 @@ class tf_MI_max():
                     weights_bags_ratio = tf.tile(tf.transpose(weights_bags_ratio,[1,0]),[self.paral_number_W,1])
                 else:
                     weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0])
-                y_tilde_i = tf.tanh(Max)
+                    
+                if not(self.obj_score_add_tanh):
+                    y_tilde_i = tf.tanh(Max)
+                else:
+                    y_tilde_i = Max
+                
                 if self.loss_type == '' or self.loss_type is None:
                     Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
                 elif self.loss_type=='MSE':
@@ -1694,6 +1714,8 @@ class tf_MI_max():
                     Prod_batch=tf.multiply(Prod_batch,tf.add(scores_batch,self.epsilon))
                 elif self.seuillage_by_score:
                     Prod_batch=tf.multiply(Prod_batch,tf.divide(tf.add(tf.sign(tf.add(scores_batch,-self.seuil)),1.),2.))
+                elif self.obj_score_add_tanh:
+                    Prod_batch=self.lambdas*tf.tanh(Prod_batch)+(1-self.lambdas)*scores_batch*tf.sign(Prod_batch)
                 if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                     Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
                 elif self.Max_version=='mintopk':
@@ -1712,7 +1734,12 @@ class tf_MI_max():
                     weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
                 else:
                     weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
-                y_tilde_i_batch = tf.tanh(Max_batch)
+               
+                if not(self.obj_score_add_tanh):
+                    y_tilde_i_batch = tf.tanh(Max_batch)
+                else:
+                    y_tilde_i_batch = Max_batch
+                    
                 if self.loss_type == '' or self.loss_type is None:
                     Tan_batch= tf.reduce_sum(tf.multiply(y_tilde_i_batch,weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
                 elif self.loss_type=='MSE':
@@ -1884,8 +1911,10 @@ class tf_MI_max():
             Dict['np_pos_value'] = np_pos_value
             Dict['np_neg_value'] = np_neg_value
             if  self.storeLossValues:
+                if self.verbose: print("We will save the loss values")
                 Dict['all_loss_value'] = all_loss_value
             if self.C_Searching:
+                if self.verbose: print("We will save the C value array")
                 Dict['C_value_repeat'] = C_value_repeat
             export_dir = ('/').join(data_path.split('/')[:-1])
             export_dir += '/MI_max_StoredW/' + str(time.time()) + '.pkl'
@@ -1903,58 +1932,67 @@ class tf_MI_max():
         elif self.norm=='STDSaid':
             X_ = tf.divide(tf.add( X_,-mean_train_set), tf.add(_EPSILON,reduce_std(X_, axis=-1,keepdims=True)), name="STDSaid")
         y_ = tf.identity(y_, name="y")
-        if self.with_scores or self.seuillage_by_score:
+        if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
             scores_ = tf.identity(scores_,name="scores")
         if self.AggregW in self.listAggregOnProdorTanh:
             Prod_best=tf.add(tf.einsum('bak,ijk->baij',tf.convert_to_tensor(W_best),X_)\
                                          ,b_best)
-            
+            if self.with_scores:
+                Prod_tmp = tf.multiply(Prod_best,tf.add(scores_,self.epsilon))
+            elif self.seuillage_by_score:
+                Prod_tmp = tf.multiply(Prod_best,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.))
+            elif self.obj_score_add_tanh:
+                Prod_tmp=tf.add(self.lambdas*tf.tanh(Prod_best),(1-self.lambdas)*scores_*tf.sign(Prod_best))
+            if 'Tanh' in self.AggregW:
+                if self.with_scores or self.seuillage_by_score :
+                    Prod_tmp = tf.tanh(Prod_tmp,name='ProdScore'))
+                
             if self.AggregW=='meanOfProd':
-                if self.with_scores: 
-                    Prod_score=tf.reduce_mean(tf.multiply(Prod_best,tf.add(scores_,self.epsilon)),axis=0,name='ProdScore')
+                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh: 
+                    Prod_score=tf.reduce_mean(Prod_tmp,axis=0,name='ProdScore')
                 else:
                     Prod_best = tf.reduce_mean(Prod_best,axis=0,name='Prod')
             elif self.AggregW=='medianOfProd':
-                if self.with_scores: 
-                    Prod_score= tf.identity(tf.contrib.distributions.percentile(tf.multiply(Prod_best,tf.add(scores_,self.epsilon)),50.0,axis=0),name='ProdScore')
+                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh: 
+                    Prod_score= tf.identity(tf.contrib.distributions.percentile(Prod_tmp,50.0,axis=0),name='ProdScore')
                 else:
                     Prod_best = tf.identity(tf.contrib.distributions.percentile(Prod_best,50.0,axis=0),name='Prod')
                 # TODO posibility to take an other percentile than median
             elif self.AggregW=='maxOfProd':
-                if self.with_scores: 
-                    Prod_score=tf.reduce_max(tf.multiply(Prod_best,tf.add(scores_,self.epsilon)),axis=0,name='ProdScore')
+                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh: 
+                    Prod_score=tf.reduce_max(Prod_tmp,axis=0,name='ProdScore')
                 else:
                     Prod_best = tf.reduce_max(Prod_best,axis=0,name='Prod')
             elif self.AggregW=='minOfProd':
-                if self.with_scores: 
-                    Prod_score=tf.reduce_min(tf.multiply(Prod_best,tf.add(scores_,self.epsilon)),axis=0,name='ProdScore')
+                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
+                    Prod_score=tf.reduce_min(Prod_tmp,axis=0,name='ProdScore')
                 else:
                     Prod_best = tf.reduce_min(Prod_best,axis=0,name='Prod')
             elif self.AggregW=='meanOfTanh':
-                if self.with_scores: 
-                    Prod_score=tf.reduce_mean(tf.tanh(tf.multiply(Prod_best,tf.add(scores_,self.epsilon)),name='ProdScore'),axis=0,name='Tanh')
+                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh:
+                    Prod_score=tf.reduce_mean(Prod_tmp,axis=0,name='Tanh')
                 else:
                     Prod_best = tf.reduce_mean(tf.tanh(Prod_best,name='Prod'),axis=0,name='Tanh')
             elif self.AggregW=='meanOfSign':
-                if self.with_scores: 
+                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh: 
                     Prod_score=tf.reduce_mean(tf.sign(tf.multiply(Prod_best,tf.add(scores_,self.epsilon)),name='ProdScore'),axis=0,name='Tanh')
                 else:
                     Prod_best = tf.reduce_mean(tf.sign(Prod_best,name='Prod'),axis=0,name='Tanh')
             elif self.AggregW=='medianOfTanh':
-                if self.with_scores: 
-                    Prod_score= tf.identity(tf.contrib.distributions.percentile(tf.tanh(tf.multiply(Prod_best,tf.add(scores_,self.epsilon)),name='ProdScore'),50.0,axis=0),name='Tanh')
+                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh: 
+                    Prod_score= tf.identity(tf.contrib.distributions.percentile(Prod_tmp,50.0,axis=0),name='Tanh')
                 else:
                     Prod_best = tf.identity(tf.contrib.distributions.percentile(tf.tanh(Prod_best,name='Prod'),50.0,axis=0),name='Tanh')
                 # TODO posibility to take an other percentile than median
             elif self.AggregW=='maxOfTanh':
-                if self.with_scores: 
-                    Prod_score=tf.reduce_max(tf.tanh(tf.multiply(Prod_best,tf.add(scores_,self.epsilon)),name='ProdScore'),axis=0,name='Tanh')
+                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh: 
+                    Prod_score=tf.reduce_max(Prod_tmp,axis=0,name='Tanh')
                 else:
                     Prod_best = tf.reduce_max(tf.tanh(Prod_best,name='Prod'),axis=0,name='Tanh')
-                    print('Tanh in saving part',Prod_best)
+                    #print('Tanh in saving part',Prod_best)
             elif self.AggregW=='minOfTanh':
-                if self.with_scores: 
-                    Prod_score=tf.reduce_min(tf.tanh(tf.multiply(Prod_best,tf.add(scores_,self.epsilon)),name='ProdScore'),axis=0,name='Tanh')
+                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh: 
+                    Prod_score=tf.reduce_min(Prod_tmp,axis=0,name='Tanh')
                 else:
                     Prod_best = tf.reduce_min(tf.tanh(Prod_best,name='Prod'),axis=0,name='Tanh')
         else:
@@ -1968,7 +2006,8 @@ class tf_MI_max():
                 Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
             elif self.seuillage_by_score:
                 Prod_score=tf.multiply(Prod_best,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.),name='ProdScore')
-        
+            elif self.obj_score_add_tanh:
+                Prod_tmp=tf.add(self.lambdas*tf.tanh(Prod_best),(1-self.lambdas)*scores_*tf.sign(Prod_best),name='ProdScore')
                 
 
         export_dir = ('/').join(data_path.split('/')[:-1])

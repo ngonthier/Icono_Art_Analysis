@@ -287,7 +287,8 @@ def plotDecroissanceFct():
     Le but de cette fonction est d afficher la decroissance de la fonction de cout 
     au cours du temps
     """
-    export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max/1535041879.8656893/model'
+    export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss.pkl'
+#    export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss.pkl'
     with open(export_dir, 'rb') as f:
         Dict = pickle.load(f)
     all_loss_value = Dict['all_loss_value']
