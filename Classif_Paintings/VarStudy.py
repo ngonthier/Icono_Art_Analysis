@@ -287,6 +287,8 @@ def plotDecroissanceFct():
     Le but de cette fonction est d afficher la decroissance de la fonction de cout 
     au cours du temps
     """
+    #"/media/HDD/output_exp/ClassifPaintings/VarStudy/storeLossValues_PeopleArt_Wvectors_C_SearchingFalse__.pkl"
+    #"/media/HDD/output_exp/ClassifPaintings/VarStudy/storeLossValues_PeopleArt_Wvectors_C_SearchingFalse___WithScore.pkl"
     export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss.pkl'
 #    export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss.pkl'
     with open(export_dir, 'rb') as f:
