@@ -2863,6 +2863,9 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      # LinearSVC_Seuil : select of the regions for the negative and with a threshold for the positive
      PlotRegions,RPN,Stocha,CompBest=parameters # TOFO modify that you have a redundancy for PlotRegions
 
+     if obj_score_add_tanh or obj_score_mul_tanh:
+        scoreInMI_max =True
+
      if not(plot_onSubSet is None):
          PlotRegions = True
          index_SubSet = []
@@ -5194,6 +5197,7 @@ def VariationStudyPart2():
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
     start_i = 0
+    start_i = 13
     end_i = 16
     seuil = 0.9 
     
@@ -5596,6 +5600,7 @@ def VariationStudyPart2():
                     class_indice = -1
                     ## Compute the best vectors 
                     for l in range(number_of_reboots): 
+                        print('reboot :',l)
                         all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
                         Wstored_extract = Wstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep,:]
                         W_tmp = np.reshape(Wstored_extract,(-1,num_features),order='F')
@@ -5626,8 +5631,8 @@ def VariationStudyPart2():
                                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
                                cachefile_model_base='',transform_output=transform_output,
                                scoreInMI_max=(with_scores or seuillage_by_score)
-                               ,AggregW=AggregW)
-                        
+                               ,AggregW=AggregW,obj_score_add_tanh=obj_score_add_tanh,obj_score_mul_tanh=obj_score_mul_tanh)
+                        tf.reset_default_graph()
                         # Classification Perf
                         AP_per_class = []
                         for j,classe in enumerate(classes):
@@ -5710,6 +5715,7 @@ def VariationStudyPart2():
                 
                     with open(name_dictAP, 'wb') as f:
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+                        
 def VariationStudyPart2_forVOC07():
     '''
     The goal of this function is to study the variation of the performance of our 
@@ -7483,10 +7489,10 @@ if __name__ == '__main__':
 #                              obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=True) 
 
 
-    VariationStudyPart1_forVOC07()
-    VariationStudyPart2_forVOC07()
+#    VariationStudyPart1_forVOC07()
+#    VariationStudyPart2_forVOC07()
     # Il faudra faire le part3 pour VOC07
-    VariationStudyPart1()
+#    VariationStudyPart1()
     VariationStudyPart2()
 #    VariationStudyPart1()
 ##    VariationStudyPart2bis()

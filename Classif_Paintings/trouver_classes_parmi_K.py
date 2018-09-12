@@ -3,7 +3,7 @@
 """
 Created on Sun Feb  4 09:47:54 2018
 
-@author: said
+@author: said and gonthier
 """
 
 import tensorflow as tf
@@ -2574,7 +2574,7 @@ class ModelHyperplan():
     def createIt(self,data_path,class_indice,W_tmp,b_tmp,loss_value):
     
         # Create some variables. cela est completement stupide en fait la maniere dont tu fais ...
-        v1 = tf.get_variable("v1", shape=[3], initializer = tf.zeros_initializer)
+        v1 = tf.get_variable("v1", shape=[1], initializer = tf.zeros_initializer)
         init_op = tf.global_variables_initializer()
         
         self.numberWtoKeep  = min(int(np.ceil((self.restarts+1))*self.proportionToKeep),self.restarts+1)
@@ -2624,7 +2624,8 @@ class ModelHyperplan():
         sess.run(init_op)
         saver = tf.train.Saver()
         X_ =  tf.placeholder(tf.float32,shape=(None,self.num_rois,self.num_features))
-        scores_ =  tf.placeholder(tf.float32,shape=(None,self.num_rois,))
+        if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
+            scores_ =  tf.placeholder(tf.float32,shape=(None,self.num_rois,))
         y_ = tf.placeholder(tf.float32,shape=(None,self.num_classes))
     ## End we save the best w
 
