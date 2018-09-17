@@ -3438,7 +3438,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     try:
                         Prod_best = graph.get_tensor_by_name("Tanh_2:0")
                     except KeyError:
-                        Prod_best = graph.get_tensor_by_name("Tanh:0")
+                        try:
+                             Prod_best = graph.get_tensor_by_name("Tanh:0")
+                        except KeyError:
+                             Prod_best = graph.get_tensor_by_name("Tanh_1:0")
                 else:
                     Prod_best = graph.get_tensor_by_name("ProdScore:0")
             else:
@@ -3446,7 +3449,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     try:
                         Prod_best = graph.get_tensor_by_name("Tanh_2:0")
                     except KeyError:
-                        Prod_best = graph.get_tensor_by_name("Tanh:0")
+                        try:
+                             Prod_best = graph.get_tensor_by_name("Tanh:0")
+                        except KeyError:
+                             Prod_best = graph.get_tensor_by_name("Tanh_1:0")
                 else:
                     Prod_best = graph.get_tensor_by_name("Prod:0")
             if with_tanh:
@@ -5579,7 +5585,7 @@ def VariationStudyPart2():
     #            print(Wstored.shape)
 
             for AggregW in listAggregW:
-                
+                print('AggregW',AggregW,'for ',database)
                 name_dictAP = name_dict  + '_' +str(AggregW)  + '_APscore.pkl'
                 ReDo  =False
                 if not os.path.isfile(name_dictAP) or ReDo:
@@ -6684,13 +6690,13 @@ def VariationStudyPart2bis():
                     with open(name_dictAP, 'wb') as f:
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
       
-def VariationStudyPart3():
+def VariationStudyPart3(demonet = 'res152_COCO'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
     The third part print the results 
     '''
-    demonet = 'res152_COCO'
+    
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
@@ -6919,7 +6925,10 @@ def VariationStudyPart3():
                 obj_score_mul_tanh = False 
                     
                 
-            name_dict = path_data_output +database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            name_dict = path_data_output +database
+            if not(demonet=='res152_COCO'):
+                name_dict += demonet+'_'
+            name_dict += '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
             CV_Mode+'_'+str(loss_type)
             if not(WR):
                 name_dict += '_withRegularisationTermInLoss'
@@ -7493,10 +7502,11 @@ if __name__ == '__main__':
 #    VariationStudyPart2_forVOC07()
     # Il faudra faire le part3 pour VOC07
 #    VariationStudyPart1()
-    VariationStudyPart2()
+#    VariationStudyPart2()
+#     VariationStudyPart3(demonet = 'res101_VOC07')
 #    VariationStudyPart1()
 ##    VariationStudyPart2bis()
-#    VariationStudyPart2()
+    VariationStudyPart2()
 
 #    VariationStudyPart3()
 #    VariationStudyPart3bis()

@@ -2639,7 +2639,7 @@ class ModelHyperplan():
         y_ = tf.identity(y_, name="y")
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
             scores_ = tf.identity(scores_,name="scores")
-        if self.AggregW in self.listAggregOnProdorTanh:
+        if self.AggregW in self.listAggregOnProdorTanh :
             Prod_best=tf.add(tf.einsum('bak,ijk->baij',tf.convert_to_tensor(W_best),X_)\
                                          ,b_best)
             if self.with_scores:
@@ -2693,7 +2693,7 @@ class ModelHyperplan():
                 # TODO posibility to take an other percentile than median
             elif self.AggregW=='maxOfTanh':
                 if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh: 
-                    Prod_score=tf.reduce_max(Prod_tmp,axis=0,name='Tanh')
+                    Prod_score= tf.reduce_max(Prod_tmp,axis=0,name='Tanh')
                 else:
                     Prod_best = tf.reduce_max(tf.tanh(Prod_best,name='Prod'),axis=0,name='Tanh')
                     #print('Tanh in saving part',Prod_best)
@@ -2702,6 +2702,9 @@ class ModelHyperplan():
                     Prod_score=tf.reduce_min(Prod_tmp,axis=0,name='Tanh')
                 else:
                     Prod_best = tf.reduce_min(tf.tanh(Prod_best,name='Prod'),axis=0,name='Tanh')
+                    
+#            if self.obj_score_add_tanh or self.obj_score_mul_tanh: # Vraiment ici ?
+#                Prod_best=tf.identity(Prod_best,name='Tanh')
         else:
             if class_indice==-1:
                 if self.restarts_paral_V2:
@@ -2709,14 +2712,29 @@ class ModelHyperplan():
                                          ,b_best,name='Prod')
             else:
                 Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
-            if self.with_scores: 
-                Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
+                
+            if self.with_scores:
+                Prod_tmp = tf.multiply(Prod_best,tf.add(scores_,self.epsilon))
             elif self.seuillage_by_score:
-                Prod_score=tf.multiply(Prod_best,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.),name='ProdScore')
+                Prod_tmp = tf.multiply(Prod_best,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.))
             elif self.obj_score_add_tanh:
-                Prod_score=tf.add(self.lambdas*tf.tanh(Prod_best),(1-self.lambdas)*scores_*tf.sign(Prod_best),name='ProdScore')
+                Prod_tmp=tf.add(self.lambdas*tf.tanh(Prod_best),(1-self.lambdas)*scores_*tf.sign(Prod_best))
             elif self.obj_score_mul_tanh:
-                Prod_score=tf.multiply(scores_,Prod_best,name='ProdScore')
+                Prod_tmp=tf.multiply(scores_,Prod_best)
+            if self.with_scores or self.seuillage_by_score :
+                Prod_score = tf.identity(Prod_tmp,name='ProdScore')
+            elif self.obj_score_add_tanh or self.obj_score_mul_tanh:
+                Prod_score = tf.identity(Prod_tmp,name='Tanh')
+                
+                
+#            if self.with_scores: 
+#                Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
+#            elif self.seuillage_by_score:
+#                Prod_score=tf.multiply(Prod_best,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.),name='ProdScore')
+#            elif self.obj_score_add_tanh:
+#                Prod_score=tf.add(self.lambdas*tf.tanh(Prod_best),(1-self.lambdas)*scores_*tf.sign(Prod_best),name='ProdScore')
+#            elif self.obj_score_mul_tanh:
+#                Prod_score=tf.multiply(scores_,Prod_best,name='ProdScore')
                 
 
 #        
