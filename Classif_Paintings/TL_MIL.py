@@ -46,6 +46,7 @@ import os.path
 import misvm # Library to do Multi Instance Learning with SVM
 from sklearn.preprocessing import StandardScaler
 from trouver_classes_parmi_K import MI_max,TrainClassif,tf_MI_max,ModelHyperplan
+from trouver_classes_parmi_K_mi import tf_mi_model
 from LatexOuput import arrayToLatex
 from FasterRCNN import vis_detections_list,vis_detections,Compute_Faster_RCNN_features,vis_GT_list
 import pathlib
@@ -2008,6 +2009,7 @@ def FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Pa
         tf.reset_default_graph()
     
 def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
+                                  model='MI_max',
                                   verbose = True,testMode = True,jtest = 0,
                                   PlotRegions = True,saved_clf=False,RPN=False,
                                   CompBest=True,Stocha=True,k_per_bag=300,
@@ -2042,6 +2044,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     @param : database : the database used for the classification task
     @param : verbose : Verbose option classical
     @param : ReDo = False : Erase the former computation
+    @param : model : kind of model use for the optimization a instance based one (mi_model) 
+        or a bag based one as MI_max (default)
     @param : testMode : boolean True we only run on one class
     @param : jtest : the class on which we run the test
     @param : PlotRegions : plot the regions used for learn and the regions in 
@@ -2454,6 +2458,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     dont_use_07_metric = True
     symway = True
     
+    if model=='MI_max':
+        model_str = 'MI_max'
+    elif model=='mi_model':
+        model_str ='mi_model'
+        
     arrayParam = [demonet,database,N,extL2,nms_thresh,savedstr,mini_batch_size,
                   performance,buffer_size,predict_with,shuffle,C,testMode,restarts,max_iters_all_base,
                   max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
@@ -2461,7 +2470,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                   TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
-                  proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh]
+                  proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
+                  model]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2471,7 +2481,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
                      'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
                      'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
-                     'obj_score_mul_tanh']
+                     'obj_score_mul_tanh','model']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2484,7 +2494,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
         +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
         + AggregW_str + loss_type_str+str_obj_score_add_tanh+str_obj_score_mul_tanh
-    cachefile_model = path_data +  cachefile_model_base+'_MI_max.pkl'
+    cachefile_model = path_data +  cachefile_model_base+'_'+model_str+'.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
 #        input_str = input('Answer yes or not')
@@ -2530,19 +2540,35 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         if not os.path.isfile(cachefile_model) or ReDo:
              if verbose: t0 = time.time()
              
-             classifierMI_max = tf_MI_max(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,num_rois=k_per_bag,
-                   max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
-                   verbose=verboseMI_max,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
-                   mini_batch_size=mini_batch_size,num_features=num_features,debug=debug,
-                   num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
-                   Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
-                   k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
-                   loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                   obj_score_mul_tanh=obj_score_mul_tanh)
-             export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
-                   class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
-                   WR=WR,performance=performance,restarts_paral=restarts_paral,
-                   C_Searching=C_Searching,storeVectors=storeVectors,storeLossValues=storeLossValues)                
+             if model=='MI_max' or model=='':
+             
+                 classifierMI_max = tf_MI_max(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,num_rois=k_per_bag,
+                       max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
+                       verbose=verboseMI_max,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
+                       mini_batch_size=mini_batch_size,num_features=num_features,debug=debug,
+                       num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
+                       Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
+                       k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
+                       loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                       obj_score_mul_tanh=obj_score_mul_tanh)
+                 export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
+                       class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
+                       WR=WR,performance=performance,restarts_paral=restarts_paral,
+                       C_Searching=C_Searching,storeVectors=storeVectors,storeLossValues=storeLossValues)  
+             elif model=='mi_model':
+                 classifier_mi_model = tf_mi_model(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,num_rois=k_per_bag,
+                       max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
+                       verbose=verboseMI_max,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
+                       mini_batch_size=mini_batch_size,num_features=num_features,debug=debug,
+                       num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
+                       Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
+                       k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
+                       loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                       obj_score_mul_tanh=obj_score_mul_tanh)
+                 export_dir = classifier_mi_model.fit_mi_model_tfrecords(data_path=data_path_train, \
+                       class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
+                       WR=WR,performance=performance,restarts_paral=restarts_paral,
+                       C_Searching=C_Searching,storeVectors=storeVectors,storeLossValues=storeLossValues)                
                  
              if verbose: 
                  t1 = time.time() 
@@ -2894,11 +2920,14 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
          with_softmax_a_intraining = True
      with_tanh_alreadyApplied = False
      if not(AggregW is None): 
-        if'Tanh' in AggregW or 'Sign' in AggregW or obj_score_add_tanh or obj_score_mul_tanh: 
+        if'Tanh' in AggregW or 'Sign' in AggregW: 
             # The tanh transformation have already be done
             with_tanh = False
             with_tanh_alreadyApplied = True
-     seuil_estimation_debug = True
+     if obj_score_add_tanh or obj_score_mul_tanh:
+        with_tanh = False
+        with_tanh_alreadyApplied = True
+     seuil_estimation_debug = False
      plot_hist = False
 
      if PlotRegions or (seuil_estimation_bool and plot_hist):
@@ -3427,6 +3456,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             new_saver.restore(sess, tf.train.latest_checkpoint(export_dir_path))
             graph= tf.get_default_graph()
             if not(k_per_bag==300) and eval_onk300:
+                print('Que fais tu la ?')
                 X = tf.placeholder(tf.float32, shape=(None,300,2048),name='X')
                 y = tf.placeholder(tf.float32, shape=(None,10),name='y')
             else:
@@ -3436,21 +3466,21 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 scores_tf = graph.get_tensor_by_name("scores:0")
                 if with_tanh_alreadyApplied:
                     try:
-                        Prod_best = graph.get_tensor_by_name("Tanh_2:0")
+                        Prod_best = graph.get_tensor_by_name("Tanh_1:0")
                     except KeyError:
                         try:
-                             Prod_best = graph.get_tensor_by_name("Tanh:0")
+                             Prod_best = graph.get_tensor_by_name("Tanh_2:0")
                         except KeyError:
-                             Prod_best = graph.get_tensor_by_name("Tanh_1:0")
+                             Prod_best = graph.get_tensor_by_name("Tanh:0")
                 else:
                     Prod_best = graph.get_tensor_by_name("ProdScore:0")
             else:
                 if with_tanh_alreadyApplied:
                     try:
-                        Prod_best = graph.get_tensor_by_name("Tanh_2:0")
+                        Prod_best = graph.get_tensor_by_name("Tanh:0")
                     except KeyError:
                         try:
-                             Prod_best = graph.get_tensor_by_name("Tanh:0")
+                             Prod_best = graph.get_tensor_by_name("Tanh_2:0")
                         except KeyError:
                              Prod_best = graph.get_tensor_by_name("Tanh_1:0")
                 else:
@@ -3475,6 +3505,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
 
+        # Evaluation Test : Probleme ici souvent 
         while True:
             try:
                 if not(with_rois_scores_atEnd) and not(scoreInMI_max):
@@ -3486,6 +3517,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
                     else:
                         feed_dict_value = {X: fc7s, y: labels}
+
                     if with_tanh:
                         PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
                         sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
@@ -3519,6 +3551,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     # predict_label_all_test is used only for the classification score !
 #                if predict_with=='LinearSVC':
                     
+                #print(PositiveExScoreAll.shape)
                 for k in range(len(labels)):
                     if database in ['VOC2007','watercolor','Paintings','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training'] :
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
@@ -3536,10 +3569,13 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     
                     for j in range(num_classes):
                         scores = scores_all[j,:]
+                        #print(scores.shape)
                         if seuil_estimation_bool:
                             inds = np.where(scores > list_thresh[j])[0]
                         else:
                             inds = np.where(scores > thresh)[0]
+#                        print(inds)
+#                        print(roi_boxes.shape)
                         cls_scores = scores[inds]
                         cls_boxes = roi_boxes[inds,:]
                         cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])).astype(np.float32, copy=False)
@@ -5202,17 +5238,18 @@ def VariationStudyPart2():
     dont_use_07_metric  =True
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
-    start_i = 0
-    start_i = 13
-    end_i = 16
+    start_i = 14
+    #start_i = 13
+    end_i = 17
+    listi = np.arange(start_i,end_i)
     seuil = 0.9 
     
     data_path = '/media/HDD/output_exp/ClassifPaintings/'
     
-    for i in range(start_i,end_i+1):
-        print('Scenario :',i)
+    for i_scenario in listi:
+        print('Scenario :',i_scenario)
         listAggregW = [None]
-        if i==0:
+        if i_scenario==0:
             listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
             C_Searching = False
             CV_Mode = ''
@@ -5225,7 +5262,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==1:
+        elif i_scenario==1:
             listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
             loss_type='MSE'
             C_Searching = False
@@ -5241,7 +5278,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==2:
+        elif i_scenario==2:
             loss_type='hinge_tanh'
             C_Searching = False
             CV_Mode = ''
@@ -5253,7 +5290,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==3:
+        elif i_scenario==3:
             loss_type='hinge'
             C_Searching = False
             CV_Mode = ''
@@ -5265,7 +5302,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==4:
+        elif i_scenario==4:
             loss_type=''
             C_Searching = False
             CV_Mode = ''
@@ -5274,7 +5311,7 @@ def VariationStudyPart2():
             WR = False
             with_scores = True
             seuillage_by_score=False
-        if i==5:
+        if i_scenario==5:
             C_Searching = False
             CV_Mode = ''
             AggregW = None
@@ -5286,7 +5323,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==6:
+        elif i_scenario==6:
             loss_type='MSE'
             C_Searching = False
             CV_Mode = ''
@@ -5295,7 +5332,7 @@ def VariationStudyPart2():
             WR = True
             with_scores = False
             seuillage_by_score=False
-        elif i==7:
+        elif i_scenario==7:
             loss_type=''
             C_Searching = False
             CV_Mode = ''
@@ -5305,7 +5342,7 @@ def VariationStudyPart2():
             with_scores = False
             seuillage_by_score=True
             seuil=0.9
-        elif i==8:
+        elif i_scenario==8:
             loss_type=''
             C_Searching = False
             CV_Mode = ''
@@ -5318,7 +5355,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==9:
+        elif i_scenario==9:
             loss_type=''
             C_Searching = False
             CV_Mode = ''
@@ -5331,7 +5368,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==10:
+        elif i_scenario==10:
             loss_type=''
             C_Searching = False
             CV_Mode = ''
@@ -5344,7 +5381,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==11:
+        elif i_scenario==11:
             listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
             C_Searching = True
             CV_Mode = 'CV'
@@ -5357,7 +5394,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==12:
+        elif i_scenario==12:
             listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
             C_Searching = True
             CV_Mode = 'CV'
@@ -5370,7 +5407,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==13:
+        elif i_scenario==13:
             listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
             C_Searching = False
             CV_Mode = ''
@@ -5383,8 +5420,8 @@ def VariationStudyPart2():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = True
-        elif i==14:
-            listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+        elif i_scenario==14:
+            listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
             C_Searching = False
             CV_Mode = ''
             AggregW = None
@@ -5396,7 +5433,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=True
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==15:
+        elif i_scenario==15:
             listAggregW = [None]
             C_Searching = False
             CV_Mode = ''
@@ -5409,7 +5446,7 @@ def VariationStudyPart2():
             obj_score_add_tanh=True
             lambdas = 0.9
             obj_score_mul_tanh = False
-        elif i==16:
+        elif i_scenario==16:
             listAggregW = [None]
             C_Searching = False
             CV_Mode = ''
@@ -5585,7 +5622,7 @@ def VariationStudyPart2():
     #            print(Wstored.shape)
 
             for AggregW in listAggregW:
-                print('AggregW',AggregW,'for ',database)
+                print('Scenario',i_scenario,'AggregW',AggregW,'for ',database)
                 name_dictAP = name_dict  + '_' +str(AggregW)  + '_APscore.pkl'
                 ReDo  =False
                 if not os.path.isfile(name_dictAP) or ReDo:
@@ -5602,7 +5639,8 @@ def VariationStudyPart2():
                     modelcreator = ModelHyperplan(norm='',AggregW=AggregW,epsilon=0.01,mini_batch_size=1000,num_features=num_features,num_rois=k_per_bag,num_classes=num_classes,
                          with_scores=with_scores,seuillage_by_score=seuillage_by_score,
                          proportionToKeep=proportionToKeep,restarts=numberofW_to_keep-1,seuil=seuil,
-                         obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,obj_score_mul_tanh=obj_score_mul_tanh)
+                         obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                         obj_score_mul_tanh=obj_score_mul_tanh)
                     class_indice = -1
                     ## Compute the best vectors 
                     for l in range(number_of_reboots): 
@@ -5636,8 +5674,9 @@ def VariationStudyPart2():
                                path_to_img,path_data,param_clf,classes,parameters,verbose,
                                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
                                cachefile_model_base='',transform_output=transform_output,
-                               scoreInMI_max=(with_scores or seuillage_by_score)
-                               ,AggregW=AggregW,obj_score_add_tanh=obj_score_add_tanh,obj_score_mul_tanh=obj_score_mul_tanh)
+                               scoreInMI_max=(with_scores or seuillage_by_score or obj_score_add_tanh or obj_score_mul_tanh)
+                               ,AggregW=AggregW,obj_score_add_tanh=obj_score_add_tanh,
+                               obj_score_mul_tanh=obj_score_mul_tanh)
                         tf.reset_default_graph()
                         # Classification Perf
                         AP_per_class = []
@@ -5653,8 +5692,8 @@ def VariationStudyPart2():
                         num_images_detect = len(imdb.image_index)  # We do not have the same number of images in the WikiTenLabels case
                         all_boxes_order = [[[] for _ in range(num_images_detect)] for _ in range(imdb.num_classes)]
                         number_im = 0
-                        for i in range(num_images_detect):
-                            name_img = imdb.image_path_at(i)
+                        for idetect in range(num_images_detect):
+                            name_img = imdb.image_path_at(idetect)
                             if database=='PeopleArt':
                                 name_img_wt_ext = name_img.split('/')[-2] +'/' +name_img.split('/')[-1]
                                 name_img_wt_ext_tab =name_img_wt_ext.split('.')
@@ -5673,15 +5712,15 @@ def VariationStudyPart2():
                             #print(name_img_ind[0])
                             for j in range(1, imdb.num_classes):
                                 j_minus_1 = j-1
-                                all_boxes_order[j][i]  = all_boxes[j_minus_1][name_img_ind[0]]
+                                all_boxes_order[j][idetect]  = all_boxes[j_minus_1][name_img_ind[0]]
                             if max_per_image > 0:
-                                image_scores = np.hstack([all_boxes_order[j][i][:, -1]
+                                image_scores = np.hstack([all_boxes_order[j][idetect][:, -1]
                                             for j in range(1, imdb.num_classes)])
                                 if len(image_scores) > max_per_image:
                                     image_thresh = np.sort(image_scores)[-max_per_image]
                                     for j in range(1, imdb.num_classes):
-                                        keep = np.where(all_boxes_order[j][i][:, -1] >= image_thresh)[0]
-                                        all_boxes_order[j][i] = all_boxes_order[j][i][keep, :]
+                                        keep = np.where(all_boxes_order[j][idetect][:, -1] >= image_thresh)[0]
+                                        all_boxes_order[j][idetect] = all_boxes_order[j][idetect][keep, :]
                         assert (number_im==num_images_detect) # To check that we have the all the images in the detection prediction
                         det_file = os.path.join(path_data, 'detections.pkl')
                         with open(det_file, 'wb') as f:
@@ -5749,10 +5788,10 @@ def VariationStudyPart2_forVOC07():
     listi = [0,5]
     seuil = 0.9 
 
-    for i in listi:
-        print('Scenario :',i)
+    for i_scenario in listi:
+        print('Scenario :',i_scenario)
         listAggregW = [None]
-        if i==0:
+        if i_scenario==0:
             listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
             C_Searching = False
             CV_Mode = ''
@@ -5765,7 +5804,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==1:
+        elif i_scenario==1:
             listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
             loss_type='MSE'
             C_Searching = False
@@ -5781,7 +5820,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==2:
+        elif i_scenario==2:
             loss_type='hinge_tanh'
             C_Searching = False
             CV_Mode = ''
@@ -5793,7 +5832,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==3:
+        elif i_scenario==3:
             loss_type='hinge'
             C_Searching = False
             CV_Mode = ''
@@ -5805,7 +5844,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==4:
+        elif i_scenario==4:
             loss_type=''
             C_Searching = False
             CV_Mode = ''
@@ -5814,7 +5853,7 @@ def VariationStudyPart2_forVOC07():
             WR = False
             with_scores = True
             seuillage_by_score=False
-        if i==5:
+        if i_scenario==5:
             C_Searching = False
             CV_Mode = ''
             AggregW = None
@@ -5826,7 +5865,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==6:
+        elif i_scenario==6:
             loss_type='MSE'
             C_Searching = False
             CV_Mode = ''
@@ -5835,7 +5874,7 @@ def VariationStudyPart2_forVOC07():
             WR = True
             with_scores = False
             seuillage_by_score=False
-        elif i==7:
+        elif i_scenario==7:
             loss_type=''
             C_Searching = False
             CV_Mode = ''
@@ -5845,7 +5884,7 @@ def VariationStudyPart2_forVOC07():
             with_scores = False
             seuillage_by_score=True
             seuil=0.9
-        elif i==8:
+        elif i_scenario==8:
             loss_type=''
             C_Searching = False
             CV_Mode = ''
@@ -5858,7 +5897,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==9:
+        elif i_scenario==9:
             loss_type=''
             C_Searching = False
             CV_Mode = ''
@@ -5871,7 +5910,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==10:
+        elif i_scenario==10:
             loss_type=''
             C_Searching = False
             CV_Mode = ''
@@ -5884,7 +5923,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==11:
+        elif i_scenario==11:
             listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
             C_Searching = True
             CV_Mode = 'CV'
@@ -5897,7 +5936,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==12:
+        elif i_scenario==12:
             listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
             C_Searching = True
             CV_Mode = 'CV'
@@ -5910,7 +5949,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==13:
+        elif i_scenario==13:
             listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
             C_Searching = False
             CV_Mode = ''
@@ -5923,7 +5962,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=False
             lambdas = 0.5
             obj_score_mul_tanh = True
-        elif i==14:
+        elif i_scenario==14:
             listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
             C_Searching = False
             CV_Mode = ''
@@ -5936,7 +5975,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=True
             lambdas = 0.5
             obj_score_mul_tanh = False
-        elif i==15:
+        elif i_scenario==15:
             listAggregW = [None]
             C_Searching = False
             CV_Mode = ''
@@ -5949,7 +5988,7 @@ def VariationStudyPart2_forVOC07():
             obj_score_add_tanh=True
             lambdas = 0.9
             obj_score_mul_tanh = False
-        elif i==16:
+        elif i_scenario==16:
             listAggregW = [None]
             C_Searching = False
             CV_Mode = ''
@@ -6142,7 +6181,8 @@ def VariationStudyPart2_forVOC07():
                     modelcreator = ModelHyperplan(norm='',AggregW=AggregW,epsilon=0.01,mini_batch_size=1000,num_features=num_features,num_rois=k_per_bag,num_classes=num_classes,
                          with_scores=with_scores,seuillage_by_score=seuillage_by_score,
                          proportionToKeep=proportionToKeep,restarts=numberofW_to_keep-1,seuil=seuil,
-                         obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,obj_score_mul_tanh=obj_score_mul_tanh)
+                         obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                         obj_score_mul_tanh=obj_score_mul_tanh)
                     class_indice = -1
                     ## Compute the best vectors 
                     for l in range(number_of_reboots): 
@@ -6176,7 +6216,7 @@ def VariationStudyPart2_forVOC07():
                                seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
                                cachefile_model_base='',transform_output=transform_output,
                                scoreInMI_max=(with_scores or seuillage_by_score)
-                               ,AggregW=AggregW)
+                               ,AggregW=AggregW,obj_score_add_tanh=obj_score_add_tanh,obj_score_mul_tanh=obj_score_mul_tanh)
                         
                         # Classification Perf
                         AP_per_class = []
@@ -7480,22 +7520,22 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
 #                              plot_onSubSet=['person']) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=3,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MI_max',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
-#                              loss_type='',storeVectors=False,storeLossValues=False,
-#                              obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=True) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,model='mi_model',
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=11,max_iters_all_base=3,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MI_max',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
+                              loss_type='',storeVectors=False,storeLossValues=False,
+                              obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False) 
 
 
 #    VariationStudyPart1_forVOC07()
@@ -7506,7 +7546,7 @@ if __name__ == '__main__':
 #     VariationStudyPart3(demonet = 'res101_VOC07')
 #    VariationStudyPart1()
 ##    VariationStudyPart2bis()
-    VariationStudyPart2()
+#    VariationStudyPart2()
 
 #    VariationStudyPart3()
 #    VariationStudyPart3bis()

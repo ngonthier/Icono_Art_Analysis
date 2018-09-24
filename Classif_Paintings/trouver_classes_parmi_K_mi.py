@@ -292,12 +292,10 @@ class MI_max():
         return(self.NegativeRegionsScore.copy())
 
 
-class tf_MI_max():
+class tf_mi_model():
     """
-    The MIL-SVM approach of Said Ladjal, try to get a tf version that used the 
-    different tf optimizer
-    We advise you to normalized your input data !  Because we don't do it inside 
-    this function
+    The mi model that tend to increase the label of the instance during the optimisation
+    without using a max over the bag
     """
 
     def __init__(self,LR=0.01,C=1.0,C_finalSVM=1.0,restarts=0, max_iters=300,
@@ -754,7 +752,7 @@ class tf_MI_max():
 #        tf.reset_default_graph()
         return(W_tmp,b_tmp)
         
-    def fit_MI_max_tfrecords(self,data_path,class_indice,shuffle=True,WR=False,
+    def fit_mi_model_tfrecords(self,data_path,class_indice,shuffle=True,WR=False,
                              init_by_mean=None,norm=None,performance=False,
                              restarts_paral='',C_Searching=False,storeVectors=False,
                              storeLossValues=False):
@@ -961,6 +959,7 @@ class tf_MI_max():
             
         self.np_pos_value = np_pos_value
         self.np_neg_value = np_neg_value
+        print('Tu dois changer les valeurs la, ca pourrait etre pas mal')
         if self.verbose:print("Finished to compute the proportion of each label :",np_pos_value,np_neg_value)
        
         if self.CV_Mode=='CV':
@@ -1017,6 +1016,9 @@ class tf_MI_max():
             dataset_shuffle = dataset_shuffle.repeat() # ? self.max_iters
             dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) # https://stackoverflow.com/questions/46444018/meaning-of-buffer-size-in-dataset-map-dataset-prefetch-and-dataset-shuffle/47025850#47025850
 
+        # Ajout d une variable latente pour 
+
+
         shuffle_iterator = dataset_shuffle.make_initializable_iterator()
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
             X_,scores_, y_ = shuffle_iterator.get_next()
@@ -1042,6 +1044,9 @@ class tf_MI_max():
             if self.restarts_paral_V2:
                 W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.),name="weights")
                 b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.), name="bias")
+                latent_labels = tf.Variable(tf.ones([self.paral_number_W*self.num_classes,self.mini_batch_size,self.num_rois]), name="latent_variable")
+                print("attention  dans ce cas la il faut que tu jette la fin de la base que tu n as pas pu utilser !!!")
+#                latent_labels = tf.placeholder(tf.float32,shape=(self.paral_number_W*self.num_classes,None,self.num_rois), name="latent_variable")
                 if tf.__version__ >= '1.8':
                     normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
                 else:
@@ -1085,63 +1090,74 @@ class tf_MI_max():
             elif self.obj_score_mul_tanh:
                 if self.verbose: print('Multiplication of score and tanh')
                 Prod= tf.multiply(scores_,Prod)
-            if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
-                Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
-            elif self.Max_version=='mintopk':
-                Max=tf.reduce_min(tf.nn.top_k(Prod,self.k)[0],axis=-1)
-                if self.verbose: print('mintopk')
-            elif self.Max_version=='softmax':
-                if self.verbose: print('softmax')
-                Max=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod,axis=-1),tf.multiply(Prod,self.w_exp)),axis=-1)
-            elif self.Max_version=='sparsemax':
-                Max=sparsemax(Prod,axis=-1,number_dim=3)
-                if self.verbose: print('sparsemax',Max)
+            
+            if not(self.obj_score_add_tanh or self.obj_score_mul_tanh):
+                y_tilde_i = tf.tanh(Prod)
+            else:
+                y_tilde_i = Prod
+                
+#            if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
+#                Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
+#            elif self.Max_version=='mintopk':
+#                Max=tf.reduce_min(tf.nn.top_k(Prod,self.k)[0],axis=-1)
+#                if self.verbose: print('mintopk')
+#            elif self.Max_version=='softmax':
+#                if self.verbose: print('softmax')
+#                Max=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod,axis=-1),tf.multiply(Prod,self.w_exp)),axis=-1)
+#            elif self.Max_version=='sparsemax':
+#                Max=sparsemax(Prod,axis=-1,number_dim=3)
+#                if self.verbose: print('sparsemax',Max)   
             if self.is_betweenMinus1and1:
-                weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
+                weights_bags_ratio = -tf.divide(tf.add(latent_labels,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(latent_labels,-1.),tf.multiply(-2.,np_neg_value))
                 # Need to add 1 to avoid the case 
                 # The wieght are negative for the positive exemple and positive for the negative ones !!!
             else:
-                weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value)
-            if self.restarts_paral_V2:
-                weights_bags_ratio = tf.tile(tf.transpose(weights_bags_ratio,[1,0]),[self.paral_number_W,1])
-                y_long_pm1 = tf.tile(tf.transpose(tf.add(tf.multiply(y_,2),-1),[1,0]), [self.paral_number_W,1])
-            else:
-                weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0])
+                weights_bags_ratio = -tf.divide(latent_labels,np_pos_value) + tf.divide(-tf.add(latent_labels,-1),np_neg_value)
+#            if self.restarts_paral_V2:
+#                weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0,2])
+##                y_long_pm1 = tf.tile(tf.transpose(tf.add(tf.multiply(y_,2),-1),[1,0]), [self.paral_number_W,1])
+#            else:
+#                weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0,2])
+#                print('Pas tester')
+#            if not(self.obj_score_add_tanh or self.obj_score_mul_tanh):
+#                y_tilde_i = tf.tanh(Max)
+#            else:
+#                y_tilde_i = Max
+                
             
-            if not(self.obj_score_add_tanh or self.obj_score_mul_tanh):
-                y_tilde_i = tf.tanh(Max)
-            else:
-                y_tilde_i = Max
+                
             if self.loss_type == '' or self.loss_type is None:
                 Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
-            elif self.loss_type=='MSE':
-                if self.verbose: print('Used of the mean squared Error')
-                # y_ in [0,1]  et y_tilde_i in [-1,1]
-                squared = tf.pow(tf.add(-y_tilde_i,y_long_pm1),2)
-                Tan = tf.multiply(tf.reduce_sum(tf.multiply(squared,tf.abs(weights_bags_ratio)),axis=-1),0.25)
-                #Tan = tf.losses.mean_squared_error(tf.add(tf.multiply(y_,2),-1),tf.transpose(y_tilde_i,,weights=tf.abs(weights_bags_ratio))
-            elif self.loss_type=='hinge_tanh':
-                if self.verbose: print('Used of the hinge loss with tanh')
-                # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
-                hinge = tf.maximum(tf.add(-tf.multiply(y_tilde_i,y_long_pm1),1.),0.)
-                Tan = tf.reduce_sum(tf.multiply(hinge,tf.abs(weights_bags_ratio)),axis=-1)
-            elif self.loss_type=='hinge':
-                if self.verbose: print('Used of the hinge loss without tanh')
-                hinge = tf.maximum(tf.add(-tf.multiply(Max,y_long_pm1),1.),0.)
-                Tan = tf.reduce_sum(tf.multiply(hinge,tf.abs(weights_bags_ratio)),axis=-1)
-            elif self.loss_type=='log':
-                if self.verbose: print('Used of the log loss')
-                log1 = -tf.multiply(tf.divide(tf.add(y_long_pm1,1),2),tf.log(tf.divide(tf.add(y_tilde_i,1),2)))
-                log2 = -tf.multiply(tf.divide(tf.add(-y_long_pm1,1),2),tf.log(tf.divide(tf.add(-y_tilde_i,1),2)))
-                log = tf.add(log1,log2)
-                Tan = tf.reduce_sum(tf.multiply(log,tf.abs(weights_bags_ratio)),axis=-1)
+            else:
+                raise(NotImplemented)
+#            elif self.loss_type=='MSE':
+#                if self.verbose: print('Used of the mean squared Error')
+#                # y_ in [0,1]  et y_tilde_i in [-1,1]
+#                squared = tf.pow(tf.add(-y_tilde_i,y_long_pm1),2)
+#                Tan = tf.multiply(tf.reduce_sum(tf.multiply(squared,tf.abs(weights_bags_ratio)),axis=-1),0.25)
+#                #Tan = tf.losses.mean_squared_error(tf.add(tf.multiply(y_,2),-1),tf.transpose(y_tilde_i,,weights=tf.abs(weights_bags_ratio))
+#            elif self.loss_type=='hinge_tanh':
+#                if self.verbose: print('Used of the hinge loss with tanh')
+#                # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
+#                hinge = tf.maximum(tf.add(-tf.multiply(y_tilde_i,y_long_pm1),1.),0.)
+#                Tan = tf.reduce_sum(tf.multiply(hinge,tf.abs(latent_labels)),axis=-1)
+#            elif self.loss_type=='hinge':
+#                if self.verbose: print('Used of the hinge loss without tanh')
+#                hinge = tf.maximum(tf.add(-tf.multiply(Max,y_long_pm1),1.),0.)
+#                Tan = tf.reduce_sum(tf.multiply(hinge,tf.abs(latent_labels)),axis=-1)
+#            elif self.loss_type=='log':
+#                if self.verbose: print('Used of the log loss')
+#                log1 = -tf.multiply(tf.divide(tf.add(y_long_pm1,1),2),tf.log(tf.divide(tf.add(y_tilde_i,1),2)))
+#                log2 = -tf.multiply(tf.divide(tf.add(-y_long_pm1,1),2),tf.log(tf.divide(tf.add(-y_tilde_i,1),2)))
+#                log = tf.add(log1,log2)
+#                Tan = tf.reduce_sum(tf.multiply(log,tf.abs(latent_labels)),axis=-1)
                 
 #            Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
             if self.restarts_paral_V2:
                 if self.C_Searching:    
-                    loss= tf.add(Tan,tf.multiply(C_value_repeat,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
+                    loss= tf.add(Tan,tf.multiply(C_value_repeat,tf.reduce_sum(tf.pow(W_r,2),axis=[-2,-1])))
                 else:
-                    loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
+                    loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-2,-1])))
                         
                 if self.optim_wt_Reg:
                     loss=Tan
@@ -1163,14 +1179,15 @@ class tf_MI_max():
                 Prod_batch=self.lambdas*tf.tanh(Prod_batch)+(1-self.lambdas)*scores_batch*tf.sign(Prod_batch) 
             elif self.obj_score_mul_tanh:
                 Prod_batch= tf.multiply(scores_batch,Prod_batch)
-            if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
-                Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
-            elif self.Max_version=='mintopk':
-                Max_batch=tf.reduce_min(tf.nn.top_k(Prod_batch,self.k)[0],axis=-1)
-            elif self.Max_version=='softmax':
-                Max_batch=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod_batch,axis=-1),tf.multiply(Prod_batch,self.w_exp)),axis=-1)
-            elif self.Max_version=='sparsemax':
-                Max_batch=sparsemax(Prod_batch,axis=-1,number_dim=3)
+   
+#            if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
+#                Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
+#            elif self.Max_version=='mintopk':
+#                Max_batch=tf.reduce_min(tf.nn.top_k(Prod_batch,self.k)[0],axis=-1)
+#            elif self.Max_version=='softmax':
+#                Max_batch=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod_batch,axis=-1),tf.multiply(Prod_batch,self.w_exp)),axis=-1)
+#            elif self.Max_version=='sparsemax':
+#                Max_batch=sparsemax(Prod_batch,axis=-1,number_dim=3)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
                 # Need to add 1 to avoid the case 
@@ -1179,34 +1196,36 @@ class tf_MI_max():
                 weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
             if self.restarts_paral_V2:
                 weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
-                y_long_pm1_batch =  tf.tile(tf.transpose(tf.add(tf.multiply(label_batch,2),-1),[1,0]), [self.paral_number_W,1])
+#                y_long_pm1_batch =  tf.tile(tf.transpose(tf.add(tf.multiply(label_batch,2),-1),[1,0]), [self.paral_number_W,1])
             else:
                 weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
             
             if not(self.obj_score_add_tanh or self.obj_score_mul_tanh):
-                y_tilde_i_batch = tf.tanh(Max_batch)
+                y_tilde_i_batch = tf.tanh(Prod_batch)
             else:
-                y_tilde_i_batch = Max_batch
+                y_tilde_i_batch = Prod_batch
                 
             if self.loss_type == '' or self.loss_type is None:
                 Tan_batch= tf.reduce_sum(tf.multiply(y_tilde_i_batch,weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
-            elif self.loss_type=='MSE':
-                squared_batch = tf.pow(tf.add(-y_tilde_i,y_long_pm1_batch),2)
-                Tan_batch = tf.multiply(tf.reduce_sum(tf.multiply(squared_batch,tf.abs(weights_bags_ratio_batch)),axis=-1),0.25)
-#                Tan_batch = tf.losses.mean_squared_error(tf.add(tf.multiply(label_batch,2),-1),y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
-            elif self.loss_type=='hinge_tanh':
-                # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
-                hinge_batch = tf.maximum(tf.add(-tf.multiply(y_tilde_i_batch,y_long_pm1_batch),1.),0.)
-                Tan_batch = tf.reduce_sum(tf.multiply(hinge_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
-#                Tan_batch = tf.losses.hinge_loss(label_batch,y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
-            elif self.loss_type=='hinge':
-                hinge_batch = tf.maximum(tf.add(-tf.multiply(Max_batch,y_long_pm1_batch),1.),0.)
-                Tan_batch = tf.reduce_sum(tf.multiply(hinge_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
-            elif self.loss_type=='log':
-                log1_batch = -tf.multiply(tf.divide(tf.add(y_long_pm1_batch,1),2),tf.log(tf.divide(tf.add(y_tilde_i_batch,1),2)))
-                log2_batch = -tf.multiply(tf.divide(tf.add(-y_long_pm1_batch,1),2),tf.log(tf.divide(tf.add(-y_tilde_i_batch,1),2)))
-                log_batch = tf.add(log1_batch,log2_batch)
-                Tan_batch = tf.reduce_sum(tf.multiply(log_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
+            else:
+                raise(NotImplemented)
+#            elif self.loss_type=='MSE':
+#                squared_batch = tf.pow(tf.add(-y_tilde_i,y_long_pm1_batch),2)
+#                Tan_batch = tf.multiply(tf.reduce_sum(tf.multiply(squared_batch,tf.abs(weights_bags_ratio_batch)),axis=-1),0.25)
+##                Tan_batch = tf.losses.mean_squared_error(tf.add(tf.multiply(label_batch,2),-1),y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
+#            elif self.loss_type=='hinge_tanh':
+#                # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
+#                hinge_batch = tf.maximum(tf.add(-tf.multiply(y_tilde_i_batch,y_long_pm1_batch),1.),0.)
+#                Tan_batch = tf.reduce_sum(tf.multiply(hinge_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
+##                Tan_batch = tf.losses.hinge_loss(label_batch,y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
+#            elif self.loss_type=='hinge':
+#                hinge_batch = tf.maximum(tf.add(-tf.multiply(Max_batch,y_long_pm1_batch),1.),0.)
+#                Tan_batch = tf.reduce_sum(tf.multiply(hinge_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
+#            elif self.loss_type=='log':
+#                log1_batch = -tf.multiply(tf.divide(tf.add(y_long_pm1_batch,1),2),tf.log(tf.divide(tf.add(y_tilde_i_batch,1),2)))
+#                log2_batch = -tf.multiply(tf.divide(tf.add(-y_long_pm1_batch,1),2),tf.log(tf.divide(tf.add(-y_tilde_i_batch,1),2)))
+#                log_batch = tf.add(log1_batch,log2_batch)
+#                Tan_batch = tf.reduce_sum(tf.multiply(log_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
                 
 #            Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
             if self.WR or self.optim_wt_Reg:
@@ -1279,6 +1298,37 @@ class tf_MI_max():
             
         train = optimizer.minimize(loss)  
         
+        #potential_label = -tf.divide(tf.multiply(tf.add(y_,1.),tf.sign(y_tilde_i)),tf.multiply(2.,np_pos_value)) + \
+        #    tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
+        potential_label = -tf.divide(tf.multiply(tf.add(y_,1.),tf.sign(y_tilde_i)),2.) + \
+            tf.divide(tf.add(y_,-1.),-2.)
+        
+        # Il faudra unbalanced ailleurs
+        assign_label_op = tf.assign(latent_labels,potential_label) # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
+#        index_argmax = tf.unravel_index(tf.argmax(latent_labels,axis=-1),dims=tf.shape(latent_labels))
+#        index_argmax = tf.expand_dims(tf.argmax(latent_labels,axis=-1),axis=-1)
+        index_argmax = tf.argmax(latent_labels,axis=-1)
+        coords = tf.stack(tf.meshgrid(tf.range(0,self.mini_batch_size),tf.range(0,self.paral_number_W))\
+                          + [tf.cast(index_argmax,tf.int32)], axis=2)
+        coords = tf.reshape(coords,(-1,3))
+        updates = tf.tile(y_,[self.paral_number_W,1])
+#        updates = tf.tile(tf.reshape(y_,(self.mini_batch_size,)),[self.paral_number_W,])
+        assign_psotive_max_to_1_op = tf.scatter_nd_update(latent_labels,coords,updates)
+        
+        assign_label_then_train = tf.group(assign_label_op,assign_psotive_max_to_1_op,train)
+
+        # For batch evaluation 
+        potential_label_batch = -tf.divide(tf.multiply(tf.add(label_batch,1.),tf.sign(y_tilde_i_batch)),2.) + \
+            tf.divide(tf.add(label_batch,-1.),-2.)
+        assign_label_op_batch = tf.assign(latent_labels,potential_label_batch) # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
+        index_argmax_batch = tf.argmax(latent_labels,axis=-1)
+        coords_batch = tf.stack(tf.meshgrid(tf.range(0,self.mini_batch_size),tf.range(0,self.paral_number_W))\
+                          + [tf.cast(index_argmax_batch,tf.int32)], axis=2)
+        coords_batch = tf.reshape(coords_batch,(-1,3))
+        updates_batch = tf.tile(label_batch,[self.paral_number_W,1])
+        assign_psotive_max_to_1_op_batch = tf.scatter_nd_update(latent_labels,coords_batch,updates_batch)
+        assign_label_group_batch = tf.group(assign_label_op_batch,assign_psotive_max_to_1_op_batch)
+        
         if not(self.init_by_mean is None) and not(self.init_by_mean ==''):
             W_onMean,b_onMean,train_SVM_onMean = self.def_SVM_onMean(X_,y_)
             init_op_onMean = tf.group(W_onMean.initializer,b_onMean.initializer)
@@ -1317,7 +1367,7 @@ class tf_MI_max():
                 sess.run(shuffle_iterator.initializer)
                 for step in range(self.max_iters):
                     if self.debug: t2 = time.time()
-                    sess.run(train)
+                    sess.run(assign_label_then_train)
     #                sess.run(train,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE))
                     if self.debug:
                         t3 = time.time()
@@ -1339,9 +1389,10 @@ class tf_MI_max():
                 else:
                     loss_value = np.zeros((self.paral_number_W,),dtype=np.float32)
                 sess.run(iterator_batch.initializer)
+                sess.run(assign_label_group_batch)
                 while True:
                     try:
-                        loss_value += sess.run(loss_batch)
+                        loss_value += sess.run(tf.group(assign_label_group_batch,loss_batch))
                         break
                     except tf.errors.OutOfRangeError:
                         break
@@ -1413,7 +1464,7 @@ class tf_MI_max():
                     sess.run(init_op)
                     sess.run(shuffle_iterator.initializer)
                     for step in range(self.max_iters):
-                        sess.run(train)
+                        sess.run(assign_label_then_train)
                         
                         if self.storeLossValues:
                             loss_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
@@ -1513,421 +1564,6 @@ class tf_MI_max():
                 if self.verbose:
                     t1 = time.time()
                     print("durations :",str(t1-t0),' s')
-        
-        if self.CV_Mode=='CVforCsearch':
-            if self.verbose: 
-                print('Restart training with all the data')
-                print('Cbest : ',self.Cbest)
-            #self.C = self.Cbest
-            self.C = np.tile(self.Cbest,self.restarts+1).astype(np.float32)
-            self.CV_Mode=''
-            self.C_Searching =False
-            self.paral_number_W = self.restarts+1
-            
-            train_dataset = train_dataset_init
-            # The second argument is the index of the subset used
-            if self.class_indice==-1:
-                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
-                    self.first_parser = self.parser_all_classes_wRoiScore
-                else:
-                    self.first_parser = self.parser_all_classes
-            else:
-                if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
-                    self.first_parser = self.parser_wRoiScore
-                else:
-                    self.first_parser = self.parser
-                
-            iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
-            
-            if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
-                X_batch,scores_batch, label_batch = iterator_batch.get_next()
-            else:
-                X_batch, label_batch = iterator_batch.get_next()
-        
-            minus_1 = tf.constant(-1.)
-            if class_indice==-1:
-                label_vector = tf.placeholder(tf.float32, shape=(None,self.num_classes))
-                if self.is_betweenMinus1and1:
-                    add_np_pos = tf.divide(tf.reduce_sum(tf.add(label_vector,tf.constant(1.))),tf.constant(2.))
-                    add_np_neg = tf.divide(tf.reduce_sum(tf.add(label_vector,minus_1)),tf.constant(-2.))
-                else:
-                    add_np_pos = tf.reduce_sum(label_vector,axis=0)
-                    add_np_neg = -tf.reduce_sum(tf.add(label_vector,minus_1),axis=0)
-                np_pos_value = np.zeros((self.num_classes,),dtype=np.float32)
-                np_neg_value = np.zeros((self.num_classes,),dtype=np.float32)
-            else:
-                label_vector = tf.placeholder(tf.float32, shape=(None,))
-                if self.is_betweenMinus1and1:
-                    add_np_pos = tf.divide(tf.reduce_sum(tf.add(label_vector,tf.constant(1.))),tf.constant(2.))
-                    add_np_neg = tf.divide(tf.reduce_sum(tf.add(label_vector,minus_1)),tf.constant(-2.))
-                else:
-                    label_batch
-                    add_np_pos = tf.reduce_sum(label_vector)
-                    add_np_neg = -tf.reduce_sum(tf.add(label_vector,minus_1))
-                np_pos_value = 0.
-                np_neg_value = 0.
-            
-            with tf.Session(config=self.config) as sess:
-                sess.run(tf.global_variables_initializer())
-                sess.run(tf.local_variables_initializer())
-                sess.run(iterator_batch.initializer)
-                while True:
-                  try:
-                      # Attention a chaque fois que l on appelle la fonction iterator on avance
-                      label_batch_value = sess.run(label_batch)
-                      np_pos_value += sess.run(add_np_pos, feed_dict = {label_vector:label_batch_value})
-                      np_neg_value += sess.run(add_np_neg, feed_dict = {label_vector:label_batch_value})
-                  except tf.errors.OutOfRangeError:
-                    break
-                
-            if self.norm=='STDall' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
-                mean_train_set, std_train_set = self.compute_STD_all(X_batch,iterator_batch)
-                
-            self.np_pos_value = np_pos_value
-            self.np_neg_value = np_neg_value
-            if self.verbose:print("Finished to compute the proportion of each label :",np_pos_value,np_neg_value)
-            
-            train_dataset2 = tf.data.TFRecordDataset(data_path) # train_dataset_init ?  A tester
-        
-            # From at https://www.tensorflow.org/versions/master/performance/datasets_performance
-            if tf.__version__ > '1.6' and shuffle and performance:
-                train_dataset2 = train_dataset2.apply(tf.contrib.data.map_and_batch(
-                        map_func=self.first_parser, batch_size=self.mini_batch_size,
-                        num_parallel_batches=self.cpu_count,drop_remainder=False))
-                dataset_shuffle = train_dataset2.apply(tf.contrib.data.shuffle_and_repeat(self.buffer_size))
-                dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) 
-            else:
-                train_dataset2 = train_dataset2.map(self.first_parser,
-                                                num_parallel_calls=self.cpu_count)
-                if shuffle:
-                    dataset_shuffle = train_dataset2.shuffle(buffer_size=self.buffer_size,
-                                                             reshuffle_each_iteration=True) 
-                else:
-                    dataset_shuffle = train_dataset2
-                dataset_shuffle = dataset_shuffle.batch(self.mini_batch_size)
-                dataset_shuffle = dataset_shuffle.cache() 
-                dataset_shuffle = dataset_shuffle.repeat() # ? self.max_iters
-                dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) # https://stackoverflow.com/questions/46444018/meaning-of-buffer-size-in-dataset-map-dataset-prefetch-and-dataset-shuffle/47025850#47025850
-    
-            shuffle_iterator = dataset_shuffle.make_initializable_iterator()
-            if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
-                X_,scores_, y_ = shuffle_iterator.get_next()
-            else:
-                X_, y_ = shuffle_iterator.get_next()
-    
-            if self.norm=='L2':
-                if self.debug: print('L2 normalisation')
-                X_ = tf.nn.l2_normalize(X_,axis=-1)
-                X_batch = tf.nn.l2_normalize(X_batch,axis=-1)
-            elif self.norm=='STD_all':
-                if self.debug: print('Standardisation')
-                X_ = tf.divide(tf.add( X_,-mean_train_set), std_train_set)
-                X_batch = tf.divide(tf.add(X_batch,-mean_train_set), std_train_set)
-            elif self.norm=='STDSaid':
-                if self.debug: print('Standardisation Said')
-                _EPSILON = 1e-7
-                X_ = tf.divide(tf.add( X_,-mean_train_set),tf.add(_EPSILON,reduce_std(X_, axis=-1,keepdims=True)))
-                X_batch = tf.divide(tf.add(X_batch,-mean_train_set),tf.add(_EPSILON,reduce_std(X_batch, axis=-1,keepdims=True)))
-                
-            # Definition of the graph 
-            if class_indice==-1:
-                if self.restarts_paral_V2:
-                    W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.),name="weights")
-                    b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.), name="bias")
-                    if tf.__version__ >= '1.8':
-                        normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
-                    else:
-                        normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
-    #                W_r=tf.reshape(W,(self.paral_number_W*self.num_classes,1,1,self.num_features))
-                    W_r=W
-                elif self.restarts_paral_Dim:
-                    W=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,self.num_features], stddev=1.),name="weights")
-                    b=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,1,1], stddev=1.), name="bias")
-                    if tf.__version__ >= '1.8':
-                        normalize_W = W.assign(tf.nn.l2_normalize(W,axis=[0,1])) 
-                    else:
-                        normalize_W = W.assign(tf.nn.l2_normalize(W,dim=[0,1]))
-                    W_r=tf.reshape(W,(self.paral_number_W,self.num_classes,1,1,self.num_features))
-                else:
-                    W=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.),name="weights")
-                    b=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.), name="bias")
-                    if tf.__version__ >= '1.8':
-                        normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
-                    else:
-                        normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
-                    W_r=tf.reshape(W,(self.num_classes,1,1,self.num_features))
-                
-                if self.restarts_paral_V2:
-                    # Batch matrix multiplication
-    #                >>> einsum('aij,ajk->aik', s, t)  # out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-                    Prod = tf.einsum('ak,ijk->aij',W_r,X_)
-                    Prod=tf.add(Prod,b)
-                else:
-                    Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_),axis=-1),b)
-                
-                if self.with_scores: 
-                    if self.verbose: print('With score multiplication')
-                    Prod=tf.multiply(Prod,tf.add(scores_,self.epsilon))
-                elif self.seuillage_by_score:
-                    if self.verbose: print('score seuil')
-                    Prod=tf.multiply(Prod,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.))
-                elif self.obj_score_add_tanh:
-                    if self.verbose: print('Linear product between score and tanh')
-                    Prod=self.lambdas*tf.tanh(Prod)+(1-self.lambdas)*scores_*tf.sign(Prod)
-                elif self.obj_score_mul_tanh:
-                    if self.verbose: print('Multiply score and tanh')
-                    Prod=tf.multiply(scores_,Prod)
-                if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
-                    Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
-                elif self.Max_version=='mintopk':
-                    Max=tf.reduce_min(tf.nn.top_k(Prod,self.k)[0],axis=-1)
-                    if self.verbose: print('mintopk')
-                elif self.Max_version=='softmax':
-                    if self.verbose: print('softmax')
-                    Max=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod,axis=-1),tf.multiply(Prod,self.w_exp)),axis=-1)
-                elif self.Max_version=='sparsemax':
-                    Max=sparsemax(Prod,axis=-1,number_dim=3)
-                    if self.verbose: print('sparsemax',Max)
-                if self.is_betweenMinus1and1:
-                    weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
-                    # Need to add 1 to avoid the case 
-                    # The wieght are negative for the positive exemple and positive for the negative ones !!!
-                else:
-                    weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value)
-                if self.restarts_paral_V2:
-                    weights_bags_ratio = tf.tile(tf.transpose(weights_bags_ratio,[1,0]),[self.paral_number_W,1])
-                else:
-                    weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0])
-                    
-                if not(self.obj_score_add_tanh or self.obj_score_mul_tanh):
-                    y_tilde_i = tf.tanh(Max)
-                else:
-                    y_tilde_i = Max
-                
-                if self.loss_type == '' or self.loss_type is None:
-                    Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
-                elif self.loss_type=='MSE':
-                    if self.verbose: print('Used of the mean squared Error')
-                    # y_ in [0,1]  et y_tilde_i in [-1,1]
-                    Tan = tf.losses.mean_squared_error(tf.add(tf.multiply(y_,2),-1),y_tilde_i,weights=tf.abs(weights_bags_ratio))
-                elif self.loss_type=='hinge_tanh':
-                    if self.verbose: print('Used of the hinge loss with tanh')
-                    # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
-                    Tan = tf.losses.hinge_loss(y_,y_tilde_i,weights=tf.abs(weights_bags_ratio))
-                elif self.loss_type=='hinge':
-                    if self.verbose: print('Used of the hinge loss without tanh')
-                    Tan = tf.losses.hinge_loss(y_,Max,weights=tf.abs(weights_bags_ratio))
-                   
-                if self.restarts_paral_V2:
-                    
-                    loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
-                            
-                    if self.optim_wt_Reg:
-                        loss=Tan
-                else:
-                    loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
-                # Shape 20 and if self.restarts_paral_Dim shape (number_W) x 20
-                
-                # Definiton du graphe pour la partie evaluation de la loss
-                if self.restarts_paral_V2:
-                    Prod_batch = tf.einsum('ak,ijk->aij',W_r,X_batch)
-                    Prod_batch=tf.add(Prod_batch,b)
-                else:
-                    Prod_batch=tf.add(tf.reduce_sum(tf.multiply(W_r,X_batch),axis=-1),b)
-                if self.with_scores: 
-                    Prod_batch=tf.multiply(Prod_batch,tf.add(scores_batch,self.epsilon))
-                elif self.seuillage_by_score:
-                    Prod_batch=tf.multiply(Prod_batch,tf.divide(tf.add(tf.sign(tf.add(scores_batch,-self.seuil)),1.),2.))
-                elif self.obj_score_add_tanh:
-                    Prod_batch=self.lambdas*tf.tanh(Prod_batch)+(1-self.lambdas)*scores_batch*tf.sign(Prod_batch)
-                elif self.obj_score_mul_tanh:
-                    Prod_batch=tf.multiply(scores_batch,Prod_batch)
-                if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
-                    Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
-                elif self.Max_version=='mintopk':
-                    Max_batch=tf.reduce_min(tf.nn.top_k(Prod_batch,self.k)[0],axis=-1)
-                elif self.Max_version=='softmax':
-                    Max_batch=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod_batch,axis=-1),tf.multiply(Prod_batch,self.w_exp)),axis=-1)
-                elif self.Max_version=='sparsemax':
-                    Max_batch=sparsemax(Prod_batch,axis=-1,number_dim=3)
-                if self.is_betweenMinus1and1:
-                    weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
-                    # Need to add 1 to avoid the case 
-                    # The wieght are negative for the positive exemple and positive for the negative ones !!!
-                else:
-                    weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
-                if self.restarts_paral_V2:
-                    weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
-                else:
-                    weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
-               
-                if not(self.obj_score_add_tanh):
-                    y_tilde_i_batch = tf.tanh(Max_batch)
-                else:
-                    y_tilde_i_batch = Max_batch
-                    
-                if self.loss_type == '' or self.loss_type is None:
-                    Tan_batch= tf.reduce_sum(tf.multiply(y_tilde_i_batch,weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
-                elif self.loss_type=='MSE':
-                    raise(NotImplemented)
-                    print('Here !!!!')
-                    Tan_batch = tf.losses.mean_squared_error(tf.add(tf.multiply(label_batch,2),-1),y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
-                elif self.loss_type=='hinge_tanh':
-                    raise(NotImplemented)
-                    # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
-                    Tan_batch = tf.losses.hinge_loss(label_batch,y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
-                elif self.loss_type=='hinge':
-                    raise(NotImplemented)
-                    Tan_batch = tf.losses.hinge_loss(label_batch,Max,weights=tf.abs(weights_bags_ratio_batch))
-                elif self.loss_type=='hinge':
-                    raise(NotImplemented)
-                    log1_batch = -tf.multiply(tf.divide(tf.add(y_long_pm1_batch,1),2),tf.log(tf.divide(tf.add(y_tilde_i_batch,1),2)))
-                    log2_batch = -tf.multiply(tf.divide(tf.add(-y_long_pm1_batch,1),2),tf.log(tf.divide(tf.add(-y_tilde_i_batch,1),2)))
-                    log_batch = tf.add(log1_batch,log2_batch)
-                    Tan_batch = tf.reduce_sum(tf.multiply(log_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
-    
-
-                if self.WR or self.optim_wt_Reg:
-                    loss_batch= Tan_batch
-                else:
-                    if self.restarts_paral_V2:
-                        loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
-                    else:
-                        loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
-                if(self.Optimizer == 'GradientDescent'):
-                    optimizer = tf.train.GradientDescentOptimizer(self.LR) 
-                elif(self.Optimizer == 'Momentum'):
-                    optimizer = tf.train.MomentumOptimizer(self.optimArg['learning_rate'],self.optimArg['momentum']) 
-                elif(self.Optimizer == 'Adam'):
-                    if self.optimArg is None:
-                        optimizer = tf.train.AdamOptimizer(self.LR) 
-                        # Default value  : beta1=0.9,beta2=0.999,epsilon=1e-08, 
-                        # maybe epsilon should be 0.1 or 1 cf https://www.tensorflow.org/api_docs/python/tf/train/AdamOptimizer
-                    else:
-                        optimizer = tf.train.AdamOptimizer(learning_rate=\
-                        self.optimArg['learning_rate'],beta1=self.optimArg['beta1'],\
-                        beta2=self.optimArg['beta2'],epsilon=self.optimArg['epsilon'])
-                elif(self.Optimizer == 'Adagrad'):
-                    optimizer = tf.train.AdagradOptimizer(self.LR) 
-                else:
-                    print("The optimizer is unknown",self.Optimizer)
-                    raise(NotImplemented)
-                    
-                train = optimizer.minimize(loss)  
-            
-                if not(self.init_by_mean is None) and not(self.init_by_mean ==''):
-                    W_onMean,b_onMean,train_SVM_onMean = self.def_SVM_onMean(X_,y_)
-                    init_op_onMean = tf.group(W_onMean.initializer,b_onMean.initializer)
-                    placeholder = tf.placeholder(tf.float32, shape=W_onMean.shape)
-                    assign_op = W.assign(tf.reshape(placeholder,tf.shape(W)))
-                    placeholder_b = tf.placeholder(tf.float32, shape=b_onMean.shape)
-                    assign_op_b = b.assign(tf.reshape(placeholder_b,tf.shape(b)))
-                    
-                sess = tf.Session(config=self.config)
-        #        saver = tf.train.Saver()      
-                init_op = tf.group(W.initializer,b.initializer,tf.global_variables_initializer()\
-                                   ,tf.local_variables_initializer())
-        #        sess.graph.finalize()   
-                
-                    
-                if self.restarts_paral_Dim or self.restarts_paral_V2:
-                    if self.verbose : 
-                        print('Start with the restarts in parallel')
-                        t0 = time.time()
-                    sess.run(init_op)
-                    sess.run(shuffle_iterator.initializer)
-                   
-                    for step in range(self.max_iters):
-                        if self.debug: t2 = time.time()
-                        sess.run(train)
-        #                sess.run(train,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE))
-                        if self.debug:
-                            t3 = time.time()
-                            print(step,"duration :",str(t3-t2))
-                            t4 = time.time()
-                            list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
-                            if self.WR: 
-                                assert(np.max(list_elt)<= 2.0)
-                                assert(np.min(list_elt)>= -2.0)
-                            t5 = time.time()
-                            print("duration loss eval :",str(t5-t4))
-                            print(list_elt)
-                            
-                    if class_indice==-1:
-                        if self.restarts_paral_V2:
-                            loss_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
-                        elif self.restarts_paral_Dim:
-                            loss_value = np.zeros((self.paral_number_W,self.num_classes),dtype=np.float32)
-                    else:
-                        loss_value = np.zeros((self.paral_number_W,),dtype=np.float32)
-                    sess.run(iterator_batch.initializer)
-                    while True:
-                        try:
-                            loss_value += sess.run(loss_batch)
-                            break
-                        except tf.errors.OutOfRangeError:
-                            break
-                    
-                    W_tmp=sess.run(W)
-                    b_tmp=sess.run(b)
-                    if self.restarts_paral_Dim:
-                        argmin = np.argmin(loss_value,axis=0)
-                        loss_value_min = np.min(loss_value,axis=0)
-                        if self.class_indice==-1:
-                            W_best = W_tmp[argmin,np.arange(self.num_classes),:]
-                            b_best = b_tmp[argmin,np.arange(self.num_classes),:,:]
-                        else:
-                            W_best = W_tmp[argmin,:]
-                            b_best = b_tmp[argmin]
-                        if self.verbose : 
-                            print("bestloss",loss_value_min)
-                            t1 = time.time()
-                            print("durations :",str(t1-t0),' s')
-                            self.vo
-                    elif self.restarts_paral_V2:
-                         if (self.AggregW is None) or (self.AggregW==''):
-                            loss_value_min = []
-                            W_best = np.zeros((self.num_classes,self.num_features),dtype=np.float32)
-                            b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
-                            if self.restarts>0:
-                                for j in range(self.num_classes):
-                                    loss_value_j = loss_value[j::self.num_classes]
-                                    argmin = np.argmin(loss_value_j,axis=0)
-                                    loss_value_j_min = np.min(loss_value_j,axis=0)
-                                    W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
-                                    b_best[j,:,:] = b_tmp[j+argmin*self.num_classes]
-                                    if self.verbose: loss_value_min+=[loss_value_j_min]
-                                    if (self.C_Searching or  self.CV_Mode=='CVforCsearch') and self.verbose:
-                                        print('Best C values : ',C_value_repeat[j+argmin*self.num_classes],'class ',j)
-                                    if (self.C_Searching or  self.CV_Mode=='CVforCsearch'): self.Cbest[j] = C_value_repeat[j+argmin*self.num_classes]
-                            else:
-                                W_best = W_tmp
-                                b_best = b_tmp
-                                loss_value_min = loss_value
-                         else:
-                            loss_value_min = []
-                            self.numberWtoKeep = min(int(np.ceil((self.restarts+1))*self.proportionToKeep),self.restarts+1)
-                            W_best = np.zeros((self.numberWtoKeep,self.num_classes,self.num_features),dtype=np.float32)
-                            b_best = np.zeros((self.numberWtoKeep,self.num_classes,1,1),dtype=np.float32)
-                            for j in range(self.num_classes):
-                                loss_value_j = loss_value[j::self.num_classes]
-                                loss_value_j_sorted_ascending = np.argsort(loss_value_j)  # We want to keep the one with the smallest value 
-                                index_keep = loss_value_j_sorted_ascending[0:self.numberWtoKeep]
-                                for i,argmin in enumerate(index_keep):
-                                    W_best[i,j,:] = W_tmp[j+argmin*self.num_classes,:]
-                                    b_best[i,j,:,:] = b_tmp[j+argmin*self.num_classes]
-                                if self.verbose: 
-                                    loss_value_j_min = np.sort(loss_value_j)[0:self.numberWtoKeep]
-                                    loss_value_min+=[loss_value_j_min]
-                            if self.AggregW=='AveragingW':
-                                W_best = np.mean(W_best,axis=0)
-                                b_best = np.mean(b_best,axis=0)
-                        
-                    if self.verbose : 
-                        print("bestloss",loss_value_min)
-                        t1 = time.time()
-                        print("durations :",str(t1-t0),' s')
-
 
         if self.storeVectors:
             Dict = {}
@@ -2215,7 +1851,17 @@ class tf_MI_max():
         sess.close()
         if self.verbose : print("End SGDC training")
         return(name_model)
-        
+
+    def create_list_of_index(A):
+        """        
+        From the tensor A 2D tensor create a list of [i,j,a_ij]
+        """
+        dim0,dim1 = tf.shape(A)
+        c =tf.constant(0,shape=(dim0*dim1,3))
+        for i in range(dim0):
+            for j in range(dim1):
+                c[i*dim1+j,:] = [i,j,A[i,j]]
+        return(c)
     
         
         
@@ -2638,8 +2284,6 @@ class ModelHyperplan():
         y_ = tf.identity(y_, name="y")
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
             scores_ = tf.identity(scores_,name="scores")
-        graph= tf.get_default_graph()    
-            
         if self.AggregW in self.listAggregOnProdorTanh :
             Prod_best=tf.add(tf.einsum('bak,ijk->baij',tf.convert_to_tensor(W_best),X_)\
                                          ,b_best)
@@ -2694,9 +2338,7 @@ class ModelHyperplan():
                 # TODO posibility to take an other percentile than median
             elif self.AggregW=='maxOfTanh':
                 if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh: 
-                    print(Prod_tmp)
                     Prod_score= tf.reduce_max(Prod_tmp,axis=0,name='Tanh')
-                    print(Prod_score)
                 else:
                     Prod_best = tf.reduce_max(tf.tanh(Prod_best,name='Prod'),axis=0,name='Tanh')
                     #print('Tanh in saving part',Prod_best)
@@ -2714,8 +2356,8 @@ class ModelHyperplan():
                         Prod_best=tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
                                          ,b_best,name='Prod')
             else:
-                Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')             
-            
+                Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
+                
             if self.with_scores:
                 Prod_tmp = tf.multiply(Prod_best,tf.add(scores_,self.epsilon))
             elif self.seuillage_by_score:
@@ -2728,6 +2370,7 @@ class ModelHyperplan():
                 Prod_score = tf.identity(Prod_tmp,name='ProdScore')
             elif self.obj_score_add_tanh or self.obj_score_mul_tanh:
                 Prod_score = tf.identity(Prod_tmp,name='Tanh')
+                
                 
 #            if self.with_scores: 
 #                Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
