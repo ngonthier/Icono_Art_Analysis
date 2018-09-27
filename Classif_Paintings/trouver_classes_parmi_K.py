@@ -1084,7 +1084,8 @@ class tf_MI_max():
                 Prod=self.lambdas*tf.tanh(Prod)+(1-self.lambdas)*scores_*tf.sign(Prod)
             elif self.obj_score_mul_tanh:
                 if self.verbose: print('Multiplication of score and tanh')
-                Prod= tf.multiply(scores_,Prod)
+                Prod= tf.multiply(scores_,tf.tanh(Prod))
+            
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
             elif self.Max_version=='mintopk':
@@ -1108,7 +1109,7 @@ class tf_MI_max():
             else:
                 weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0])
             
-            if not(self.obj_score_add_tanh or self.obj_score_mul_tanh):
+            if not(self.obj_score_add_tanh) and not(self.obj_score_mul_tanh):
                 y_tilde_i = tf.tanh(Max)
             else:
                 y_tilde_i = Max
@@ -1162,7 +1163,7 @@ class tf_MI_max():
             elif self.obj_score_add_tanh:
                 Prod_batch=self.lambdas*tf.tanh(Prod_batch)+(1-self.lambdas)*scores_batch*tf.sign(Prod_batch) 
             elif self.obj_score_mul_tanh:
-                Prod_batch= tf.multiply(scores_batch,Prod_batch)
+                Prod_batch= tf.multiply(scores_batch,tf.tanh(Prod_batch))
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
             elif self.Max_version=='mintopk':
@@ -1183,7 +1184,7 @@ class tf_MI_max():
             else:
                 weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
             
-            if not(self.obj_score_add_tanh or self.obj_score_mul_tanh):
+            if not(self.obj_score_add_tanh) and not(self.obj_score_mul_tanh):
                 y_tilde_i_batch = tf.tanh(Max_batch)
             else:
                 y_tilde_i_batch = Max_batch
@@ -1339,6 +1340,7 @@ class tf_MI_max():
                 else:
                     loss_value = np.zeros((self.paral_number_W,),dtype=np.float32)
                 sess.run(iterator_batch.initializer)
+
                 while True:
                     try:
                         loss_value += sess.run(loss_batch)
@@ -1761,7 +1763,7 @@ class tf_MI_max():
                 else:
                     weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
                
-                if not(self.obj_score_add_tanh):
+                if not(self.obj_score_add_tanh) and not(self.obj_score_mul_tanh):
                     y_tilde_i_batch = tf.tanh(Max_batch)
                 else:
                     y_tilde_i_batch = Max_batch
@@ -2650,7 +2652,7 @@ class ModelHyperplan():
             elif self.obj_score_add_tanh:
                 Prod_tmp=tf.add(self.lambdas*tf.tanh(Prod_best),(1-self.lambdas)*scores_*tf.sign(Prod_best))
             elif self.obj_score_mul_tanh:
-                Prod_tmp=tf.multiply(scores_,Prod_best)
+                Prod_tmp=tf.multiply(scores_,tf.tanh(Prod_best))
             if 'Tanh' in self.AggregW:
                 if self.with_scores or self.seuillage_by_score :
                     Prod_tmp = tf.tanh(Prod_tmp,name='ProdScore')
