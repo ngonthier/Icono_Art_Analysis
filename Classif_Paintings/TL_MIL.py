@@ -2294,12 +2294,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         ext_test = '_Test_Mode'
     else:
         ext_test= ''
+        
     max_iters = ((num_trainval_im // mini_batch_size)+ \
                  np.sign(num_trainval_im % mini_batch_size))*max_iters_all_base
-
-    
-
-                 
+            
     AP_per_class = []
     P_per_class = []
     R_per_class = []
@@ -2458,7 +2456,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     dont_use_07_metric = True
     symway = True
     
-    if model=='MI_max':
+    if model=='MI_max' or model=='':
         model_str = 'MI_max'
     elif model=='mi_model':
         model_str ='mi_model'
@@ -2556,7 +2554,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
                        C_Searching=C_Searching,storeVectors=storeVectors,storeLossValues=storeLossValues)  
              elif model=='mi_model':
-                 classifier_mi_model = tf_mi_model(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,num_rois=k_per_bag,
+                 classifierMI_max = tf_mi_model(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,num_rois=k_per_bag,
                        max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
                        verbose=verboseMI_max,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
                        mini_batch_size=mini_batch_size,num_features=num_features,debug=debug,
@@ -2565,7 +2563,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                        k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
                        loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                        obj_score_mul_tanh=obj_score_mul_tanh)
-                 export_dir = classifier_mi_model.fit_mi_model_tfrecords(data_path=data_path_train, \
+                 export_dir = classifierMI_max.fit_mi_model_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
                        C_Searching=C_Searching,storeVectors=storeVectors,storeLossValues=storeLossValues)                
@@ -2577,7 +2575,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
              if storeVectors or storeLossValues:
                  print(export_dir)
                  return(export_dir,arrayParam)
-                 
+                  
              np_pos_value,np_neg_value = classifierMI_max.get_porportions()
              name_milsvm =export_dir,np_pos_value,np_neg_value
              with open(cachefile_model, 'wb') as f:
@@ -2779,6 +2777,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         return(AP_per_class) 
 
 def plot_Correct_Incorrect_Images(all_boxes,imbd,database):
+    """
+    Fonction jamais finie en fait
+    """
     # imbd = get_imdb('watercolor_test')
     GT= imbd.gt_roidb()
     ii = 0 
@@ -4926,7 +4927,7 @@ def VariationStudyPart1():
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
     start_i = 13
-    end_i = 16
+    end_i = 13
     seuil = 0.9 
 
     for i in range(start_i,end_i+1):
@@ -5238,7 +5239,7 @@ def VariationStudyPart2():
     dont_use_07_metric  =True
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
-    start_i = 14
+    start_i = 13
     #start_i = 13
     end_i = 17
     listi = np.arange(start_i,end_i)
@@ -5408,7 +5409,7 @@ def VariationStudyPart2():
             lambdas = 0.5
             obj_score_mul_tanh = False
         elif i_scenario==13:
-            listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+            listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
             C_Searching = False
             CV_Mode = ''
             AggregW = None
@@ -6730,7 +6731,7 @@ def VariationStudyPart2bis():
                     with open(name_dictAP, 'wb') as f:
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
       
-def VariationStudyPart3(demonet = 'res152_COCO'):
+def VariationStudyPart3(demonet = 'res152_COCO',onlyAP05=False):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -6760,7 +6761,7 @@ def VariationStudyPart3(demonet = 'res152_COCO'):
         print('--------------------------------')
         print(database)
         for i in range(start_i,end_i+1):
-            print('Scenario :',i)
+            print('% Scenario :',i)
             if i==0:
                 C_Searching = False
                 CV_Mode = ''
@@ -7000,6 +7001,10 @@ def VariationStudyPart3(demonet = 'res152_COCO'):
                             string_to_print += 'with regularisation'
                         if seuillage_by_score:
                             string_to_print += 'seuillage score at ' +str(seuil)
+                        if obj_score_mul_tanh :
+                            string_to_print += 'obj score multi tanh '
+                        if obj_score_add_tanh:
+                            string_to_print += 'obj score add to tanh (lambda =' +str(lambdas)+')'
                         string_to_print += ' & '
                         string_to_print += str(AggregW) + ' & '  
                         ll_all = DictAP[Metric] 
@@ -7027,8 +7032,10 @@ def VariationStudyPart3(demonet = 'res152_COCO'):
                             s =  "{0:.1f} ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f} ".format(std_of_mean_over_reboot*multi)
                             string_to_print += s + ' \\\ '
                         string_to_print = string_to_print.replace('_','\_')
-                        print(string_to_print)
-
+                        if not(onlyAP05):
+                            print(string_to_print)
+                        elif Metric=='AP@.5':
+                            print(string_to_print)
                 except FileNotFoundError:
                     #print(name_dictAP,'don t exist')
                     pass
@@ -7520,22 +7527,22 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
 #                              plot_onSubSet=['person']) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,model='mi_model',
-                              verbose = True,testMode = False,jtest = 'cow',
-                              PlotRegions = False,saved_clf=False,RPN=False,
-                              CompBest=False,Stocha=True,k_per_bag=300,
-                              parallel_op=True,CV_Mode='',num_split=2,
-                              WR=True,init_by_mean =None,seuil_estimation='',
-                              restarts=11,max_iters_all_base=3,LR=0.01,with_tanh=True,
-                              C=1.0,Optimizer='GradientDescent',norm='',
-                              transform_output='tanh',with_rois_scores_atEnd=False,
-                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-                              k_intopk=1,C_Searching=False,predict_with='MI_max',
-                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
-                              loss_type='',storeVectors=False,storeLossValues=False,
-                              obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False) 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,model='mi_model',
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = False,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=11,max_iters_all_base=5,LR=0.01,with_tanh=True,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                              k_intopk=1,C_Searching=False,predict_with='MI_max',
+#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
+#                              loss_type='',storeVectors=False,storeLossValues=False,
+#                              obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False) 
 
 
 #    VariationStudyPart1_forVOC07()
@@ -7548,7 +7555,7 @@ if __name__ == '__main__':
 ##    VariationStudyPart2bis()
 #    VariationStudyPart2()
 
-#    VariationStudyPart3()
+#    VariationStudyPart3(onlyAP05=True)
 #    VariationStudyPart3bis()
 #    ComputationForLossPlot()
 #    VariationStudyPart1_forVOC07()
@@ -7558,4 +7565,5 @@ if __name__ == '__main__':
     ## TODO : tester avec une image constante en entrée et voir ce que cela donne de couleur différentes
     # Peut etre a rajouter dans les exemples negatifs 
 #    plotGT('Q28810789')
-#    plotGT('Q28926315')
+    plotGT('Q3213763')
+    

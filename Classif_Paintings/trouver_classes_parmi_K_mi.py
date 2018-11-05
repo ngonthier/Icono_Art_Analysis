@@ -473,12 +473,15 @@ class tf_mi_model():
         
         # Cast label data into int32
         label = parsed['label']
+        num_elt = tf.shape(label)[0]
+        print(num_elt)
         #tf.Print(label,[label])
         label = tf.slice(label,[self.class_indice],[1])
         label = tf.squeeze(label) # To get a vector one dimension
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
-        return fc7, label
+        return fc7, label,num_elt
+    
     def parser_wRoiScore(self,record):
         # Perform additional preprocessing on the parsed data.
         keys_to_features={
@@ -496,12 +499,14 @@ class tf_mi_model():
         
         # Cast label data into int32
         label = parsed['label']
+        num_elt = tf.shape(label)[0]
+        print(num_elt)
         roi_scores = parsed['roi_scores']
         label = tf.slice(label,[self.class_indice],[1])
         label = tf.squeeze(label) # To get a vector one dimension
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
-        return fc7,roi_scores, label
+        return fc7,roi_scores,label,num_elt
     
     def parser_all_classes(self,record):
         # Perform additional preprocessing on the parsed data.
@@ -523,9 +528,11 @@ class tf_mi_model():
         
         # Cast label data into int32
         label = parsed['label']
+        num_elt = tf.shape(label)[0]
+        print(num_elt)
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
-        return fc7, label
+        return fc7, label,num_elt
     
     def parser_all_classes_wRoiScore(self,record):
         keys_to_features={
@@ -536,10 +543,12 @@ class tf_mi_model():
         
         # Cast label data into int32
         label = parsed['label']
+        num_elt = tf.shape(label)[0]
+        print(num_elt)
         roi_scores = parsed['roi_scores']
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
-        return fc7,roi_scores, label
+        return fc7,roi_scores, label,num_elt
     
     def parser_w_rois(self,record):
         # Perform additional preprocessing on the parsed data.
@@ -558,6 +567,8 @@ class tf_mi_model():
         
         # Cast label data into int32
         label = parsed['label']
+        num_elt = tf.shape(label)[0]
+        print(num_elt)
         name_img = parsed['name_img']
         label = tf.slice(label,[self.class_indice],[1])
         label = tf.squeeze(label) # To get a vector one dimension
@@ -565,7 +576,7 @@ class tf_mi_model():
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
         rois = parsed['rois']
         rois = tf.reshape(rois, [self.num_rois,5])           
-        return fc7,rois, label,name_img
+        return fc7,rois, label,name_img,num_elt
 
     def parser_w_mei(self,record):
         # Perform additional preprocessing on the parsed data.
@@ -581,6 +592,8 @@ class tf_mi_model():
         
         # Cast label data into int32
         label = parsed['label']
+        num_elt = tf.shape(label)[0]
+        print(num_elt)
         label_300 = tf.tile(label,[self.num_rois])
         mei = parsed['mei']
         fc7 = parsed['fc7']
@@ -589,7 +602,18 @@ class tf_mi_model():
         fc7_selected = tf.reshape(fc7_selected, [300,self.num_features])
         rois = parsed['rois']
         rois = tf.reshape(rois, [self.num_rois,5])           
-        return fc7_selected,fc7,mei,label_300
+        return fc7_selected,fc7,mei,label_300,num_elt
+    
+    def test_version_sup(self,version_str):
+        version_str_tab = version_str.split('.')
+        tf_version_teb =  tf.__version__.split('.')
+        status = False
+        
+        for a,b in zip(tf_version_teb,version_str_tab):
+            if float(a) > float(b):
+                status = True
+        return(status)
+        
     
     def parser_w_mei_reduce(self,record):
         # Perform additional preprocessing on the parsed data.
@@ -605,20 +629,25 @@ class tf_mi_model():
         
         # Cast label data into int32
         label = parsed['label']
+        num_elt = tf.shape(label)[0]
+        print(num_elt)
         label_300 = tf.tile(label,[self.num_rois])
         fc7_selected = parsed['fc7_selected']
         fc7_selected = tf.reshape(fc7_selected, [self.num_rois,self.num_features])         
-        return fc7_selected,label_300
+        return fc7_selected,label_300,num_elt
     
-    def tf_dataset_use_per_batch(self,train_dataset):
+    def tf_dataset_use_per_batch(self,train_dataset,drop_remainder=False):
         
-        if tf.__version__ > '1.6' and self.performance:
+        if self.test_version_sup('1.9') and self.performance:
             dataset_batch = train_dataset.apply(tf.contrib.data.map_and_batch(
-                map_func=self.first_parser, batch_size=self.mini_batch_size))
+                map_func=self.first_parser, batch_size=self.mini_batch_size,drop_remainder=drop_remainder))
         else:
             train_dataset = train_dataset.map(self.first_parser,
                                           num_parallel_calls=self.cpu_count)
-            dataset_batch = train_dataset.batch(self.mini_batch_size)
+            if self.test_version_sup('1.10'):
+                dataset_batch = train_dataset.batch(self.mini_batch_size,drop_remainder=drop_remainder)
+            else: 
+                dataset_batch = train_dataset.apply(tf.contrib.data.batch_and_drop_remainder(self.mini_batch_size))
         dataset_batch = dataset_batch.cache()
         dataset_batch = dataset_batch.prefetch(1)
         iterator_batch = dataset_batch.make_initializable_iterator()
@@ -790,6 +819,10 @@ class tf_mi_model():
         # TODO enregistrer X vectors ! 
         
         # Travailler sur le min du top k des regions sinon 
+        
+        # Parameter to drop the last remain data
+        drop_remainder = False
+        
         self.C_Searching= C_Searching
         self.norm = norm
         self.First_run = True
@@ -908,9 +941,9 @@ class tf_mi_model():
         iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
         
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
-            X_batch,scores_batch, label_batch = iterator_batch.get_next()
+            X_batch_iterator,scores_batch_iterator, label_batch_iterator,num_elt_iterator = iterator_batch.get_next()
         else:
-            X_batch, label_batch = iterator_batch.get_next()
+            X_batch_iterator, label_batch_iterator,num_elt_iterator = iterator_batch.get_next() 
         
         # Calcul preliminaire a la definition de la fonction de cout 
         self.config = tf.ConfigProto()
@@ -935,7 +968,6 @@ class tf_mi_model():
                 add_np_pos = tf.divide(tf.reduce_sum(tf.add(label_vector,tf.constant(1.))),tf.constant(2.))
                 add_np_neg = tf.divide(tf.reduce_sum(tf.add(label_vector,minus_1)),tf.constant(-2.))
             else:
-                label_batch
                 add_np_pos = tf.reduce_sum(label_vector)
                 add_np_neg = -tf.reduce_sum(tf.add(label_vector,minus_1))
             np_pos_value = 0.
@@ -948,14 +980,14 @@ class tf_mi_model():
             while True:
               try:
                   # Attention a chaque fois que l on appelle la fonction iterator on avance
-                  label_batch_value = sess.run(label_batch)
+                  label_batch_value = sess.run(label_batch_iterator)
                   np_pos_value += sess.run(add_np_pos, feed_dict = {label_vector:label_batch_value})
                   np_neg_value += sess.run(add_np_neg, feed_dict = {label_vector:label_batch_value})
               except tf.errors.OutOfRangeError:
                 break
             
         if self.norm=='STDall' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
-            mean_train_set, std_train_set = self.compute_STD_all(X_batch,iterator_batch)
+            mean_train_set, std_train_set = self.compute_STD_all(X_batch_iterator,label_batch_iterator)
             
         self.np_pos_value = np_pos_value
         self.np_neg_value = np_neg_value
@@ -972,35 +1004,40 @@ class tf_mi_model():
             # The last fold is keep for doing the cross validation
             iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
             if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
-                X_batch,scores_batch, label_batch = iterator_batch.get_next()
+                X_batch_iterator,scores_batch_iterator, label_batch_iterator = iterator_batch.get_next()
             else:
-                X_batch, label_batch = iterator_batch.get_next() 
+                X_batch_iterator, label_batch_iterator = iterator_batch.get_next() 
         elif self.CV_Mode=='1000max':
             train_dataset2 = train_dataset_init.take(1000) # The one used for learning
             train_dataset = train_dataset_init.skip(1000) 
             # The last fold is keep for doing the cross validation
-            iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
+            iterator_batch = self.tf_dataset_use_per_batch(train_dataset,drop_remainder=drop_remainder)
             if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
-                X_batch,scores_batch, label_batch = iterator_batch.get_next()
+                X_batch_iterator,scores_batch_iterator, label_batch_iterator = iterator_batch.get_next()
             else:
-                X_batch, label_batch = iterator_batch.get_next() 
+                X_batch_iterator, label_batch_iterator = iterator_batch.get_next() 
         elif self.CV_Mode=='LA':
             if self.verbose: print('Use of the Leave One Aside with ',self.num_split,' splits')
             train_dataset_tmp = train_dataset_init.shard(self.num_split,0)
             for i in range(1,self.num_split-1):
                 train_dataset_tmp2 = train_dataset.shard(self.num_split,i)
                 train_dataset_tmp = train_dataset_tmp.concatenate(train_dataset_tmp2)
-            train_dataset2 = train_dataset_tmp
+            train_dataset2 = train_dataset_tmp     
             # The evaluation of the loss will be on all the dataset
         else:
             # TODO test !
             train_dataset2 = tf.data.TFRecordDataset(data_path) # train_dataset_init ?  A tester
+            
+        X_batch = tf.placeholder(tf.float32, shape=(None,self.num_rois,self.num_features))
+        label_batch = tf.placeholder(tf.float32, shape=(None,1)) 
+        if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
+            scores_batch = tf.placeholder(tf.float32, shape=(None,self.num_rois))
         
         # From at https://www.tensorflow.org/versions/master/performance/datasets_performance
-        if tf.__version__ > '1.6' and shuffle and performance:
+        if self.test_version_sup('1.6') and shuffle and performance:
             train_dataset2 = train_dataset2.apply(tf.contrib.data.map_and_batch(
                     map_func=self.first_parser, batch_size=self.mini_batch_size,
-                    num_parallel_batches=self.cpu_count,drop_remainder=False))
+                    num_parallel_batches=self.cpu_count,drop_remainder=drop_remainder))
             dataset_shuffle = train_dataset2.apply(tf.contrib.data.shuffle_and_repeat(self.buffer_size))
             dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) 
         else:
@@ -1011,7 +1048,14 @@ class tf_mi_model():
                                                          reshuffle_each_iteration=True) 
             else:
                 dataset_shuffle = train_dataset2
-            dataset_shuffle = dataset_shuffle.batch(self.mini_batch_size)
+            if self.test_version_sup('1.10'):
+                dataset_shuffle = dataset_shuffle.batch(self.mini_batch_size,drop_remainder=drop_remainder)
+            else:
+                if drop_remainder:
+                    dataset_shuffle = dataset_shuffle.apply(\
+                        tf.contrib.data.batch_and_drop_remainder(self.mini_batch_size))
+                else:    
+                    dataset_shuffle = dataset_shuffle.batch(self.mini_batch_size) # Without dropping the remainder
             dataset_shuffle = dataset_shuffle.cache() 
             dataset_shuffle = dataset_shuffle.repeat() # ? self.max_iters
             dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) # https://stackoverflow.com/questions/46444018/meaning-of-buffer-size-in-dataset-map-dataset-prefetch-and-dataset-shuffle/47025850#47025850
@@ -1020,10 +1064,16 @@ class tf_mi_model():
 
 
         shuffle_iterator = dataset_shuffle.make_initializable_iterator()
+#        if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
+#            X_iterator,scores_iterator, y_iterator = shuffle_iterator.get_next()
+#            scores_ = tf.placeholder(tf.float32, shape=scores_iterator.shape)
+#        else:
+#            X_iterator, y_iterator = shuffle_iterator.get_next()
+#            #X_, y_ = shuffle_iterator.get_next()
+        X_ = tf.placeholder(tf.float32, shape=(None,self.num_rois,self.num_features))
+        y_ = tf.placeholder(tf.float32, shape=(None,1))
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
-            X_,scores_, y_ = shuffle_iterator.get_next()
-        else:
-            X_, y_ = shuffle_iterator.get_next()
+            scores_ = tf.placeholder(tf.float32, shape=(None,self.num_rois))
 
         if self.norm=='L2':
             if self.debug: print('L2 normalisation')
@@ -1038,14 +1088,19 @@ class tf_mi_model():
             _EPSILON = 1e-7
             X_ = tf.divide(tf.add( X_,-mean_train_set),tf.add(_EPSILON,reduce_std(X_, axis=-1,keepdims=True)))
             X_batch = tf.divide(tf.add(X_batch,-mean_train_set),tf.add(_EPSILON,reduce_std(X_batch, axis=-1,keepdims=True)))
+
             
         # Definition of the graph 
         if class_indice==-1:
             if self.restarts_paral_V2:
                 W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.),name="weights")
                 b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.), name="bias")
-                latent_labels = tf.Variable(tf.ones([self.paral_number_W*self.num_classes,self.mini_batch_size,self.num_rois]), name="latent_variable")
-                print("attention  dans ce cas la il faut que tu jette la fin de la base que tu n as pas pu utilser !!!")
+                latent_labels = tf.Variable(tf.ones([self.paral_number_W*self.num_classes,self.mini_batch_size,self.num_rois]), name="latent_variable",validate_shape=False)
+                latent_labels.set_shape((self.paral_number_W*self.num_classes,None,self.num_rois))
+                latent_labels_batch = tf.Variable(tf.ones([self.paral_number_W*self.num_classes,self.mini_batch_size,self.num_rois]), name="latent_variable_batch",validate_shape=False)
+                latent_labels_batch.set_shape((self.paral_number_W*self.num_classes,None,self.num_rois))
+#                latent_labels = tf.Variable(tf.ones([self.paral_number_W*self.num_classes,self.mini_batch_size,self.num_rois]), name="latent_variable")
+                loss_value_var = tf.Variable(tf.zeros([self.paral_number_W*self.num_classes]),name='loss_value_var')
 #                latent_labels = tf.placeholder(tf.float32,shape=(self.paral_number_W*self.num_classes,None,self.num_rois), name="latent_variable")
                 if tf.__version__ >= '1.8':
                     normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
@@ -1053,30 +1108,30 @@ class tf_mi_model():
                     normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
 #                W_r=tf.reshape(W,(self.paral_number_W*self.num_classes,1,1,self.num_features))
                 W_r=W
-            elif self.restarts_paral_Dim:
-                W=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,self.num_features], stddev=1.),name="weights")
-                b=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,1,1], stddev=1.), name="bias")
-                if tf.__version__ >= '1.8':
-                    normalize_W = W.assign(tf.nn.l2_normalize(W,axis=[0,1])) 
-                else:
-                    normalize_W = W.assign(tf.nn.l2_normalize(W,dim=[0,1]))
-                W_r=tf.reshape(W,(self.paral_number_W,self.num_classes,1,1,self.num_features))
-            else:
-                W=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.),name="weights")
-                b=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.), name="bias")
-                if tf.__version__ >= '1.8':
-                    normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
-                else:
-                    normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
-                W_r=tf.reshape(W,(self.num_classes,1,1,self.num_features))
+#            elif self.restarts_paral_Dim:
+#                W=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,self.num_features], stddev=1.),name="weights")
+#                b=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,1,1], stddev=1.), name="bias")
+#                if tf.__version__ >= '1.8':
+#                    normalize_W = W.assign(tf.nn.l2_normalize(W,axis=[0,1])) 
+#                else:
+#                    normalize_W = W.assign(tf.nn.l2_normalize(W,dim=[0,1]))
+#                W_r=tf.reshape(W,(self.paral_number_W,self.num_classes,1,1,self.num_features))
+#            else:
+#                W=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.),name="weights")
+#                b=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.), name="bias")
+#                if tf.__version__ >= '1.8':
+#                    normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
+#                else:
+#                    normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
+#                W_r=tf.reshape(W,(self.num_classes,1,1,self.num_features))
             
             if self.restarts_paral_V2:
                 # Batch matrix multiplication
 #                >>> einsum('aij,ajk->aik', s, t)  # out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
                 Prod = tf.einsum('ak,ijk->aij',W_r,X_)
                 Prod=tf.add(Prod,b)
-            else:
-                Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_),axis=-1),b)
+#            else:
+#                Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_),axis=-1),b)
             
             if self.with_scores: 
                 if self.verbose: print('With score multiplication')
@@ -1089,9 +1144,9 @@ class tf_mi_model():
                 Prod=self.lambdas*tf.tanh(Prod)+(1-self.lambdas)*scores_*tf.sign(Prod)
             elif self.obj_score_mul_tanh:
                 if self.verbose: print('Multiplication of score and tanh')
-                Prod= tf.multiply(scores_,Prod)
+                Prod= tf.multiply(scores_,tf.tanh(Prod))
             
-            if not(self.obj_score_add_tanh or self.obj_score_mul_tanh):
+            if not(self.obj_score_add_tanh) and not(self.obj_score_mul_tanh):
                 y_tilde_i = tf.tanh(Prod)
             else:
                 y_tilde_i = Prod
@@ -1123,11 +1178,10 @@ class tf_mi_model():
 #                y_tilde_i = tf.tanh(Max)
 #            else:
 #                y_tilde_i = Max
-                
-            
-                
+            print(weights_bags_ratio)
+            print(y_tilde_i)
             if self.loss_type == '' or self.loss_type is None:
-                Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
+                Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=[-2,-1]) # Sum on all the positive exemples 
             else:
                 raise(NotImplemented)
 #            elif self.loss_type=='MSE':
@@ -1178,7 +1232,7 @@ class tf_mi_model():
             elif self.obj_score_add_tanh:
                 Prod_batch=self.lambdas*tf.tanh(Prod_batch)+(1-self.lambdas)*scores_batch*tf.sign(Prod_batch) 
             elif self.obj_score_mul_tanh:
-                Prod_batch= tf.multiply(scores_batch,Prod_batch)
+                Prod_batch= tf.multiply(scores_batch,tf.tanh(Prod_batch))
    
 #            if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
 #                Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
@@ -1189,24 +1243,25 @@ class tf_mi_model():
 #            elif self.Max_version=='sparsemax':
 #                Max_batch=sparsemax(Prod_batch,axis=-1,number_dim=3)
             if self.is_betweenMinus1and1:
-                weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
+                weights_bags_ratio_batch = -tf.divide(tf.add(latent_labels,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(latent_labels,-1.),tf.multiply(-2.,np_neg_value))
                 # Need to add 1 to avoid the case 
                 # The wieght are negative for the positive exemple and positive for the negative ones !!!
             else:
-                weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
-            if self.restarts_paral_V2:
-                weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
-#                y_long_pm1_batch =  tf.tile(tf.transpose(tf.add(tf.multiply(label_batch,2),-1),[1,0]), [self.paral_number_W,1])
-            else:
-                weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
+                weights_bags_ratio_batch = -tf.divide(latent_labels,np_pos_value) + tf.divide(-tf.add(latent_labels,-1),np_neg_value)    
+            print(weights_bags_ratio)
+#            if self.restarts_paral_V2:
+#                weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
+##                y_long_pm1_batch =  tf.tile(tf.transpose(tf.add(tf.multiply(label_batch,2),-1),[1,0]), [self.paral_number_W,1])
+#            else:
+#                weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
             
-            if not(self.obj_score_add_tanh or self.obj_score_mul_tanh):
+            if not(self.obj_score_add_tanh) and not(self.obj_score_mul_tanh):
                 y_tilde_i_batch = tf.tanh(Prod_batch)
             else:
                 y_tilde_i_batch = Prod_batch
-                
+            
             if self.loss_type == '' or self.loss_type is None:
-                Tan_batch= tf.reduce_sum(tf.multiply(y_tilde_i_batch,weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
+                Tan_batch= tf.reduce_sum(tf.multiply(y_tilde_i_batch,weights_bags_ratio_batch),axis=[-2,-1]) # Sum on all the positive exemples 
             else:
                 raise(NotImplemented)
 #            elif self.loss_type=='MSE':
@@ -1235,7 +1290,6 @@ class tf_mi_model():
                     loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
                 else:
                     loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
-            
         else:
             # TODO faire le parallele sur les W
             W=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights")
@@ -1255,6 +1309,7 @@ class tf_mi_model():
                 weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
             else:
                 weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value) # Need to add 1 to avoid the case 
+            
             Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio)) # Sum on all the positive exemples 
             loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
             
@@ -1271,12 +1326,12 @@ class tf_mi_model():
             else:
                 weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
             
-            Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch)) # Sum on all the positive exemples 
+            Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
             if self.WR:
                 loss_batch= Tan_batch
             else:
                 loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
-        
+            
         if(self.Optimizer == 'GradientDescent'):
             optimizer = tf.train.GradientDescentOptimizer(self.LR) 
         elif(self.Optimizer == 'Momentum'):
@@ -1291,12 +1346,13 @@ class tf_mi_model():
                 self.optimArg['learning_rate'],beta1=self.optimArg['beta1'],\
                 beta2=self.optimArg['beta2'],epsilon=self.optimArg['epsilon'])
         elif(self.Optimizer == 'Adagrad'):
-            optimizer = tf.train.AdagradOptimizer(self.LR) 
+            optimizer = tf.train.AdagradOptimizer(self.LR,var_list=[W,b]) 
         else:
             print("The optimizer is unknown",self.Optimizer)
             raise(NotImplemented)
             
         train = optimizer.minimize(loss)  
+        print('il faudrait que tu specifie quelles variables tu as le droit de modifier ici')
         
         #potential_label = -tf.divide(tf.multiply(tf.add(y_,1.),tf.sign(y_tilde_i)),tf.multiply(2.,np_pos_value)) + \
         #    tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
@@ -1304,30 +1360,53 @@ class tf_mi_model():
             tf.divide(tf.add(y_,-1.),-2.)
         
         # Il faudra unbalanced ailleurs
-        assign_label_op = tf.assign(latent_labels,potential_label) # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
+        assign_label_op = tf.assign(latent_labels,potential_label,validate_shape=False) # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
 #        index_argmax = tf.unravel_index(tf.argmax(latent_labels,axis=-1),dims=tf.shape(latent_labels))
 #        index_argmax = tf.expand_dims(tf.argmax(latent_labels,axis=-1),axis=-1)
         index_argmax = tf.argmax(latent_labels,axis=-1)
-        coords = tf.stack(tf.meshgrid(tf.range(0,self.mini_batch_size),tf.range(0,self.paral_number_W))\
+        local_size_batch = tf.placeholder(tf.int32,shape=())
+        coords = tf.stack(tf.meshgrid(tf.range(0,local_size_batch),tf.range(0,self.paral_number_W))\
                           + [tf.cast(index_argmax,tf.int32)], axis=2)
         coords = tf.reshape(coords,(-1,3))
-        updates = tf.tile(y_,[self.paral_number_W,1])
+        updates = tf.reshape(tf.tile(y_,[self.paral_number_W,1]),[-1])
+#        coords = tf.convert_to_tensor(tf.reshape(coords,(-1,3)))
+#        updates = tf.reshape(tf.convert_to_tensor(tf.tile(y_,[self.paral_number_W,1])),[-1])
+#        print(updates.shape)
 #        updates = tf.tile(tf.reshape(y_,(self.mini_batch_size,)),[self.paral_number_W,])
+        print(latent_labels)
+        print(coords)
+        print(updates)
         assign_psotive_max_to_1_op = tf.scatter_nd_update(latent_labels,coords,updates)
-        
+#        import tensorflow as tf
+#        import numpy as np
+#        ref = tf.Variable(np.random.uniform(size=(4,5,6)),dtype=tf.float32)
+#        indices = tf.constant([[1,4,4], [2,2,2], [1,1,1] ,[2,1,0]])
+#        updates = tf.constant([9., 10., 11., 12.])
+#        update = tf.scatter_nd_update(ref, indices, updates)
+#        init = tf.global_variables_initializer()
+#        sess = tf.Session()
+#        sess.run(init)
+#        a = sess.run(update)
+#        print(a)
+#        
         assign_label_then_train = tf.group(assign_label_op,assign_psotive_max_to_1_op,train)
-
+        # TODO : problem here it seems to get 3 different get_next instead of only one ! 
         # For batch evaluation 
         potential_label_batch = -tf.divide(tf.multiply(tf.add(label_batch,1.),tf.sign(y_tilde_i_batch)),2.) + \
             tf.divide(tf.add(label_batch,-1.),-2.)
-        assign_label_op_batch = tf.assign(latent_labels,potential_label_batch) # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
+        assign_label_op_batch = tf.assign(latent_labels_batch,potential_label_batch,validate_shape=False) # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
         index_argmax_batch = tf.argmax(latent_labels,axis=-1)
-        coords_batch = tf.stack(tf.meshgrid(tf.range(0,self.mini_batch_size),tf.range(0,self.paral_number_W))\
+        local_size_batch_batch = tf.placeholder(tf.int32,shape=())
+        coords_batch = tf.stack(tf.meshgrid(tf.range(0,local_size_batch_batch),tf.range(0,self.paral_number_W))\
                           + [tf.cast(index_argmax_batch,tf.int32)], axis=2)
         coords_batch = tf.reshape(coords_batch,(-1,3))
-        updates_batch = tf.tile(label_batch,[self.paral_number_W,1])
+        updates_batch = tf.reshape(tf.tile(label_batch,[self.paral_number_W,1]),[-1])
         assign_psotive_max_to_1_op_batch = tf.scatter_nd_update(latent_labels,coords_batch,updates_batch)
         assign_label_group_batch = tf.group(assign_label_op_batch,assign_psotive_max_to_1_op_batch)
+        
+        loss_batch_assign = tf.assign(loss_value_var,loss_batch)
+        
+        assign_on_batch_eval_loss = tf.group(assign_label_group_batch,loss_batch_assign)
         
         if not(self.init_by_mean is None) and not(self.init_by_mean ==''):
             W_onMean,b_onMean,train_SVM_onMean = self.def_SVM_onMean(X_,y_)
@@ -1367,12 +1446,29 @@ class tf_mi_model():
                 sess.run(shuffle_iterator.initializer)
                 for step in range(self.max_iters):
                     if self.debug: t2 = time.time()
-                    sess.run(assign_label_then_train)
+                    # Cela est sous optimal mais je n'ai pas encore trouve comment faire plus proprement
+
+                    if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
+                        X_iterator_value,y_iterator_value,scores_iterator_value,num_elt_iterator_value = sess.run(shuffle_iterator.get_next())
+#                        local_size_batch_value = tf.shape(X_iterator_value)[1]
+                        feed_dict_value = {X_: X_iterator_value, y_: y_iterator_value,\
+                                           local_size_batch:num_elt_iterator_value[0],scores_: scores_iterator_value}
+                    else:
+                        X_iterator_value,y_iterator_value,num_elt_iterator_value = sess.run(shuffle_iterator.get_next())
+#                        local_size_batch_value = tf.shape(X_iterator_value)[1]
+                        feed_dict_value = {X_: X_iterator_value, y_: y_iterator_value,\
+                                           local_size_batch:num_elt_iterator_value[0]}
+                    print(X_iterator_value.shape)
+                    print(y_iterator_value.shape)
+                    print('placeholder',local_size_batch)
+                    print(num_elt_iterator_value.shape)
+                    sess.run(assign_label_then_train,feed_dict_value)
     #                sess.run(train,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE))
                     if self.debug:
                         t3 = time.time()
                         print(step,"duration :",str(t3-t2))
                         t4 = time.time()
+                        raise(NotImplemented)
                         list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
                         if self.WR: 
                             assert(np.max(list_elt)<= 2.0)
@@ -1392,7 +1488,15 @@ class tf_mi_model():
                 sess.run(assign_label_group_batch)
                 while True:
                     try:
-                        loss_value += sess.run(tf.group(assign_label_group_batch,loss_batch))
+                        X_batch_iterator_value,label_batch_iterator_value = sess.run(X_batch_iterator,label_batch_iterator)
+                        local_size_batch_batch_value = tf.shape(X_batch_iterator_value)[1]
+                        feed_dict_value = {X_batch: X_batch_iterator_value, label_batch: label_batch_iterator_value}
+                        if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
+                            X_iterator_value,label_batch_iterator_value,scores_batch_iterator_value =\
+                                sess.run(X_batch_iterator,label_batch_iterator,scores_batch_iterator)
+                            feed_dict_value = {X_batch: X_batch_iterator_value, label_batch: label_batch_iterator_value,scores_: scores_iterator_value}
+                        sess.run(assign_on_batch_eval_loss,feed_dict_value)
+                        loss_value += sess.run(loss_value_var,feed_dict_value)
                         break
                     except tf.errors.OutOfRangeError:
                         break
@@ -1471,7 +1575,7 @@ class tf_mi_model():
                             sess.run(iterator_batch.initializer)
                             while True:
                                 try:
-                                    loss_value += sess.run(loss_batch)
+                                    loss_value += sess.run(assign_on_batch_eval_loss)
                                     break
                                 except tf.errors.OutOfRangeError:
                                     break
@@ -1502,6 +1606,7 @@ class tf_mi_model():
             
                 
         else:
+            raise(NotImplemented)
             if class_indice==-1:
                 bestloss = np.zeros((self.num_classes,),dtype=np.float32)
             else:

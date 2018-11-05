@@ -2725,7 +2725,7 @@ class ModelHyperplan():
             elif self.obj_score_add_tanh:
                 Prod_tmp=tf.add(self.lambdas*tf.tanh(Prod_best),(1-self.lambdas)*scores_*tf.sign(Prod_best))
             elif self.obj_score_mul_tanh:
-                Prod_tmp=tf.multiply(scores_,Prod_best)
+                Prod_tmp=tf.multiply(scores_,tf.tanh(Prod_best))
             if self.with_scores or self.seuillage_by_score :
                 Prod_score = tf.identity(Prod_tmp,name='ProdScore')
             elif self.obj_score_add_tanh or self.obj_score_mul_tanh:
