@@ -7527,22 +7527,24 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
 #                              plot_onSubSet=['person']) 
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,model='mi_model',
-#                              verbose = True,testMode = False,jtest = 'cow',
-#                              PlotRegions = False,saved_clf=False,RPN=False,
-#                              CompBest=False,Stocha=True,k_per_bag=300,
-#                              parallel_op=True,CV_Mode='',num_split=2,
-#                              WR=True,init_by_mean =None,seuil_estimation='',
-#                              restarts=11,max_iters_all_base=5,LR=0.01,with_tanh=True,
-#                              C=1.0,Optimizer='GradientDescent',norm='',
-#                              transform_output='tanh',with_rois_scores_atEnd=False,
-#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                              k_intopk=1,C_Searching=False,predict_with='MI_max',
-#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
-#                              loss_type='',storeVectors=False,storeLossValues=False,
-#                              obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False) 
+    
+    # Test of mi_model ! 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,model='mi_model',
+                              verbose = True,testMode = False,jtest = 'cow',
+                              PlotRegions = False,saved_clf=False,RPN=False,
+                              CompBest=False,Stocha=True,k_per_bag=300,
+                              parallel_op=True,CV_Mode='',num_split=2,
+                              WR=True,init_by_mean =None,seuil_estimation='',
+                              restarts=12,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                              C=1.0,Optimizer='GradientDescent',norm='',
+                              transform_output='tanh',with_rois_scores_atEnd=False,
+                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                              k_intopk=1,C_Searching=False,predict_with='MI_max',
+                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
+                              loss_type='',storeVectors=False,storeLossValues=False,
+                              obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False) 
 
 
 #    VariationStudyPart1_forVOC07()
@@ -7565,5 +7567,5 @@ if __name__ == '__main__':
     ## TODO : tester avec une image constante en entrée et voir ce que cela donne de couleur différentes
     # Peut etre a rajouter dans les exemples negatifs 
 #    plotGT('Q28810789')
-    plotGT('Q3213763')
-    
+#    plotGT('Q3213763')
+#    

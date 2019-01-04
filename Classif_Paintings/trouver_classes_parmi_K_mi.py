@@ -941,9 +941,9 @@ class tf_mi_model():
         iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
         
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
-            X_batch_iterator,scores_batch_iterator, label_batch_iterator,num_elt_iterator = iterator_batch.get_next()
+            X_batch_iterator,scores_batch_iterator, label_batch_iterator,num_elt_batch_iterator = iterator_batch.get_next()
         else:
-            X_batch_iterator, label_batch_iterator,num_elt_iterator = iterator_batch.get_next() 
+            X_batch_iterator, label_batch_iterator,num_elt_batch_iterator = iterator_batch.get_next() 
         
         # Calcul preliminaire a la definition de la fonction de cout 
         self.config = tf.ConfigProto()
@@ -985,6 +985,9 @@ class tf_mi_model():
                   np_neg_value += sess.run(add_np_neg, feed_dict = {label_vector:label_batch_value})
               except tf.errors.OutOfRangeError:
                 break
+        # Here we consider that all the rois of a bag are the label of the bag
+        np_pos_value *= self.num_rois
+        np_neg_value *= self.num_rois
             
         if self.norm=='STDall' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
             mean_train_set, std_train_set = self.compute_STD_all(X_batch_iterator,label_batch_iterator)
@@ -1029,7 +1032,7 @@ class tf_mi_model():
             train_dataset2 = tf.data.TFRecordDataset(data_path) # train_dataset_init ?  A tester
             
         X_batch = tf.placeholder(tf.float32, shape=(None,self.num_rois,self.num_features))
-        label_batch = tf.placeholder(tf.float32, shape=(None,1)) 
+        label_batch = tf.placeholder(tf.float32, shape=(None,self.num_classes)) 
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
             scores_batch = tf.placeholder(tf.float32, shape=(None,self.num_rois))
         
@@ -1071,7 +1074,7 @@ class tf_mi_model():
 #            X_iterator, y_iterator = shuffle_iterator.get_next()
 #            #X_, y_ = shuffle_iterator.get_next()
         X_ = tf.placeholder(tf.float32, shape=(None,self.num_rois,self.num_features))
-        y_ = tf.placeholder(tf.float32, shape=(None,1))
+        y_ = tf.placeholder(tf.float32, shape=(None,self.num_classes))
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
             scores_ = tf.placeholder(tf.float32, shape=(None,self.num_rois))
 
@@ -1162,12 +1165,19 @@ class tf_mi_model():
 #            elif self.Max_version=='sparsemax':
 #                Max=sparsemax(Prod,axis=-1,number_dim=3)
 #                if self.verbose: print('sparsemax',Max)   
+            
+            tile_np_pos_value = tf.reshape(tf.tile(np_pos_value,[self.paral_number_W]),[self.paral_number_W*self.num_classes,1,1])
+            tile_np_neg_value = tf.reshape(tf.tile(np_neg_value,[self.paral_number_W]),[self.paral_number_W*self.num_classes,1,1])
+            # TODO : need to recompute the weights_bags_ratio
+            print("latent_labels",latent_labels)
             if self.is_betweenMinus1and1:
-                weights_bags_ratio = -tf.divide(tf.add(latent_labels,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(latent_labels,-1.),tf.multiply(-2.,np_neg_value))
+                weights_bags_ratio = -tf.divide(tf.add(latent_labels,1.),tf.multiply(2.,tile_np_pos_value))\
+                + tf.divide(tf.add(latent_labels,-1.),tf.multiply(-2.,tile_np_neg_value))
                 # Need to add 1 to avoid the case 
                 # The wieght are negative for the positive exemple and positive for the negative ones !!!
             else:
-                weights_bags_ratio = -tf.divide(latent_labels,np_pos_value) + tf.divide(-tf.add(latent_labels,-1),np_neg_value)
+                weights_bags_ratio = -tf.divide(latent_labels,tile_np_pos_value)\
+                + tf.divide(-tf.add(latent_labels,-1),tile_np_neg_value)
 #            if self.restarts_paral_V2:
 #                weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0,2])
 ##                y_long_pm1 = tf.tile(tf.transpose(tf.add(tf.multiply(y_,2),-1),[1,0]), [self.paral_number_W,1])
@@ -1178,8 +1188,8 @@ class tf_mi_model():
 #                y_tilde_i = tf.tanh(Max)
 #            else:
 #                y_tilde_i = Max
-            print(weights_bags_ratio)
-            print(y_tilde_i)
+            print('weights_bags_ratio',weights_bags_ratio)
+            print('y_tilde_i',y_tilde_i)
             if self.loss_type == '' or self.loss_type is None:
                 Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=[-2,-1]) # Sum on all the positive exemples 
             else:
@@ -1242,12 +1252,15 @@ class tf_mi_model():
 #                Max_batch=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod_batch,axis=-1),tf.multiply(Prod_batch,self.w_exp)),axis=-1)
 #            elif self.Max_version=='sparsemax':
 #                Max_batch=sparsemax(Prod_batch,axis=-1,number_dim=3)
+
             if self.is_betweenMinus1and1:
-                weights_bags_ratio_batch = -tf.divide(tf.add(latent_labels,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(latent_labels,-1.),tf.multiply(-2.,np_neg_value))
+                weights_bags_ratio_batch = -tf.divide(tf.add(latent_labels_batch,1.),tf.multiply(2.,tile_np_pos_value)) \
+                + tf.divide(tf.add(latent_labels_batch,-1.),tf.multiply(-2.,tile_np_neg_value))
                 # Need to add 1 to avoid the case 
                 # The wieght are negative for the positive exemple and positive for the negative ones !!!
             else:
-                weights_bags_ratio_batch = -tf.divide(latent_labels,np_pos_value) + tf.divide(-tf.add(latent_labels,-1),np_neg_value)    
+                weights_bags_ratio_batch = -tf.divide(latent_labels_batch,tile_np_pos_value) \
+                + tf.divide(-tf.add(latent_labels_batch,-1),tile_np_neg_value)    
             print(weights_bags_ratio)
 #            if self.restarts_paral_V2:
 #                weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
@@ -1351,31 +1364,42 @@ class tf_mi_model():
             print("The optimizer is unknown",self.Optimizer)
             raise(NotImplemented)
             
-        train = optimizer.minimize(loss)  
-        print('il faudrait que tu specifie quelles variables tu as le droit de modifier ici')
+        var_list = [W,b] # Here we specify the variable that must be trained
+        train = optimizer.minimize(loss,var_list=var_list)  
         
         #potential_label = -tf.divide(tf.multiply(tf.add(y_,1.),tf.sign(y_tilde_i)),tf.multiply(2.,np_pos_value)) + \
         #    tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
-        potential_label = -tf.divide(tf.multiply(tf.add(y_,1.),tf.sign(y_tilde_i)),2.) + \
-            tf.divide(tf.add(y_,-1.),-2.)
+        # TODO Potential label a verifier
+
+        y_tile = tf.tile(tf.reshape(tf.transpose(y_),[self.num_classes,-1,1]),[self.paral_number_W,1,self.num_rois])
+        potential_label = tf.multiply(tf.divide(tf.add(y_tile,tf.sign(y_tilde_i)),2.),y_tile)
+        assign_first_potential_label = tf.assign(latent_labels,y_tile,validate_shape=False)
+        print('potential_label',potential_label)
         
-        # Il faudra unbalanced ailleurs
-        assign_label_op = tf.assign(latent_labels,potential_label,validate_shape=False) # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
+        # TODO : Il faudra unbalanced ailleurs
+        assign_label_op = tf.assign(latent_labels,potential_label,validate_shape=False)
+        # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
+        
 #        index_argmax = tf.unravel_index(tf.argmax(latent_labels,axis=-1),dims=tf.shape(latent_labels))
 #        index_argmax = tf.expand_dims(tf.argmax(latent_labels,axis=-1),axis=-1)
+        print("latent_labels",latent_labels)
         index_argmax = tf.argmax(latent_labels,axis=-1)
+        print("index_argmax",index_argmax)
         local_size_batch = tf.placeholder(tf.int32,shape=())
-        coords = tf.stack(tf.meshgrid(tf.range(0,local_size_batch),tf.range(0,self.paral_number_W))\
-                          + [tf.cast(index_argmax,tf.int32)], axis=2)
+        meshgrid = tf.meshgrid(tf.range(0,local_size_batch),tf.range(0,self.paral_number_W*self.num_classes))
+        print("meshgrid",meshgrid)
+        meshgrid_plus_index = meshgrid + [tf.cast(index_argmax,tf.int32)]
+        print("meshgrid_plus_index",meshgrid_plus_index)
+        coords = tf.stack(meshgrid_plus_index, axis=2)
         coords = tf.reshape(coords,(-1,3))
         updates = tf.reshape(tf.tile(y_,[self.paral_number_W,1]),[-1])
 #        coords = tf.convert_to_tensor(tf.reshape(coords,(-1,3)))
 #        updates = tf.reshape(tf.convert_to_tensor(tf.tile(y_,[self.paral_number_W,1])),[-1])
 #        print(updates.shape)
 #        updates = tf.tile(tf.reshape(y_,(self.mini_batch_size,)),[self.paral_number_W,])
-        print(latent_labels)
-        print(coords)
-        print(updates)
+        print('latent_labels',latent_labels)
+        print('coords',coords)
+        print('updates',updates)
         assign_psotive_max_to_1_op = tf.scatter_nd_update(latent_labels,coords,updates)
 #        import tensorflow as tf
 #        import numpy as np
@@ -1388,20 +1412,22 @@ class tf_mi_model():
 #        sess.run(init)
 #        a = sess.run(update)
 #        print(a)
-#        
+
         assign_label_then_train = tf.group(assign_label_op,assign_psotive_max_to_1_op,train)
+        
         # TODO : problem here it seems to get 3 different get_next instead of only one ! 
+        
         # For batch evaluation 
-        potential_label_batch = -tf.divide(tf.multiply(tf.add(label_batch,1.),tf.sign(y_tilde_i_batch)),2.) + \
-            tf.divide(tf.add(label_batch,-1.),-2.)
+        label_batch_tile = tf.tile(tf.reshape(tf.transpose(label_batch),[self.num_classes,-1,1]),[self.paral_number_W,1,self.num_rois])
+        potential_label_batch = tf.multiply(tf.divide(tf.add(label_batch_tile,tf.sign(y_tilde_i_batch)),2.),label_batch_tile)
         assign_label_op_batch = tf.assign(latent_labels_batch,potential_label_batch,validate_shape=False) # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
-        index_argmax_batch = tf.argmax(latent_labels,axis=-1)
+        index_argmax_batch = tf.argmax(latent_labels_batch,axis=-1)
         local_size_batch_batch = tf.placeholder(tf.int32,shape=())
-        coords_batch = tf.stack(tf.meshgrid(tf.range(0,local_size_batch_batch),tf.range(0,self.paral_number_W))\
+        coords_batch = tf.stack(tf.meshgrid(tf.range(0,local_size_batch_batch),tf.range(0,self.paral_number_W*self.num_classes))\
                           + [tf.cast(index_argmax_batch,tf.int32)], axis=2)
         coords_batch = tf.reshape(coords_batch,(-1,3))
         updates_batch = tf.reshape(tf.tile(label_batch,[self.paral_number_W,1]),[-1])
-        assign_psotive_max_to_1_op_batch = tf.scatter_nd_update(latent_labels,coords_batch,updates_batch)
+        assign_psotive_max_to_1_op_batch = tf.scatter_nd_update(latent_labels_batch,coords_batch,updates_batch)
         assign_label_group_batch = tf.group(assign_label_op_batch,assign_psotive_max_to_1_op_batch)
         
         loss_batch_assign = tf.assign(loss_value_var,loss_batch)
@@ -1443,39 +1469,67 @@ class tf_mi_model():
                 
             if not(self.storeVectors):
                 sess.run(init_op)
+                # Need to initialize correctly the 
                 sess.run(shuffle_iterator.initializer)
+                shuffle_iterator_get_next = shuffle_iterator.get_next()
                 for step in range(self.max_iters):
                     if self.debug: t2 = time.time()
                     # Cela est sous optimal mais je n'ai pas encore trouve comment faire plus proprement
 
                     if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
-                        X_iterator_value,y_iterator_value,scores_iterator_value,num_elt_iterator_value = sess.run(shuffle_iterator.get_next())
+                        X_iterator_value,scores_iterator_value,y_iterator_value,num_elt_iterator_value =\
+                        sess.run(shuffle_iterator_get_next) # fc7,roi_scores, label,num_elt
 #                        local_size_batch_value = tf.shape(X_iterator_value)[1]
                         feed_dict_value = {X_: X_iterator_value, y_: y_iterator_value,\
-                                           local_size_batch:num_elt_iterator_value[0],scores_: scores_iterator_value}
+                                           local_size_batch:num_elt_iterator_value.shape[0],scores_: scores_iterator_value}
                     else:
-                        X_iterator_value,y_iterator_value,num_elt_iterator_value = sess.run(shuffle_iterator.get_next())
+                        X_iterator_value,y_iterator_value,num_elt_iterator_value =\
+                        sess.run(shuffle_iterator_get_next)
 #                        local_size_batch_value = tf.shape(X_iterator_value)[1]
                         feed_dict_value = {X_: X_iterator_value, y_: y_iterator_value,\
-                                           local_size_batch:num_elt_iterator_value[0]}
-                    print(X_iterator_value.shape)
-                    print(y_iterator_value.shape)
-                    print('placeholder',local_size_batch)
-                    print(num_elt_iterator_value.shape)
-                    sess.run(assign_label_then_train,feed_dict_value)
+                                           local_size_batch:num_elt_iterator_value.shape[0]}
+#                    print(X_iterator_value.shape) # For debug purpouse
+#                    print(y_iterator_value.shape)
+#                    print('placeholder',local_size_batch)
+#                    print(num_elt_iterator_value.shape)
+#                    potential_labelv = sess.run(potential_label,feed_dict_value)
+#                    latent_labelsv = sess.run(latent_labels,feed_dict_value)
+#                    print('potential_label',potential_labelv.shape)
+#                    print("latent_labels",latent_labelsv.shape)
+#                    local_size_batchv = sess.run(local_size_batch,feed_dict_value)
+#                    print('local_size_batch',local_size_batchv)
+#                    meshgrid_plus_indexv = sess.run(meshgrid_plus_index,feed_dict_value)
+#                    for i in range(3):
+#                        print('meshgrid_plus_indexv',i,meshgrid_plus_indexv[i])
+#                   
+                    # tf.group seams not to work ! 
+                    if not(step==0):
+                        sess.run(assign_label_op,feed_dict_value)
+                        sess.run(assign_psotive_max_to_1_op,feed_dict_value)
+                    else: # Step == 0 
+                        # For the first step, we need to find a way to assign the label
+                        # one solution is to give the label of the bag to the instance
+                        # TODO : an other solution is to assign what the algo decide
+                        sess.run(assign_first_potential_label,feed_dict_value)
+                    
+                    
+                    sess.run(train,feed_dict_value)
+
+
+#                    sess.run(assign_label_then_train,feed_dict_value)
     #                sess.run(train,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE))
                     if self.debug:
                         t3 = time.time()
                         print(step,"duration :",str(t3-t2))
-                        t4 = time.time()
-                        raise(NotImplemented)
-                        list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
-                        if self.WR: 
-                            assert(np.max(list_elt)<= 2.0)
-                            assert(np.min(list_elt)>= -2.0)
-                        t5 = time.time()
-                        print("duration loss eval :",str(t5-t4))
-                        print(list_elt)
+#                        t4 = time.time()
+#                        raise(NotImplemented)
+#                        list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
+#                        if self.WR: 
+#                            assert(np.max(list_elt)<= 2.0)
+#                            assert(np.min(list_elt)>= -2.0)
+#                        t5 = time.time()
+#                        print("duration loss eval :",str(t5-t4))
+#                        print(list_elt)
                         
                 if class_indice==-1:
                     if self.restarts_paral_V2:
@@ -1485,18 +1539,42 @@ class tf_mi_model():
                 else:
                     loss_value = np.zeros((self.paral_number_W,),dtype=np.float32)
                 sess.run(iterator_batch.initializer)
-                sess.run(assign_label_group_batch)
+#                sess.run(assign_label_group_batch)
+                print("start computing the loss")
                 while True:
                     try:
-                        X_batch_iterator_value,label_batch_iterator_value = sess.run(X_batch_iterator,label_batch_iterator)
-                        local_size_batch_batch_value = tf.shape(X_batch_iterator_value)[1]
-                        feed_dict_value = {X_batch: X_batch_iterator_value, label_batch: label_batch_iterator_value}
+                        
+
                         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
-                            X_iterator_value,label_batch_iterator_value,scores_batch_iterator_value =\
-                                sess.run(X_batch_iterator,label_batch_iterator,scores_batch_iterator)
-                            feed_dict_value = {X_batch: X_batch_iterator_value, label_batch: label_batch_iterator_value,scores_: scores_iterator_value}
-                        sess.run(assign_on_batch_eval_loss,feed_dict_value)
-                        loss_value += sess.run(loss_value_var,feed_dict_value)
+                            X_batch_iterator_value,scores_batch_iterator_value,label_batch_iterator_value, \
+                                num_elt_batch_iterator_value = sess.run([X_batch_iterator,scores_batch_iterator,\
+                                label_batch_iterator,num_elt_batch_iterator])
+#                                sess.run(iterator_batch.get_next())
+#                                sess.run([X_batch_iterator,label_batch_iterator,scores_batch_iterator])
+
+                            feed_dict_value_batch = {X_batch: X_batch_iterator_value, \
+                                label_batch: label_batch_iterator_value,\
+                                local_size_batch_batch:num_elt_batch_iterator_value.shape[0],\
+                                scores_batch: scores_batch_iterator_value}
+                        else:
+                            X_batch_iterator_value,label_batch_iterator_value,num_elt_batch_iterator_value =\
+                                sess.run([X_batch_iterator,label_batch_iterator,num_elt_batch_iterator])
+#                                sess.run(iterator_batch.get_next())
+#                                sess.run([X_batch_iterator,label_batch_iterator])
+                            feed_dict_value_batch = {X_batch: X_batch_iterator_value, \
+                                label_batch: label_batch_iterator_value,\
+                                local_size_batch_batch:num_elt_batch_iterator_value.shape[0]}
+                        
+                        sess.run(assign_label_op_batch,feed_dict_value_batch)
+                        print('label_batch',label_batch_iterator_value.shape)
+                        print('X_batch',X_batch_iterator_value.shape)
+                        sess.run(assign_psotive_max_to_1_op_batch,feed_dict_value_batch)
+                        loss_value += sess.run(loss_batch,feed_dict_value_batch)
+                        print('loss_value',loss_value)
+                        
+                        #                        sess.run(assign_on_batch_eval_loss,feed_dict_value_batch)
+#                        loss_value += sess.run(loss_value_var,feed_dict_value_batch)
+                        # seems not working
                         break
                     except tf.errors.OutOfRangeError:
                         break
@@ -1787,7 +1865,7 @@ class tf_mi_model():
         saver.save(sess,name_model)
         
         sess.close()
-        if self.verbose : print("Return MI_max weights")
+        if self.verbose : print("Return mi_model weights")
         return(name_model) 
         # End of the function !!        
 
@@ -2566,7 +2644,7 @@ class ModelHyperplan():
         saver.save(sess,name_model)
         
         sess.close()
-        if self.verbose : print("Return MI_max weights")
+        if self.verbose : print("Return mi_model weights")
         return(name_model) 
     
 
