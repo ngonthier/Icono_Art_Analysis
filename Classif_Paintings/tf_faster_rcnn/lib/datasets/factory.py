@@ -15,6 +15,7 @@ __sets = {}
 from ..datasets.pascal_voc import pascal_voc
 from ..datasets.CrossMod_db import CrossMod_db
 from ..datasets.WikiTenLabels_db import WikiTenLabels_db
+from ..datasets.IconArt import IconArt_v1
 #from ..datasets.coco import coco # Commented by Nicolas because API COCO Python need python27 : it need to be modified problem with _mask
 
 # Set up voc_<year>_<split> 
@@ -42,6 +43,11 @@ for db in ['WikiTenLabels']:
     for split in ['test']:
         name = '{}_{}'.format(db,split)
         __sets[name] = (lambda split=split, db=db: WikiTenLabels_db(db,split,devkit_path='/media/HDD/data/Wikidata_Paintings/',test_ext=True))
+        
+for db in ['IconArt_v1']:
+    for split in ['test']:
+        name = '{}_{}'.format(db,split)
+        __sets[name] = (lambda split=split, db=db: IconArt_v1(db,split,devkit_path='/media/HDD/data/Wikidata_Paintings/',test_ext=True))
  
 ## Set up coco_2014_<split>
 #for year in ['2014']:

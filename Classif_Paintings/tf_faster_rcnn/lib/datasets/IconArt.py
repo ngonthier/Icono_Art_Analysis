@@ -23,7 +23,7 @@ from ..datasets.voc_eval import voc_eval
 from ..model.config import cfg
 
 
-class WikiTenLabels_db(imdb):
+class IconArt_v1(imdb):
   def __init__(self, _image_db,image_set, use_diff=False,devkit_path=None,test_ext=False,
                force_dont_use_07_metric=False):
     name = image_set
@@ -39,10 +39,10 @@ class WikiTenLabels_db(imdb):
         self._devkit_path = devkit_path
     self._data_path = os.path.join(self._devkit_path,self._image_db)
 #    print(self._data_path)
-    if self._image_db == 'WikiTenLabels':
-        self._classes = ('__background__','angel', 'beard','capital','Child_Jesus', 
+    if self._image_db == 'IconArt_v1':
+        self._classes = ('__background__','angel','Child_Jesus', 
                          'crucifixion_of_Jesus',
-                    'Mary','nudity', 'ruins','Saint_Sebastien','turban')
+                    'Mary','nudity', 'ruins','Saint_Sebastien')
     else:
         raise(NotImplemented)
     self._class_to_ind = dict(list(zip(self.classes, list(range(self.num_classes)))))

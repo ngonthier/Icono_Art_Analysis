@@ -287,16 +287,55 @@ def plotDecroissanceFct():
     Le but de cette fonction est d afficher la decroissance de la fonction de cout 
     au cours du temps
     """
-    #"/media/HDD/output_exp/ClassifPaintings/VarStudy/storeLossValues_PeopleArt_Wvectors_C_SearchingFalse__.pkl"
-    #"/media/HDD/output_exp/ClassifPaintings/VarStudy/storeLossValues_PeopleArt_Wvectors_C_SearchingFalse___WithScore.pkl"
     export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss.pkl'
-#    export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss.pkl'
-    with open(export_dir, 'rb') as f:
-        Dict = pickle.load(f)
-    all_loss_value = Dict['all_loss_value']
-    print(all_loss_value.shape)
-    loss_value = np.reshape(all_loss_value,(-1,),order='F')
-    print(loss_value.shape)
+    export_dir_withoutscore = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss.pkl'
+
+
+    list_export_dir = [export_dir,export_dir_withoutscore]
+    list_plots_elt = ['with score','without score']
+    iterations = np.arange(1200)
+    for elt,export_dir in zip(list_plots_elt,list_export_dir):
+        with open(export_dir, 'rb') as f:
+            Dict = pickle.load(f)
+        all_loss_value = Dict['all_loss_value']
+        print(all_loss_value.shape)
+        
+        plt.figure()
+        for i in range(12):
+            plt.plot(iterations,all_loss_value[0,:,i])
+        title = 'Loss value '+ elt +' in the loss function for the PeopleArt Dataset'
+        plt.title(title)
+        plt.xlabel('Iterations')
+        plt.ylabel('Loss value')
+        plt.show()
+        
+    export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss_CsearchCVmodeTrue.pkl'
+    export_dir_withoutscore = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss_CsearchCVmodeTrue.pkl'
+
+    list_export_dir = [export_dir,export_dir_withoutscore]
+    list_plots_elt = ['with score','without score']
+    
+    list_colors = ['#e6194b','#3cb44b','#ffe119','#0082c8',	'#f58231','#911eb4','#46f0f0','#f032e6',	
+               '#d2f53c','#fabebe',	'#008080','#e6beff','#aa6e28','#fffac8','#800000',
+               '#aaffc3','#808000','#ffd8b1','#000080','#808080','#FFFFFF','#000000']	
+    i_color = 0
+    iterations = np.arange(600)
+    for elt,export_dir in zip(list_plots_elt,list_export_dir):
+        with open(export_dir, 'rb') as f:
+            Dict = pickle.load(f)
+        all_loss_value = Dict['all_loss_value']
+        print(all_loss_value.shape)
+        plt.figure()
+        for i in range(all_loss_value.shape[2]):
+            plt.plot(iterations,all_loss_value[0,:,i],color=list_colors[i_color])
+            i_color = (i_color + 1) % 12
+        title = 'Loss value '+ elt +' in the loss function for the PeopleArt Dataset with Csearch'
+        plt.title(title)
+        plt.xlabel('Iterations')
+        plt.ylabel('Loss value')
+        plt.show()   
+    
+
 
 if __name__ == '__main__':
     Etude_Wvectors()
