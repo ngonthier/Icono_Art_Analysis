@@ -22,6 +22,8 @@ def ExtractNewsgroups():
     The goal of this function is to extract the Newsgoups dataset 
     from the Newsgoups files
     
+    Warning the bags order is not the same for each class and the bag number neither
+    
     return a list of 4 elements : 
             Dataset = list_names,bags,labels_bags,labels_instance
             with
@@ -45,20 +47,18 @@ def ExtractNewsgroups():
     data_to_read = os.path.join(script_dir,path_directory,'*.txt')
     allclasses=glob.glob(data_to_read)
     
-    FirstTimeBag = True
     labels_instance = [[[] for i in range(number_of_bag)] for j in range(number_of_class)] 
     labels_bags = [-np.empty((number_of_bag,)) for j in range(number_of_class)] 
+    bags = [[] for j in range(number_of_class)] 
     for c,classe_name in enumerate(allclasses):
         classe = os.path.split(classe_name)[-1]
         elt_name = classe.split('.')[0]
         list_names += [elt_name]
-        
+        bags_c = []
         with open(classe_name,'r') as f:
             content = f.readlines()[6:] # skip header
             bag_id_old = -1
             bag = None
-            labels_instance_c = []
-            labels = []
             for line in content:
                 line_splitted=line.split(' ')
 #                % Each line corresponds to an instance
@@ -75,31 +75,31 @@ def ExtractNewsgroups():
                 instance_label = int(line_splitted[3])
                 labels_instance[c][bag_id-1] += [2*instance_label-1] 
 
-                features = np.array(list_tofloat(line_splitted[4:203]))
-                if FirstTimeBag:
-                    if bag_id_old==bag_id:
-                        bag = np.vstack((bag,features))
-                    else:
-                        if not(bag_id_old==-1):
-                            bags += [bag]
-                        bag_id_old = bag_id
-                        bag = features
+                features = np.array(list_tofloat(line_splitted[4:204]))
+                if bag_id_old==bag_id:
+                    bag = np.vstack((bag,features))
+                else:
+                    if not(bag_id_old==-1):
+                        bags_c += [bag]
+                    bag_id_old = bag_id
+                    bag = features
         
         # End of the class
-        if FirstTimeBag:
-            bags += [bag]
-            FirstTimeBag = False
-#        labels_instance += [np.array(labels_instance_c)]
-#        labels_bags  += [np.array(labels)]
+        bags_c += [bag]
+        bags[c] = bags_c
+
 
     for j in range(number_of_class):
         for i in range(number_of_bag):
             labels_instance[j][i] = np.array(labels_instance[j][i])
             assert(np.max(labels_instance[j][i])==labels_bags[j][i])
+            assert(len(labels_instance[j][i])==len(bags[j][i]))
+            assert(bags[j][i].shape[1]==number_of_features)
             
     # Quick test
-    assert(len(bags)==number_of_bag)
+    
     for j in range(number_of_class):
+        assert(len(bags[j])==number_of_bag)
         assert(len(labels_instance[j])==number_of_bag)
         assert(len(labels_instance[j])==number_of_bag)
         assert(len(labels_bags[j])==number_of_bag)
@@ -108,4 +108,7 @@ def ExtractNewsgroups():
     Dataset = list_names,bags,labels_bags,labels_instance
             
     return(Dataset)
+    
 
+if __name__ == '__main__':
+    ExtractNewsgroups()

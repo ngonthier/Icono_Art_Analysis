@@ -18,11 +18,11 @@ def get_Set(Data,index):
     """
     Provide the element in Data from the index
     """
-    DataS = [ Data[i] for i in index]
+    DataS = [ np.array(Data[i]) for i in index]
     #DataS = DataS[0]
     return(DataS)
 
-def ExtractSubsampledSIVAL():
+def ExtractSubsampledSIVAL(verbose=False):
     """
     The goal of this function is too extract a sample of the SIVAL dataset as 
     it is done in the survey Carbonneau 2016
@@ -45,6 +45,12 @@ def ExtractSubsampledSIVAL():
         labels_bags_for_c = labels_bags[i]
         pos_index_c = np.where(labels_bags_for_c==1) #Select the positive bag
         list_pos_bag += [pos_index_c]
+    
+    class_with_59posElt = []
+    for i in range(len(list_names)):
+        if len(list_pos_bag[i][0])==59:
+            if verbose: print('In SIVAL',list_names[i],' only have 59 positives case')
+            class_with_59posElt += [i]
         
         
     bags_sampled = [[[] for k in range(num_sample)] for i in range(len(list_names))]
@@ -62,15 +68,14 @@ def ExtractSubsampledSIVAL():
                 for k in range(num_sample):
                     samples_index = sample_5[k*num_of_images_per_samples:(k+1)*num_of_images_per_samples]
                     list_of_index[k] = np.hstack((list_of_index[k],samples_index))
-#                    print(samples_index)
-#                    print(len(get_Set(bags,samples_index)))
+#                    print("len(get_Set(bags,samples_index))",len(get_Set(bags,samples_index)))
 #                    bags_sampled[i][k] += [get_Set(bags,samples_index)]
-#                    print(len(bags_sampled[i][k]))
+#                    print("len(bags_sampled[i][k])",len(bags_sampled[i][k]))
 #                    labels_bags_sampled[i][k] += [get_Set(labels_bags[i],samples_index)] 
 #                    labels_instance_sampled[i][k] += [get_Set(labels_instance[i],samples_index)] 
-        # Cela ne marche pas du tout :(
+        #            => Cela ne marche pas du tout :(
         for k in range(num_sample):
-            if not(i==21):
+            if not(i in class_with_59posElt):
                 assert(len(list_of_index[k])==60+num_of_images_per_samples*24)
             else:
                 assert(len(list_of_index[k])==59+num_of_images_per_samples*24)
@@ -81,7 +86,7 @@ def ExtractSubsampledSIVAL():
             
     for i,_ in enumerate(list_names):
         for k in range(num_sample):
-            if not(i==21):
+            if not(i in class_with_59posElt):
                 assert(len(bags_sampled[i][k])==60+num_of_images_per_samples*24)
                 assert(len(labels_bags_sampled[i][k])==60+num_of_images_per_samples*24)
                 assert(len(labels_instance_sampled[i][k])==60+num_of_images_per_samples*24)
@@ -170,6 +175,7 @@ def ExtractSIVAL():
             labels_instance_c_b = labels_instance[j][i]
             labels_instance[j][i] = np.array(labels_instance_c_b)
             assert(np.max(labels_instance[j][i])==labels_bags[j][i])
+            assert(len(bags[i])==len(labels_instance[j][i]))
 
     
     # Quick test
@@ -185,4 +191,4 @@ def ExtractSIVAL():
     return(Dataset)
   
 if __name__=='__main__':
-    ExtractSubsampledSIVAL()
+    ExtractSubsampledSIVAL(verbose=True)

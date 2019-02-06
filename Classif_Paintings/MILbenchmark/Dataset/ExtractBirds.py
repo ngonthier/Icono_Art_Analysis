@@ -29,8 +29,15 @@ def ExtractBirds():
     - labels_instance : array of the labels of the classes between -1 and 1 
         per class
     This means that the instances and bags are always in the same order
-    """
     
+    /!\
+    I just want to prevent you that the labels in hja_birdsong_bag_labels.txt 
+    are not the same than the one in hja_birdsong_instance_labels.txt.
+    We use the labels from the instance labels file (hja_birdsong_instance_labels
+    text file)
+    """
+    print('I just want to prevent you that the labels in hja_birdsong_bag_labels.txt are not the same than the one in hja_birdsong_instance_labels.txt.')
+    print('We use the labels from the instance labels file.')
     
     path_dataset = 'Birds'
     script_dir = os.path.dirname(__file__) 

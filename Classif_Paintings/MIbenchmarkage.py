@@ -12,8 +12,10 @@ from MILbenchmark.utils import getDataset,normalizeDataSetFull,getMeanPref,\
 from sklearn.model_selection import KFold,StratifiedKFold
 import numpy as np
 import tensorflow as tf
+import pathlib
+import shutil
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL']='1' # 1 to remove info, 2 to remove warning and 3 for all
 import warnings
 from trouver_classes_parmi_K import tf_MI_max
 
@@ -30,15 +32,18 @@ def evalPerf(dataset='Birds',dataNormalizationWhen=None,dataNormalization=None):
     if dataNormalizationWhen=='onAllSet':
         bags = normalizeDataSetFull(bags,dataNormalization)
 
+    dict_results = {}
     for c_i,c in enumerate(list_names):
         c_i = 12
         # Loop on the different class, we will consider each group one after the other
         print("For class :",c)
         labels_bags_c = labels_bags[c_i]
         labels_instance_c = labels_instance[c_i]
-        D = bags,labels_bags_c,labels_instance_c
-
-
+        if dataset=='Newsgroups':
+            bags_c = bags[c_i]
+        else:
+            bags_c = bags
+        D = bags_c,labels_bags_c,labels_instance_c
 
         perf,perfB=performExperimentWithCrossVal(D,dataset,
                                 dataNormalizationWhen,dataNormalization,
@@ -79,7 +84,7 @@ def performExperimentWithCrossVal(D,dataset,dataNormalizationWhen,
         size_biggest_bag = max(size_biggest_bag,len(elt))
     num_features = bags[0].shape[1]
     mini_batch_size_max = 2000
-
+    opts = dataset,mini_batch_size_max,num_features,size_biggest_bag
     if dataset=='SIVAL':
         num_sample = 5
         perfObj=np.empty((num_sample,nRep,nFolds,numMetric))
@@ -88,90 +93,82 @@ def performExperimentWithCrossVal(D,dataset,dataNormalizationWhen,
             labels_bags_c_k = labels_bags_c[k]
             labels_instance_c_k = labels_instance_c[k]
             bags_k = bags[k]
-            for r in range(nRep):
-                # Creation of nFolds splits
-                kf = KFold(n_splits=nFolds, shuffle=True, random_state=r)
-                fold = 0
-                for train_index, test_index in kf.split(labels_bags_c_k):
-                    labels_bags_c_train, labels_bags_c_test = \
-                        getTest_and_Train_Sets(labels_bags_c,train_index,test_index)
-                    bags_train, bags_test = \
-                        getTest_and_Train_Sets(bags_k,train_index,test_index)
-                    _ , labels_instance_c_test = \
-                        getTest_and_Train_Sets(labels_instance_c_k,train_index,test_index)
-                    if dataNormalizationWhen=='OnTrainSet':
-                        bags_train,bags_test=normalizeDataSetTrain(bags_train,bags_test,dataNormalization)
-
-                    gt_instances_labels_stack = np.hstack(np.array(labels_instance_c_test))
-                    classifier=trainMIMAX(bags_train, labels_bags_c_train,method,)
-                    pred_bag_labels, pred_instance_labels = classifier.decision_function(bags_test, instancePrediction=True)
-                    perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
-                    perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
-                    fold += 1
+            perfObj_k,perfObjB_k = doCrossVal(nRep,nFolds,numMetric,bags_k,labels_bags_c_k,labels_instance_c_k,StratifiedFold,opts)
+            perfObj[k,:,:,:] = perfObj_k
+            perfObjB[k,:,:,:] = perfObjB_k
     else:
-        perfObj=np.empty((nRep,nFolds,numMetric))
-        perfObjB=np.empty((nRep,nFolds,numMetric))
-        for r in range(nRep):
-            # Creation of nFolds splits
-            # 
-            #Use a StratifiedKFold to get the same distribution in positive and negative class in the train and test set
-            
-            if StratifiedFold:
-                skf = StratifiedKFold(n_splits=nFolds, shuffle=True, random_state=r)
-                fold = 0
-                for train_index, test_index in skf.split(bags,labels_bags_c):
-                    labels_bags_c_train, labels_bags_c_test = \
-                        getTest_and_Train_Sets(labels_bags_c,train_index,test_index)
-                    bags_train, bags_test = \
-                        getTest_and_Train_Sets(bags,train_index,test_index)
-                    _ , labels_instance_c_test = \
-                        getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
-                    gt_instances_labels_stack = np.hstack(labels_instance_c_test)
-                    mini_batch_size = min(mini_batch_size_max,len(bags_train))
-                
-                    #Training
-                    data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
-                                                       num_features,'train',dataset)
-                    export_dir=trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
-                                          size_biggest_bag,num_features,mini_batch_size)
-    
-                    # Testing
-                    data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,size_biggest_bag,num_features,'test',dataset)
-                    pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,data_path_test,bags_test,\
-                                                                       size_biggest_bag,num_features,mini_batch_size)
-                    perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
-                    perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
-                    fold += 1
-            else:
-                kf = KFold(n_splits=nFolds, shuffle=True, random_state=r)
-                fold = 0
-                for train_index, test_index in kf.split(labels_bags_c):
-                    labels_bags_c_train, labels_bags_c_test = \
-                        getTest_and_Train_Sets(labels_bags_c,train_index,test_index)
-                    bags_train, bags_test = \
-                        getTest_and_Train_Sets(bags,train_index,test_index)
-                    _ , labels_instance_c_test = \
-                        getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
-                    gt_instances_labels_stack = np.hstack(labels_instance_c_test)
-                    mini_batch_size = min(mini_batch_size_max,len(bags_train))
-    
-                    #Training
-                    data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
-                                                       num_features,'train',dataset)
-                    export_dir=trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
-                                          size_biggest_bag,num_features,mini_batch_size)
-    
-                    # Testing
-                    data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,size_biggest_bag,num_features,'test',dataset)
-                    pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,data_path_test,bags_test,\
-                                                                       size_biggest_bag,num_features,mini_batch_size)
-                    perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
-                    perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
-                    fold += 1
+        perfObj,perfObjB = doCrossVal(nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c,StratifiedFold,opts)
 
     perf=getMeanPref(perfObj,dataset)
     perfB=getMeanPref(perfObjB,dataset)
     return(perf,perfB)
+
+def doCrossVal(nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c,StratifiedFold,opts):
+    """
+    This function perform a cross validation evaluation or StratifiedFold cross 
+    evaluation
+    """
+    dataset,mini_batch_size_max,num_features,size_biggest_bag = opts 
+    perfObj=np.empty((nRep,nFolds,numMetric))
+    perfObjB=np.empty((nRep,nFolds,numMetric))
+    for r in range(nRep):
+        # Creation of nFolds splits
+        # 
+        #Use a StratifiedKFold to get the same distribution in positive and negative class in the train and test set
+        if StratifiedFold:
+            skf = StratifiedKFold(n_splits=nFolds, shuffle=True, random_state=r)
+            fold = 0
+            for train_index, test_index in skf.split(bags,labels_bags_c):
+                labels_bags_c_train, labels_bags_c_test = \
+                    getTest_and_Train_Sets(labels_bags_c,train_index,test_index)
+                bags_train, bags_test = \
+                    getTest_and_Train_Sets(bags,train_index,test_index)
+                _ , labels_instance_c_test = \
+                    getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
+                gt_instances_labels_stack = np.hstack(labels_instance_c_test)
+                mini_batch_size = min(mini_batch_size_max,len(bags_train))
+            
+                #Training
+                data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
+                                                   num_features,'train',dataset)
+                export_dir=trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
+                                      size_biggest_bag,num_features,mini_batch_size)
+
+                # Testing
+                data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,size_biggest_bag,num_features,'test',dataset)
+                pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,data_path_test,bags_test,\
+                                                                   size_biggest_bag,num_features,mini_batch_size)
+
+                perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
+                perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
+                fold += 1
+        else:
+            kf = KFold(n_splits=nFolds, shuffle=True, random_state=r)
+            fold = 0
+            for train_index, test_index in kf.split(labels_bags_c):
+                labels_bags_c_train, labels_bags_c_test = \
+                    getTest_and_Train_Sets(labels_bags_c,train_index,test_index)
+                bags_train, bags_test = \
+                    getTest_and_Train_Sets(bags,train_index,test_index)
+                _ , labels_instance_c_test = \
+                    getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
+                gt_instances_labels_stack = np.hstack(labels_instance_c_test)
+                mini_batch_size = min(mini_batch_size_max,len(bags_train))
+
+                #Training
+                data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
+                                                   num_features,'train',dataset)
+                export_dir=trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
+                                      size_biggest_bag,num_features,mini_batch_size)
+
+                # Testing
+                data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,size_biggest_bag,num_features,'test',dataset)
+                pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,data_path_test,bags_test,\
+                                                                   size_biggest_bag,num_features,mini_batch_size)
+                perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
+                perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
+                fold += 1
+    return(perfObj,perfObjB)
 
 def parser(record,num_rois=300,num_features=2048):
     # Perform additional preprocessing on the parsed data.
@@ -279,12 +276,16 @@ def predict_MIMAX(export_dir,data_path_test,bags_test,size_biggest_bag,num_featu
     for elt,predictions in zip(bags_test,predict_label_all_test):
         length_bag = elt.shape[0]
         np_predictions = np.array(predictions)
-#        print('len(predictions[0:length_bag])',len([0:length_bag]))
         instances_labels_pred += [np_predictions[0:length_bag]]
         bags_labels_pred += [np.max(np_predictions[0:length_bag])]
 
     bags_labels_pred=(np.hstack(bags_labels_pred))
     instances_labels_pred=(np.hstack(instances_labels_pred))
+    
+    if verbose:
+        print('The model folder will be removed',export_dir_path)
+
+    shutil.rmtree(export_dir_path)
     
     return(bags_labels_pred,instances_labels_pred)
 
@@ -308,6 +309,7 @@ def Create_tfrecords(bags, labels_bags,size_biggest_bag,num_features,nameset,dat
         os.stat(directory)
     except:
         os.mkdir(directory) 
+        
     path_name = os.path.join(directory,name)
     if os.path.isfile(path_name):
         os.remove(path_name) # Need to remove the folder !
@@ -332,6 +334,9 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
     """
     This function train a tidy MIMAX model
     """
+    path_model = os.path.join('tmp','MI_max')
+    pathlib.Path(path_model).mkdir(parents=True, exist_ok=True) 
+
     tf.reset_default_graph()
     classifierMI_max = tf_MI_max(restarts=11,is_betweenMinus1and1=True, \
                                  num_rois=size_biggest_bag,num_classes=1, \
@@ -345,4 +350,5 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
 
 if __name__ == '__main__':
 #    evalPerf(dataset='Birds')
-    evalPerf(dataset='Newsgroups')
+#    evalPerf(dataset='Newsgroups')
+    evalPerf(dataset='SIVAL')
