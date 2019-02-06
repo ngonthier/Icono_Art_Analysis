@@ -1823,6 +1823,9 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             
             #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
             if saved=='fc7':
+                print('It is possible that you need to replace _bytes_feature by _floats_feature in this function')
+                print('!!!!!!!!!!!!!!!!!!!!!')
+                # TODO : modifier cela !
                 features=tf.train.Features(feature={
                     'height': _int64_feature(height),
                     'width': _int64_feature(width),

@@ -810,6 +810,8 @@ class tf_MI_max():
             self.restarts_paral_Dim = True
         elif self.restarts_paral=='paral':
             self.restarts_paral_V2 = True
+        elif not(self.restarts_paral=='' or self.restarts_paral is None):
+            raise(NotImplemented)
         if self.init_by_mean and self.restarts_paral_Dim: raise(NotImplemented)
         if self.init_by_mean and self.restarts_paral_V2: raise(NotImplemented)
         if self.optim_wt_Reg and not(self.restarts_paral_V2): raise(NotImplemented)
@@ -1636,6 +1638,7 @@ class tf_MI_max():
                 if self.restarts_paral_V2:
                     W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.),name="weights")
                     b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.), name="bias")
+                    print('ou encore bias la')
                     if tf.__version__ >= '1.8':
                         normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
                     else:
@@ -1645,6 +1648,7 @@ class tf_MI_max():
                 elif self.restarts_paral_Dim:
                     W=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,self.num_features], stddev=1.),name="weights")
                     b=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,1,1], stddev=1.), name="bias")
+                    print('bias la')
                     if tf.__version__ >= '1.8':
                         normalize_W = W.assign(tf.nn.l2_normalize(W,axis=[0,1])) 
                     else:
@@ -1653,6 +1657,7 @@ class tf_MI_max():
                 else:
                     W=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.),name="weights")
                     b=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.), name="bias")
+                    print('bias here')
                     if tf.__version__ >= '1.8':
                         normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
                     else:
@@ -2041,10 +2046,10 @@ class tf_MI_max():
             elif self.obj_score_mul_tanh:
                 Prod_score=tf.multiply(scores_,Prod_best,name='ProdScore')
                 
-
-        export_dir = ('/').join(data_path.split('/')[:-1])
-        export_dir += '/MI_max/' + str(time.time())
-        name_model = export_dir + '/model'
+        import os
+        head, tail =  os.path.split(data_path)
+        export_dir = os.path.join(head,'MI_max',str(time.time()))
+        name_model = os.path.join(export_dir,'model')
         saver.save(sess,name_model)
         
         sess.close()
