@@ -18,8 +18,10 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='1' # 1 to remove info, 2 to remove warning and 3 for all
 import warnings
 from trouver_classes_parmi_K import tf_MI_max
+import pickle
 
-def evalPerf(dataset='Birds',dataNormalizationWhen=None,dataNormalization=None):
+def evalPerf(dataset='Birds',dataNormalizationWhen=None,dataNormalization=None,
+             reDo=False):
     """
     This function evaluate the performance of our MIMAX algorithm
     @param : dataset = Newsgroups, Bird or SIVAL
@@ -32,41 +34,52 @@ def evalPerf(dataset='Birds',dataNormalizationWhen=None,dataNormalization=None):
     if dataNormalizationWhen=='onAllSet':
         bags = normalizeDataSetFull(bags,dataNormalization)
 
-    dict_results = {}
+    script_dir = os.path.dirname(__file__)
+    filename = dataset + '.pkl'
+    file_results = os.path.join(script_dir,'Results',filename)
+    if reDo:
+        results = {}
+    else:
+        try:
+            results = pickle.load(open(file_results))
+        except FileNotFoundError:
+            results = {}
+            
     for c_i,c in enumerate(list_names):
-        c_i = 12
-        # Loop on the different class, we will consider each group one after the other
-        print("For class :",c)
-        labels_bags_c = labels_bags[c_i]
-        labels_instance_c = labels_instance[c_i]
-        if dataset=='Newsgroups':
-            bags_c = bags[c_i]
-        else:
-            bags_c = bags
-        D = bags_c,labels_bags_c,labels_instance_c
-
-        perf,perfB=performExperimentWithCrossVal(D,dataset,
-                                dataNormalizationWhen,dataNormalization,
-                                GridSearch=False)
-        mPerf = perf[0]
-        stdPerf = perf[1]
-        mPerfB = perfB[0]
-        stdPerfB = perfB[1]
-        ## Results
-        print('=============================================================')
-        print('-------------------------------------------------------------')
-        print('- instances') # f1Score,UAR,aucScore,accuracyScore
-        print('AUC: ',mPerf[2],' +/- ',stdPerf[2])
-        print('UAR: ',mPerf[1],' +/- ',stdPerf[1])
-        print('F1: ',mPerf[0],' +/- ',stdPerf[0])
-        print('Accuracy: ',mPerf[3],' +/- ',stdPerf[3])
-        print('- bags')
-        print('AUC: ',mPerfB[2],' +/- ',stdPerfB[2])
-        print('UAR: ',mPerfB[1],' +/- ',stdPerfB[1])
-        print('F1: ',mPerfB[0],' +/- ',stdPerfB[0])
-        print('Accuracy: ',mPerfB[3],' +/- ',stdPerfB[3])
-        print('-------------------------------------------------------------')
-
+        if not(c in results.keys()):
+            # Loop on the different class, we will consider each group one after the other
+            print("For class :",c)
+            labels_bags_c = labels_bags[c_i]
+            labels_instance_c = labels_instance[c_i]
+            if dataset=='Newsgroups':
+                bags_c = bags[c_i]
+            else:
+                bags_c = bags
+            D = bags_c,labels_bags_c,labels_instance_c
+    
+            perf,perfB=performExperimentWithCrossVal(D,dataset,
+                                    dataNormalizationWhen,dataNormalization,
+                                    GridSearch=False)
+            mPerf = perf[0]
+            stdPerf = perf[1]
+            mPerfB = perfB[0]
+            stdPerfB = perfB[1]
+            ## Results
+            print('=============================================================')
+            print('-------------------------------------------------------------')
+            print('- instances') # f1Score,UAR,aucScore,accuracyScore
+            print('AUC: ',mPerf[2],' +/- ',stdPerf[2])
+            print('UAR: ',mPerf[1],' +/- ',stdPerf[1])
+            print('F1: ',mPerf[0],' +/- ',stdPerf[0])
+            print('Accuracy: ',mPerf[3],' +/- ',stdPerf[3])
+            print('- bags')
+            print('AUC: ',mPerfB[2],' +/- ',stdPerfB[2])
+            print('UAR: ',mPerfB[1],' +/- ',stdPerfB[1])
+            print('F1: ',mPerfB[0],' +/- ',stdPerfB[0])
+            print('Accuracy: ',mPerfB[3],' +/- ',stdPerfB[3])
+            print('-------------------------------------------------------------')
+            results[c] = [perf,perfB]
+        pickle.dump(results,open(file_results,'w'))
 
 def performExperimentWithCrossVal(D,dataset,dataNormalizationWhen,
                                   dataNormalization,GridSearch=False):
