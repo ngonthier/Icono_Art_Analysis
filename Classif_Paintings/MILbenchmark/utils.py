@@ -9,7 +9,7 @@ import numpy as np
 from .Dataset.ExtractBirds import ExtractBirds
 from .Dataset.ExtractSIVAL import ExtractSIVAL,ExtractSubsampledSIVAL
 from .Dataset.ExtractNewsgroups import ExtractNewsgroups
-from sklearn.model_selection import KFold
+#from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score,roc_auc_score,accuracy_score,recall_score
 #from getMethodConfig import getMethodConfig
 #from sklearn.model_selection import GridSearchCV
@@ -120,7 +120,7 @@ def normalizeDataSetFull(D,dataNormalization):
 def normalizeDataSetTrain(D,DT,dataNormalization):
     """
     In those case we renormalize but compting the case on the training set and 
-    apply it to the test set also
+    apply it to the test set then
     """
     
     eps = 10**(-16)

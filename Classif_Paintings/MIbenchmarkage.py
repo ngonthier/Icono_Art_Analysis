@@ -7,65 +7,158 @@ The goal of this script is to evaluate the
 @author: gonthier
 """
 
+import os
+import warnings
+warnings.filterwarnings("ignore")
+
 from MILbenchmark.utils import getDataset,normalizeDataSetFull,getMeanPref,\
     getTest_and_Train_Sets,normalizeDataSetTrain,getClassifierPerfomance
 from sklearn.model_selection import KFold,StratifiedKFold
 import numpy as np
-import tensorflow as tf
 import pathlib
 import shutil
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL']='1' # 1 to remove info, 2 to remove warning and 3 for all
-import warnings
+import sys
+import misvm
+
+os.environ['TF_CPP_MIN_LOG_LEVEL']='3' # 1 to remove info, 2 to remove warning and 3 for all
+import tensorflow as tf
+
 from trouver_classes_parmi_K import tf_MI_max
+from trouver_classes_parmi_K_mi import tf_mi_model
 import pickle
 
-def evalPerf(dataset='Birds',dataNormalizationWhen=None,dataNormalization=None,
-             reDo=False):
+
+def EvaluationOnALot_ofParameters(dataset):
+    """
+    List of the parameters that can be used to get better results maybe on the 
+    MILbenchmark
+    """
+    
+    # List of the parameter that can improve the resultats
+    C_tab = np.logspace(start=-3,stop=3,num=7)
+    C_Searching_tab = [True,False]
+    CV_Mode_tab = ['','CVforCsearch']
+    restarts_tab = [0,11,99]
+    LR_tab = np.logspace(-5,1,7)
+    dataNormalization_tab = ['std','var','0-1']
+    
+    # defaults case
+    default_C = 1.
+    default_LR= 0.01
+    default_C_Searching = False
+    default_CV_Mode = ''
+    default_restarts = 11
+    default_dataNormalization = None
+    opts_MIMAX = default_C,default_C_Searching,default_CV_Mode,default_restarts,default_LR
+    pref_name_case = 'MIMAX_defaultMode'
+    evalPerf(method='MIMAX',dataset=dataset,dataNormalizationWhen=None,dataNormalization=default_dataNormalization,
+             reDo=False,opts_MIMAX=opts_MIMAX,pref_name_case=pref_name_case,verbose=False)
+    
+    for dataNormalization in dataNormalization_tab:
+        pref_name_case = 'MIMAX_Nor'+dataNormalization
+        evalPerf(method='MIMAX',dataset=dataset,dataNormalizationWhen='onTrainSet',dataNormalization=dataNormalization,
+                 reDo=False,opts_MIMAX=opts_MIMAX,pref_name_case=pref_name_case,verbose=False)
+    
+    
+#    for C in C_tab:
+#        if not(C==default_C):
+#            opts_MIMAX = C,default_C_Searching,default_CV_Mode,default_restarts,default_LR
+#            pref_name_case = 'MIMAX_C'+str(C) 
+#            evalPerf(dataset=dataset,dataNormalizationWhen=None,dataNormalization=default_dataNormalization,
+#                 reDo=False,opts_MIMAX=opts_MIMAX,pref_name_case=pref_name_case,verbose=False)
+#        
+#    for restarts in restarts_tab:
+#        opts_MIMAX = default_C,default_C_Searching,default_CV_Mode,restarts,default_LR
+#        pref_name_case = 'MIMAX_r'+str(restarts) 
+#        evalPerf(dataset=dataset,dataNormalizationWhen=None,dataNormalization=default_dataNormalization,
+#             reDo=False,opts_MIMAX=opts_MIMAX,pref_name_case=pref_name_case,verbose=False)
+#        
+#    for C_Searching in C_Searching_tab:
+#        opts_MIMAX = default_C,C_Searching,default_CV_Mode,default_restarts,default_LR
+#        pref_name_case = 'MIMAX_r'+str(restarts) 
+#        evalPerf(dataset=dataset,dataNormalizationWhen=None,dataNormalization=default_dataNormalization,
+#             reDo=False,opts_MIMAX=opts_MIMAX,pref_name_case=pref_name_case,verbose=False)
+#        
+#    for CV_Mode in CV_Mode_tab:
+#        opts_MIMAX = default_C,default_C_Searching,CV_Mode,default_restarts,default_LR
+#        pref_name_case = 'MIMAX_r'+str(CV_Mode) 
+#        evalPerf(dataset=dataset,dataNormalizationWhen=None,dataNormalization=default_dataNormalization,
+#             reDo=False,opts_MIMAX=opts_MIMAX,pref_name_case=pref_name_case,verbose=False)
+#        
+#    for LR in LR_tab:
+#        opts_MIMAX = default_C,default_C_Searching,CV_Mode,default_restarts,LR
+#        pref_name_case = 'MIMAX_LR'+str(LR) 
+#        evalPerf(dataset=dataset,dataNormalizationWhen=None,dataNormalization=default_dataNormalization,
+#             reDo=False,opts_MIMAX=opts_MIMAX,pref_name_case=pref_name_case,verbose=False)
+#        
+        
+    
+
+
+def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen=None,dataNormalization=None,
+             reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False):
     """
     This function evaluate the performance of our MIMAX algorithm
+    @param : method = MIMAX, SIL or miSVM 
     @param : dataset = Newsgroups, Bird or SIVAL
+    @param : dataNormalizationWhen : moment of the normalization of the data, 
+        None = no normalization, onAllSet doing on all the set, onTrainSet 
+    @param : dataNormalization : kind of normalization possible : std, var or 0-1
+    @param : reDo : it will erase the results file
+    @param : opts_MIMAX optimion for the MIMAX (i.e.  C,C_Searching,CV_Mode,restarts,LR)
+    @param : pref_name_case prefixe of the results file name
+    @param : verbose : print some information
     """
 
-    warnings.filterwarnings("ignore")
-    Dataset=getDataset(dataset)
+    if verbose: print('Start evaluation performance on ',dataset,'method :',method)
 
-    list_names,bags,labels_bags,labels_instance = Dataset
-    if dataNormalizationWhen=='onAllSet':
-        bags = normalizeDataSetFull(bags,dataNormalization)
+    if dataNormalization==None: dataNormalizationWhen=None
 
     script_dir = os.path.dirname(__file__)
-    filename = dataset + '.pkl'
-    file_results = os.path.join(script_dir,'Results',filename)
+    if not(pref_name_case==''):
+        pref_name_case = '_'+pref_name_case
+    filename = dataset + pref_name_case + '.pkl'
+    path_file_results = os.path.join(script_dir,'MILbenchmark','Results')
+    file_results = os.path.join(path_file_results,filename)
+    pathlib.Path(path_file_results).mkdir(parents=True, exist_ok=True) # creation of the folder if needed
     if reDo:
         results = {}
     else:
         try:
-            results = pickle.load(open(file_results))
+            results = pickle.load(open(file_results,'br'))
         except FileNotFoundError:
             results = {}
             
+    Dataset=getDataset(dataset)
+    list_names,bags,labels_bags,labels_instance = Dataset
+              
     for c_i,c in enumerate(list_names):
         if not(c in results.keys()):
             # Loop on the different class, we will consider each group one after the other
-            print("For class :",c)
+            if verbose: print("Start evaluation for class :",c)
             labels_bags_c = labels_bags[c_i]
             labels_instance_c = labels_instance[c_i]
-            if dataset=='Newsgroups':
+            if dataset in ['Newsgroups','SIVAL']:
                 bags_c = bags[c_i]
             else:
                 bags_c = bags
+                
+            if dataNormalizationWhen=='onAllSet':
+                bags_c = normalizeDataSetFull(bags_c,dataNormalization)
+                
             D = bags_c,labels_bags_c,labels_instance_c
     
-            perf,perfB=performExperimentWithCrossVal(D,dataset,
+            perf,perfB=performExperimentWithCrossVal(method,D,dataset,
                                     dataNormalizationWhen,dataNormalization,
-                                    GridSearch=False)
+                                    GridSearch=False,opts_MIMAX=opts_MIMAX,
+                                    verbose=verbose)
             mPerf = perf[0]
             stdPerf = perf[1]
             mPerfB = perfB[0]
             stdPerfB = perfB[1]
             ## Results
             print('=============================================================')
+            print("For class :",c)
             print('-------------------------------------------------------------')
             print('- instances') # f1Score,UAR,aucScore,accuracyScore
             print('AUC: ',mPerf[2],' +/- ',stdPerf[2])
@@ -79,24 +172,31 @@ def evalPerf(dataset='Birds',dataNormalizationWhen=None,dataNormalization=None,
             print('Accuracy: ',mPerfB[3],' +/- ',stdPerfB[3])
             print('-------------------------------------------------------------')
             results[c] = [perf,perfB]
-        pickle.dump(results,open(file_results,'w'))
+        pickle.dump(results,open(file_results,'bw'))
 
-def performExperimentWithCrossVal(D,dataset,dataNormalizationWhen,
-                                  dataNormalization,GridSearch=False):
+def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
+                                  dataNormalization,GridSearch=False,opts_MIMAX=None,
+                                  verbose=False):
 
     bags,labels_bags_c,labels_instance_c  = D
 
     StratifiedFold = True
-
+    if verbose and StratifiedFold: print('Use of the StratifiedFold cross validation')
     nRep=10
     nFolds=10
+    nRep=2
+    nFolds=2
     numMetric = 4
 
     size_biggest_bag = 0
     for elt in bags:
         size_biggest_bag = max(size_biggest_bag,len(elt))
-    num_features = bags[0].shape[1]
-    mini_batch_size_max = 2000
+    if dataset=='SIVAL':
+        num_features = bags[0][0].shape[1]
+    else:
+        num_features = bags[0].shape[1]
+        
+    mini_batch_size_max = 2000 # Maybe this value can be update depending on your GPU memory size
     opts = dataset,mini_batch_size_max,num_features,size_biggest_bag
     if dataset=='SIVAL':
         num_sample = 5
@@ -106,52 +206,61 @@ def performExperimentWithCrossVal(D,dataset,dataNormalizationWhen,
             labels_bags_c_k = labels_bags_c[k]
             labels_instance_c_k = labels_instance_c[k]
             bags_k = bags[k]
-            perfObj_k,perfObjB_k = doCrossVal(nRep,nFolds,numMetric,bags_k,labels_bags_c_k,labels_instance_c_k,StratifiedFold,opts)
+            perfObj_k,perfObjB_k = doCrossVal(method,nRep,nFolds,numMetric,bags_k,\
+                                              labels_bags_c_k,labels_instance_c_k,\
+                                              StratifiedFold,opts,dataNormalizationWhen,\
+                                              dataNormalization,opts_MIMAX=opts_MIMAX,\
+                                              verbose=verbose)
             perfObj[k,:,:,:] = perfObj_k
             perfObjB[k,:,:,:] = perfObjB_k
     else:
-        perfObj,perfObjB = doCrossVal(nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c,StratifiedFold,opts)
+        perfObj,perfObjB = doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,\
+                                      labels_instance_c,StratifiedFold,opts\
+                                      ,dataNormalizationWhen,dataNormalization,\
+                                      opts_MIMAX=opts_MIMAX,verbose=verbose)
 
     perf=getMeanPref(perfObj,dataset)
     perfB=getMeanPref(perfObjB,dataset)
     return(perf,perfB)
 
-def doCrossVal(nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c,StratifiedFold,opts):
+def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c,StratifiedFold,opts,
+               dataNormalizationWhen,dataNormalization,opts_MIMAX=None,verbose=False):
     """
     This function perform a cross validation evaluation or StratifiedFold cross 
     evaluation
     """
-    dataset,mini_batch_size_max,num_features,size_biggest_bag = opts 
+     
     perfObj=np.empty((nRep,nFolds,numMetric))
     perfObjB=np.empty((nRep,nFolds,numMetric))
     for r in range(nRep):
         # Creation of nFolds splits
-        # 
         #Use a StratifiedKFold to get the same distribution in positive and negative class in the train and test set
         if StratifiedFold:
+            
             skf = StratifiedKFold(n_splits=nFolds, shuffle=True, random_state=r)
             fold = 0
+
             for train_index, test_index in skf.split(bags,labels_bags_c):
+                if verbose:
+                    sys.stdout.write('Rep number : {:d}/{:d}, Fold number : {:d}/{:d} \r' \
+                                     .format(r, nRep, fold, nFolds))
+                    sys.stdout.flush()
                 labels_bags_c_train, labels_bags_c_test = \
                     getTest_and_Train_Sets(labels_bags_c,train_index,test_index)
                 bags_train, bags_test = \
                     getTest_and_Train_Sets(bags,train_index,test_index)
                 _ , labels_instance_c_test = \
                     getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
+                    
+                if dataNormalizationWhen=='onTrainSet':
+                    bags_train,bags_test = normalizeDataSetTrain(bags_train,bags_test,dataNormalization)              
+                    
                 gt_instances_labels_stack = np.hstack(labels_instance_c_test)
-                mini_batch_size = min(mini_batch_size_max,len(bags_train))
-            
-                #Training
-                data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
-                                                   num_features,'train',dataset)
-                export_dir=trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
-                                      size_biggest_bag,num_features,mini_batch_size)
-
-                # Testing
-                data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,size_biggest_bag,num_features,'test',dataset)
-                pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,data_path_test,bags_test,\
-                                                                   size_biggest_bag,num_features,mini_batch_size)
-
+                
+                
+                pred_bag_labels, pred_instance_labels =train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
+                       method,opts,opts_MIMAX=opts_MIMAX)
+ 
                 perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
                 perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
                 fold += 1
@@ -159,29 +268,70 @@ def doCrossVal(nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c,Strati
             kf = KFold(n_splits=nFolds, shuffle=True, random_state=r)
             fold = 0
             for train_index, test_index in kf.split(labels_bags_c):
+                if verbose: print('Fold number : ',fold,'over ',nFolds)
                 labels_bags_c_train, labels_bags_c_test = \
                     getTest_and_Train_Sets(labels_bags_c,train_index,test_index)
                 bags_train, bags_test = \
                     getTest_and_Train_Sets(bags,train_index,test_index)
                 _ , labels_instance_c_test = \
                     getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
+                
+                if dataNormalizationWhen=='onTrainSet':
+                    bags_train,bags_test = normalizeDataSetTrain(bags_train,bags_test,dataNormalization) 
+                    
                 gt_instances_labels_stack = np.hstack(labels_instance_c_test)
-                mini_batch_size = min(mini_batch_size_max,len(bags_train))
-
-                #Training
-                data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
-                                                   num_features,'train',dataset)
-                export_dir=trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
-                                      size_biggest_bag,num_features,mini_batch_size)
-
-                # Testing
-                data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,size_biggest_bag,num_features,'test',dataset)
-                pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,data_path_test,bags_test,\
-                                                                   size_biggest_bag,num_features,mini_batch_size)
+                
+                pred_bag_labels, pred_instance_labels = train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
+                       method,opts,opts_MIMAX=opts_MIMAX)
+                
                 perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
                 perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
                 fold += 1
     return(perfObj,perfObjB)
+
+def get_classicalMILclassifier(method):
+    if method=='miSVM':
+        classifier = misvm.miSVM(verbose=False)
+    elif method=='SIL':
+        classifier = misvm.SIL(verbose=False)
+    else:
+        print('Method unknown: ',method)
+        raise(NotImplemented)
+    return(classifier)
+
+def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
+                       method,opts,opts_MIMAX=None):
+    
+    if method == 'MIMAX':
+        dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
+        mini_batch_size = min(mini_batch_size_max,len(bags_train))
+    
+        #Training
+        data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
+                                           num_features,'train',dataset)
+        export_dir=trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
+                              size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX)
+
+        # Testing
+        data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
+                                          size_biggest_bag,num_features,'test',dataset)
+        pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
+                data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size)
+    
+    elif method in ['miSVM','SIL']:
+        
+        classifier = get_classicalMILclassifier(method)
+        classifier.fit(bags_train, labels_bags_c_train)
+        pred_bag_labels, pred_instance_labels = classifier.predict(bags_test,instancePrediction=True)
+        
+    else:
+        print('Method unknown: ',method)
+        raise(NotImplemented)
+        
+    return(pred_bag_labels, pred_instance_labels)
+    
+    
+
 
 def parser(record,num_rois=300,num_features=2048):
     # Perform additional preprocessing on the parsed data.
@@ -212,7 +362,8 @@ def predict_MIMAX(export_dir,data_path_test,bags_test,size_biggest_bag,num_featu
     name_model_meta = export_dir + '.meta'
 
     test_dataset = tf.data.TFRecordDataset(data_path_test)
-    test_dataset = test_dataset.map(lambda r: parser(r,num_rois=size_biggest_bag,num_features=num_features))
+    test_dataset = test_dataset.map(lambda r: parser(r,num_rois=size_biggest_bag\
+                                                     ,num_features=num_features))
     dataset_batch = test_dataset.batch(mini_batch_size)
     dataset_batch.cache()
     iterator = dataset_batch.make_one_shot_iterator()
@@ -247,20 +398,20 @@ def predict_MIMAX(export_dir,data_path_test,bags_test,size_biggest_bag,num_featu
         if with_tanh:
             if verbose: print('use of tanh')
             Tanh = tf.tanh(Prod_best)
-            mei = tf.argmax(Tanh,axis=2)
-            score_mei = tf.reduce_max(Tanh,axis=2)
+#            mei = tf.argmax(Tanh,axis=2)
+#            score_mei = tf.reduce_max(Tanh,axis=2)
         elif with_softmax:
             Softmax = tf.nn.softmax(Prod_best,axis=-1)
-            mei = tf.argmax(Softmax,axis=2)
-            score_mei = tf.reduce_max(Softmax,axis=2)
+#            mei = tf.argmax(Softmax,axis=2)
+#            score_mei = tf.reduce_max(Softmax,axis=2)
         elif with_softmax_a_intraining:
             Softmax=tf.multiply(tf.nn.softmax(Prod_best,axis=-1),Prod_best)
-            mei = tf.argmax(Softmax,axis=2)
-            score_mei = tf.reduce_max(Softmax,axis=2)
+#            mei = tf.argmax(Softmax,axis=2)
+#            score_mei = tf.reduce_max(Softmax,axis=2)
         else:
             if verbose: print('Tanh in testing time',Prod_best)
-            mei = tf.argmax(Prod_best,axis=-1)
-            score_mei = tf.reduce_max(Prod_best,axis=-1)
+#            mei = tf.argmax(Prod_best,axis=-1)
+#            score_mei = tf.reduce_max(Prod_best,axis=-1)
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
 
@@ -268,16 +419,16 @@ def predict_MIMAX(export_dir,data_path_test,bags_test,size_biggest_bag,num_featu
         while True:
             try:
                 fc7s,labels = sess.run(next_element)
-#                print(sess.run(next_element))
                 if with_tanh:
-                    PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
-                    sess.run([mei,score_mei,Tanh], feed_dict={X: fc7s, y: labels})
+                    PositiveExScoreAll =\
+                    sess.run(Tanh, feed_dict={X: fc7s, y: labels})
                 elif with_softmax or with_softmax_a_intraining:
-                    PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
-                    sess.run([mei,score_mei,Softmax], feed_dict={X: fc7s, y: labels})
+                    PositiveExScoreAll =\
+                    sess.run(Softmax, feed_dict={X: fc7s, y: labels})
                 else:
                     PositiveExScoreAll = \
                     sess.run(Prod_best, feed_dict={X: fc7s, y: labels})
+
                 for elt_i in range(PositiveExScoreAll.shape[1]):
                     predict_label_all_test += [PositiveExScoreAll[0,elt_i,:]]
             except tf.errors.OutOfRangeError:
@@ -343,7 +494,7 @@ def Create_tfrecords(bags, labels_bags,size_biggest_bag,num_features,nameset,dat
     return(path_name)
 
 def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
-               num_features,mini_batch_size):
+               num_features,mini_batch_size,opts_MIMAX=None):
     """
     This function train a tidy MIMAX model
     """
@@ -351,17 +502,30 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
     pathlib.Path(path_model).mkdir(parents=True, exist_ok=True) 
 
     tf.reset_default_graph()
-    classifierMI_max = tf_MI_max(restarts=11,is_betweenMinus1and1=True, \
+    
+    if not(opts_MIMAX is None):
+        C,C_Searching,CV_Mode,restarts,LR = opts_MIMAX
+    else:
+        C,C_Searching,CV_Mode,restarts,LR = 1.0,False,None,11,0.001
+
+    classifierMI_max = tf_MI_max(LR=LR,restarts=restarts,is_betweenMinus1and1=True, \
                                  num_rois=size_biggest_bag,num_classes=1, \
                                  num_features=num_features,mini_batch_size=mini_batch_size, \
-                                 verbose=False)
+                                 verbose=False,C=C,CV_Mode=CV_Mode,max_iters=300)
+    C_values =  np.logspace(-3,2,6,dtype=np.float32)
+    classifierMI_max.set_C_values(C_values)
     export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=False,restarts_paral='paral', \
-                       WR=True)
+                       WR=True,C_Searching=C_Searching)
     tf.reset_default_graph()
     return(export_dir)
 
 if __name__ == '__main__':
-#    evalPerf(dataset='Birds')
+#    evalPerf(dataset='Birds',reDo=True,dataNormalizationWhen='onTrainSet',dataNormalization='std',verbose=True)
+    evalPerf(dataset='Birds',reDo=True,verbose=False)
+    evalPerf(dataset='Newsgroups',reDo=True,verbose=False)
+    evalPerf(dataset='SIVAL',reDo=True,verbose=False)
+#    evalPerf(dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std')
 #    evalPerf(dataset='Newsgroups')
-    evalPerf(dataset='SIVAL')
+#    evalPerf(method='MIMAX',dataset='Birds',verbose=True)
+#    EvaluationOnALot_ofParameters(dataset='Birds')

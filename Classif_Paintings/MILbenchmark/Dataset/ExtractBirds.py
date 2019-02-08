@@ -7,13 +7,13 @@ Created on Thu Dec 27 23:34:19 2018
 
 import os
 import numpy as np
-import pandas as pd
 
 def list_tofloat(l):
     r = []
     for elt in l:
         r += [float(elt)]
     return(r)
+
 
 def ExtractBirds():
     """
@@ -36,7 +36,7 @@ def ExtractBirds():
     We use the labels from the instance labels file (hja_birdsong_instance_labels
     text file)
     """
-    print('I just want to prevent you that the labels in hja_birdsong_bag_labels.txt are not the same than the one in hja_birdsong_instance_labels.txt.')
+    print('/!\ I just want to prevent you that the labels in hja_birdsong_bag_labels.txt are not the same than the one in hja_birdsong_instance_labels.txt.')
     print('We use the labels from the instance labels file.')
     
     path_dataset = 'Birds'
@@ -57,7 +57,9 @@ def ExtractBirds():
     with open(name_file_names) as input_file:
         for line in input_file:
             line = line.strip()
-            list_names+= [line.split('-')[-1]]
+            line_splitted = line.split('-')
+            name = ('-').join(line_splitted[1:])
+            list_names+= [name]
        
     # Load the labels of the bags
     labels_bags = [-np.ones((number_of_bag,)) for j in range(number_of_class)] 
