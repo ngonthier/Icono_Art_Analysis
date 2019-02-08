@@ -7,7 +7,6 @@ Created on Sun Feb  4 09:47:54 2018
 """
 
 import tensorflow as tf
-import tf_old
 import numpy as np
 npt=np.float32
 tft=np.float32
@@ -291,7 +290,15 @@ class MI_max():
     def get_NegativeRegionsScore(self):
         return(self.NegativeRegionsScore.copy())
 
-
+def test_version_sup(version_str):
+    version_str_tab = version_str.split('.')
+    tf_version_teb =  tf.__version__.split('.')
+    status = False
+    for a,b in zip(tf_version_teb,version_str_tab):
+        if float(a) >= float(b):
+            status = True
+    return(status)
+    
 class tf_mi_model():
     """
     The mi model that tend to increase the label of the instance during the optimisation
@@ -448,6 +455,8 @@ class tf_mi_model():
             self.seuillage_by_score = False
             self.with_scores = False # Only one of the two is possible obj_score_add_tanh is priority !
             print('obj_score_add_tanh has the priority on the other score use case')
+        self.C_values =  np.arange(0.5,2.75,0.25,dtype=np.float32) # Case used in VISART2018 ??
+        
         
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 
@@ -630,7 +639,6 @@ class tf_mi_model():
         # Cast label data into int32
         label = parsed['label']
         num_elt = tf.shape(label)[0]
-        print(num_elt)
         label_300 = tf.tile(label,[self.num_rois])
         fc7_selected = parsed['fc7_selected']
         fc7_selected = tf.reshape(fc7_selected, [self.num_rois,self.num_features])         
@@ -678,7 +686,7 @@ class tf_mi_model():
             if self.restarts_paral_Dim:
                 W_local=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,self.num_features], stddev=1.),name="weights")
                 b_local=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,1,1], stddev=1.), name="bias")
-                if tf.__version__ >= '1.8':
+                if test_version_sup('1.8'):
                     normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,axis=[0,1])) 
                 else:
                     normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,dim=[0,1]))
@@ -686,7 +694,7 @@ class tf_mi_model():
             else:
                 W_local=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.),name="weights")
                 b_local=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.), name="bias")
-                if tf.__version__ >= '1.8':
+                if test_version_sup('1.8'):
                     normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,axis=0)) 
                 else:
                     normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,dim=0))
@@ -707,7 +715,7 @@ class tf_mi_model():
         else:
             W_local=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights")
             b_local=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
-            if tf.__version__ >= '1.8':
+            if test_version_sup('1.8'):
                 normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,axis=0)) 
             else:
                 normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,dim=0)) 
@@ -866,14 +874,15 @@ class tf_mi_model():
                 print("!! You should not do that, you will not choose the W vector on the right reason")
 #            C_values = np.array([2.,1.5,1.,0.5,0.1,0.01],dtype=np.float32)
 #            C_values =  np.arange(0.5,1.5,0.1,dtype=np.float32)
-            C_values =  np.arange(0.5,2.75,0.25,dtype=np.float32)
+            C_values =  self.C_values
             self.Cbest = np.zeros((self.num_classes,))
             self.paral_number_W = self.restarts +1
             if not(self.storeVectors):
                 C_value_repeat = np.repeat(C_values,repeats=(self.paral_number_W*self.num_classes),axis=0)
                 self.paral_number_W *= len(C_values)
                 if self.verbose: print('We will compute :',len(C_value_repeat),'W vectors due to the C searching')
-            
+        else:
+            self.paral_number_W = self.restarts +1     
         
         if self.storeVectors:
             self.maximum_numberofparallW_multiClass = 10*12*10 # Independemant du numbre de class 
@@ -906,8 +915,7 @@ class tf_mi_model():
                 print(C_value_repeat.shape)
                 if self.verbose:
                     print('Stored Vectors with',self.num_groups_ofW,'groups of',self.paral_number_W,'vectors per class')
-        else:
-            self.paral_number_W = self.restarts +1
+
             
         
         ## Debut de la fonction        
@@ -1105,7 +1113,7 @@ class tf_mi_model():
 #                latent_labels = tf.Variable(tf.ones([self.paral_number_W*self.num_classes,self.mini_batch_size,self.num_rois]), name="latent_variable")
                 loss_value_var = tf.Variable(tf.zeros([self.paral_number_W*self.num_classes]),name='loss_value_var')
 #                latent_labels = tf.placeholder(tf.float32,shape=(self.paral_number_W*self.num_classes,None,self.num_rois), name="latent_variable")
-                if tf.__version__ >= '1.8':
+                if test_version_sup('1.8'):
                     normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
                 else:
                     normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
@@ -1114,7 +1122,7 @@ class tf_mi_model():
 #            elif self.restarts_paral_Dim:
 #                W=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,self.num_features], stddev=1.),name="weights")
 #                b=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,1,1], stddev=1.), name="bias")
-#                if tf.__version__ >= '1.8':
+#                if test_version_sup('1.8'):
 #                    normalize_W = W.assign(tf.nn.l2_normalize(W,axis=[0,1])) 
 #                else:
 #                    normalize_W = W.assign(tf.nn.l2_normalize(W,dim=[0,1]))
@@ -1122,7 +1130,7 @@ class tf_mi_model():
 #            else:
 #                W=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.),name="weights")
 #                b=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.), name="bias")
-#                if tf.__version__ >= '1.8':
+#                if test_version_sup('1.8'):
 #                    normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
 #                else:
 #                    normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
@@ -1307,7 +1315,7 @@ class tf_mi_model():
             # TODO faire le parallele sur les W
             W=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights")
             b=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
-            if tf.__version__ >= '1.8':
+            if test_version_sup('1.8'):
                 normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
             else:
                 normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0)) 
@@ -1993,7 +2001,7 @@ class tf_mi_model():
         else:
             W_sgdc=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights_sgdc")
             b_sgdc=tf.Variable(tf.random_normal([1], stddev=1.), name="bias_sgdc")
-            if tf.__version__ >= '1.8':
+            if test_version_sup('1.8'):
                 normalize_W_sgdc = W_sgdc.assign(tf.nn.l2_normalize(W_sgdc,axis=0)) 
             else:
                 normalize_W_sgdc = W_sgdc.assign(tf.nn.l2_normalize(W_sgdc,dim=0)) 
@@ -2067,7 +2075,7 @@ class tf_mi_model():
         W=tf.Variable(tf.random_normal([d], stddev=1.),name="weights")
         b=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
         
-        if tf.__version__ >= '1.8':
+        if test_version_sup('1.8'):
             normalize_W = W.assign(tf.nn.l2_normalize(W,axis = 0))
         else:
             normalize_W = W.assign(tf.nn.l2_normalize(W,dim = 0))
@@ -2175,7 +2183,7 @@ class tf_mi_model():
         X2=tf.constant(data_neg,dtype=tft)
         W=tf.Variable(tf.random_normal([n], stddev=1.),name="weights")
         b=tf.Variable(tf.random_normal([1], stddev=1.), name="biases")
-        if tf.__version__ >= '1.8':
+        if test_version_sup('1.8'):
             normalize_W = W.assign(tf.nn.l2_normalize(W,axis = 0))
         else:
             normalize_W = W.assign(tf.nn.l2_normalize(W,dim = 0))
@@ -2329,6 +2337,9 @@ class tf_mi_model():
         
     def set_C(self,new_C):
         self.C = new_C
+
+    def set_C_values(self,new):
+        self.C_values = new
 
 #def SGDClassifier(features, labels, mode, params):
 #    """Linear Classifier with hinge loss """
@@ -3122,7 +3133,7 @@ def test():
 ##                tab_b[i]=tf.slice(b,[i],[1])
 #                tab_W[i]=tf.Variable(tf.random_normal([self.num_features], stddev=1.))
 #                tab_b[i]=tf.Variable(tf.random_normal([1], stddev=1.))
-#                if tf.__version__ >= '1.8':
+#                if test_version_sup('1.8'):
 #                    tab_normalize_W[i] = tab_W[i].assign(tf.nn.l2_normalize(tab_W[i],axis=0)) 
 #                else:
 #                    tab_normalize_W[i] = tab_W[i].assign(tf.nn.l2_normalize(tab_W[i],dim=0)) 

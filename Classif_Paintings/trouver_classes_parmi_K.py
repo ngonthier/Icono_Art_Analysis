@@ -291,6 +291,14 @@ class MI_max():
     def get_NegativeRegionsScore(self):
         return(self.NegativeRegionsScore.copy())
 
+def test_version_sup(version_str):
+    version_str_tab = version_str.split('.')
+    tf_version_teb =  tf.__version__.split('.')
+    status = False
+    for a,b in zip(tf_version_teb,version_str_tab):
+        if float(a) >= float(b):
+            status = True
+    return(status)
 
 class tf_MI_max():
     """
@@ -344,7 +352,9 @@ class tf_MI_max():
         @param max_iters_sgdc : Nombre d iterations pour la descente de gradient stochastique classification
         @param debug : default False : if we want to debug 
         @param is_betweenMinus1and1 : default False : if we have the label value alreaddy between -1 and 1
-        @param CV_Mode : default None : cross validation mode in the MI_max : possibility ; None, CV in k split or LA for Leave apart one of the split
+        @param CV_Mode : default None : cross validation mode in the MI_max : 
+            Choice : None, 'CV' in k split or 'LA' for Leave apart one of the split
+            or 'CVforCsearch'
         @param num_split : default 2 : the number of split/fold used in the cross validation method
         @param with_scores : default False : Multiply the scalar product before the max by the objectness score from the FasterRCNN
         @param epsilon : default 0. : The term we add to the object score
@@ -450,6 +460,11 @@ class tf_MI_max():
             self.seuillage_by_score = False
             self.with_scores = False # Only one of the two is possible obj_score_add_tanh is priority !
             print('obj_score_add_tanh has the priority on the other score use case')
+        
+        # case of Cvalue
+        self.C_values =  np.arange(0.5,2.75,0.25,dtype=np.float32) # Case used in VISART2018 ??
+        
+        
         
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 
@@ -614,7 +629,7 @@ class tf_MI_max():
     
     def tf_dataset_use_per_batch(self,train_dataset):
         
-        if tf.__version__ > '1.6' and self.performance:
+        if test_version_sup('1.6') and self.performance:
             dataset_batch = train_dataset.apply(tf.contrib.data.map_and_batch(
                 map_func=self.first_parser, batch_size=self.mini_batch_size))
         else:
@@ -651,7 +666,7 @@ class tf_MI_max():
             if self.restarts_paral_Dim:
                 W_local=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,self.num_features], stddev=1.),name="weights")
                 b_local=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,1,1], stddev=1.), name="bias")
-                if tf.__version__ >= '1.8':
+                if test_version_sup('1.8'):
                     normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,axis=[0,1])) 
                 else:
                     normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,dim=[0,1]))
@@ -659,7 +674,7 @@ class tf_MI_max():
             else:
                 W_local=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.),name="weights")
                 b_local=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.), name="bias")
-                if tf.__version__ >= '1.8':
+                if test_version_sup('1.8'):
                     normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,axis=0)) 
                 else:
                     normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,dim=0))
@@ -680,7 +695,7 @@ class tf_MI_max():
         else:
             W_local=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights")
             b_local=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
-            if tf.__version__ >= '1.8':
+            if test_version_sup('1.8'):
                 normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,axis=0)) 
             else:
                 normalize_W = W_local.assign(tf.nn.l2_normalize(W_local,dim=0)) 
@@ -753,6 +768,13 @@ class tf_MI_max():
 #        sess.close()
 #        tf.reset_default_graph()
         return(W_tmp,b_tmp)
+        
+    def set_C_values(self,new):
+        self.C_values = new
+#            C_values = np.array([2.,1.5,1.,0.5,0.1,0.01],dtype=np.float32)
+#            C_values =  np.arange(0.5,1.5,0.1,dtype=np.float32)
+             # Used for the paper VISART2018
+#            C_values =  np.logspace(-3,3,7,dtype=np.float32)
         
     def fit_MI_max_tfrecords(self,data_path,class_indice,shuffle=True,WR=False,
                              init_by_mean=None,norm=None,performance=False,
@@ -835,20 +857,18 @@ class tf_MI_max():
         if self.C_Searching or self.CV_Mode == 'CVforCsearch':
             if not((self.C_Searching or self.CV_Mode == 'CVforCsearch') and self.WR) :
                 print("!! You should not do that, you will not choose the W vector on the right reason")
-#            C_values = np.array([2.,1.5,1.,0.5,0.1,0.01],dtype=np.float32)
-#            C_values =  np.arange(0.5,1.5,0.1,dtype=np.float32)
-            C_values =  np.arange(0.5,2.75,0.25,dtype=np.float32)
+            C_values = self.C_values
             self.Cbest = np.zeros((self.num_classes,))
             self.paral_number_W = self.restarts +1
             if not(self.storeVectors):
                 C_value_repeat = np.repeat(C_values,repeats=(self.paral_number_W*self.num_classes),axis=0)
                 self.paral_number_W *= len(C_values)
                 if self.verbose: print('We will compute :',len(C_value_repeat),'W vectors due to the C searching')
-            
+        else:
+            self.paral_number_W = self.restarts +1
         
         if self.storeVectors:
             self.maximum_numberofparallW_multiClass = 10*12*10 # Independemant du numbre de class 
-            
             if not(self.C_Searching):
                 if self.maximum_numberofparallW_multiClass < (self.restarts +1)*self.num_classes:
                     self.paral_number_W = self.maximum_numberofparallW_multiClass//self.num_classes 
@@ -877,9 +897,6 @@ class tf_MI_max():
                 print(C_value_repeat.shape)
                 if self.verbose:
                     print('Stored Vectors with',self.num_groups_ofW,'groups of',self.paral_number_W,'vectors per class')
-        else:
-            self.paral_number_W = self.restarts +1
-            
         
         ## Debut de la fonction        
         self.cpu_count = multiprocessing.cpu_count()
@@ -965,7 +982,7 @@ class tf_MI_max():
         self.np_neg_value = np_neg_value
         if self.verbose:print("Finished to compute the proportion of each label :",np_pos_value,np_neg_value)
        
-        if self.CV_Mode=='CV':
+        if self.CV_Mode=='CV' or self.CV_Mode == 'CVforCsearch' :
             train_dataset_tmp = train_dataset_init.shard(self.num_split,0)
             for i in range(1,self.num_split-1):
                 train_dataset_tmp2 = train_dataset.shard(self.num_split,i)
@@ -1000,7 +1017,7 @@ class tf_MI_max():
             train_dataset2 = tf.data.TFRecordDataset(data_path) # train_dataset_init ?  A tester
         
         # From at https://www.tensorflow.org/versions/master/performance/datasets_performance
-        if tf.__version__ > '1.6' and shuffle and performance:
+        if test_version_sup('1.6') and shuffle and performance:
             train_dataset2 = train_dataset2.apply(tf.contrib.data.map_and_batch(
                     map_func=self.first_parser, batch_size=self.mini_batch_size,
                     num_parallel_batches=self.cpu_count,drop_remainder=False))
@@ -1044,7 +1061,7 @@ class tf_MI_max():
             if self.restarts_paral_V2:
                 W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.),name="weights")
                 b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.), name="bias")
-                if tf.__version__ >= '1.8':
+                if test_version_sup('1.8'):
                     normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
                 else:
                     normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
@@ -1053,7 +1070,7 @@ class tf_MI_max():
             elif self.restarts_paral_Dim:
                 W=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,self.num_features], stddev=1.),name="weights")
                 b=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,1,1], stddev=1.), name="bias")
-                if tf.__version__ >= '1.8':
+                if test_version_sup('1.8'):
                     normalize_W = W.assign(tf.nn.l2_normalize(W,axis=[0,1])) 
                 else:
                     normalize_W = W.assign(tf.nn.l2_normalize(W,dim=[0,1]))
@@ -1061,7 +1078,7 @@ class tf_MI_max():
             else:
                 W=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.),name="weights")
                 b=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.), name="bias")
-                if tf.__version__ >= '1.8':
+                if test_version_sup('1.8'):
                     normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
                 else:
                     normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
@@ -1224,7 +1241,7 @@ class tf_MI_max():
             # TODO faire le parallele sur les W
             W=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights")
             b=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
-            if tf.__version__ >= '1.8':
+            if test_version_sup('1.8'):
                 normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
             else:
                 normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0)) 
@@ -1276,11 +1293,12 @@ class tf_MI_max():
                 beta2=self.optimArg['beta2'],epsilon=self.optimArg['epsilon'])
         elif(self.Optimizer == 'Adagrad'):
             optimizer = tf.train.AdagradOptimizer(self.LR) 
-        else:
+        elif not(self.Optimizer == 'lbfgs'):
             print("The optimizer is unknown",self.Optimizer)
             raise(NotImplemented)
             
-        train = optimizer.minimize(loss)  
+        if self.Optimizer in ['GradientDescent','Momentum','Adam']:
+            train = optimizer.minimize(loss)  
         
         if not(self.init_by_mean is None) and not(self.init_by_mean ==''):
             W_onMean,b_onMean,train_SVM_onMean = self.def_SVM_onMean(X_,y_)
@@ -1318,21 +1336,31 @@ class tf_MI_max():
             if not(self.storeVectors):
                 sess.run(init_op)
                 sess.run(shuffle_iterator.initializer)
-                for step in range(self.max_iters):
-                    if self.debug: t2 = time.time()
-                    sess.run(train)
-    #                sess.run(train,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE))
-                    if self.debug:
-                        t3 = time.time()
-                        print(step,"duration :",str(t3-t2))
-                        t4 = time.time()
-                        list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
-                        if self.WR: 
-                            assert(np.max(list_elt)<= 2.0)
-                            assert(np.min(list_elt)>= -2.0)
-                        t5 = time.time()
-                        print("duration loss eval :",str(t5-t4))
-                        print(list_elt)
+                
+                if self.Optimizer in ['GradientDescent','Momentum','Adam']:
+                    for step in range(self.max_iters):
+                        if self.debug: t2 = time.time()
+                        sess.run(train)
+                        if self.debug:
+                            t3 = time.time()
+                            print(step,"duration :",str(t3-t2))
+                            t4 = time.time()
+                            list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
+                            if self.WR: 
+                                assert(np.max(list_elt)<= 2.0)
+                                assert(np.min(list_elt)>= -2.0)
+                            t5 = time.time()
+                            print("duration loss eval :",str(t5-t4))
+                            print(list_elt)
+                elif self.Optimizer=='lbfgs':
+                    maxcor = 30
+                    optimizer_kwargs = {'maxiter': self.max_iters,'maxcor': maxcor}
+                    optimizer = tf.contrib.opt.ScipyOptimizerInterface(loss,method='L-BFGS-B',
+                                                                       options=optimizer_kwargs)    
+                    optimizer.minimize(sess)
+                else:
+                    print("The optimizer is unknown",self.Optimizer)
+                    raise(NotImplemented)
                         
                 if class_indice==-1:
                     if self.restarts_paral_V2:
@@ -1372,7 +1400,7 @@ class tf_MI_max():
                         b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
                         if self.restarts>0:
                             for j in range(self.num_classes):
-                                loss_value_j = loss_value[j::self.num_classes]
+                                loss_value_j = loss_value[j:self.num_classes]
                                 argmin = np.argmin(loss_value_j,axis=0)
                                 loss_value_j_min = np.min(loss_value_j,axis=0)
                                 W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
@@ -1391,7 +1419,7 @@ class tf_MI_max():
                         W_best = np.zeros((self.numberWtoKeep,self.num_classes,self.num_features),dtype=np.float32)
                         b_best = np.zeros((self.numberWtoKeep,self.num_classes,1,1),dtype=np.float32)
                         for j in range(self.num_classes):
-                            loss_value_j = loss_value[j::self.num_classes]
+                            loss_value_j = loss_value[j:self.num_classes]
                             loss_value_j_sorted_ascending = np.argsort(loss_value_j)  # We want to keep the one with the smallest value 
                             index_keep = loss_value_j_sorted_ascending[0:self.numberWtoKeep]
                             for i,argmin in enumerate(index_keep):
@@ -1429,7 +1457,7 @@ class tf_MI_max():
                                 except tf.errors.OutOfRangeError:
                                     break
                             for j in range(self.num_classes):
-                                all_loss_value[j,step,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(loss_value[j::self.num_classes])
+                                all_loss_value[j,step,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(loss_value[j:self.num_classes])
                             
                     # Evaluation of the loss function
                     if class_indice==-1:
@@ -1449,9 +1477,9 @@ class tf_MI_max():
                     W_tmp=sess.run(W)
                     b_tmp=sess.run(b)
                     for j in range(self.num_classes):
-                        Wstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W,:] = W_tmp[j::self.num_classes,:]
-                        Bstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(b_tmp[j::self.num_classes])
-                        Lossstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(loss_value[j::self.num_classes])
+                        Wstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W,:] = W_tmp[j:self.num_classes,:]
+                        Bstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(b_tmp[j:self.num_classes])
+                        Lossstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(loss_value[j:self.num_classes])
             
                 
         else:
@@ -1594,7 +1622,7 @@ class tf_MI_max():
             train_dataset2 = tf.data.TFRecordDataset(data_path) # train_dataset_init ?  A tester
         
             # From at https://www.tensorflow.org/versions/master/performance/datasets_performance
-            if tf.__version__ > '1.6' and shuffle and performance:
+            if test_version_sup('1.6') and shuffle and performance:
                 train_dataset2 = train_dataset2.apply(tf.contrib.data.map_and_batch(
                         map_func=self.first_parser, batch_size=self.mini_batch_size,
                         num_parallel_batches=self.cpu_count,drop_remainder=False))
@@ -1638,8 +1666,7 @@ class tf_MI_max():
                 if self.restarts_paral_V2:
                     W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.),name="weights")
                     b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.), name="bias")
-                    print('ou encore bias la')
-                    if tf.__version__ >= '1.8':
+                    if test_version_sup('1.8'):
                         normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
                     else:
                         normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
@@ -1648,8 +1675,7 @@ class tf_MI_max():
                 elif self.restarts_paral_Dim:
                     W=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,self.num_features], stddev=1.),name="weights")
                     b=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,1,1], stddev=1.), name="bias")
-                    print('bias la')
-                    if tf.__version__ >= '1.8':
+                    if test_version_sup('1.8'):
                         normalize_W = W.assign(tf.nn.l2_normalize(W,axis=[0,1])) 
                     else:
                         normalize_W = W.assign(tf.nn.l2_normalize(W,dim=[0,1]))
@@ -1657,8 +1683,7 @@ class tf_MI_max():
                 else:
                     W=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.),name="weights")
                     b=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.), name="bias")
-                    print('bias here')
-                    if tf.__version__ >= '1.8':
+                    if test_version_sup('1.8'):
                         normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
                     else:
                         normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
@@ -1820,7 +1845,8 @@ class tf_MI_max():
                     print("The optimizer is unknown",self.Optimizer)
                     raise(NotImplemented)
                     
-                train = optimizer.minimize(loss)  
+                if self.Optimizer in ['GradientDescent','Momentum','Adam']:
+                    train = optimizer.minimize(loss)  
             
                 if not(self.init_by_mean is None) and not(self.init_by_mean ==''):
                     W_onMean,b_onMean,train_SVM_onMean = self.def_SVM_onMean(X_,y_)
@@ -1844,21 +1870,31 @@ class tf_MI_max():
                     sess.run(init_op)
                     sess.run(shuffle_iterator.initializer)
                    
-                    for step in range(self.max_iters):
-                        if self.debug: t2 = time.time()
-                        sess.run(train)
-        #                sess.run(train,options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE))
-                        if self.debug:
-                            t3 = time.time()
-                            print(step,"duration :",str(t3-t2))
-                            t4 = time.time()
-                            list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
-                            if self.WR: 
-                                assert(np.max(list_elt)<= 2.0)
-                                assert(np.min(list_elt)>= -2.0)
-                            t5 = time.time()
-                            print("duration loss eval :",str(t5-t4))
-                            print(list_elt)
+                    
+                    if self.Optimizer in ['GradientDescent','Momentum','Adam']:
+                        for step in range(self.max_iters):
+                            if self.debug: t2 = time.time()
+                            sess.run(train)
+                            if self.debug:
+                                t3 = time.time()
+                                print(step,"duration :",str(t3-t2))
+                                t4 = time.time()
+                                list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
+                                if self.WR: 
+                                    assert(np.max(list_elt)<= 2.0)
+                                    assert(np.min(list_elt)>= -2.0)
+                                t5 = time.time()
+                                print("duration loss eval :",str(t5-t4))
+                                print(list_elt)
+                    elif self.Optimizer=='lbfgs':
+                        maxcor = 30
+                        optimizer_kwargs = {'maxiter': self.max_iters,'maxcor': maxcor}
+                        optimizer = tf.contrib.opt.ScipyOptimizerInterface(loss,method='L-BFGS-B',
+                                                                           options=optimizer_kwargs)    
+                        optimizer.minimize(sess)
+                    else:
+                        print("The optimizer is unknown",self.Optimizer)
+                        raise(NotImplemented)
                             
                     if class_indice==-1:
                         if self.restarts_paral_V2:
@@ -1898,7 +1934,7 @@ class tf_MI_max():
                             b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
                             if self.restarts>0:
                                 for j in range(self.num_classes):
-                                    loss_value_j = loss_value[j::self.num_classes]
+                                    loss_value_j = loss_value[j:self.num_classes]
                                     argmin = np.argmin(loss_value_j,axis=0)
                                     loss_value_j_min = np.min(loss_value_j,axis=0)
                                     W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
@@ -1917,7 +1953,7 @@ class tf_MI_max():
                             W_best = np.zeros((self.numberWtoKeep,self.num_classes,self.num_features),dtype=np.float32)
                             b_best = np.zeros((self.numberWtoKeep,self.num_classes,1,1),dtype=np.float32)
                             for j in range(self.num_classes):
-                                loss_value_j = loss_value[j::self.num_classes]
+                                loss_value_j = loss_value[j:self.num_classes]
                                 loss_value_j_sorted_ascending = np.argsort(loss_value_j)  # We want to keep the one with the smallest value 
                                 index_keep = loss_value_j_sorted_ascending[0:self.numberWtoKeep]
                                 for i,argmin in enumerate(index_keep):
@@ -2181,7 +2217,7 @@ class tf_MI_max():
         else:
             W_sgdc=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights_sgdc")
             b_sgdc=tf.Variable(tf.random_normal([1], stddev=1.), name="bias_sgdc")
-            if tf.__version__ >= '1.8':
+            if test_version_sup('1.8'):
                 normalize_W_sgdc = W_sgdc.assign(tf.nn.l2_normalize(W_sgdc,axis=0)) 
             else:
                 normalize_W_sgdc = W_sgdc.assign(tf.nn.l2_normalize(W_sgdc,dim=0)) 
@@ -2245,7 +2281,7 @@ class tf_MI_max():
         W=tf.Variable(tf.random_normal([d], stddev=1.),name="weights")
         b=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
         
-        if tf.__version__ >= '1.8':
+        if test_version_sup('1.8'):
             normalize_W = W.assign(tf.nn.l2_normalize(W,axis = 0))
         else:
             normalize_W = W.assign(tf.nn.l2_normalize(W,dim = 0))
@@ -2353,7 +2389,7 @@ class tf_MI_max():
         X2=tf.constant(data_neg,dtype=tft)
         W=tf.Variable(tf.random_normal([n], stddev=1.),name="weights")
         b=tf.Variable(tf.random_normal([1], stddev=1.), name="biases")
-        if tf.__version__ >= '1.8':
+        if test_version_sup('1.8'):
             normalize_W = W.assign(tf.nn.l2_normalize(W,axis = 0))
         else:
             normalize_W = W.assign(tf.nn.l2_normalize(W,dim = 0))
@@ -2591,7 +2627,7 @@ class ModelHyperplan():
             if self.restarts>0:
                 for j in range(self.num_classes):
 #                    print(loss_value.shape)
-                    loss_value_j = loss_value[j::self.num_classes]
+                    loss_value_j = loss_value[j:self.num_classes]
 #                    print(loss_value_j)
 #                    print(loss_value_j.shape)
                     argmin = np.argmin(loss_value_j,axis=0)
@@ -2613,7 +2649,7 @@ class ModelHyperplan():
             W_best = np.zeros((self.numberWtoKeep,self.num_classes,self.num_features),dtype=np.float32)
             b_best = np.zeros((self.numberWtoKeep,self.num_classes,1,1),dtype=np.float32)
             for j in range(self.num_classes):
-                loss_value_j = loss_value[j::self.num_classes]
+                loss_value_j = loss_value[j:self.num_classes]
                 loss_value_j_sorted_ascending = np.argsort(loss_value_j)  # We want to keep the one with the smallest value 
                 index_keep = loss_value_j_sorted_ascending[0:self.numberWtoKeep]
                 for i,argmin in enumerate(index_keep):
@@ -3303,7 +3339,7 @@ def test():
 ##                tab_b[i]=tf.slice(b,[i],[1])
 #                tab_W[i]=tf.Variable(tf.random_normal([self.num_features], stddev=1.))
 #                tab_b[i]=tf.Variable(tf.random_normal([1], stddev=1.))
-#                if tf.__version__ >= '1.8':
+#                if test_version_sup('1.8'):
 #                    tab_normalize_W[i] = tab_W[i].assign(tf.nn.l2_normalize(tab_W[i],axis=0)) 
 #                else:
 #                    tab_normalize_W[i] = tab_W[i].assign(tf.nn.l2_normalize(tab_W[i],dim=0)) 
