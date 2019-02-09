@@ -19,6 +19,7 @@ import pathlib
 import shutil
 import sys
 import misvm
+from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost
 
 os.environ['TF_CPP_MIN_LOG_LEVEL']='3' # 1 to remove info, 2 to remove warning and 3 for all
 import tensorflow as tf
@@ -27,6 +28,9 @@ from trouver_classes_parmi_K import tf_MI_max
 from trouver_classes_parmi_K_mi import tf_mi_model
 import pickle
 
+
+list_of_ClassicalMI = ['miSVM','SIL','SISVM','LinearSISVM','MIbyOneClassSVM',\
+                       'SIXGBoost']
 
 def EvaluationOnALot_ofParameters(dataset):
     """
@@ -99,7 +103,7 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen=None,dataNorma
              reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False):
     """
     This function evaluate the performance of our MIMAX algorithm
-    @param : method = MIMAX, SIL or miSVM 
+    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM 
     @param : dataset = Newsgroups, Bird or SIVAL
     @param : dataNormalizationWhen : moment of the normalization of the data, 
         None = no normalization, onAllSet doing on all the set, onTrainSet 
@@ -117,7 +121,7 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen=None,dataNorma
     script_dir = os.path.dirname(__file__)
     if not(pref_name_case==''):
         pref_name_case = '_'+pref_name_case
-    filename = dataset + pref_name_case + '.pkl'
+    filename = method + '_' + dataset + pref_name_case + '.pkl'
     path_file_results = os.path.join(script_dir,'MILbenchmark','Results')
     file_results = os.path.join(path_file_results,filename)
     pathlib.Path(path_file_results).mkdir(parents=True, exist_ok=True) # creation of the folder if needed
@@ -184,8 +188,6 @@ def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
     if verbose and StratifiedFold: print('Use of the StratifiedFold cross validation')
     nRep=10
     nFolds=10
-    nRep=2
-    nFolds=2
     numMetric = 4
 
     size_biggest_bag = 0
@@ -294,9 +296,17 @@ def get_classicalMILclassifier(method):
         classifier = misvm.miSVM(verbose=False)
     elif method=='SIL':
         classifier = misvm.SIL(verbose=False)
+    elif method=='SISVM':
+        classifier = sisvm.SISVM(verbose=False)
+    elif method=='LinearSISVM':
+        classifier = sisvm.LinearSISVM(verbose=False)
+    elif method=='MIbyOneClassSVM':
+        classifier = MIbyOneClassSVM.MIbyOneClassSVM(verbose=False)
+    elif method=='SIXGBoost':
+        classifier = sixgboost.SIXGBoost(verbose=False)
     else:
         print('Method unknown: ',method)
-        raise(NotImplemented)
+        raise(NotImplementedError)
     return(classifier)
 
 def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
@@ -318,7 +328,7 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
                 data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size)
     
-    elif method in ['miSVM','SIL']:
+    elif method in list_of_ClassicalMI:
         
         classifier = get_classicalMILclassifier(method)
         classifier.fit(bags_train, labels_bags_c_train)
@@ -326,7 +336,7 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
         
     else:
         print('Method unknown: ',method)
-        raise(NotImplemented)
+        raise(NotImplementedError)
         
     return(pred_bag_labels, pred_instance_labels)
     
@@ -506,7 +516,7 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
     if not(opts_MIMAX is None):
         C,C_Searching,CV_Mode,restarts,LR = opts_MIMAX
     else:
-        C,C_Searching,CV_Mode,restarts,LR = 1.0,False,None,11,0.001
+        C,C_Searching,CV_Mode,restarts,LR = 1.0,False,None,11,0.01
 
     classifierMI_max = tf_MI_max(LR=LR,restarts=restarts,is_betweenMinus1and1=True, \
                                  num_rois=size_biggest_bag,num_classes=1, \
@@ -522,10 +532,14 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
 
 if __name__ == '__main__':
 #    evalPerf(dataset='Birds',reDo=True,dataNormalizationWhen='onTrainSet',dataNormalization='std',verbose=True)
+#    evalPerf(method='LinearSISVM',dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std',reDo=True,verbose=False)
+#    evalPerf(method='SIXGBoost',dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std',reDo=True,verbose=False)
+#    evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std',reDo=True,verbose=False)
+#    evalPerf(dataset='Newsgroups',reDo=True,verbose=False)
     evalPerf(dataset='Birds',reDo=True,verbose=False)
-    evalPerf(dataset='Newsgroups',reDo=True,verbose=False)
     evalPerf(dataset='SIVAL',reDo=True,verbose=False)
 #    evalPerf(dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std')
 #    evalPerf(dataset='Newsgroups')
 #    evalPerf(method='MIMAX',dataset='Birds',verbose=True)
 #    EvaluationOnALot_ofParameters(dataset='Birds')
+# A tester : SVM with SGD and then loss hinge in our case
