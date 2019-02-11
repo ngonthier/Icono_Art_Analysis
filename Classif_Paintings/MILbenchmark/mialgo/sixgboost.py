@@ -6,7 +6,7 @@ import numpy as np
 import inspect
 from xgboost import XGBClassifier
 from misvm.util import slices
-
+from sklearn.utils import check_X_y
 
 class SIXGBoost(XGBClassifier):
     """
@@ -36,10 +36,11 @@ class SIXGBoost(XGBClassifier):
         """
         
         self._bags = [np.asmatrix(bag) for bag in bags]
-        y = np.asmatrix(y).reshape((-1, 1))
+        y = np.array(np.asmatrix(y).reshape((-1, 1)))
         svm_X = np.vstack(self._bags)
         svm_y = np.vstack([float(cls) * np.matrix(np.ones((len(bag), 1)))
                            for bag, cls in zip(self._bags, y)])
+        svm_X, svm_y = check_X_y(X=svm_X, y=svm_y)
         super(SIXGBoost, self).fit(svm_X, svm_y)
         return(self)
         # http://danielhnyk.cz/creating-your-own-estimator-scikit-learn/

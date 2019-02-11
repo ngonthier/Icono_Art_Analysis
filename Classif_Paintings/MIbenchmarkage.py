@@ -54,12 +54,12 @@ def EvaluationOnALot_ofParameters(dataset):
     default_restarts = 11
     default_dataNormalization = None
     opts_MIMAX = default_C,default_C_Searching,default_CV_Mode,default_restarts,default_LR
-    pref_name_case = 'MIMAX_defaultMode'
+    pref_name_case = '_defaultMode'
     evalPerf(method='MIMAX',dataset=dataset,dataNormalizationWhen=None,dataNormalization=default_dataNormalization,
              reDo=False,opts_MIMAX=opts_MIMAX,pref_name_case=pref_name_case,verbose=False)
     
     for dataNormalization in dataNormalization_tab:
-        pref_name_case = 'MIMAX_Nor'+dataNormalization
+        pref_name_case = '_Nor'+dataNormalization
         evalPerf(method='MIMAX',dataset=dataset,dataNormalizationWhen='onTrainSet',dataNormalization=dataNormalization,
                  reDo=False,opts_MIMAX=opts_MIMAX,pref_name_case=pref_name_case,verbose=False)
     
@@ -533,13 +533,16 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
 if __name__ == '__main__':
 #    evalPerf(dataset='Birds',reDo=True,dataNormalizationWhen='onTrainSet',dataNormalization='std',verbose=True)
 #    evalPerf(method='LinearSISVM',dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std',reDo=True,verbose=False)
-#    evalPerf(method='SIXGBoost',dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std',reDo=True,verbose=False)
+    evalPerf(method='SIXGBoost',dataset='Newsgroups',dataNormalizationWhen='onTrainSet',dataNormalization='std',reDo=False,verbose=False)
+    evalPerf(method='SIXGBoost',dataset='SIVAL',dataNormalizationWhen='onTrainSet',dataNormalization='std',reDo=False,verbose=False)
 #    evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std',reDo=True,verbose=False)
 #    evalPerf(dataset='Newsgroups',reDo=True,verbose=False)
-    evalPerf(dataset='Birds',reDo=True,verbose=False)
-    evalPerf(dataset='SIVAL',reDo=True,verbose=False)
+#    evalPerf(dataset='Birds',reDo=True,verbose=False)
+#    evalPerf(dataset='SIVAL',reDo=False,verbose=False)
 #    evalPerf(dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std')
 #    evalPerf(dataset='Newsgroups')
 #    evalPerf(method='MIMAX',dataset='Birds',verbose=True)
 #    EvaluationOnALot_ofParameters(dataset='Birds')
+#    EvaluationOnALot_ofParameters(dataset='Newsgroups')
+#    EvaluationOnALot_ofParameters(dataset='SIVAL')
 # A tester : SVM with SGD and then loss hinge in our case

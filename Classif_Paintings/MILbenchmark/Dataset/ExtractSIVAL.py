@@ -22,7 +22,7 @@ def get_Set(Data,index):
     #DataS = DataS[0]
     return(DataS)
 
-def ExtractSubsampledSIVAL(verbose=False):
+def ExtractSubsampledSIVAL(justGetListClass=False,verbose=False):
     """
     The goal of this function is too extract a sample of the SIVAL dataset as 
     it is done in the survey Carbonneau 2016
@@ -31,10 +31,13 @@ def ExtractSubsampledSIVAL(verbose=False):
     of 24  other class are randomly selected
     
     We do it 5 resamples
+    @param : justGetListClass : only return the classes names
     """
     
     
-    Dataset = ExtractSIVAL()
+    Dataset = ExtractSIVAL(justGetListClass=justGetListClass)
+    if justGetListClass:
+        return(Dataset) # In this case Dataset == list_names
     list_names,bags,labels_bags,labels_instance = Dataset
     
     # number of differents sets
@@ -99,7 +102,7 @@ def ExtractSubsampledSIVAL(verbose=False):
     
     return(Dataset_sampled)  
     
-def ExtractSIVAL():
+def ExtractSIVAL(justGetListClass=False):
     """
     This return a dictionnary in which each element is a list of the exemple of 
     the class
@@ -107,6 +110,7 @@ def ExtractSIVAL():
     
     This function return a list of the 
     
+    @param : justGetListClass : only return the classes names
     """
     number_of_class = 25
     number_of_bag = 1499
@@ -127,48 +131,52 @@ def ExtractSIVAL():
         classe = os.path.split(classe_name)[-1]
         elt_name = classe.split('.')[0]
         list_names += [elt_name]
-        with open(classe_name,'r') as f:
-            content = f.readlines()
-            bag_id_old = -1
-            bag = None
-#            labels_instance_c = []
-#            labels = []
-            for line in content:
-                line_splitted=line.replace('\n','').split(',')
-                bag_id = str(line_splitted[0])
-                if bag_id in list_names_bags:
-                    bag_id_int = np.where(np.array(list_names_bags)==bag_id)[0][0]
-                else:
-                    list_names_bags += [bag_id]
-                    bag_id_int += 1
-#                instance_id = int(line_splitted[1]) # Instance ID inside the bag !
-                instance_label = float(line_splitted[-1])
-                features = np.array(list_tofloat(line_splitted[2:-1]))
-                if elt_name in bag_id.lower():
-                    bag_label = 1
-                else:
-                    bag_label = -1
-#                print('bag_id_int',bag_id_int)
-                labels_bags[c][bag_id_int] = bag_label
-                labels_instance[c][bag_id_int] += [2*instance_label-1] 
-                
-                
-                if FirstTimeBag:
-                    if bag_id_old==bag_id_int:
-                        bag = np.vstack((bag,features))
+        if not(justGetListClass):
+            with open(classe_name,'r') as f:
+                content = f.readlines()
+                bag_id_old = -1
+                bag = None
+    #            labels_instance_c = []
+    #            labels = []
+                for line in content:
+                    line_splitted=line.replace('\n','').split(',')
+                    bag_id = str(line_splitted[0])
+                    if bag_id in list_names_bags:
+                        bag_id_int = np.where(np.array(list_names_bags)==bag_id)[0][0]
                     else:
-                        if not(bag_id_old==-1):
-                            bags += [bag]
-                        bag_id_old = bag_id_int
-                        bag = features
-            # End of reading the file
-            
-        # End of the class
-        if FirstTimeBag:
-            bags += [bag]
-            FirstTimeBag = False
-#        labels_instance += [np.array(labels_instance_c)]
-#        labels_bags  += [np.array(labels)]
+                        list_names_bags += [bag_id]
+                        bag_id_int += 1
+    #                instance_id = int(line_splitted[1]) # Instance ID inside the bag !
+                    instance_label = float(line_splitted[-1])
+                    features = np.array(list_tofloat(line_splitted[2:-1]))
+                    if elt_name in bag_id.lower():
+                        bag_label = 1
+                    else:
+                        bag_label = -1
+    #                print('bag_id_int',bag_id_int)
+                    labels_bags[c][bag_id_int] = bag_label
+                    labels_instance[c][bag_id_int] += [2*instance_label-1] 
+                    
+                    
+                    if FirstTimeBag:
+                        if bag_id_old==bag_id_int:
+                            bag = np.vstack((bag,features))
+                        else:
+                            if not(bag_id_old==-1):
+                                bags += [bag]
+                            bag_id_old = bag_id_int
+                            bag = features
+                # End of reading the file
+                
+            # End of the class
+            if FirstTimeBag:
+                bags += [bag]
+                FirstTimeBag = False
+    #        labels_instance += [np.array(labels_instance_c)]
+    #        labels_bags  += [np.array(labels)]
+
+    if justGetListClass:
+        return(list_names)
 
     for j in range(number_of_class):
         for i in range(number_of_bag):
