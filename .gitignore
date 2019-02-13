@@ -34,7 +34,7 @@ __pycache__/*
 *.log
 *.syntex.gz
 *.tex
-
+*.gz
 # The folder      #
 ################
 
