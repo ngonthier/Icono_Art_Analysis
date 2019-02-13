@@ -28,6 +28,12 @@ __pycache__/*
 ################
 
 *.pdf
+*.aux
+*.bbl
+*.blg
+*.log
+*.syntex.gz
+*.tex
 
 # The folder      #
 ################

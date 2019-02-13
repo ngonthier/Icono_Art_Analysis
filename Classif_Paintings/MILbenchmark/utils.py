@@ -206,6 +206,20 @@ def getDataset(dataset=None):
         Dataset = ExtractNewsgroups()
 
     return Dataset 
+
+
+def getClassesNames(dataset=None):
+
+    if 'SIVALfull'==dataset:
+        Dataset = ExtractSIVAL(justGetListClass=True)
+    if 'SIVAL'==dataset:
+        Dataset = ExtractSubsampledSIVAL(justGetListClass=True) # Subsampled version
+    if 'Birds'==dataset:
+        Dataset = ExtractBirds(justGetListClass=True)
+    if 'Newsgroups'==dataset:
+        Dataset = ExtractNewsgroups(justGetListClass=True)
+
+    return Dataset 
     
 
     

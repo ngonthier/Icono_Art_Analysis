@@ -15,7 +15,7 @@ def list_tofloat(l):
     return(r)
 
 
-def ExtractBirds():
+def ExtractBirds(justGetListClass=False):
     """
     The goal of this function is to extract the Birds dataset from the Birds file
     
@@ -35,9 +35,12 @@ def ExtractBirds():
     are not the same than the one in hja_birdsong_instance_labels.txt.
     We use the labels from the instance labels file (hja_birdsong_instance_labels
     text file)
+    
+    @param : justGetListClass : only return the classes names
     """
-    print('/!\ I just want to prevent you that the labels in hja_birdsong_bag_labels.txt are not the same than the one in hja_birdsong_instance_labels.txt.')
-    print('We use the labels from the instance labels file.')
+    if not(justGetListClass):
+        print('/!\ I just want to prevent you that the labels in hja_birdsong_bag_labels.txt are not the same than the one in hja_birdsong_instance_labels.txt.')
+        print('We use the labels from the instance labels file.')
     
     path_dataset = 'Birds'
     script_dir = os.path.dirname(__file__) 
@@ -61,6 +64,9 @@ def ExtractBirds():
             name = ('-').join(line_splitted[1:])
             list_names+= [name]
        
+    if justGetListClass:
+        return(list_names)
+    
     # Load the labels of the bags
     labels_bags = [-np.ones((number_of_bag,)) for j in range(number_of_class)] 
     # List of the 13 lists of labels per bag

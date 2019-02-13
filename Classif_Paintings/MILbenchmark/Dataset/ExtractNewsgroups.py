@@ -17,7 +17,7 @@ def list_tofloat(l):
         r += [float(elt)]
     return(r)
 
-def ExtractNewsgroups():
+def ExtractNewsgroups(justGetListClass=False):
     """
     The goal of this function is to extract the Newsgoups dataset 
     from the Newsgoups files
@@ -33,6 +33,8 @@ def ExtractNewsgroups():
         per class : ie a list of number_of_class lists 
     - labels_instance : array of the labels of the classes between -1 and 1 
         per class
+        
+    @param : justGetListClass : only return the classes names
     """
     number_of_class = 20
     number_of_bag = 100
@@ -55,38 +57,42 @@ def ExtractNewsgroups():
         elt_name = classe.split('.')[0]
         list_names += [elt_name]
         bags_c = []
-        with open(classe_name,'r') as f:
-            content = f.readlines()[6:] # skip header
-            bag_id_old = -1
-            bag = None
-            for line in content:
-                line_splitted=line.split(' ')
-#                % Each line corresponds to an instance
-#                % Column1: Bag ID
-#                % Column2: Bag class label
-#                % Column3: Instance ID
-#                % Column4: Instance class label
-#                % Column5->204: Attribute values of the instance (200 numeric attributes)
-                bag_id = int(line_splitted[0])
-                bag_label = int(line_splitted[1])
-                bag_label = 2 * bag_label - 1
-                labels_bags[c][bag_id-1] = bag_label
-#                instance_id = int(line_splitted[2])
-                instance_label = int(line_splitted[3])
-                labels_instance[c][bag_id-1] += [2*instance_label-1] 
-
-                features = np.array(list_tofloat(line_splitted[4:204]))
-                if bag_id_old==bag_id:
-                    bag = np.vstack((bag,features))
-                else:
-                    if not(bag_id_old==-1):
-                        bags_c += [bag]
-                    bag_id_old = bag_id
-                    bag = features
-        
-        # End of the class
-        bags_c += [bag]
-        bags[c] = bags_c
+        if not(justGetListClass):
+            with open(classe_name,'r') as f:
+                content = f.readlines()[6:] # skip header
+                bag_id_old = -1
+                bag = None
+                for line in content:
+                    line_splitted=line.split(' ')
+    #                % Each line corresponds to an instance
+    #                % Column1: Bag ID
+    #                % Column2: Bag class label
+    #                % Column3: Instance ID
+    #                % Column4: Instance class label
+    #                % Column5->204: Attribute values of the instance (200 numeric attributes)
+                    bag_id = int(line_splitted[0])
+                    bag_label = int(line_splitted[1])
+                    bag_label = 2 * bag_label - 1
+                    labels_bags[c][bag_id-1] = bag_label
+    #                instance_id = int(line_splitted[2])
+                    instance_label = int(line_splitted[3])
+                    labels_instance[c][bag_id-1] += [2*instance_label-1] 
+    
+                    features = np.array(list_tofloat(line_splitted[4:204]))
+                    if bag_id_old==bag_id:
+                        bag = np.vstack((bag,features))
+                    else:
+                        if not(bag_id_old==-1):
+                            bags_c += [bag]
+                        bag_id_old = bag_id
+                        bag = features
+            
+            # End of the class
+            bags_c += [bag]
+            bags[c] = bags_c
+    
+    if justGetListClass:
+        return(list_names)
 
 
     for j in range(number_of_class):
