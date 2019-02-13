@@ -12,6 +12,7 @@ et pour faire tourner sur le cluster
 import time
 import pickle
 import gc
+from sklearn.decomposition import PCA
 from sklearn.model_selection import GridSearchCV
 from tf_faster_rcnn.lib.model.nms_wrapper import nms
 #import matplotlib.pyplot as plt
@@ -89,7 +90,7 @@ def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1
 def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test_on_k_bag = False,
                              normalisation= False,baseline_kind = 'MAX1',
                              verbose = True,gridSearch=False,k_per_bag=300,jtest=0,testMode=False,
-                             n_jobs=-1,clf='LinearSVC'):
+                             n_jobs=-1,clf='LinearSVC',PCAuse=False):
     """ 
     27 juin 2018 ==> Il faut que les dossiers soit calculés avant sur mon ordi 
     puis passer sur le cluster
@@ -113,6 +114,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
     @param : CompBest : Comparaison with the CompBest classifier trained
     @param : Stocha : Use of a SGD for the MIL SVM SAID [default : False]
     @param : k_per_bag : number of element per batch in the slection phase [defaut : 30]
+    @param : PCAuse : boolean to know if we do a PCA or not before learning
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -226,7 +228,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
 #                                         database=database,augmentation=False,L2 =False,
 #                                         saved='all',verbose=verbose,filesave=filesave)
         
-        if baseline_kind == 'MAX1' or baseline_kind == 'MEAN' or baseline_kind =='MISVM'or baseline_kind =='miSVM':
+        if baseline_kind in['MAX1','MEAN','MISVM','miSVM','SISVM']:
             if verbose: print("Start loading data",name_pkl)
             with open(name_pkl, 'rb') as pkl:
                 for i,name_img in  enumerate(df_label[item_name]):
@@ -240,6 +242,9 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 features_resnet_dict_tmp = pickle.load(pkl)
                 features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
             if verbose: print("Data loaded",len(features_resnet_dict))
+        else:
+            print(baseline_kind,' unknown')
+            raise(NotImplemented)
         
         
 #        features_resnet = np.empty((sLength_all,k_per_bag,size_output),dtype=np.float32)  
@@ -318,7 +323,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         P20_per_class = []
         if baseline_kind == 'MAX1':
             number_neg = 1
-        elif baseline_kind == 'MAXA' or baseline_kind =='MISVM' or baseline_kind == 'miSVM':
+        elif baseline_kind in ['MAXA','MISVM','miSVM','SISVM']:
             number_neg = 300
             
         # Training time
@@ -346,18 +351,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     else:
                         X_trainval_select[index_nav,:] = fc7[0,:]
                         index_nav += 1
-            elif baseline_kind == 'MEAN':
-                number_ex = len(y_trainval)
-                y_trainval_select = y_trainval[:,j]
-                X_trainval_select = np.empty((number_ex,num_features),dtype=np.float32)
-                index_nav = 0
-                for i,name_img in  enumerate(name_trainval):
-                    if i%1000==0 and not(i==0):
-                        if verbose: print(i,name_img)
-                    rois,roi_scores,fc7 = features_resnet_dict[name_img]
-                    X_trainval_select[index_nav,:] = np.mean(fc7[0,:]) # The roi_scores vector is sorted
-                    index_nav += 1 
-            elif baseline_kind == 'MISVM' or baseline_kind == 'miSVM':
+            elif baseline_kind in ['MISVM','miSVM']:
                 number_pos_ex = int(np.sum(y_trainval[:,j]))
                 number_neg_ex = len(y_trainval) - number_pos_ex
                 number_ex = number_pos_ex + number_neg*number_neg_ex
@@ -387,6 +381,35 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 X_trainval_select_neg = np.concatenate(X_trainval_select_neg,axis=0).astype(np.float32)
                 y_trainval_select_neg = np.array(y_trainval_select_neg,dtype=np.float32)
                 y_trainval_select = np.hstack((y_trainval_select_neg,y_trainval_select_pos))
+            elif baseline_kind == 'SISVM':
+                number_pos_ex = int(np.sum(y_trainval[:,j]))
+                number_neg_ex = len(y_trainval) - number_pos_ex
+                number_ex = number_pos_ex + number_neg*number_neg_ex
+#                y_trainval_select_neg = np.zeros((300*number_neg_ex,),dtype=np.float32)
+                y_trainval_select = []
+                
+                if j==0: X_trainval_select = []
+                for i,name_img in  enumerate(name_trainval):
+                    if i%1000==0 and not(i==0):
+                        if verbose: print(i,name_img)
+                    rois,roi_scores,fc7 = features_resnet_dict[name_img]
+                    if y_trainval[i,j] == 1: # Positive exemple
+                        if not(len(y_trainval_select)==0):
+                            if j==0: X_trainval_select += [fc7.astype(np.float32)] 
+                            y_trainval_select +=[1]*len(fc7)
+                        else:
+                            if j==0: X_trainval_select = [fc7.astype(np.float32)] 
+                            y_trainval_select =[1]*len(fc7)
+                    else:
+                        if not(len(y_trainval_select)==0):
+                            if j==0: X_trainval_select += [fc7.astype(np.float32)] 
+                            y_trainval_select +=[0]*len(fc7)
+                        else:
+                            if j==0: X_trainval_select = [fc7.astype(np.float32)] 
+                            y_trainval_select =[0]*len(fc7)
+                if j==0: X_trainval_select = np.concatenate(X_trainval_select,axis=0).astype(np.float32)
+                y_trainval_select = np.array(y_trainval_select,dtype=np.float32)
+               
             elif baseline_kind=='MAXA':
                 y_trainval_select = []
                 X_trainval_select = []
@@ -416,6 +439,9 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     del features_resnet_dict
                 X_trainval_select = np.concatenate(X_trainval_select,axis=0).astype(np.float32)
                 y_trainval_select = np.array(y_trainval_select,dtype=np.float32)
+            else:
+                print(baseline_kind,' unknown method')
+                raise(NotImplemented)
             if verbose: 
                 try:
                     print("Shape X and y",X_trainval_select.shape,y_trainval_select.shape)
@@ -430,9 +456,20 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 scaler.fit(X_trainval_select.reshape(-1,size_output))
                 X_trainval_select = scaler.transform(X_trainval_select.reshape(-1,size_output))
                 X_trainval_select = X_trainval_select.reshape(-1,k_per_bag,size_output)
-#                X_test_norm = scaler.transform(X_test.reshape(-1,size_output))
-#                X_test_norm = X_test_norm.reshape(-1,k_per_bag,size_output)
-                        
+                 
+            # PCA evaluation
+            if PCAuse :
+                if baseline_kind=='SISVM' and j==0:
+                    if verbose: print("Use of a PCA for dimensionality reduction")
+                    pca = PCA()
+                    pca.fit(X_trainval_select)
+                    X_trainval_select = pca.transform(X_trainval_select)
+                    cumsum_explained_variance_ratio = np.cumsum(pca.explained_variance_ratio_)
+                    variance_thres= 0.9
+                    number_composant = 1+np.where(cumsum_explained_variance_ratio>variance_thres)[0][0]
+                    print('We will reduce the number of features to : ',number_composant)
+                    X_trainval_select = X_trainval_select[:,0:number_composant]
+            
             # Training time
             if verbose: print("Start learning for class",j)
             if not(baseline_kind in ['miSVM','MISVM']):
@@ -576,7 +613,10 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                         f_repeat = np.repeat(fc7_reduce,number_repeat,axis=0)
                         bag = np.expand_dims(f_repeat[0:k_per_bag,:],axis=0) 
                     fc7 = np.array(bag)
-                    
+                 
+                if PCAuse:
+                    fc7 = PCA.transform(fc7)
+                    fc7 = fc7[:,0:number_composant]
                     
                 f_test[key_test] = fc7
                 roi_test[key_test] = rois
@@ -695,6 +735,6 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         gc.collect()  
             
 if __name__ == '__main__':
-   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'VOC2007',Test_on_k_bag=False,
-                        normalisation= False,baseline_kind = 'MAXA',verbose = True,
-                        gridSearch=False,k_per_bag=300,n_jobs=1)
+   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+                        normalisation= False,baseline_kind = 'SISVM',verbose = True,
+                        gridSearch=False,k_per_bag=300,n_jobs=1,PCAuse=True)

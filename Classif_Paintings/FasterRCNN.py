@@ -24,20 +24,12 @@ import pickle
 import tensorflow as tf
 from sklearn import svm
 from sklearn.model_selection import GridSearchCV
-from sklearn.ensemble import IsolationForest
-from sklearn.neighbors import LocalOutlierFactor
-from sklearn.covariance import EllipticEnvelope
-from sklearn.linear_model import SGDClassifier
 from tf_faster_rcnn.lib.nets.vgg16 import vgg16
 from tf_faster_rcnn.lib.nets.resnet_v1 import resnetv1
 from tf_faster_rcnn.lib.model.test import im_detect,TL_im_detect,TL_im_detect_end,get_blobs,apply_nms
 from tf_faster_rcnn.lib.model.nms_wrapper import nms
 import matplotlib.pyplot as plt
-from sklearn.svm import LinearSVC, SVC
-from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import PredefinedSplit,train_test_split
-from nltk.classify.scikitlearn import SklearnClassifier
-#from tf_faster_rcnn.tools.demo import vis_detections
 import numpy as np
 import os,cv2
 import pandas as pd
