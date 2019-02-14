@@ -90,7 +90,8 @@ def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1
 def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test_on_k_bag = False,
                              normalisation= False,baseline_kind = 'MAX1',
                              verbose = True,gridSearch=False,k_per_bag=300,jtest=0,testMode=False,
-                             n_jobs=-1,clf='LinearSVC',PCAuse=False):
+                             n_jobs=-1,clf='LinearSVC',PCAuse=False,
+                                                 variance_thres= 0.9):
     """ 
     27 juin 2018 ==> Il faut que les dossiers soit calculés avant sur mon ordi 
     puis passer sur le cluster
@@ -115,6 +116,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
     @param : Stocha : Use of a SGD for the MIL SVM SAID [default : False]
     @param : k_per_bag : number of element per batch in the slection phase [defaut : 30]
     @param : PCAuse : boolean to know if we do a PCA or not before learning
+    @param : variance_thres variance threshold keep features for PCA
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -132,6 +134,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
     
     """
     # TODO be able to train on background 
+    list_methods =['MAXA','MAX1','MEAN','MISVM','miSVM','SISVM']
     print('==========')
     print('Baseline for ',database,demonet,baseline_kind,'gridSearch',gridSearch,'clf',clf)
     try:
@@ -228,7 +231,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
 #                                         database=database,augmentation=False,L2 =False,
 #                                         saved='all',verbose=verbose,filesave=filesave)
         
-        if baseline_kind in['MAX1','MEAN','MISVM','miSVM','SISVM']:
+        if baseline_kind in list_methods:
             if verbose: print("Start loading data",name_pkl)
             with open(name_pkl, 'rb') as pkl:
                 for i,name_img in  enumerate(df_label[item_name]):
@@ -465,9 +468,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     pca.fit(X_trainval_select)
                     X_trainval_select = pca.transform(X_trainval_select)
                     cumsum_explained_variance_ratio = np.cumsum(pca.explained_variance_ratio_)
-                    variance_thres= 0.9
                     number_composant = 1+np.where(cumsum_explained_variance_ratio>variance_thres)[0][0]
-                    print('We will reduce the number of features to : ',number_composant)
+                    print('We will reduce the number of features to : ',number_composant,' for variance_thres',variance_thres)
                     X_trainval_select = X_trainval_select[:,0:number_composant]
             
             # Training time
@@ -480,7 +482,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             elif baseline_kind=='MISVM':
                 ## Implementation of the MISVM of Andrews 2006
                 #Initialisation  
-                restarts = 1
+                restarts = 0
                 for rr in range(restarts+1):
                     X_pos = np.empty((number_pos_ex,num_features),dtype=np.float32)
                     if rr==0:
@@ -576,7 +578,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         
         #Load test set 
         if baseline_kind == 'MAXA':
-            del features_resnet_dict
+            #del features_resnet_dict
             with open(name_pkl, 'rb') as pkl:
                 for i,name_img in  enumerate(df_label[item_name]):
                     if i%1000==0 and not(i==0):
@@ -615,7 +617,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     fc7 = np.array(bag)
                  
                 if PCAuse:
-                    fc7 = PCA.transform(fc7)
+                    fc7 = pca.transform(fc7)
                     fc7 = fc7[:,0:number_composant]
                     
                 f_test[key_test] = fc7
@@ -672,7 +674,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 raise(NotImplemented)
 #                print("Baseline SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
             else:
-                print("Baseline SVM version Average Precision for",classes[j]," = ",AP)
+                print("Baseline ",baseline_kind," version Average Precision classification for",classes[j]," = ",AP)
             test_precision = precision_score(y_test[:,j],labels_test_predited)
             test_recall = recall_score(y_test[:,j],labels_test_predited)
             F1 = f1_score(y_test[:,j],labels_test_predited)
@@ -728,7 +730,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
             output_dir = path_data +'tmp/' + database + '/'
             aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
-            print("Detection scores for Baseline algo")
+            print("Detection scores for Baseline :",baseline_kind)
+            if PCAuse: print("With PCA and ",number_composant," componants")
             print(arrayToLatex(aps,per=True))
 
     except KeyboardInterrupt:
@@ -737,4 +740,4 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
 if __name__ == '__main__':
    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
                         normalisation= False,baseline_kind = 'SISVM',verbose = True,
-                        gridSearch=False,k_per_bag=300,n_jobs=1,PCAuse=True)
+                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.95)
