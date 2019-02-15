@@ -1608,15 +1608,27 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
         num_classes = 5
         ext = '.txt'
+    elif(database=='IconArt_v1'):
+        num_classes = 7
+        ext='.csv'
+        item_name='item'
+        classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+        'Mary','nudity', 'ruins','Saint_Sebastien']
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
     else:
         item_name = 'image'
         path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
         ext = '.txt'
     
-    databasetxt = path_data + database + ext
+    if database=='IconArt_v1':
+        path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+    else:
+        path_data_csvfile = path_data
+        
+    databasetxt = path_data_csvfile + database + ext
     if database=='VOC2007' or database=='watercolor' or database=='clipart':
         df_label = pd.read_csv(databasetxt,sep=",",dtype=str)
-    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
         dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
                   'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
                   'turban':int,'set':str,'Anno':int}
@@ -1723,7 +1735,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 if not(i==0):
                     pickle.dump(features_resnet_dict,pkl) # Save the data
                     features_resnet_dict= {}
-            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['IconArt_v1','VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 complet_name = path_to_img + name_img + '.jpg'
             elif database=='PeopleArt':
                 complet_name = path_to_img + name_img
@@ -1744,7 +1756,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         elif filesave=='tfrecords':
             if i%Itera==0:
                 if verbose : print(i,name_img)
-            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['IconArt_v1','VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
             elif database=='PeopleArt':
@@ -1808,7 +1820,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     value = int((int(df_label[classes[j]][i])+1.)/2.)
                     #print(value)
                     classes_vectors[j] = value
-            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
                 for j in range(num_classes):
                     value = int(df_label[classes[j]][i])
                     classes_vectors[j] = value
@@ -2712,6 +2724,9 @@ if __name__ == '__main__':
     # RESNET152 sur COCO
     # VGG16 sur COCO
     # RES101 sur VOC12
+    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
+                                 augmentation=False,L2 =False,
+                                 saved='all',verbose=True,filesave='pkl')   
 #    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='VOC2007',
 #                                 augmentation=False,L2 =False,
 #                                 saved='all',verbose=True,filesave='tfrecords')   
@@ -2732,4 +2747,4 @@ if __name__ == '__main__':
 #   run_FRCNN_Detection_perf(database='PeopleArt')
 #    Illus_box_ratio()
 #     Illus_box_ratio()
-    FasterRCNN_demo2()
+#    FasterRCNN_demo2()

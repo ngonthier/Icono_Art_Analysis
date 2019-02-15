@@ -14,6 +14,7 @@ import resnet_152_keras
 import sys
 import os
 import cv2 # Need the contrib :  pip install opencv-contrib-python
+# Tentative de build avec tes modifications !!! https://gist.github.com/jarle/8336eb9cd140ad95f26a54f1572fc2fd
 import pandas as pd
 import os.path
 from tool_on_Regions import reduce_to_k_regions
