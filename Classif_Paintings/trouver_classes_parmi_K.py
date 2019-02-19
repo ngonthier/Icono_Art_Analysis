@@ -316,7 +316,8 @@ class tf_MI_max():
                   is_betweenMinus1and1=False,CV_Mode=None,num_split=2,with_scores=False,
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
                   seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
-                  obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False):
+                  obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False,
+                  AddOneLayer=False):
 #                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,AveragingWportion=False,
 #                  votingW=False,proportionToKeep=0.25,votingWmedian=False):
         # TODOD enelver les trucs inutiles ici
@@ -381,6 +382,8 @@ class tf_MI_max():
             'maxOfTanh' : Take the max of the tanh of product of the first vectors
         @param obj_score_add_tanh : the objectness_score is add to the tanh of the dot product
         @param lambdas : the lambda ratio between the tanh scalar product and the objectness score
+        @param AddOneLayer : Add one dense layer before the computation of the several possible W vector :
+            /!\ only avaible in the not parallel case, with one class 
         """
         self.LR = LR
         self.C = C
@@ -463,7 +466,7 @@ class tf_MI_max():
         
         # case of Cvalue
         self.C_values =  np.arange(0.5,2.75,0.25,dtype=np.float32) # Case used in VISART2018 ??
-        
+        self.AddOneLayer = AddOneLayer
         
         
     def fit_w_CV(self,data_pos,data_neg):
@@ -475,17 +478,22 @@ class tf_MI_max():
     # From http://www.machinelearninguru.com/deep_learning/tensorflow/basics/tfrecord/tfrecord.html
     def parser(self,record):
         # Perform additional preprocessing on the parsed data.
+#        keys_to_features={
+#                    'height': tf.FixedLenFeature([], tf.int64),
+#                    'width': tf.FixedLenFeature([], tf.int64),
+#                    'num_regions':  tf.FixedLenFeature([], tf.int64),
+#                    'num_features':  tf.FixedLenFeature([], tf.int64),
+#                    'dim1_rois':  tf.FixedLenFeature([], tf.int64),
+#                    'rois': tf.FixedLenFeature([5*self.num_rois],tf.float32),
+#                    'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),
+#                    'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
+#                    'label' : tf.FixedLenFeature([self.num_classes],tf.float32),
+#                    'name_img' : tf.FixedLenFeature([],tf.string)}
         keys_to_features={
-                    'height': tf.FixedLenFeature([], tf.int64),
-                    'width': tf.FixedLenFeature([], tf.int64),
                     'num_regions':  tf.FixedLenFeature([], tf.int64),
                     'num_features':  tf.FixedLenFeature([], tf.int64),
-                    'dim1_rois':  tf.FixedLenFeature([], tf.int64),
-                    'rois': tf.FixedLenFeature([5*self.num_rois],tf.float32),
-                    'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),
                     'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
-                    'label' : tf.FixedLenFeature([self.num_classes],tf.float32),
-                    'name_img' : tf.FixedLenFeature([],tf.string)}
+                    'label' : tf.FixedLenFeature([self.num_classes],tf.float32)}
         parsed = tf.parse_single_example(record, keys_to_features)
         
         # Cast label data into int32
@@ -496,19 +504,15 @@ class tf_MI_max():
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
         return fc7, label
+    
     def parser_wRoiScore(self,record):
         # Perform additional preprocessing on the parsed data.
         keys_to_features={
-                    'height': tf.FixedLenFeature([], tf.int64),
-                    'width': tf.FixedLenFeature([], tf.int64),
                     'num_regions':  tf.FixedLenFeature([], tf.int64),
                     'num_features':  tf.FixedLenFeature([], tf.int64),
-                    'dim1_rois':  tf.FixedLenFeature([], tf.int64),
-                    'rois': tf.FixedLenFeature([5*self.num_rois],tf.float32),
                     'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),
                     'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
-                    'label' : tf.FixedLenFeature([self.num_classes],tf.float32),
-                    'name_img' : tf.FixedLenFeature([],tf.string)}
+                    'label' : tf.FixedLenFeature([self.num_classes],tf.float32)}
         parsed = tf.parse_single_example(record, keys_to_features)
         
         # Cast label data into int32
@@ -561,16 +565,13 @@ class tf_MI_max():
     def parser_w_rois(self,record):
         # Perform additional preprocessing on the parsed data.
         keys_to_features={
-                    'height': tf.FixedLenFeature([], tf.int64),
-                    'width': tf.FixedLenFeature([], tf.int64),
                     'num_regions':  tf.FixedLenFeature([], tf.int64),
                     'num_features':  tf.FixedLenFeature([], tf.int64),
-                    'dim1_rois':  tf.FixedLenFeature([], tf.int64),
                     'rois': tf.FixedLenFeature([5*self.num_rois],tf.float32),
                     'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),
                     'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
-                    'label' : tf.FixedLenFeature([self.num_classes],tf.float32),
-                    'name_img' : tf.FixedLenFeature([],tf.string)}
+                    'label' : tf.FixedLenFeature([self.num_classes],tf.float32)
+                    }
         parsed = tf.parse_single_example(record, keys_to_features)
         
         # Cast label data into int32
@@ -709,7 +710,10 @@ class tf_MI_max():
         if(self.Optimizer == 'GradientDescent'):
             optimizer_local = tf.train.GradientDescentOptimizer(self.LR) 
         elif(self.Optimizer == 'Momentum'):
-            optimizer_local = tf.train.MomentumOptimizer(self.optimArg['learning_rate'],self.optimArg['momentum']) 
+            if self.optimArg is None:
+                optimizer_local = tf.train.MomentumOptimizer(self.LR) 
+            else:
+                optimizer_local = tf.train.MomentumOptimizer(self.optimArg['learning_rate'],self.optimArg['momentum']) 
         elif(self.Optimizer == 'Adam'):
             if self.optimArg is None:
                 optimizer = tf.train.AdamOptimizer(self.LR) # Default value  : beta1=0.9,beta2=0.999,epsilon=1e-08, maybe epsilon should be 0.1 or 1
@@ -828,6 +832,9 @@ class tf_MI_max():
         if self.storeLossValues:
             if self.verbose: print("This will save the loss function and vectors values.")
             self.storeVectors  = True
+        if self.AddOneLayer:
+            if self.restarts_paral=='Dim' or self.restarts_paral=='paral' or self.class_indice==-1:
+                raise(NotImplemented)
         if self.restarts_paral=='Dim':
             self.restarts_paral_Dim = True
         elif self.restarts_paral=='paral':
@@ -1238,7 +1245,9 @@ class tf_MI_max():
                     loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
             
         else:
-            # TODO faire le parallele sur les W
+            if self.AddOneLayer:
+                W0 = tf.Variable(tf.random_normal([self.num_features,self.num_features], stddev=1.),name="W0")
+                b0=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.), name="b0")
             W=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights")
             b=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
             if test_version_sup('1.8'):
@@ -1246,7 +1255,14 @@ class tf_MI_max():
             else:
                 normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0)) 
             W=tf.reshape(W,(1,1,self.num_features))
-            Prod=tf.reduce_sum(tf.multiply(W,X_),axis=2)+b
+            if self.AddOneLayer:
+                embed = tf.reshape(X_, [-1, self.num_features])
+                h = tf.matmul(embed, W0)
+                h = tf.reshape(h, [-1, self.num_rois,self.num_features])
+                denselayer = tf.nn.relu(tf.add(h,b0))
+                Prod=tf.reduce_sum(tf.multiply(W,denselayer),axis=2)+b
+            else:
+                Prod=tf.reduce_sum(tf.multiply(W,X_),axis=2)+b
             if self.with_scores: Prod=tf.multiply(Prod,tf.add(scores_,self.epsilon))
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
@@ -1259,7 +1275,15 @@ class tf_MI_max():
             Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio)) # Sum on all the positive exemples 
             loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.multiply(W,W))))
             
-            Prod_batch=tf.reduce_sum(tf.multiply(W,X_batch),axis=2)+b
+            
+            if self.AddOneLayer:
+                embed_batch = tf.reshape(X_batch, [-1, self.num_features])
+                h_batch = tf.matmul(embed_batch, W0)
+                h_batch = tf.reshape(h_batch, [-1, self.num_rois,self.num_features])
+                denselayer_batch = tf.nn.relu(tf.add(h_batch,b0))
+                Prod_batch=tf.reduce_sum(tf.multiply(W,denselayer_batch),axis=2)+b
+            else:
+                Prod_batch=tf.reduce_sum(tf.multiply(W,X_batch),axis=2)+b
             if self.with_scores: Prod_batch=tf.multiply(Prod_batch,tf.add(scores_batch,self.epsilon))
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
@@ -1281,7 +1305,10 @@ class tf_MI_max():
         if(self.Optimizer == 'GradientDescent'):
             optimizer = tf.train.GradientDescentOptimizer(self.LR) 
         elif(self.Optimizer == 'Momentum'):
-            optimizer = tf.train.MomentumOptimizer(self.optimArg['learning_rate'],self.optimArg['momentum']) 
+            if self.optimArg is None:
+                optimizer = tf.train.MomentumOptimizer(self.LR,0.9) 
+            else:
+                optimizer = tf.train.MomentumOptimizer(self.optimArg['learning_rate'],self.optimArg['momentum']) 
         elif(self.Optimizer == 'Adam'):
             if self.optimArg is None:
                 optimizer = tf.train.AdamOptimizer(self.LR) 
@@ -1310,8 +1337,10 @@ class tf_MI_max():
             
         sess = tf.Session(config=self.config)
 #        saver = tf.train.Saver()      
-        init_op = tf.group(W.initializer,b.initializer,tf.global_variables_initializer()\
+        init_op = tf.group(tf.global_variables_initializer()\
                            ,tf.local_variables_initializer())
+#        init_op = tf.group(W.initializer,b.initializer,tf.global_variables_initializer()\
+#                           ,tf.local_variables_initializer())
 #        sess.graph.finalize()   
         
         if self.storeVectors:
@@ -1992,6 +2021,7 @@ class tf_MI_max():
             return(export_dir)
 
         ## End we save the best w
+        self.bestloss = loss_value_min
         saver = tf.train.Saver()
         X_= tf.identity(X_, name="X")
         if self.norm=='L2':
@@ -2072,7 +2102,14 @@ class tf_MI_max():
                         Prod_best=tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
                                          ,b_best,name='Prod')
             else:
-                Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
+                if self.AddOneLayer:
+                    embed_ = tf.reshape(X_, [-1, self.num_features])
+                    h_ = tf.matmul(embed_, W0)
+                    h_ = tf.reshape(h_, [-1, self.num_rois,self.num_features])
+                    denselayer_ = tf.nn.relu(tf.add(h_,b0))
+                    Prod_best=tf.add(tf.reduce_sum(tf.multiply(W_best,denselayer_),axis=2),b,name='Prod')
+                else:
+                    Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
             if self.with_scores: 
                 Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
             elif self.seuillage_by_score:
@@ -2543,6 +2580,9 @@ class tf_MI_max():
         
     def set_C(self,new_C):
         self.C = new_C
+        
+    def get_bestloss(self):
+        return(self.bestloss)
 
 #def SGDClassifier(features, labels, mode, params):
 #    """Linear Classifier with hinge loss """
@@ -2754,8 +2794,9 @@ class ModelHyperplan():
         else:
             if class_indice==-1:
                 if self.restarts_paral_V2:
-                        Prod_best=tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
+                    Prod_best=tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
                                          ,b_best,name='Prod')
+                    print('Prod_best',Prod_best)
             else:
                 Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')             
             

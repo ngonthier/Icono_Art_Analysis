@@ -20,7 +20,7 @@ def ProducePDF():
     
     script_dir = os.path.dirname(__file__)
     path_file_results = os.path.join(script_dir,'MILbenchmark','Results','*.pkl')
-    nameTex = 'Results.tex'
+    nameTex = 'ResultsMI.tex'
     path_file_tex = os.path.join(script_dir,'MILbenchmark','Results','pdf')
     pathlib.Path(path_file_tex).mkdir(parents=True, exist_ok=True)
     path_file_tex = os.path.join(path_file_tex,nameTex)
