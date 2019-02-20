@@ -132,6 +132,7 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen=None,dataNorma
     if dataNormalizationWhen=='onTrainSet':
         pref_name_case += '_' +str(dataNormalization)
     filename = method + '_' + dataset + pref_name_case + '.pkl'
+    filename = filename.replace('MISVM','bigMISVM')
     path_file_results = os.path.join(script_dir,'MILbenchmark','Results')
     file_results = os.path.join(path_file_results,filename)
     pathlib.Path(path_file_results).mkdir(parents=True, exist_ok=True) # creation of the folder if needed
@@ -226,7 +227,8 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,data
     script_dir = os.path.dirname(__file__)
     if not(pref_name_case==''):
         pref_name_case = pref_name_case
-    filename = method + '_' + dataset + prefixName +pref_name_case + '.pkl'
+    filename = method + '_' + dataset + prefixName +pref_name_case +end_name + '.pkl'
+    filename = filename.replace('MISVM','bigMISVM')
     path_file_results = os.path.join(script_dir,'MILbenchmark','ResultsToy')
     file_results = os.path.join(path_file_results,filename)
     pathlib.Path(path_file_results).mkdir(parents=True, exist_ok=True) # creation of the folder if needed
@@ -314,6 +316,7 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormali
     if not(pref_name_case==''):
         pref_name_case = pref_name_case
     filename = method + '_' + dataset + pref_name_case + '.pkl'
+    filename = filename.replace('MISVM','bigMISVM')
     path_file_results = os.path.join(script_dir,'MILbenchmark','ResultsToy')
     file_results = os.path.join(path_file_results,filename)
     pathlib.Path(path_file_results).mkdir(parents=True, exist_ok=True) # creation of the folder if needed
@@ -448,6 +451,7 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
     if dataNormalizationWhen=='onTrainSet':
         filename += '_' +str(dataNormalization)
     filename += end_name + ".png"
+    filename = filename.replace('MISVM','bigMISVM')
     path_filename =os.path.join('MILbenchmark','ResultsToy',filename)
     
     x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
@@ -463,7 +467,7 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
         points.append(point)
 
     if method=='MIMAX':
-        opts_MIMAX = 1.0,False,None,99,0.01 # Attention tu utilise 100 vecteurs
+        opts_MIMAX = 1.0,False,None,11,0.01 # Attention tu utilise 100 vecteurs
         pred_bag_labels, pred_instance_labels,result,bestloss = train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,pointsPrediction=points,get_bestloss=True)
     else:
@@ -681,7 +685,7 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
         if get_bestloss:
             return(pred_bag_labels, pred_instance_labels,best_loss) 
         else:
-            return(pred_bag_labels, pred_instance_labels,best_loss) 
+            return(pred_bag_labels, pred_instance_labels) 
     else:
         if get_bestloss:
             return(pred_bag_labels, pred_instance_labels,points_instance_labels,best_loss)
@@ -879,7 +883,7 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
     classifierMI_max = tf_MI_max(LR=LR,restarts=restarts,is_betweenMinus1and1=True, \
                                  num_rois=size_biggest_bag,num_classes=1, \
                                  num_features=num_features,mini_batch_size=mini_batch_size, \
-                                 verbose=verbose,C=C,CV_Mode=CV_Mode,max_iters=300)
+                                 verbose=verbose,C=C,CV_Mode=CV_Mode,max_iters=300,debug=False)
     C_values =  np.logspace(-3,2,6,dtype=np.float32)
     classifierMI_max.set_C_values(C_values)
     export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
@@ -925,10 +929,10 @@ def ToyProblemRun():
     
     list_of_algo= ['LinearSISVM','miSVM','MISVM','SIXGBoost']
     overlap_tab = [False,True]
-    reDo = False
+    reDo = True
     for overlap in overlap_tab:
         for i in range(10):
-            end_name= '_Rep' + str(i)
+            end_name= '_Rep' + str(i) 
             fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',
                                        WR=0.01,verbose=True,reDo=reDo,
                                        dataNormalizationWhen='onTrainSet',dataNormalization='std',
@@ -965,7 +969,7 @@ if __name__ == '__main__':
 #    evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std',reDo=True,
 #             pref_name_case='test')
 #    evalPerf(method='miSVM',dataset='Newsgroups',reDo=False,verbose=False,dataNormalizationWhen='onTrainSet',dataNormalization='std')
-#    evalPerf(method='MISVM',dataset='Birds',reDo=False,verbose=False,dataNormalizationWhen='onTrainSet',dataNormalization='std')
+#    evalPerf(method='BigMISVM',dataset='Birds',reDo=False,verbose=False,dataNormalizationWhen='onTrainSet',dataNormalization='std')
 #    evalPerf(method='MISVM',dataset='SIVAL',reDo=False,verbose=False,dataNormalizationWhen='onTrainSet',dataNormalization='std')
 #    evalPerf(method='MISVM',dataset='Newsgroups',reDo=False,verbose=False)
 #    evalPerf(method='MISVM',dataset='Birds',reDo=False,verbose=False)
@@ -993,3 +997,4 @@ if __name__ == '__main__':
 #    evalPerfGaussianToy(method='LinearSISVM',dataset='GaussianToy',WR=0.01,verbose=True)
 #    evalPerfGaussianToy(method='LinearSISVM',dataset='GaussianToy',WR=0.003,verbose=True)
     ToyProblemRun()
+    BenchmarkRun()

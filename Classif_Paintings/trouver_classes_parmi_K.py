@@ -1350,7 +1350,7 @@ class tf_MI_max():
             
         if self.restarts_paral_Dim or self.restarts_paral_V2:
             if self.verbose : 
-                print('Start with the restarts in parallel')
+                print('Start with the restarts',self.restarts,' in parallel')
                 t0 = time.time()
             if self.storeLossValues:
                 if class_indice==-1:
@@ -1380,6 +1380,8 @@ class tf_MI_max():
                                 assert(np.min(list_elt)>= -2.0)
                             t5 = time.time()
                             print("duration loss eval :",str(t5-t4))
+                            print(list_elt.shape)
+                            print(np.min(list_elt))
                             print(list_elt)
                 elif self.Optimizer=='lbfgs':
                     maxcor = 30
@@ -1429,7 +1431,8 @@ class tf_MI_max():
                         b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
                         if self.restarts>0:
                             for j in range(self.num_classes):
-                                loss_value_j = loss_value[j:self.num_classes]
+                                loss_value_j = loss_value[j::self.num_classes]
+#                                print('loss_value_j',loss_value_j)
                                 argmin = np.argmin(loss_value_j,axis=0)
                                 loss_value_j_min = np.min(loss_value_j,axis=0)
                                 W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
@@ -1448,7 +1451,7 @@ class tf_MI_max():
                         W_best = np.zeros((self.numberWtoKeep,self.num_classes,self.num_features),dtype=np.float32)
                         b_best = np.zeros((self.numberWtoKeep,self.num_classes,1,1),dtype=np.float32)
                         for j in range(self.num_classes):
-                            loss_value_j = loss_value[j:self.num_classes]
+                            loss_value_j = loss_value[j::self.num_classes]
                             loss_value_j_sorted_ascending = np.argsort(loss_value_j)  # We want to keep the one with the smallest value 
                             index_keep = loss_value_j_sorted_ascending[0:self.numberWtoKeep]
                             for i,argmin in enumerate(index_keep):
@@ -1486,7 +1489,7 @@ class tf_MI_max():
                                 except tf.errors.OutOfRangeError:
                                     break
                             for j in range(self.num_classes):
-                                all_loss_value[j,step,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(loss_value[j:self.num_classes])
+                                all_loss_value[j,step,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(loss_value[j::self.num_classes])
                             
                     # Evaluation of the loss function
                     if class_indice==-1:
@@ -1508,7 +1511,7 @@ class tf_MI_max():
                     for j in range(self.num_classes):
                         Wstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W,:] = W_tmp[j:self.num_classes,:]
                         Bstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(b_tmp[j:self.num_classes])
-                        Lossstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(loss_value[j:self.num_classes])
+                        Lossstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(loss_value[j::self.num_classes])
             
                 
         else:
@@ -1894,12 +1897,11 @@ class tf_MI_max():
                     
                 if self.restarts_paral_Dim or self.restarts_paral_V2:
                     if self.verbose : 
-                        print('Start with the restarts in parallel')
+                        print('Start with the restarts',self.restarts,' in parallel')
                         t0 = time.time()
                     sess.run(init_op)
                     sess.run(shuffle_iterator.initializer)
                    
-                    
                     if self.Optimizer in ['GradientDescent','Momentum','Adam']:
                         for step in range(self.max_iters):
                             if self.debug: t2 = time.time()
@@ -1955,7 +1957,6 @@ class tf_MI_max():
                             print("bestloss",loss_value_min)
                             t1 = time.time()
                             print("durations :",str(t1-t0),' s')
-                            self.vo
                     elif self.restarts_paral_V2:
                          if (self.AggregW is None) or (self.AggregW==''):
                             loss_value_min = []
@@ -1963,7 +1964,7 @@ class tf_MI_max():
                             b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
                             if self.restarts>0:
                                 for j in range(self.num_classes):
-                                    loss_value_j = loss_value[j:self.num_classes]
+                                    loss_value_j = loss_value[j::self.num_classes]
                                     argmin = np.argmin(loss_value_j,axis=0)
                                     loss_value_j_min = np.min(loss_value_j,axis=0)
                                     W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
@@ -1982,7 +1983,7 @@ class tf_MI_max():
                             W_best = np.zeros((self.numberWtoKeep,self.num_classes,self.num_features),dtype=np.float32)
                             b_best = np.zeros((self.numberWtoKeep,self.num_classes,1,1),dtype=np.float32)
                             for j in range(self.num_classes):
-                                loss_value_j = loss_value[j:self.num_classes]
+                                loss_value_j = loss_value[j::self.num_classes]
                                 loss_value_j_sorted_ascending = np.argsort(loss_value_j)  # We want to keep the one with the smallest value 
                                 index_keep = loss_value_j_sorted_ascending[0:self.numberWtoKeep]
                                 for i,argmin in enumerate(index_keep):
@@ -2667,7 +2668,7 @@ class ModelHyperplan():
             if self.restarts>0:
                 for j in range(self.num_classes):
 #                    print(loss_value.shape)
-                    loss_value_j = loss_value[j:self.num_classes]
+                    loss_value_j = loss_value[j::self.num_classes]
 #                    print(loss_value_j)
 #                    print(loss_value_j.shape)
                     argmin = np.argmin(loss_value_j,axis=0)
@@ -2689,7 +2690,7 @@ class ModelHyperplan():
             W_best = np.zeros((self.numberWtoKeep,self.num_classes,self.num_features),dtype=np.float32)
             b_best = np.zeros((self.numberWtoKeep,self.num_classes,1,1),dtype=np.float32)
             for j in range(self.num_classes):
-                loss_value_j = loss_value[j:self.num_classes]
+                loss_value_j = loss_value[j::self.num_classes]
                 loss_value_j_sorted_ascending = np.argsort(loss_value_j)  # We want to keep the one with the smallest value 
                 index_keep = loss_value_j_sorted_ascending[0:self.numberWtoKeep]
                 for i,argmin in enumerate(index_keep):
