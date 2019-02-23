@@ -22,6 +22,7 @@ import time
 import multiprocessing
 from sparsemax import sparsemax
 import pickle
+import os
 # On genere des vecteurs selon deux distributions p1 et p2 dans R^n
 # On les regroupe par paquets de k vecteurs
 # Un paquet est positif si il contient un vecteur p1
@@ -912,7 +913,6 @@ class tf_mi_model():
                     self.paral_number_W = (self.restarts +1)*len(C_values)
                 self.numberOfWVectors = self.num_groups_ofW*self.paral_number_W
                 C_value_repeat = np.repeat(C_values,repeats=(self.paral_number_W_WithC*self.num_classes),axis=0)
-                print(C_value_repeat.shape)
                 if self.verbose:
                     print('Stored Vectors with',self.num_groups_ofW,'groups of',self.paral_number_W,'vectors per class')
 
@@ -996,14 +996,17 @@ class tf_mi_model():
         # Here we consider that all the rois of a bag are the label of the bag
         np_pos_value *= self.num_rois
         np_neg_value *= self.num_rois
+        
+        
             
         if self.norm=='STDall' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
             mean_train_set, std_train_set = self.compute_STD_all(X_batch_iterator,label_batch_iterator)
             
         self.np_pos_value = np_pos_value
         self.np_neg_value = np_neg_value
-        print('Tu dois changer les valeurs la, ca pourrait etre pas mal')
-        if self.verbose:print("Finished to compute the proportion of each label :",np_pos_value,np_neg_value)
+        if self.verbose:
+            print("Finished to compute the proportion of each label :",np_pos_value,np_neg_value)
+            print("Those value are not used in the evaluation of the loss on the train set")
        
         if self.CV_Mode=='CV':
             train_dataset_tmp = train_dataset_init.shard(self.num_split,0)
@@ -1083,6 +1086,9 @@ class tf_mi_model():
 #            #X_, y_ = shuffle_iterator.get_next()
         X_ = tf.placeholder(tf.float32, shape=(None,self.num_rois,self.num_features))
         y_ = tf.placeholder(tf.float32, shape=(None,self.num_classes))
+        
+        #            
+        
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
             scores_ = tf.placeholder(tf.float32, shape=(None,self.num_rois))
 
@@ -1113,6 +1119,9 @@ class tf_mi_model():
 #                latent_labels = tf.Variable(tf.ones([self.paral_number_W*self.num_classes,self.mini_batch_size,self.num_rois]), name="latent_variable")
                 loss_value_var = tf.Variable(tf.zeros([self.paral_number_W*self.num_classes]),name='loss_value_var')
 #                latent_labels = tf.placeholder(tf.float32,shape=(self.paral_number_W*self.num_classes,None,self.num_rois), name="latent_variable")
+                tile_np_pos_value_batch = tf.placeholder(tf.float32,shape=(self.paral_number_W*self.num_classes,1,1))
+                tile_np_neg_value_batch = tf.placeholder(tf.float32,shape=(self.paral_number_W*self.num_classes,1,1))
+
                 if test_version_sup('1.8'):
                     normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
                 else:
@@ -1173,11 +1182,26 @@ class tf_mi_model():
 #            elif self.Max_version=='sparsemax':
 #                Max=sparsemax(Prod,axis=-1,number_dim=3)
 #                if self.verbose: print('sparsemax',Max)   
+
+#            tile_np_pos_value_batch = tf.reshape(tf.tile(np_pos_value,[self.paral_number_W]),[self.paral_number_W*self.num_classes,1,1])
+#            tile_np_neg_value_batch = tf.reshape(tf.tile(np_neg_value,[self.paral_number_W]),[self.paral_number_W*self.num_classes,1,1])
+##            
+#            tile_np_pos_value = tf.reshape(tf.tile(np_pos_value,[self.paral_number_W]),[self.paral_number_W*self.num_classes,1,1])
+#            tile_np_neg_value = tf.reshape(tf.tile(np_neg_value,[self.paral_number_W]),[self.paral_number_W*self.num_classes,1,1])
+#            
+            if self.is_betweenMinus1and1:
+                tile_np_pos_value = tf.divide(tf.reduce_sum(tf.add(latent_labels,tf.constant(1.)),axis=[1,2]),tf.constant(2.))
+                tile_np_neg_value = tf.divide(tf.reduce_sum(tf.add(latent_labels,minus_1),axis=[1,2]),tf.constant(-2.))
+            else:
+                tile_np_pos_value = tf.reduce_sum(latent_labels,axis=[1,2])
+                tile_np_neg_value = -tf.reduce_sum(tf.add(latent_labels,minus_1),axis=[1,2])
             
-            tile_np_pos_value = tf.reshape(tf.tile(np_pos_value,[self.paral_number_W]),[self.paral_number_W*self.num_classes,1,1])
-            tile_np_neg_value = tf.reshape(tf.tile(np_neg_value,[self.paral_number_W]),[self.paral_number_W*self.num_classes,1,1])
-            # TODO : need to recompute the weights_bags_ratio
-            print("latent_labels",latent_labels)
+            tile_np_pos_value = tf.reshape(tile_np_pos_value,[self.paral_number_W*self.num_classes,1,1])
+            tile_np_neg_value = tf.reshape(tile_np_neg_value,[self.paral_number_W*self.num_classes,1,1])
+            
+#            print("tile_np_pos_value",tile_np_pos_value)
+#            # TODO : need to recompute the weights_bags_ratio
+#            print("latent_labels",latent_labels)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio = -tf.divide(tf.add(latent_labels,1.),tf.multiply(2.,tile_np_pos_value))\
                 + tf.divide(tf.add(latent_labels,-1.),tf.multiply(-2.,tile_np_neg_value))
@@ -1195,9 +1219,9 @@ class tf_mi_model():
 #            if not(self.obj_score_add_tanh or self.obj_score_mul_tanh):
 #                y_tilde_i = tf.tanh(Max)
 #            else:
-#                y_tilde_i = Max
-            print('weights_bags_ratio',weights_bags_ratio)
-            print('y_tilde_i',y_tilde_i)
+##                y_tilde_i = Max
+#            print('weights_bags_ratio',weights_bags_ratio)
+#            print('y_tilde_i',y_tilde_i)
             if self.loss_type == '' or self.loss_type is None:
                 Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=[-2,-1]) # Sum on all the positive exemples 
             else:
@@ -1262,13 +1286,13 @@ class tf_mi_model():
 #                Max_batch=sparsemax(Prod_batch,axis=-1,number_dim=3)
 
             if self.is_betweenMinus1and1:
-                weights_bags_ratio_batch = -tf.divide(tf.add(latent_labels_batch,1.),tf.multiply(2.,tile_np_pos_value)) \
-                + tf.divide(tf.add(latent_labels_batch,-1.),tf.multiply(-2.,tile_np_neg_value))
+                weights_bags_ratio_batch = -tf.divide(tf.add(latent_labels_batch,1.),tf.multiply(2.,tile_np_pos_value_batch)) \
+                + tf.divide(tf.add(latent_labels_batch,-1.),tf.multiply(-2.,tile_np_neg_value_batch))
                 # Need to add 1 to avoid the case 
                 # The wieght are negative for the positive exemple and positive for the negative ones !!!
             else:
-                weights_bags_ratio_batch = -tf.divide(latent_labels_batch,tile_np_pos_value) \
-                + tf.divide(-tf.add(latent_labels_batch,-1),tile_np_neg_value)    
+                weights_bags_ratio_batch = -tf.divide(latent_labels_batch,tile_np_pos_value_batch) \
+                + tf.divide(-tf.add(latent_labels_batch,-1),tile_np_neg_value_batch)    
             print(weights_bags_ratio)
 #            if self.restarts_paral_V2:
 #                weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
@@ -1378,11 +1402,17 @@ class tf_mi_model():
         #potential_label = -tf.divide(tf.multiply(tf.add(y_,1.),tf.sign(y_tilde_i)),tf.multiply(2.,np_pos_value)) + \
         #    tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
         # TODO Potential label a verifier
-
+#        print('y_',y_)
         y_tile = tf.tile(tf.reshape(tf.transpose(y_),[self.num_classes,-1,1]),[self.paral_number_W,1,self.num_rois])
-        potential_label = tf.multiply(tf.divide(tf.add(y_tile,tf.sign(y_tilde_i)),2.),y_tile)
+#        print('y_tile',y_tile)
+        
+        if self.is_betweenMinus1and1:
+#            y_tile_between0and1 =  tf.divide(tf.add(y_tile,tf.constant(1.)),tf.constant(2.))
+            potential_label = tf.sign(y_tilde_i)
+        else:
+            potential_label = tf.multiply(tf.divide(tf.add(y_tile,tf.sign(y_tilde_i)),2.),y_tile)
         assign_first_potential_label = tf.assign(latent_labels,y_tile,validate_shape=False)
-        print('potential_label',potential_label)
+#        print('potential_label',potential_label)
         
         # TODO : Il faudra unbalanced ailleurs
         assign_label_op = tf.assign(latent_labels,potential_label,validate_shape=False)
@@ -1390,14 +1420,14 @@ class tf_mi_model():
         
 #        index_argmax = tf.unravel_index(tf.argmax(latent_labels,axis=-1),dims=tf.shape(latent_labels))
 #        index_argmax = tf.expand_dims(tf.argmax(latent_labels,axis=-1),axis=-1)
-        print("latent_labels",latent_labels)
+#        print("latent_labels",latent_labels)
         index_argmax = tf.argmax(latent_labels,axis=-1)
-        print("index_argmax",index_argmax)
+#        print("index_argmax",index_argmax)
         local_size_batch = tf.placeholder(tf.int32,shape=())
         meshgrid = tf.meshgrid(tf.range(0,local_size_batch),tf.range(0,self.paral_number_W*self.num_classes))
-        print("meshgrid",meshgrid)
+#        print("meshgrid",meshgrid)
         meshgrid_plus_index = meshgrid + [tf.cast(index_argmax,tf.int32)]
-        print("meshgrid_plus_index",meshgrid_plus_index)
+#        print("meshgrid_plus_index",meshgrid_plus_index)
         coords = tf.stack(meshgrid_plus_index, axis=2)
         coords = tf.reshape(coords,(-1,3))
         updates = tf.reshape(tf.tile(y_,[self.paral_number_W,1]),[-1])
@@ -1405,9 +1435,9 @@ class tf_mi_model():
 #        updates = tf.reshape(tf.convert_to_tensor(tf.tile(y_,[self.paral_number_W,1])),[-1])
 #        print(updates.shape)
 #        updates = tf.tile(tf.reshape(y_,(self.mini_batch_size,)),[self.paral_number_W,])
-        print('latent_labels',latent_labels)
-        print('coords',coords)
-        print('updates',updates)
+#        print('latent_labels',latent_labels)
+#        print('coords',coords)
+#        print('updates',updates)
         assign_psotive_max_to_1_op = tf.scatter_nd_update(latent_labels,coords,updates)
 #        import tensorflow as tf
 #        import numpy as np
@@ -1427,7 +1457,12 @@ class tf_mi_model():
         
         # For batch evaluation 
         label_batch_tile = tf.tile(tf.reshape(tf.transpose(label_batch),[self.num_classes,-1,1]),[self.paral_number_W,1,self.num_rois])
-        potential_label_batch = tf.multiply(tf.divide(tf.add(label_batch_tile,tf.sign(y_tilde_i_batch)),2.),label_batch_tile)
+        if self.is_betweenMinus1and1:
+#            y_tile_batch_between0and1 =  tf.divide(tf.add(label_batch_tile,tf.constant(1.)),tf.constant(2.))
+#            potential_label_batch = tf.multiply(tf.divide(tf.add(y_tile_batch_between0and1,tf.sign(y_tilde_i_batch)),2.),y_tile_batch_between0and1)
+            potential_label_batch = tf.sign(y_tilde_i_batch)
+        else:
+            potential_label_batch = tf.multiply(tf.divide(tf.add(label_batch_tile,tf.sign(y_tilde_i_batch)),2.),label_batch_tile)
         assign_label_op_batch = tf.assign(latent_labels_batch,potential_label_batch,validate_shape=False) # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
         index_argmax_batch = tf.argmax(latent_labels_batch,axis=-1)
         local_size_batch_batch = tf.placeholder(tf.int32,shape=())
@@ -1546,13 +1581,51 @@ class tf_mi_model():
                         loss_value = np.zeros((self.paral_number_W,self.num_classes),dtype=np.float32)
                 else:
                     loss_value = np.zeros((self.paral_number_W,),dtype=np.float32)
+                    
+                # Compute the labels proportion per class and per vector
                 sess.run(iterator_batch.initializer)
-#                sess.run(assign_label_group_batch)
-                print("start computing the loss")
+                if self.is_betweenMinus1and1:
+                    add_np_pos = tf.divide(tf.reduce_sum(tf.add(latent_labels_batch,tf.constant(1.)),axis=[-2,-1]),tf.constant(2.))
+                    add_np_neg = tf.divide(tf.reduce_sum(tf.add(latent_labels_batch,minus_1),axis=[-2,-1]),tf.constant(-2.))
+                else:
+                    add_np_pos = tf.reduce_sum(latent_labels_batch,axis=[-2,-1])
+                    add_np_neg = -tf.reduce_sum(tf.add(latent_labels_batch,minus_1),axis=[-2,-1])
+
+                if self.class_indice==-1:
+                    np_pos_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
+                    np_neg_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
+                else:
+                    np_pos_value = np.zeros((self.paral_number_W,),dtype=np.float32)
+                    np_neg_value = np.zeros((self.paral_number_W,),dtype=np.float32)
                 while True:
                     try:
+                        if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
+                            X_batch_iterator_value,scores_batch_iterator_value,label_batch_iterator_value, \
+                                num_elt_batch_iterator_value = sess.run([X_batch_iterator,scores_batch_iterator,\
+                                label_batch_iterator,num_elt_batch_iterator])
+                            feed_dict_value_batch = {X_batch: X_batch_iterator_value, \
+                                label_batch: label_batch_iterator_value,\
+                                local_size_batch_batch:num_elt_batch_iterator_value.shape[0],\
+                                scores_batch: scores_batch_iterator_value}
+                        else:
+                            X_batch_iterator_value,label_batch_iterator_value,num_elt_batch_iterator_value =\
+                                sess.run([X_batch_iterator,label_batch_iterator,num_elt_batch_iterator])
+                            feed_dict_value_batch = {X_batch: X_batch_iterator_value, \
+                                label_batch: label_batch_iterator_value,\
+                                local_size_batch_batch:num_elt_batch_iterator_value.shape[0]}
                         
+                        sess.run(assign_label_op_batch,feed_dict_value_batch)
+                        sess.run(assign_psotive_max_to_1_op_batch,feed_dict_value_batch)
+                        np_pos_value += sess.run(add_np_pos)#, feed_dict = {label_vector:latent_labels_batch_value_updated})
+                        np_neg_value += sess.run(add_np_neg)#, feed_dict = {label_vector:latent_labels_batch_value_updated})
+                        break
+                    except tf.errors.OutOfRangeError:
+                        break
 
+                sess.run(iterator_batch.initializer)
+
+                while True:
+                    try:
                         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
                             X_batch_iterator_value,scores_batch_iterator_value,label_batch_iterator_value, \
                                 num_elt_batch_iterator_value = sess.run([X_batch_iterator,scores_batch_iterator,\
@@ -1563,7 +1636,9 @@ class tf_mi_model():
                             feed_dict_value_batch = {X_batch: X_batch_iterator_value, \
                                 label_batch: label_batch_iterator_value,\
                                 local_size_batch_batch:num_elt_batch_iterator_value.shape[0],\
-                                scores_batch: scores_batch_iterator_value}
+                                scores_batch: scores_batch_iterator_value,
+                                tile_np_pos_value_batch: np_pos_value.reshape(-1,1,1),
+                                tile_np_neg_value_batch: np_neg_value.reshape(-1,1,1)}
                         else:
                             X_batch_iterator_value,label_batch_iterator_value,num_elt_batch_iterator_value =\
                                 sess.run([X_batch_iterator,label_batch_iterator,num_elt_batch_iterator])
@@ -1571,14 +1646,13 @@ class tf_mi_model():
 #                                sess.run([X_batch_iterator,label_batch_iterator])
                             feed_dict_value_batch = {X_batch: X_batch_iterator_value, \
                                 label_batch: label_batch_iterator_value,\
-                                local_size_batch_batch:num_elt_batch_iterator_value.shape[0]}
+                                local_size_batch_batch:num_elt_batch_iterator_value.shape[0],
+                                tile_np_pos_value_batch: np_pos_value.reshape(-1,1,1),
+                                tile_np_neg_value_batch: np_neg_value.reshape(-1,1,1)}
                         
                         sess.run(assign_label_op_batch,feed_dict_value_batch)
-                        print('label_batch',label_batch_iterator_value.shape)
-                        print('X_batch',X_batch_iterator_value.shape)
                         sess.run(assign_psotive_max_to_1_op_batch,feed_dict_value_batch)
                         loss_value += sess.run(loss_batch,feed_dict_value_batch)
-                        print('loss_value',loss_value)
                         
                         #                        sess.run(assign_on_batch_eval_loss,feed_dict_value_batch)
 #                        loss_value += sess.run(loss_value_var,feed_dict_value_batch)
@@ -1587,8 +1661,16 @@ class tf_mi_model():
                     except tf.errors.OutOfRangeError:
                         break
                 
+                if np.isnan(loss_value).any():
+                    if np.isnan(loss_value).all():
+                        print('Big problem we can not select the maximum because all the element of the loss are nan !')
+                        return(0)
+                    loss_value[np.isnan(loss_value)]=np.inf
+                    if self.verbose: print('Replace nan element in loss',loss_value)
+                
                 W_tmp=sess.run(W)
                 b_tmp=sess.run(b)
+                
                 if self.restarts_paral_Dim:
                     argmin = np.argmin(loss_value,axis=0)
                     loss_value_min = np.min(loss_value,axis=0)
@@ -1776,6 +1858,7 @@ class tf_mi_model():
             return(export_dir)
 
         ## End we save the best w
+        self.bestloss = loss_value_min
         saver = tf.train.Saver()
         X_= tf.identity(X_, name="X")
         if self.norm=='L2':
@@ -1866,10 +1949,9 @@ class tf_mi_model():
             elif self.obj_score_mul_tanh:
                 Prod_score=tf.multiply(scores_,Prod_best,name='ProdScore')
                 
-
-        export_dir = ('/').join(data_path.split('/')[:-1])
-        export_dir += '/MI_max/' + str(time.time())
-        name_model = export_dir + '/model'
+        head, tail =  os.path.split(data_path)
+        export_dir = os.path.join(head,'MI_max',str(time.time()))
+        name_model = os.path.join(export_dir,'model')
         saver.save(sess,name_model)
         
         sess.close()
@@ -2340,6 +2422,9 @@ class tf_mi_model():
 
     def set_C_values(self,new):
         self.C_values = new
+    
+    def get_bestloss(self):
+        return(self.bestloss)
 
 #def SGDClassifier(features, labels, mode, params):
 #    """Linear Classifier with hinge loss """

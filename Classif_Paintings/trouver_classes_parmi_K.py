@@ -7,7 +7,6 @@ Created on Sun Feb  4 09:47:54 2018
 """
 
 import tensorflow as tf
-import tf_old
 import numpy as np
 npt=np.float32
 tft=np.float32
@@ -23,6 +22,7 @@ import time
 import multiprocessing
 from sparsemax import sparsemax
 import pickle
+import os
 # On genere des vecteurs selon deux distributions p1 et p2 dans R^n
 # On les regroupe par paquets de k vecteurs
 # Un paquet est positif si il contient un vecteur p1
@@ -2120,7 +2120,6 @@ class tf_MI_max():
             elif self.obj_score_mul_tanh:
                 Prod_score=tf.multiply(scores_,Prod_best,name='ProdScore')
                 
-        import os
         head, tail =  os.path.split(data_path)
         export_dir = os.path.join(head,'MI_max',str(time.time()))
         name_model = os.path.join(export_dir,'model')
