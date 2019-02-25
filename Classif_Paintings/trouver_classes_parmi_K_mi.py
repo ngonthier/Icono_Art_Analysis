@@ -1116,6 +1116,10 @@ class tf_mi_model():
                 latent_labels.set_shape((self.paral_number_W*self.num_classes,None,self.num_rois))
                 latent_labels_batch = tf.Variable(tf.ones([self.paral_number_W*self.num_classes,self.mini_batch_size,self.num_rois]), name="latent_variable_batch",validate_shape=False)
                 latent_labels_batch.set_shape((self.paral_number_W*self.num_classes,None,self.num_rois))
+                potental_latent_labels = tf.Variable(tf.ones([self.paral_number_W*self.num_classes,self.mini_batch_size,self.num_rois]), name="latent_variable",validate_shape=False)
+                potental_latent_labels.set_shape((self.paral_number_W*self.num_classes,None,self.num_rois))
+                potental_latent_labels_batch = tf.Variable(tf.ones([self.paral_number_W*self.num_classes,self.mini_batch_size,self.num_rois]), name="latent_variable_batch",validate_shape=False)
+                potental_latent_labels_batch.set_shape((self.paral_number_W*self.num_classes,None,self.num_rois))
 #                latent_labels = tf.Variable(tf.ones([self.paral_number_W*self.num_classes,self.mini_batch_size,self.num_rois]), name="latent_variable")
                 loss_value_var = tf.Variable(tf.zeros([self.paral_number_W*self.num_classes]),name='loss_value_var')
 #                latent_labels = tf.placeholder(tf.float32,shape=(self.paral_number_W*self.num_classes,None,self.num_rois), name="latent_variable")
@@ -1293,7 +1297,7 @@ class tf_mi_model():
             else:
                 weights_bags_ratio_batch = -tf.divide(latent_labels_batch,tile_np_pos_value_batch) \
                 + tf.divide(-tf.add(latent_labels_batch,-1),tile_np_neg_value_batch)    
-            print(weights_bags_ratio)
+#            print(weights_bags_ratio)
 #            if self.restarts_paral_V2:
 #                weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
 ##                y_long_pm1_batch =  tf.tile(tf.transpose(tf.add(tf.multiply(label_batch,2),-1),[1,0]), [self.paral_number_W,1])
@@ -1403,31 +1407,35 @@ class tf_mi_model():
         #    tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
         # TODO Potential label a verifier
 #        print('y_',y_)
-        y_tile = tf.tile(tf.reshape(tf.transpose(y_),[self.num_classes,-1,1]),[self.paral_number_W,1,self.num_rois])
+#        y_tile = tf.tile(tf.reshape(tf.transpose(y_),[self.num_classes,-1,1]),[self.paral_number_W,1,self.num_rois])
+        y_tile = tf.tile(tf.reshape(y_,[self.num_classes,-1,1]),[self.paral_number_W,1,self.num_rois])
 #        print('y_tile',y_tile)
         
         if self.is_betweenMinus1and1:
 #            y_tile_between0and1 =  tf.divide(tf.add(y_tile,tf.constant(1.)),tf.constant(2.))
-            potential_label = tf.sign(y_tilde_i)
+            potential_label = tf.add(tf.multiply(tf.divide(tf.add(y_tile,tf.constant(1.)),tf.constant(2.)),tf.sign(y_tilde_i)),tf.multiply(tf.divide(tf.add(-y_tile,tf.constant(1.)),tf.constant(2.)),tf.constant(-1.)))
         else:
             potential_label = tf.multiply(tf.divide(tf.add(y_tile,tf.sign(y_tilde_i)),2.),y_tile)
         assign_first_potential_label = tf.assign(latent_labels,y_tile,validate_shape=False)
 #        print('potential_label',potential_label)
         
         # TODO : Il faudra unbalanced ailleurs
-        assign_label_op = tf.assign(latent_labels,potential_label,validate_shape=False)
+        
         # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
         
 #        index_argmax = tf.unravel_index(tf.argmax(latent_labels,axis=-1),dims=tf.shape(latent_labels))
 #        index_argmax = tf.expand_dims(tf.argmax(latent_labels,axis=-1),axis=-1)
 #        print("latent_labels",latent_labels)
-        index_argmax = tf.argmax(latent_labels,axis=-1)
-#        print("index_argmax",index_argmax)
+        index_argmax = tf.argmax(y_tilde_i,axis=-1)
+        print("index_argmax",index_argmax)
+        print('latent_labels',latent_labels)
+        print('self.paral_number_W*self.num_classes',self.paral_number_W*self.num_classes)
+        print('self.mini_batch_size',self.mini_batch_size)
         local_size_batch = tf.placeholder(tf.int32,shape=())
-        meshgrid = tf.meshgrid(tf.range(0,local_size_batch),tf.range(0,self.paral_number_W*self.num_classes))
-#        print("meshgrid",meshgrid)
+        meshgrid = tf.meshgrid(tf.range(0,self.paral_number_W*self.num_classes),tf.range(0,local_size_batch),indexing='ij')
+        print("meshgrid",meshgrid)
         meshgrid_plus_index = meshgrid + [tf.cast(index_argmax,tf.int32)]
-#        print("meshgrid_plus_index",meshgrid_plus_index)
+        print("meshgrid_plus_index",meshgrid_plus_index)
         coords = tf.stack(meshgrid_plus_index, axis=2)
         coords = tf.reshape(coords,(-1,3))
         updates = tf.reshape(tf.tile(y_,[self.paral_number_W,1]),[-1])
@@ -1438,7 +1446,10 @@ class tf_mi_model():
 #        print('latent_labels',latent_labels)
 #        print('coords',coords)
 #        print('updates',updates)
-        assign_psotive_max_to_1_op = tf.scatter_nd_update(latent_labels,coords,updates)
+        assign_potental_latent_labels = tf.assign(potental_latent_labels,potential_label,validate_shape=False)
+        assign_psotive_max_to_1_op = tf.scatter_nd_update(potental_latent_labels,coords,updates)
+        
+        assign_label_op = tf.assign(latent_labels,potental_latent_labels,validate_shape=False)
 #        import tensorflow as tf
 #        import numpy as np
 #        ref = tf.Variable(np.random.uniform(size=(4,5,6)),dtype=tf.float32)
@@ -1451,7 +1462,7 @@ class tf_mi_model():
 #        a = sess.run(update)
 #        print(a)
 
-        assign_label_then_train = tf.group(assign_label_op,assign_psotive_max_to_1_op,train)
+        assign_label_then_train = tf.group(assign_potental_latent_labels,assign_psotive_max_to_1_op,assign_label_op,train)
         
         # TODO : problem here it seems to get 3 different get_next instead of only one ! 
         
@@ -1460,18 +1471,21 @@ class tf_mi_model():
         if self.is_betweenMinus1and1:
 #            y_tile_batch_between0and1 =  tf.divide(tf.add(label_batch_tile,tf.constant(1.)),tf.constant(2.))
 #            potential_label_batch = tf.multiply(tf.divide(tf.add(y_tile_batch_between0and1,tf.sign(y_tilde_i_batch)),2.),y_tile_batch_between0and1)
-            potential_label_batch = tf.sign(y_tilde_i_batch)
+#            potential_label_batch = tf.sign(y_tilde_i_batch)
+            potential_label_batch = tf.add(tf.multiply(tf.divide(tf.add(label_batch_tile,tf.constant(1.)),tf.constant(2.)),tf.sign(y_tilde_i_batch)),tf.multiply(tf.divide(tf.add(-label_batch_tile,tf.constant(1.)),tf.constant(2.)),tf.constant(-1.)))
         else:
             potential_label_batch = tf.multiply(tf.divide(tf.add(label_batch_tile,tf.sign(y_tilde_i_batch)),2.),label_batch_tile)
-        assign_label_op_batch = tf.assign(latent_labels_batch,potential_label_batch,validate_shape=False) # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
-        index_argmax_batch = tf.argmax(latent_labels_batch,axis=-1)
+        index_argmax_batch = tf.argmax(y_tilde_i_batch,axis=-1)
         local_size_batch_batch = tf.placeholder(tf.int32,shape=())
-        coords_batch = tf.stack(tf.meshgrid(tf.range(0,local_size_batch_batch),tf.range(0,self.paral_number_W*self.num_classes))\
+        coords_batch = tf.stack(tf.meshgrid(tf.range(0,self.paral_number_W*self.num_classes),tf.range(0,local_size_batch_batch), indexing='ij')\
                           + [tf.cast(index_argmax_batch,tf.int32)], axis=2)
         coords_batch = tf.reshape(coords_batch,(-1,3))
         updates_batch = tf.reshape(tf.tile(label_batch,[self.paral_number_W,1]),[-1])
-        assign_psotive_max_to_1_op_batch = tf.scatter_nd_update(latent_labels_batch,coords_batch,updates_batch)
-        assign_label_group_batch = tf.group(assign_label_op_batch,assign_psotive_max_to_1_op_batch)
+        assign_potental_latent_labels_batch = tf.assign(potental_latent_labels_batch,potential_label_batch,validate_shape=False)        
+        assign_psotive_max_to_1_op_batch = tf.scatter_nd_update(potental_latent_labels_batch,coords_batch,updates_batch)
+        assign_label_op_batch = tf.assign(latent_labels_batch,potental_latent_labels_batch,validate_shape=False) # On peut se retrouver ici avec que des labels negatifs pour les exemple positifs
+        
+        assign_label_group_batch = tf.group(assign_potental_latent_labels_batch,assign_psotive_max_to_1_op_batch,assign_label_op_batch)
         
         loss_batch_assign = tf.assign(loss_value_var,loss_batch)
         
@@ -1547,13 +1561,19 @@ class tf_mi_model():
 #                   
                     # tf.group seams not to work ! 
                     if not(step==0):
+                        print('before assign',sess.run(latent_labels).shape,sess.run(latent_labels))
+                        print('coords',sess.run(coords,feed_dict_value))
+                        print('updates',sess.run(updates,feed_dict_value))
+                        sess.run(assign_potental_latent_labels,feed_dict_value) # This action is on the potential labels vector
+                        sess.run(assign_psotive_max_to_1_op,feed_dict_value) # This action is on the potential labels vector
                         sess.run(assign_label_op,feed_dict_value)
-                        sess.run(assign_psotive_max_to_1_op,feed_dict_value)
+                        print('after assign',sess.run(latent_labels).shape,sess.run(latent_labels))
                     else: # Step == 0 
                         # For the first step, we need to find a way to assign the label
                         # one solution is to give the label of the bag to the instance
                         # TODO : an other solution is to assign what the algo decide
                         sess.run(assign_first_potential_label,feed_dict_value)
+                        print('first assign',sess.run(latent_labels))
                     
                     
                     sess.run(train,feed_dict_value)
@@ -1614,8 +1634,10 @@ class tf_mi_model():
                                 label_batch: label_batch_iterator_value,\
                                 local_size_batch_batch:num_elt_batch_iterator_value.shape[0]}
                         
-                        sess.run(assign_label_op_batch,feed_dict_value_batch)
+                        sess.run(assign_potental_latent_labels_batch,feed_dict_value_batch)
                         sess.run(assign_psotive_max_to_1_op_batch,feed_dict_value_batch)
+                        sess.run(assign_label_op_batch,feed_dict_value_batch)
+                        
                         np_pos_value += sess.run(add_np_pos)#, feed_dict = {label_vector:latent_labels_batch_value_updated})
                         np_neg_value += sess.run(add_np_neg)#, feed_dict = {label_vector:latent_labels_batch_value_updated})
                         break
@@ -1650,10 +1672,12 @@ class tf_mi_model():
                                 tile_np_pos_value_batch: np_pos_value.reshape(-1,1,1),
                                 tile_np_neg_value_batch: np_neg_value.reshape(-1,1,1)}
                         
-                        sess.run(assign_label_op_batch,feed_dict_value_batch)
+                        sess.run(assign_potental_latent_labels_batch,feed_dict_value_batch)
                         sess.run(assign_psotive_max_to_1_op_batch,feed_dict_value_batch)
-                        loss_value += sess.run(loss_batch,feed_dict_value_batch)
+                        sess.run(assign_label_op_batch,feed_dict_value_batch)
                         
+                        loss_value += sess.run(loss_batch,feed_dict_value_batch)
+                        print('loss_value',loss_value)
                         #                        sess.run(assign_on_batch_eval_loss,feed_dict_value_batch)
 #                        loss_value += sess.run(loss_value_var,feed_dict_value_batch)
                         # seems not working

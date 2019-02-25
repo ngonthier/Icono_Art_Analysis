@@ -9,7 +9,7 @@ import numpy as np
 
 npt=np.float32
 
-def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True):
+def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True,Between01=False):
     """
     
     La premiere feature est décalé pour obtenir une classe différente
@@ -22,6 +22,7 @@ def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True):
     np1=20 # Number of positive bag
     np2=200 # Number of negative bag
     overlap=True 
+    @param : Between01 : if True the label of the class are 0-1 and not -1 and +1
     """
     
     np.random.seed(19680801)
@@ -50,7 +51,10 @@ def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True):
     
     def gen_paquet_p1(N=np1):
         tab=np.zeros((k,n),dtype=npt)
-        instances_labels = -np.ones(shape=(k,),dtype=npt)
+        if Between01:
+            instances_labels = -np.zeros(shape=(k,),dtype=npt)
+        else:
+            instances_labels = -np.ones(shape=(k,),dtype=npt)
         positive_instance_index = np.random.choice(k, number_of_positive)
         for i in range(k):
             if (i in positive_instance_index):
@@ -83,14 +87,19 @@ def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True):
     # Generation of the negative bags
     for i in range(np2):
         bags += [gen_paquet_p2()]
-        labels_bags += [np.array(-1.)]
-        labels_instance += [-1.*np.ones(shape=(k,))]
+        
+        if Between01:
+            labels_bags += [np.array(0.,dtype=npt)]
+            labels_instance += [np.zeros(shape=(k,),dtype=npt)]
+        else:
+            labels_bags += [np.array(-1.,dtype=npt)]
+            labels_instance += [-1.*np.ones(shape=(k,),dtype=npt)]
     
     # Generation of the positive bags
     for j in range(np1):
         tab,instances_labels = gen_paquet_p1()
         bags += [tab]
-        labels_bags += [np.array(1.)]
+        labels_bags += [np.array(1.,dtype=npt)]
         labels_instance += [instances_labels]
     
 #    print(data_p1.shape) #(200, 30, 2048)

@@ -1060,3 +1060,4 @@ if __name__ == '__main__':
 #    evalPerfGaussianToy(method='LinearSISVM',dataset='GaussianToy',WR=0.003,verbose=True)
     ToyProblemRun()
     BenchmarkRun()
+    # Tester avec des labels 0-1 
