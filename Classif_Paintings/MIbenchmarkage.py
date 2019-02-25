@@ -215,8 +215,8 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,data
     k = 100
     np_pos = 50
     np_neg = 250 
-#    np_pos = 2 
-#    np_neg = 4 
+#    np_pos = 4
+#    np_neg = 6
     
     Dataset=createGaussianToySets(WR=WR,n=n,k=k,np1=np_pos,np2=np_neg,overlap=overlap)
     list_names,bags,labels_bags,labels_instance = Dataset
@@ -466,8 +466,8 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
         point = np.array([xx[i, j], yy[i, j]]).reshape(1, 2)
         points.append(point)
 
-    if method=='MIMAX':
-        opts_MIMAX = 1.0,False,None,11,0.01 # Attention tu utilise 100 vecteurs
+    if method in['MIMAX','IA_mi_model']:
+        opts_MIMAX = 1.0,False,None,49,0.01 # Attention tu utilise 100 vecteurs
         pred_bag_labels, pred_instance_labels,result,bestloss = train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,pointsPrediction=points,get_bestloss=True)
     else:
@@ -519,12 +519,12 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
     plt.xlim(x_min, x_max)
     plt.ylim(y_min, y_max)
     titlestr = 'Classification for ' +method+' AUC: {0:.2f}, UAR: {1:.2f}, F1 : {2:.2f}'.format(mPerf[2],mPerf[1],mPerf[0])
-    if method=='MIMAX':
+    if method in['MIMAX','IA_mi_model']:
         titlestr += ' BL : {0:.2f}'.format(bestloss[0])
     plt.title(titlestr)
     plt.savefig(path_filename)
+    plt.show()
     plt.close()
-    
 
     return(perf,perfB)
 
@@ -939,7 +939,6 @@ def trainIA_mi_model(bags_train, labels_bags_c_train,data_path_train,size_bigges
         C,C_Searching,CV_Mode,restarts,LR = opts_MIMAX
     else:
         C,C_Searching,CV_Mode,restarts,LR = 1.0,False,None,11,0.01
-
     classifierIA_mi = tf_mi_model(LR=LR,C=C,restarts=restarts,num_rois=size_biggest_bag,
                        max_iters=300,verbose=verbose,mini_batch_size=mini_batch_size,
                        num_features=num_features,debug=False,num_classes=1,CV_Mode=CV_Mode,
@@ -1013,8 +1012,8 @@ def ToyProblemRun():
             
 def BenchmarkRun():
     
-    datasets = ['Birds','Newsgroups','SIVAL']
-    list_of_algo= ['MIMAX','LinearSISVM','SIXGBoost','miSVM','MISVM']
+    datasets = ['Birds','Newsgroups']
+    list_of_algo= ['MIMAX','LinearSISVM','IA_mi_model','SIXGBoost','miSVM','MISVM']
     
     for method in list_of_algo:
         for dataset in datasets:
