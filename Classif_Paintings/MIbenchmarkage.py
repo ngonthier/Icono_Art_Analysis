@@ -1013,10 +1013,19 @@ def ToyProblemRun():
 def BenchmarkRun():
     
     datasets = ['Birds','Newsgroups']
-    list_of_algo= ['MIMAX','LinearSISVM','IA_mi_model','SIXGBoost','miSVM','MISVM']
+    list_of_algo= ['MIMAX','IA_mi_model']
     
     for method in list_of_algo:
         for dataset in datasets:
+            print('==== ',method,dataset,' ====')
+            for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
+                evalPerf(method=method,dataset=dataset,reDo=False,verbose=False,
+                         dataNormalizationWhen=dataWhen,dataNormalization=dataNorm)
+        
+    list_of_algo= ['LinearSISVM','SIXGBoost','miSVM','MISVM']
+    for method in list_of_algo:
+        for dataset in datasets:
+            print('==== ',method,dataset,' ====')
             evalPerf(method=method,dataset=dataset,reDo=False,verbose=False,
                      dataNormalizationWhen='onTrainSet',dataNormalization='std')
 

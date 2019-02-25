@@ -484,7 +484,6 @@ class tf_mi_model():
         # Cast label data into int32
         label = parsed['label']
         num_elt = tf.shape(label)[0]
-        print(num_elt)
         #tf.Print(label,[label])
         label = tf.slice(label,[self.class_indice],[1])
         label = tf.squeeze(label) # To get a vector one dimension
@@ -510,7 +509,6 @@ class tf_mi_model():
         # Cast label data into int32
         label = parsed['label']
         num_elt = tf.shape(label)[0]
-        print(num_elt)
         roi_scores = parsed['roi_scores']
         label = tf.slice(label,[self.class_indice],[1])
         label = tf.squeeze(label) # To get a vector one dimension
@@ -539,7 +537,6 @@ class tf_mi_model():
         # Cast label data into int32
         label = parsed['label']
         num_elt = tf.shape(label)[0]
-        print(num_elt)
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
         return fc7, label,num_elt
@@ -554,7 +551,6 @@ class tf_mi_model():
         # Cast label data into int32
         label = parsed['label']
         num_elt = tf.shape(label)[0]
-        print(num_elt)
         roi_scores = parsed['roi_scores']
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
@@ -578,7 +574,6 @@ class tf_mi_model():
         # Cast label data into int32
         label = parsed['label']
         num_elt = tf.shape(label)[0]
-        print(num_elt)
         name_img = parsed['name_img']
         label = tf.slice(label,[self.class_indice],[1])
         label = tf.squeeze(label) # To get a vector one dimension
@@ -603,7 +598,6 @@ class tf_mi_model():
         # Cast label data into int32
         label = parsed['label']
         num_elt = tf.shape(label)[0]
-        print(num_elt)
         label_300 = tf.tile(label,[self.num_rois])
         mei = parsed['mei']
         fc7 = parsed['fc7']

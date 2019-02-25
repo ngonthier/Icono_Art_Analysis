@@ -239,11 +239,11 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         nms_thresh = 0.7
         savedstr = '_all'
         # TODO improve that
-        if not('IconArt' in database):
-            database_local = database
-        else:
-            database_local = 'IconArt'
-        name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database_local+'_N'+str(N)+extL2+ \
+#        if not('IconArt' in database):
+#            database_local = database
+#        else:
+#            database_local = 'IconArt'
+        name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+ \
             '_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
            
         features_resnet_dict = {}
@@ -306,7 +306,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             if database=='VOC2007' : imdb = get_imdb('voc_2007_test')
             if database=='watercolor' : imdb = get_imdb('watercolor_test')
             if database=='clipart' : imdb = get_imdb('clipart_test')
-            if database=='IconArt_v1' : imdb = get_imdb('IconArt_test')
+            if database=='IconArt_v1' : imdb = get_imdb('IconArt_v1_test')
             imdb.set_force_dont_use_07_metric(True)
             num_images = len(imdb.image_index)
         else:
@@ -337,7 +337,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             y_val = classes_vectors[df_label['set']==str_val,:]
 #            X_trainval = np.append(X_train,X_val,axis=0)
             y_trainval =np.append(y_train,y_val,axis=0).astype(np.float32)
-            names = df_label.as_matrix(columns=['name_img'])
+            names = df_label.as_matrix(columns=[item_name])
             name_train = names[df_label['set']=='train']
             name_val = names[df_label['set']==str_val]
             name_all_test =  names[df_label['set']=='test']
@@ -498,12 +498,18 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                         print('UnboundLocalError')
                         raise(UnboundLocalError)
                 
-            if normalisation == True:
-                if verbose: print('Normalisation, never tested')
+            if (normalisation == True) or PCAuse:
+                if verbose: print('Normalisation of the data (X-mean)/std')
                 scaler = StandardScaler()
-                scaler.fit(X_trainval_select.reshape(-1,size_output))
-                X_trainval_select = scaler.transform(X_trainval_select.reshape(-1,size_output))
-                X_trainval_select = X_trainval_select.reshape(-1,k_per_bag,size_output)
+                scaler.fit(X_trainval_all)
+                X_trainval_all = scaler.transform(X_trainval_all)
+                X_trainval_select = scaler.transform(X_trainval_select)
+
+                if baseline_kind in ['miSVM','MISVM']:
+                    X_trainval_select_neg = scaler.transform(X_trainval_select_neg)
+                    for k in range(len(X_trainval_select_pos)):
+                        X_trainval_select_pos[k] = scaler.transform(X_trainval_select_pos[k])
+
                  
             # PCA evaluation
             if PCAuse :
@@ -675,7 +681,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     dict_clf[j] = dict_clf[jtest]
         
         #Load test set 
-        if baseline_kind == 'MAXA':
+        if baseline_kind in ['MAXA']:
             #del features_resnet_dict
             with open(name_pkl, 'rb') as pkl:
                 for i,name_img in  enumerate(df_label[item_name]):
@@ -715,8 +721,11 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     fc7 = np.array(bag)
                  
                 if PCAuse:
+                    fc7 = scaler.transform(fc7)
                     fc7 = pca.transform(fc7)
                     fc7 = fc7[:,0:number_composant]
+                if normalisation:
+                    fc7 = scaler.transform(fc7)
                     
                 f_test[key_test] = fc7
                 roi_test[key_test] = rois
@@ -737,10 +746,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     raise(NotImplemented)
 #                    decision_function_output = classifier_trained.decision_function(X_test[k,:,:])
                 else:
-                    if normalisation:
-                        elt_k =  scaler.transform(f_test[k])
-                    else:
-                        elt_k = f_test[k]
+                    elt_k = f_test[k]
                     decision_function_output = classifier_trained.decision_function(elt_k)
                 
                 y_predict_confidence_score_classifier[k]  = np.max(decision_function_output)
@@ -823,7 +829,15 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                         for j in range(1, imdb.num_classes):
                             keep = np.where(all_boxes_order[j][i][:, -1] >= image_thresh)[0]
                             all_boxes_order[j][i] = all_boxes_order[j][i][keep, :]
-            det_file = os.path.join(path_data, 'detections.pkl')
+            det_name_file = 'Detect_Baseline_'+database+'_'+baseline_kind
+            if normalisation:
+                det_name_file += '_Normed'
+            if baseline_kind in ['MISVM','miSVM']:
+                det_name_file += '_r'+str(restarts) +'_m'+str(max_iter)
+            if PCAuse:
+                det_name_file += '_PCAc'+str(number_composant)
+            det_name_file += '.pkl'
+            det_file = os.path.join(path_data, det_name_file)
             with open(det_file, 'wb') as f:
                 pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
             output_dir = path_data +'tmp/' + database + '/'
@@ -844,26 +858,62 @@ if __name__ == '__main__':
 #                        normalisation= False,baseline_kind = 'SISVM',verbose = True,
 #                        gridSearch=True,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
 #                        restarts=10,max_iter=100)
-   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-                        normalisation= False,baseline_kind = 'miSVM',verbose = True,
-                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.75,
-                        restarts=1,max_iter=3)
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-#                        normalisation= False,baseline_kind = 'MISVM',verbose = True,
-#                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
-#                        restarts=10,max_iter=100)
-#   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-#                        normalisation= False,baseline_kind = 'MISVM',verbose = True,
-#                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.75,
-#                        restarts=10,max_iter=100)
-#   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
 #                        normalisation= False,baseline_kind = 'SISVM',verbose = True,
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
-#                        restarts=10,max_iter=100)
-#   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
+#                        restarts=10,max_iter=50)
+#   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+#                        normalisation= False,baseline_kind = 'MISVM',verbose = True,
+#                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+#                        restarts=10,max_iter=50)
+#   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+#                        normalisation= False,baseline_kind = 'miSVM',verbose = True,
+#                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+#                        restarts=10,max_iter=50)
+#   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
 #                        normalisation= False,baseline_kind = 'MISVM',verbose = True,
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
 #                        restarts=10,max_iter=100)
+   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+                        normalisation= False,baseline_kind = 'SISVM',verbose = True,
+                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+                        restarts=10,max_iter=50)
+   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+                        normalisation= False,baseline_kind = 'MAX1',verbose = True,
+                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+                        restarts=10,max_iter=50)
+   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+                        normalisation= False,baseline_kind = 'MAXA',verbose = True,
+                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+                        restarts=10,max_iter=50)
+   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+                        normalisation= False,baseline_kind = 'MISVM',verbose = True,
+                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+                        restarts=10,max_iter=50)
+   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+                        normalisation= False,baseline_kind = 'miSVM',verbose = True,
+                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+                        restarts=10,max_iter=50)
+   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
+                        normalisation= False,baseline_kind = 'SISVM',verbose = True,
+                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+                        restarts=10,max_iter=50)
+   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
+                        normalisation= False,baseline_kind = 'MAX1',verbose = True,
+                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+                        restarts=10,max_iter=50)
+   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
+                        normalisation= False,baseline_kind = 'MAXA',verbose = True,
+                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+                        restarts=10,max_iter=50)
+#   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
+#                        normalisation= False,baseline_kind = 'MISVM',verbose = True,
+#                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+#                        restarts=10,max_iter=50)
+#   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
+#                        normalisation= False,baseline_kind = 'miSVM',verbose = True,
+#                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+#                        restarts=10,max_iter=50)
 #
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
 #                        normalisation= False,baseline_kind = 'miSVM',verbose = True,

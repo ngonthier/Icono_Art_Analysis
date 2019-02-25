@@ -57,12 +57,15 @@ def ProducePDF():
     listOFmetrics = ['UAR','F1','AUC']
     listOFmetrics_index = [1,0,2]
     
+    print(sorted(dictOfSels.keys()))
+    
     for dataset in sorted(dictOfSels.keys()):
-        list_classes = getClassesNames(dataset)
+        if dataset in ['Newsgroups', 'SIVAL']:
+            list_classes = sorted(getClassesNames(dataset))
+        else:
+            list_classes = getClassesNames(dataset)
         methods = dictOfSels[dataset].keys()
-        print(methods)
-        methods0 = list(methods)[0]
-        print(methods0)
+#        print(methods)
         for metric,indexmetric in zip(listOFmetrics,listOFmetrics_index):
             main += '\\begin{table}[h!] \n'
             captionstr = '\\caption{\\label{tab'+dataset+metric+'} '+ dataset+' ' + metric+' (\%)} \n'
@@ -83,11 +86,12 @@ def ProducePDF():
                 method_modified = method_modified.replace('_','\\_')
     #            method_modified  = method_modified.replace(dataset_Underscore,'')
                 line0 += method_modified
+                print(sorted(list_classes))
                 for i,classe in enumerate(list_classes):
                     try:
                         perf,_ = dictOfSels[dataset][method][classe]
-                        print(perf[0])
-                        print(perf[1])
+#                        print(perf[0])
+#                        print(perf[1])
                         mPerf = perf[0]
                         stdPerf = perf[1]
                         metricvalue = 100*mPerf[indexmetric]
