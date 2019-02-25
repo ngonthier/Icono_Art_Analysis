@@ -523,7 +523,7 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
         titlestr += ' BL : {0:.2f}'.format(bestloss[0])
     plt.title(titlestr)
     plt.savefig(path_filename)
-    plt.show()
+    plt.close()
     
 
     return(perf,perfB)
@@ -1058,5 +1058,5 @@ if __name__ == '__main__':
 
 #    evalPerfGaussianToy(method='LinearSISVM',dataset='GaussianToy',WR=0.01,verbose=True)
 #    evalPerfGaussianToy(method='LinearSISVM',dataset='GaussianToy',WR=0.003,verbose=True)
-    ToyProblemRun()
+#    ToyProblemRun()
     BenchmarkRun()
