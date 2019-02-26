@@ -13,7 +13,7 @@ from ..model.config import cfg
 try:
 	from ..nms.gpu_nms import gpu_nms
 except ImportError:
-	fg.USE_GPU_NMS = False
+	cfg.USE_GPU_NMS = False
 
 try:
 	from ..nms.cpu_nms import cpu_nms
