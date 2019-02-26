@@ -213,11 +213,13 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         Not_on_NicolasPC = False
         if not(os.path.exists(path_data)):
             Not_on_NicolasPC = True
+            print('you are not on the Nicolas PC, so I think you have the data in the data folder')
             path_data_tab = path_data.split('/')
             path_to_img_tab = path_to_img.split('/')
             path_tmp = 'data' 
             path_to_img = path_tmp + '/'+path_to_img_tab[-2] +'/'
             path_data = path_tmp + '/'+path_data_tab[-2] +'/'
+            path_data_csvfile = path_data
         
         databasetxt = path_data_csvfile + database + ext    
         if database=='VOC2007' or database=='watercolor':
