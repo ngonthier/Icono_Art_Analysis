@@ -906,6 +906,7 @@ def BaselineRunAll():
     
   
 if __name__ == '__main__':
+    BaselineRunAll()
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
 #                        normalisation= False,baseline_kind = 'SISVM',verbose = True,
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
