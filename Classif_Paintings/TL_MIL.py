@@ -2076,7 +2076,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     @param : C  :  Regularisation term for the optimizer in the MI_max 
     @param : Optimizer  : Optimizer for the MI_max GradientDescent or Adam
     @param : norm : normalisation of the data or not : possible : None or ''
-            'L2' : normalisation L2 or 'STDall' : Standardisation on all data 
+            'L2' : normalisation L2 or 'STD_all' : Standardisation on all data 
             'STD' standardisation by feature maps
     @param : restarts_paral : run several W vecteur optimisation in parallel 
             two versions exist 'Dim','paral'
@@ -2170,6 +2170,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
         classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
                     'Mary','nudity', 'ruins','Saint_Sebastien','turban']
+    elif(database=='IconArt_v1'):
+            ext='.csv'
+            item_name='item'
+            classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+            'Mary','nudity', 'ruins','Saint_Sebastien']
+            path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
     elif database=='clipart':
         ext = '.csv'
         item_name = 'name_img'
@@ -2204,7 +2210,13 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         
     
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
-    databasetxt =path_data + database + ext
+    
+    if database=='IconArt_v1':
+        path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+    else:
+        path_data_csvfile = path_data
+    
+    databasetxt =path_data_csvfile + database + ext
     if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
         dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
                       'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
@@ -2324,8 +2336,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     else: seuillage_by_score_str = ''
     if norm=='L2':
         extNorm = '_L2'
-    elif norm=='STDall':
-        extNorm = '_STDall'
+    elif norm=='STD_all':
+        extNorm = '_STD_all'
     elif norm=='STDSaid':
         extNorm = '_STDSaid'
     elif norm=='STD':
@@ -2522,6 +2534,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         imdb = get_imdb('clipart_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         num_images = len(imdb.image_index) 
+    elif database=='IconArt_v1' :
+        imdb = get_imdb('IconArt_v1_test')
+        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+#        num_images = len(imdb.image_index) 
+        num_images =  len(df_label[df_label['set']=='test'][item_name])
     elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
         imdb = get_imdb('WikiTenLabels_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
@@ -2663,7 +2680,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                all_boxes=all_boxes,with_tanh=with_tanh)
                   
             # Regroupement des informations    
-            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
                 name_all_test = df_label[df_label['set']=='test'].as_matrix([item_name])
                 #print(name_all_test)
                 #print(name_all_test.shape)
@@ -2687,7 +2704,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         pickle.dump(name_milsvm, f)
     
     # Detection evaluation
-    if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+    if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
         if testMode:
             for j in range(0, imdb.num_classes-1):
                 if not(j==jtest):
@@ -2697,7 +2714,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         with open(det_file, 'wb') as f:
             pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
         max_per_image = 100
-        num_images_detect = len(imdb.image_index)  # We do not have the same number of images in the WikiTenLabels case
+        num_images_detect = len(imdb.image_index)  # We do not have the same number of images in the WikiTenLabels or IconArt_v1 case
         all_boxes_order = [[[] for _ in range(num_images_detect)] for _ in range(imdb.num_classes)]
         number_im = 0
         for i in range(num_images_detect):
@@ -2767,7 +2784,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     param_name,path_data_file,file_param = \
     create_param_id_file_and_dir(path_data+'/SauvParam/',arrayParam,arrayParamStr)
     
-    if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+    if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
         write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class),aps,np.mean(aps)],
                       ['classes','AP_per_class','mAP Classif','AP detection','mAP detection'])
         return(apsAt05,apsAt01,AP_per_class)
@@ -2889,6 +2906,9 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      # LinearSVC_MAXPos : use all the regions of negatives examples and the max for positives
      # LinearSVC_Seuil : select of the regions for the negative and with a threshold for the positive
      PlotRegions,RPN,Stocha,CompBest=parameters # TOFO modify that you have a redundancy for PlotRegions
+
+     if predict_with=='mi_model':
+         predict_with='MI_max'
 
      if obj_score_add_tanh or obj_score_mul_tanh:
         scoreInMI_max =True
@@ -3076,13 +3096,13 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         for k in range(len(labels)):
                             if index_im > number_im:
                                 continue
-                            if database in ['VOC2007','watercolor','Paintings','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+                            if database in ['IconArt_v1','VOC2007','watercolor','Paintings','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                                 name_img = str(name_imgs[k].decode("utf-8") )
                             else:
                                 name_img = name_imgs[k]
                             rois = roiss[k,:]
                             #if verbose: print(name_img)
-                            if database in ['VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt','WikiLabels1000training','MiniTrain_WikiTenLabels']:
+                            if database in ['IconArt_v1','VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt','WikiLabels1000training','MiniTrain_WikiTenLabels']:
                                 complet_name = path_to_img + name_img + '.jpg'
                                 name_sans_ext = name_img
                             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -3554,7 +3574,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     
                 #print(PositiveExScoreAll.shape)
                 for k in range(len(labels)):
-                    if database in ['VOC2007','watercolor','Paintings','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training'] :
+                    if database in ['IconArt_v1','VOC2007','watercolor','Paintings','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training'] :
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
                     else:
                          complet_name = path_to_img + name_imgs[k] + '.jpg'
@@ -3593,7 +3613,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     i+=1
     
                 for l in range(len(name_imgs)): 
-                    if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+                    if database in ['IconArt_v1','VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                         name_all_test += [[str(name_imgs[l].decode("utf-8"))]]
                     else:
                         name_all_test += [[name_imgs[l]]]
@@ -3607,12 +3627,12 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     for k in range(len(labels)):   
                         if ii > number_im:
                             continue
-                        if  database in ['VOC2007','Paintings','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+                        if  database in ['IconArt_v1','VOC2007','Paintings','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                             name_img = str(name_imgs[k].decode("utf-8") )
                         else:
                             name_img = name_imgs[k]
                         rois = roiss[k,:]
-                        if database in ['VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+                        if database in ['IconArt_v1','VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                             complet_name = path_to_img + name_img + '.jpg'
                             name_sans_ext = name_img
                         elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -3801,7 +3821,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                                 name_img = str(name_imgs[k].decode("utf-8") )
                                 rois = roiss[k,:]
                                 #if verbose: print(name_img)
-                                if database=='VOC12' or database=='Paintings' or database=='VOC2007' or database =='watercolor':
+                                if database in ['VOC12','Paintings','VOC2007','watercolor','IconArt_v1']:
                                     complet_name = path_to_img + name_img + '.jpg'
                                     name_sans_ext = name_img
                                 elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -3907,7 +3927,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                             name_img = str(name_imgs[k].decode("utf-8") )
                             rois = roiss[k,:]
                             #if verbose: print(name_img)
-                            if database=='VOC12' or database=='Paintings' or database=='VOC2007' or database =='watercolor' or database=='WikiTenLabels':
+                            if database in['IconArt_v1','VOC12','Paintings','VOC2007','watercolor','WikiTenLabels']:
                                 complet_name = path_to_img + name_img + '.jpg'
                                 name_sans_ext = name_img
                             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -4024,6 +4044,9 @@ def detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Painting
 #        item_name = 'image'
 #        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
         classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']    
+    elif(database=='IconArt_v1'):
+        classes = ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+            'Mary','nudity', 'ruins','Saint_Sebastien']    
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
 #    databasetxt =path_data + database + '.txt'
 #    df_label = pd.read_csv(databasetxt,sep=",")
@@ -7511,36 +7534,36 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
 #                              plot_onSubSet=['bicycle', 'bird', 'car', 'cat', 'dog', 'person']) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
                               verbose = True,testMode = False,jtest = 'cow',
                               PlotRegions = False,saved_clf=False,RPN=False,
                               CompBest=False,Stocha=True,k_per_bag=300,
                               parallel_op=True,CV_Mode='',num_split=2,
                               WR=True,init_by_mean =None,seuil_estimation='',
                               restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                              C=1.0,Optimizer='GradientDescent',norm='',
+                              C=1.0,Optimizer='GradientDescent',norm='STD_all',
                               transform_output='tanh',with_rois_scores_atEnd=False,
                               with_scores=False,epsilon=0.01,restarts_paral='paral',
                               Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
                               k_intopk=1,C_Searching=False,predict_with='MI_max',
                               gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
                               thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
-                              loss_type='',storeVectors=True,storeLossValues=True)
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
-                          verbose = True,testMode = False,jtest = 'cow',
-                          PlotRegions = False,saved_clf=False,RPN=False,
-                          CompBest=False,Stocha=True,k_per_bag=300,
-                          parallel_op=True,CV_Mode='',num_split=2,
-                          WR=True,init_by_mean =None,seuil_estimation='',
-                          restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                          C=1.0,Optimizer='GradientDescent',norm='',
-                          transform_output='tanh',with_rois_scores_atEnd=False,
-                          with_scores=True,epsilon=0.01,restarts_paral='paral',
-                          Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-                          k_intopk=1,C_Searching=False,predict_with='MI_max',
-                          gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                          thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
-                          loss_type='',storeVectors=True,storeLossValues=True) 
+                              loss_type='',storeVectors=False,storeLossValues=False)
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
+#                          verbose = True,testMode = False,jtest = 'cow',
+#                          PlotRegions = False,saved_clf=False,RPN=False,
+#                          CompBest=False,Stocha=True,k_per_bag=300,
+#                          parallel_op=True,CV_Mode='',num_split=2,
+#                          WR=True,init_by_mean =None,seuil_estimation='',
+#                          restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                          C=1.0,Optimizer='GradientDescent',norm='',
+#                          transform_output='tanh',with_rois_scores_atEnd=False,
+#                          with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                          Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                          k_intopk=1,C_Searching=False,predict_with='MI_max',
+#                          gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                          thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
+#                          loss_type='',storeVectors=True,storeLossValues=True) 
     
     ## Test of mi_model ! mi_model a finir !! 
     # A faire : faire en sorte que les npos et nneg soit recalcules pour chaque batch. 

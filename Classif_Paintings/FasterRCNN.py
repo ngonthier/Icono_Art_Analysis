@@ -1724,6 +1724,9 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             classes = ["bicycle", "bird","car", "cat", "dog", "person"]
         if database=='PeopleArt':
             classes = ["person"]
+        if database=='IconArt_v1':
+            classes = ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+            'Mary','nudity', 'ruins','Saint_Sebastien']
     
     Itera = 1000
     for i,name_img in  enumerate(df_label[item_name]):
@@ -1824,7 +1827,6 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 for j in range(num_classes):
                     value = int(df_label[classes[j]][i])
                     classes_vectors[j] = value
-            
             #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
             if saved=='fc7':
                 print('It is possible that you need to replace _bytes_feature by _floats_feature in this function')
@@ -1872,7 +1874,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     dict_writers['trainval'].write(example.SerializeToString())
                 elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
                     dict_writers['test'].write(example.SerializeToString())
-            if database in ['watercolor','clipart','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['watercolor','clipart','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
                 if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
                     dict_writers['train'].write(example.SerializeToString())
                     dict_writers['trainval'].write(example.SerializeToString())
