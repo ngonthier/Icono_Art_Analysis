@@ -17,8 +17,7 @@ from sklearn.svm import LinearSVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import KFold
-from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score
-import time
+#from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score
 import multiprocessing
 from sparsemax import sparsemax
 import pickle
@@ -796,7 +795,7 @@ class tf_MI_max():
         W and bias b by a optimisation on a classification task on the mean 
         on all the regions of the image, = None, 'First' or 'All'
         @param : norm : normalisation of the data or not : possible : None or ''
-            'L2' : normalisation L2 or 'STDall' : Standardisation on all data 
+            'L2' : normalisation L2 or 'STD_all' : Standardisation on all data 
             'STD' standardisation by feature maps
         @param : performance : boolean use or not of optimize function for 
         shuffle and repeat TF dataset
@@ -982,7 +981,7 @@ class tf_MI_max():
               except tf.errors.OutOfRangeError:
                 break
             
-        if self.norm=='STDall' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
+        if self.norm=='STD_all' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
             mean_train_set, std_train_set = self.compute_STD_all(X_batch,iterator_batch)
             
         self.np_pos_value = np_pos_value
@@ -1644,7 +1643,7 @@ class tf_MI_max():
                   except tf.errors.OutOfRangeError:
                     break
                 
-            if self.norm=='STDall' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
+            if self.norm=='STD_all' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
                 mean_train_set, std_train_set = self.compute_STD_all(X_batch,iterator_batch)
                 
             self.np_pos_value = np_pos_value

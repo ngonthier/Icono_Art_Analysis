@@ -17,10 +17,9 @@ from sklearn.svm import LinearSVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import KFold
-from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score
-import time
+#from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score
 import multiprocessing
-from sparsemax import sparsemax
+#from sparsemax import sparsemax
 import pickle
 import os
 # On genere des vecteurs selon deux distributions p1 et p2 dans R^n
@@ -319,6 +318,7 @@ class tf_mi_model():
 #                  votingW=False,proportionToKeep=0.25,votingWmedian=False):
         # TODOD enelver les trucs inutiles ici
         # TODO faire des tests unitaire sur les differentes parametres
+        # TODO : faire un cas ou les latent_label peuvent etre modifies par la descente de gradient
         """
         @param LR : Learning rate : pas de gradient de descente [default: 0.01]
         @param C : the loss/regularization tradeoff constant [default: 1.0]

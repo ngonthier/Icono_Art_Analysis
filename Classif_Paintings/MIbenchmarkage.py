@@ -1014,6 +1014,7 @@ def BenchmarkRun():
     
     datasets = ['Birds','Newsgroups']
     list_of_algo= ['MIMAX','IA_mi_model']
+    # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
     
     for method in list_of_algo:
         for dataset in datasets:
