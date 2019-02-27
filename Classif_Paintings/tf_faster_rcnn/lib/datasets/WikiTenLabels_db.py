@@ -21,7 +21,7 @@ import subprocess
 import uuid
 from ..datasets.voc_eval import voc_eval
 from ..model.config import cfg
-
+import pathlib
 
 class WikiTenLabels_db(imdb):
   def __init__(self, _image_db,image_set, use_diff=False,devkit_path=None,test_ext=False,
@@ -216,6 +216,7 @@ class WikiTenLabels_db(imdb):
         continue
       print('Writing {} VOC results file'.format(cls))
       filename = self._get_voc_results_file_template().format(cls)
+      pathlib.Path(filename).mkdir(parents=True, exist_ok=True)
       with open(filename, 'wt') as f:
         for im_ind, index in enumerate(self.image_index):
           dets = all_boxes[cls_ind][im_ind]
