@@ -198,12 +198,15 @@ def getDataset(dataset=None):
 
     if 'SIVALfull'==dataset:
         Dataset = ExtractSIVAL()
-    if 'SIVAL'==dataset:
+    elif 'SIVAL'==dataset:
         Dataset = ExtractSubsampledSIVAL() # Subsampled version
-    if 'Birds'==dataset:
+    elif 'Birds'==dataset:
         Dataset = ExtractBirds()
-    if 'Newsgroups'==dataset:
+    elif 'Newsgroups'==dataset:
         Dataset = ExtractNewsgroups()
+    else:
+        print(dataset,'is unknown')
+        return(0)
 
     return Dataset 
 

@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore")
 from MILbenchmark.utils import getDataset,normalizeDataSetFull,getMeanPref,\
     getTest_and_Train_Sets,normalizeDataSetTrain,getClassifierPerfomance
 from MILbenchmark.Dataset.GaussianToy import createGaussianToySets
-from sklearn.model_selection import KFold,StratifiedKFold
+from sklearn.model_selection import KFold,StratifiedKFold,StratifiedShuffleSplit
 import numpy as np
 import pathlib
 import shutil
@@ -25,17 +25,27 @@ from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import itertools
+from scipy.stats.stats import pearsonr 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL']='3' # 1 to remove info, 2 to remove warning and 3 for all
 import tensorflow as tf
 
-from trouver_classes_parmi_K import tf_MI_max
+from trouver_classes_parmi_K import tf_MI_max,ModelHyperplan
 from trouver_classes_parmi_K_mi import tf_mi_model
 import pickle
 
 
 list_of_ClassicalMI = ['miSVM','SIL','SISVM','LinearSISVM','MIbyOneClassSVM',\
                        'SIXGBoost','MISVM']
+
+path_tmp = '/media/HDD/output_exp/ClassifPaintings/tmp/'
+if not(os.path.exists(path_tmp)):
+    path_tmp = 'tmp'
+# test if the folder need exist :    
+path_needed = os.path.join(path_tmp,'MI_max')
+pathlib.Path(path_needed).mkdir(parents=True, exist_ok=True)
+path_needed = os.path.join(path_tmp,'MI_max_StoredW')
+pathlib.Path(path_needed).mkdir(parents=True, exist_ok=True)
 
 def EvaluationOnALot_ofParameters(dataset):
     """
@@ -188,6 +198,134 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen=None,dataNorma
             print('-------------------------------------------------------------')
             results[c] = [perf,perfB]
         pickle.dump(results,open(file_results,'bw'))
+        
+def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std',
+             reDo=True,opts_MIMAX=None,pref_name_case='',verbose=True):
+    """
+    The goal of this function is to draw the histogram of the value of the loss function 
+    and the performance on a specific split of the dataset  
+    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM 
+    @param : dataset = Newsgroups, Bird or SIVAL
+    @param : dataNormalizationWhen : moment of the normalization of the data, 
+        None = no normalization, onAllSet doing on all the set, onTrainSet 
+    @param : dataNormalization : kind of normalization possible : std, var or 0-1
+    @param : reDo : it will erase the results file
+    @param : opts_MIMAX optimion for the MIMAX (i.e.  C,C_Searching,CV_Mode,restarts,LR)
+    @param : pref_name_case prefixe of the results file name
+    @param : verbose : print some information
+    """
+
+    if verbose: print('Start evaluation performance on ',dataset,'method :',method)
+
+    if dataNormalization==None: dataNormalizationWhen=None
+
+    script_dir = os.path.dirname(__file__)
+    if not(pref_name_case==''):
+        pref_name_case = pref_name_case
+    if dataNormalizationWhen=='onTrainSet':
+        pref_name_case += '_' +str(dataNormalization)
+    filename = method + 'PlotDistrib_' + dataset + pref_name_case + '.pkl'
+    filename = filename.replace('MISVM','bigMISVM')
+    path_file_results = os.path.join(script_dir,'MILbenchmark','Results')
+    file_results = os.path.join(path_file_results,filename)
+    pathlib.Path(path_file_results).mkdir(parents=True, exist_ok=True) # creation of the folder if needed
+    if reDo:
+        results = {}
+    else:
+        try:
+            results = pickle.load(open(file_results,'br'))
+        except FileNotFoundError:
+            results = {}
+            
+    Dataset=getDataset(dataset)
+    list_names,bags,labels_bags,labels_instance = Dataset
+    numberofW_to_keep = 1
+    number_of_reboots = 120
+    for c_i,c in enumerate(list_names):
+        if not(c in results.keys()):
+            # Loop on the different class, we will consider each group one after the other
+            if verbose: print("Start evaluation for class :",c)
+            labels_bags_c = labels_bags[c_i]
+            labels_instance_c = labels_instance[c_i]
+            if dataset in ['Newsgroups','SIVAL']:
+                bags_c = bags[c_i]
+            else:
+                bags_c = bags
+                
+            if dataNormalizationWhen=='onAllSet':
+                bags_c = normalizeDataSetFull(bags_c,dataNormalization)
+
+            numMetric = 4
+        
+            size_biggest_bag = 0
+            for elt in bags_c:
+                size_biggest_bag = max(size_biggest_bag,len(elt))
+            if dataset=='SIVAL':
+                num_features = bags_c[0][0].shape[1]
+            else:
+                num_features = bags_c[0].shape[1]
+                
+            mini_batch_size_max = 2000 # Maybe this value can be update depending on your GPU memory size
+            opts = dataset,mini_batch_size_max,num_features,size_biggest_bag
+            if dataset=='SIVAL':
+                num_sample = 5
+                perfObj=np.empty((num_sample,number_of_reboots,numMetric))
+                perfObjB=np.empty((num_sample,number_of_reboots,numMetric))
+                loss_values=np.empty((num_sample,number_of_reboots,))
+                for k in range(num_sample):
+                    labels_bags_c_k = labels_bags_c[k]
+                    labels_instance_c_k = labels_instance_c[k]
+                    bags_k = bags_c[k]
+                    perfObj_k,perfObjB_k,loss_values_k = computePerfMImaxAllW(method,numberofW_to_keep,number_of_reboots,
+                                    numMetric,bags_k,labels_bags_c_k,labels_instance_c_k,opts,
+                                    dataNormalizationWhen,dataNormalization,opts_MIMAX=None,verbose=False,
+                                    test_size=0.1)
+                    perfObj[k,:,:] = perfObj_k
+                    perfObjB[k,:,:] = perfObjB_k
+                    loss_values[k,:,:] = loss_values_k
+            else:
+                perfObj,perfObjB,loss_values = computePerfMImaxAllW(method,numberofW_to_keep,number_of_reboots,numMetric,bags_c,labels_bags_c,labels_instance_c,opts,
+                                                                    dataNormalizationWhen,dataNormalization,opts_MIMAX=None,verbose=False,
+                                                                    test_size=0.1)
+            data = [loss_values]
+            data +=[perfObj[:,0]]
+            data +=[perfObj[:,1]]
+            data +=[perfObj[:,2]]
+            corrLossF1 = pearsonr(loss_values,perfObj[:,0])[0]
+            corrLossAUC = pearsonr(loss_values,perfObj[:,1])[0]
+            corrLossUAR = pearsonr(loss_values,perfObj[:,2])[0]
+
+            yaxes = ['loss','F1','UAR','AUC']
+            titles = []
+            titles += ['Loss function']
+            titles += ['Corr with F1 : {0:.2f}'.format(corrLossF1)]
+            titles += ['Corr with AUC : {0:.2f}'.format(corrLossAUC)]
+            titles += ['Corr with UAR : {0:.2f}'.format(corrLossUAR)]
+            
+            f,a = plt.subplots(2,2)
+            a = a.ravel()
+            for idx,ax in enumerate(a):
+                ax.hist(data[idx])
+                ax.set_title(titles[idx])
+                ax.set_ylabel(yaxes[idx])
+            plt.tight_layout()
+            
+            titlestr = 'Distribution of Loss Function for ' +c+' in '+dataset+' with best over'+str(numberofW_to_keep) +'W' 
+            plt.suptitle(titlestr)
+            script_dir = os.path.dirname(__file__)
+            filename = method + '_' + dataset +'_' +c +pref_name_case 
+            if dataNormalizationWhen=='onTrainSet':
+                filename += '_' +str(dataNormalization)
+            filename += '_W'+ str(numberofW_to_keep)+".png"
+            filename = filename.replace('MISVM','bigMISVM')
+            path_filename =os.path.join(script_dir,'MILbenchmark','Results','Hist',filename)
+            head,tail = os.path.split(path_filename)
+            pathlib.Path(head).mkdir(parents=True, exist_ok=True) 
+            plt.savefig(path_filename)
+#            plt.show()
+            plt.close()
+            
+
  
 def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormalizationWhen=None,dataNormalization=None,
              reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False,
@@ -594,6 +732,100 @@ def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c
                 perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
                 fold += 1
     return(perfObj,perfObjB)
+    
+def computePerfMImaxAllW(method,numberofW_to_keep,number_of_reboots ,numMetric,bags,labels_bags_c,labels_instance_c,opts,
+               dataNormalizationWhen,dataNormalization,opts_MIMAX=None,verbose=False,
+               test_size=0.1):
+    """
+    This function perform an evaluation on all the vector computed by Mi_max method
+    """
+    dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
+    
+    
+    
+    perfObj=np.empty((number_of_reboots,numMetric))
+    loss_values=np.empty((number_of_reboots,))
+    perfObjB=np.empty((number_of_reboots,numMetric))
+    
+    
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=0)
+    
+    for train_index, test_index in sss.split(bags,labels_bags_c):
+        labels_bags_c_train, labels_bags_c_test = \
+            getTest_and_Train_Sets(labels_bags_c,train_index,test_index)
+        bags_train, bags_test = \
+            getTest_and_Train_Sets(bags,train_index,test_index)
+        _ , labels_instance_c_test = \
+            getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
+            
+        if dataNormalizationWhen=='onTrainSet':
+            bags_train,bags_test = normalizeDataSetTrain(bags_train,bags_test,dataNormalization)              
+            
+        gt_instances_labels_stack = np.hstack(labels_instance_c_test)
+        
+        mini_batch_size = min(mini_batch_size_max,len(bags_train))
+    
+        #Training
+        data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
+                                           num_features,'train',dataset)
+        path_model = os.path.join(path_tmp)
+        pathlib.Path(path_model).mkdir(parents=True, exist_ok=True) 
+    
+        tf.reset_default_graph()
+
+        C,C_Searching,CV_Mode,restarts,LR = 1.0,False,None,120,0.01
+        
+        restarts = numberofW_to_keep*number_of_reboots
+        
+        classifierMI_max = tf_MI_max(LR=LR,restarts=restarts,is_betweenMinus1and1=True, \
+                                     num_rois=size_biggest_bag,num_classes=1, \
+                                     num_features=num_features,mini_batch_size=mini_batch_size, \
+                                     verbose=verbose,C=C,CV_Mode=CV_Mode,max_iters=300,debug=False)
+
+        export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
+                           class_indice=-1,shuffle=False,restarts_paral='paral', \
+                           WR=True,C_Searching=C_Searching,storeVectors=True)
+        
+        name_dictW = export_dir
+        with open(name_dictW, 'rb') as f:
+            Dict = pickle.load(f)
+        Wstored = Dict['Wstored']
+        Bstored =  Dict['Bstored']
+        Lossstored = Dict['Lossstored']
+#        np_pos_value =  Dict['np_pos_value'] 
+#        np_neg_value =  Dict['np_neg_value']
+
+        modelcreator = ModelHyperplan(norm='',epsilon=0.01,mini_batch_size=mini_batch_size,
+                                      num_features=num_features,num_rois=size_biggest_bag,num_classes=1,
+                                      with_scores=False,seuillage_by_score=False,
+                                      restarts=numberofW_to_keep-1)
+        # Testing
+        data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
+                                          size_biggest_bag,num_features,'test',dataset)
+        
+        class_indice = -1
+        ## Compute the best vectors 
+        for l in range(number_of_reboots): 
+#            print('reboot :',l)
+            Wstored_extract = Wstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep,:]
+            W_tmp = np.reshape(Wstored_extract,(-1,num_features),order='F')
+            b_tmp =np.reshape( Bstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep],(-1,1,1),order='F')
+            Lossstoredextract = Lossstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep]
+            loss_value = np.reshape(Lossstoredextract,(-1,),order='F')
+            ## Creation of the model
+            export_dir_local =  modelcreator.createIt(path_model,class_indice,W_tmp,b_tmp,loss_value)
+#            number_zone = 300
+#            Number_of_positif_elt = 1
+#            dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
+#            parameters=False,False,False,False   
+            pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir_local,\
+                data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size,removeModel=True) 
+
+            perfObj[l,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
+            perfObjB[l,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
+            loss_values[l] = loss_value[0]
+        
+    return(perfObj,perfObjB,loss_values)
 
 def get_classicalMILclassifier(method,verbose=False):
     if method=='miSVM':
@@ -863,7 +1095,7 @@ def Create_tfrecords(bags, labels_bags,size_biggest_bag,num_features,nameset,dat
     This function create a tfrecords from a list of bags and a list of bag labels
     """
     name = 'MIL' +dataset + nameset+'.tfrecords'
-    directory = 'tmp'
+    directory = path_tmp
     try:
         os.stat(directory)
     except:
@@ -897,7 +1129,7 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
     """
     This function train a tidy MIMAX model
     """
-    path_model = os.path.join('tmp','MI_max')
+    path_model = os.path.join(path_tmp,'MI_max')
     pathlib.Path(path_model).mkdir(parents=True, exist_ok=True) 
 
     tf.reset_default_graph()
@@ -930,7 +1162,7 @@ def trainIA_mi_model(bags_train, labels_bags_c_train,data_path_train,size_bigges
     """
     This function train a tidy mi_model,with IA = instance label assignation
     """
-    path_model = os.path.join('tmp','MI_max')
+    path_model = os.path.join(path_tmp,'MI_max')
     pathlib.Path(path_model).mkdir(parents=True, exist_ok=True) 
 
     tf.reset_default_graph()
@@ -964,7 +1196,7 @@ def trainMIMAXaddLayer(bags_train, labels_bags_c_train,data_path_train,size_bigg
     """
     This function train a tidy MIMAX model
     """
-    path_model = os.path.join('tmp','MI_max')
+    path_model = os.path.join(path_tmp,'MI_max')
     pathlib.Path(path_model).mkdir(parents=True, exist_ok=True) 
 
     tf.reset_default_graph()
