@@ -236,7 +236,8 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
             results = pickle.load(open(file_results,'br'))
         except FileNotFoundError:
             results = {}
-            
+         
+    plt.ion()
     Dataset=getDataset(dataset)
     list_names,bags,labels_bags,labels_instance = Dataset
     numberofW_to_keep = 1
@@ -291,9 +292,9 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
             data +=[perfObj[:,0]]
             data +=[perfObj[:,1]]
             data +=[perfObj[:,2]]
-            corrLossF1 = pearsonr(loss_values,perfObj[:,0])[0]
-            corrLossAUC = pearsonr(loss_values,perfObj[:,1])[0]
-            corrLossUAR = pearsonr(loss_values,perfObj[:,2])[0]
+            corrLossF1 = pearsonr(-loss_values,perfObj[:,0])[0]
+            corrLossAUC = pearsonr(-loss_values,perfObj[:,1])[0]
+            corrLossUAR = pearsonr(-loss_values,perfObj[:,2])[0]
 
             yaxes = ['loss','F1','UAR','AUC']
             titles = []
@@ -302,16 +303,16 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
             titles += ['Corr with AUC : {0:.2f}'.format(corrLossAUC)]
             titles += ['Corr with UAR : {0:.2f}'.format(corrLossUAR)]
             
-            f,a = plt.subplots(2,2)
+            f,a = plt.subplots(2,2,figsize=(8,8), dpi=80, facecolor='w', edgecolor='k')
             a = a.ravel()
             for idx,ax in enumerate(a):
                 ax.hist(data[idx])
                 ax.set_title(titles[idx])
                 ax.set_ylabel(yaxes[idx])
-            plt.tight_layout()
+            
             
             titlestr = 'Distribution of Loss Function for ' +c+' in '+dataset+' with best over'+str(numberofW_to_keep) +'W' 
-            plt.suptitle(titlestr)
+            plt.suptitle(titlestr,fontsize=12)
             script_dir = os.path.dirname(__file__)
             filename = method + '_' + dataset +'_' +c +pref_name_case 
             if dataNormalizationWhen=='onTrainSet':
@@ -321,8 +322,9 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
             path_filename =os.path.join(script_dir,'MILbenchmark','Results','Hist',filename)
             head,tail = os.path.split(path_filename)
             pathlib.Path(head).mkdir(parents=True, exist_ok=True) 
+#            plt.tight_layout()
             plt.savefig(path_filename)
-#            plt.show()
+            plt.show()
             plt.close()
             
 

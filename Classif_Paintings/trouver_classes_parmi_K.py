@@ -22,6 +22,7 @@ import multiprocessing
 from sparsemax import sparsemax
 import pickle
 import os
+import pathlib
 # On genere des vecteurs selon deux distributions p1 et p2 dans R^n
 # On les regroupe par paquets de k vecteurs
 # Un paquet est positif si il contient un vecteur p1
@@ -2016,8 +2017,10 @@ class tf_MI_max():
             if self.C_Searching:
                 if self.verbose: print("We will save the C value array")
                 Dict['C_value_repeat'] = C_value_repeat
-            export_dir = ('/').join(data_path.split('/')[:-1])
-            export_dir += '/MI_max_StoredW/' + str(time.time()) + '.pkl'
+            head,tail = os.path.split(data_path)
+            export_dir = os.path.join(head,'MI_max_StoredW')
+            pathlib.Path(export_dir).mkdir(parents=True, exist_ok=True)
+            export_dir = os.path.join(export_dir,str(time.time()) + '.pkl')
             with open(export_dir, 'wb') as f:
                 pickle.dump(Dict, f, pickle.HIGHEST_PROTOCOL)
             return(export_dir)
@@ -2121,7 +2124,7 @@ class tf_MI_max():
             elif self.obj_score_mul_tanh:
                 Prod_score=tf.multiply(scores_,Prod_best,name='ProdScore')
                 
-        head, tail =  os.path.split(data_path)
+        head, tail = os.path.split(data_path)
         export_dir = os.path.join(head,'MI_max',str(time.time()))
         name_model = os.path.join(export_dir,'model')
         saver.save(sess,name_model)
@@ -2898,13 +2901,11 @@ class ModelHyperplan():
 
 #        export_dir = ('/').join(data_path.split('/')[:-1])
 #        import os
-        export_dir = data_path  +'MI_max/' + str(time.time())
-        import pathlib
+        head, tail = os.path.split(data_path)
+        export_dir = os.path.join(head,'MI_max',str(time.time()))
         pathlib.Path(export_dir).mkdir(parents=True, exist_ok=True)
-        name_model = export_dir + '/model'
-        print(name_model)
+        name_model = os.path.join(export_dir,'model')
         saver.save(sess,name_model)
-        
         sess.close()
         if self.verbose : print("Return MI_max weights")
         return(name_model) 
