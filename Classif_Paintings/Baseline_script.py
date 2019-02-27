@@ -317,7 +317,10 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             if database=='clipart' : imdb = get_imdb('clipart_test',data_path=dataImg_path)
             if database=='IconArt_v1' : imdb = get_imdb('IconArt_v1_test',data_path=dataImg_path)
             imdb.set_force_dont_use_07_metric(True)
-            num_images = len(imdb.image_index)
+            if database in ['IconArt_v1']:
+                num_images =  len(df_label[df_label['set']=='test'][item_name])
+            else:
+                num_images = len(imdb.image_index)
         else:
             num_images = len(df_label[df_label['set']=='test'])
         all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
