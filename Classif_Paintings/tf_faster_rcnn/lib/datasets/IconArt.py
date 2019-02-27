@@ -255,7 +255,7 @@ class IconArt_v1(imdb):
     if self.force_dont_use_07_metric == True: use_07_metric = False
     print('VOC07 metric? ' + ('Yes' if use_07_metric else 'No'))
     if not os.path.isdir(output_dir):
-      os.mkdir(output_dir)
+      pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
     for i, cls in enumerate(self._classes):
       if cls == '__background__':
         continue
@@ -321,7 +321,7 @@ class IconArt_v1(imdb):
     if self.force_dont_use_07_metric == True: use_07_metric = False
 #    print('VOC07 metric? ' + ('Yes' if use_07_metric else 'No'))
     if not os.path.isdir(output_dir):
-      os.mkdir(output_dir)
+      pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
     for i, cls in enumerate(self._classes):
       if cls == '__background__':
         continue
