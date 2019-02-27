@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 import os
 import pickle
 import numpy as np
+import pathlib
 
 def parse_rec(filename):
   """ Parse a PASCAL VOC xml file """
@@ -120,6 +121,8 @@ def voc_eval(detpath,
 #          i + 1, len(imagenames)))
     # save
     if verbose: print('Saving cached annotations to {:s}'.format(cachefile))
+    head,tail = os.path.split(cachefile)
+    pathlib.Path(head).mkdir(parents=True, exist_ok=True)
     with open(cachefile, 'wb') as f:
       pickle.dump(recs, f)
   else:
