@@ -223,6 +223,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             path_data_csvfile = path_data
         else:
             path_to_img = '/media/HDD/data/' + path_to_img
+            dataImg_path = '/media/HDD/data/'
             if database=='IconArt_v1':
                 path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
             else:
@@ -272,25 +273,6 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             Compute_Faster_RCNN_features(demonet=demonet,nms_thresh =nms_thresh,
                                          database=database,augmentation=False,L2 =False,
                                          saved='all',verbose=verbose,filesave=filesave)
-        
-        if baseline_kind in list_methods:
-            if verbose: print("Start loading data",name_pkl)
-            with open(name_pkl, 'rb') as pkl:
-                for i,name_img in  enumerate(df_label[item_name]):
-                    if i%1000==0 and not(i==0):
-                        if verbose: print(i,name_img)
-                        features_resnet_dict_tmp = pickle.load(pkl)
-                        if i==1000:
-                            features_resnet_dict = features_resnet_dict_tmp
-                        else:
-                            features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
-                features_resnet_dict_tmp = pickle.load(pkl)
-                features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
-            if verbose: print("Data loaded",len(features_resnet_dict))
-        else:
-            print(baseline_kind,' unknown')
-            raise(NotImplemented)
-        
         
 #        features_resnet = np.empty((sLength_all,k_per_bag,size_output),dtype=np.float32)  
         classes_vectors = np.zeros((sLength_all,num_classes),dtype=np.float32)
@@ -342,11 +324,11 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             else: 
                 str_val='validation'
 #            X_train = features_resnet[df_label['set']=='train',:,:]
-            y_train = classes_vectors[df_label['set']=='train',:]
+            y_train = classes_vectors[df_label['set']=='train',:].astype(np.float32)
 #            X_test= features_resnet[df_label['set']=='test',:,:]
-            y_test = classes_vectors[df_label['set']=='test',:]
+            y_test = classes_vectors[df_label['set']=='test',:].astype(np.float32)
 #            X_val = features_resnet[df_label['set']==str_val,:,:]
-            y_val = classes_vectors[df_label['set']==str_val,:]
+            y_val = classes_vectors[df_label['set']==str_val,:].astype(np.float32)
 #            X_trainval = np.append(X_train,X_val,axis=0)
             y_trainval =np.append(y_train,y_val,axis=0).astype(np.float32)
             names = df_label.as_matrix(columns=[item_name])
@@ -364,6 +346,25 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
 #            y_trainval =  classes_vectors[index_trainval,:]
         
         name_trainval = name_trainval.ravel()
+        
+        if baseline_kind in list_methods:
+            if verbose: print("Start loading precomputed data",name_pkl)
+            with open(name_pkl, 'rb') as pkl:
+                for i,name_img in  enumerate(df_label[item_name]):
+                    if i%1000==0 and not(i==0):
+                        if verbose: print(i,name_img)
+                        features_resnet_dict_tmp = pickle.load(pkl)
+                        if i==1000:
+                            features_resnet_dict = features_resnet_dict_tmp
+                        else:
+                            features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+                features_resnet_dict_tmp = pickle.load(pkl)
+                features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+            if verbose: print("Data loaded",len(features_resnet_dict))
+        else:
+            print(baseline_kind,' unknown')
+            raise(NotImplemented)
+        
         
         # Then we run on the different classes
         AP_per_class = []
