@@ -220,6 +220,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             path_to_img = path_tmp + '/'+path_to_img_tab[-2] +'/'
             path_data = path_tmp + '/'+path_data_tab[-2] +'/'
             path_data_csvfile = path_data
+            dataImg_path='data/'
         
         databasetxt = path_data_csvfile + database + ext    
         if database=='VOC2007' or database=='watercolor':
@@ -305,10 +306,10 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
 #            index_test = np.sort(index_test)
     
         if database in['VOC2007','watercolor','clipart','IconArt_v1']:
-            if database=='VOC2007' : imdb = get_imdb('voc_2007_test')
-            if database=='watercolor' : imdb = get_imdb('watercolor_test')
-            if database=='clipart' : imdb = get_imdb('clipart_test')
-            if database=='IconArt_v1' : imdb = get_imdb('IconArt_v1_test')
+            if database=='VOC2007' : imdb = get_imdb('voc_2007_test',data_path=dataImg_path)
+            if database=='watercolor' : imdb = get_imdb('watercolor_test',data_path=dataImg_path)
+            if database=='clipart' : imdb = get_imdb('clipart_test',data_path=dataImg_path)
+            if database=='IconArt_v1' : imdb = get_imdb('IconArt_v1_test',data_path=dataImg_path)
             imdb.set_force_dont_use_07_metric(True)
             num_images = len(imdb.image_index)
         else:
