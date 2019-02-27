@@ -215,7 +215,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             # Modification of the path used
             Not_on_NicolasPC = True
             print('you are not on the Nicolas PC, so I think you have the data in the data folder')
-            path_tmp = 'data' 
+            path_tmp = 'data/' 
             path_to_img = path_tmp + path_to_img
             path_data = path_tmp + 'ClassifPaintings/'
             path_data_csvfile = path_data
