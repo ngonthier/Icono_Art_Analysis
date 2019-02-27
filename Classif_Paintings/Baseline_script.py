@@ -163,15 +163,15 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         dtypes = str
         if database=='Paintings':
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/Painting_Dataset/'
+            path_to_img = 'Painting_Dataset/'
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
         elif database=='VOC12':
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+            path_to_img = 'VOCdevkit/VOC2012/JPEGImages/'
         elif database=='VOC2007':
             ext = '.csv'
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+            path_to_img = 'VOCdevkit/VOC2007/JPEGImages/'
             classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
                'bottle', 'bus', 'car', 'cat', 'chair',
                'cow', 'diningtable', 'dog', 'horse',
@@ -187,19 +187,19 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             item_name='item'
             classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
             'Mary','nudity', 'ruins','Saint_Sebastien']
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+            path_to_img = 'Wikidata_Paintings/IconArt_v1/JPEGImages/'
         elif database=='watercolor':
             ext = '.csv'
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+            path_to_img = 'cross-domain-detection/datasets/watercolor/JPEGImages/'
             classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
         elif(database=='Wikidata_Paintings'):
             item_name = 'image'
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+            path_to_img = 'Wikidata_Paintings/600/'
             raise NotImplemented # TODO implementer cela !!! 
         elif(database=='Wikidata_Paintings_miniset_verif'):
             item_name = 'image'
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+            path_to_img = 'Wikidata_Paintings/600/'
             classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
         else:
             print(database,' unknown')
@@ -208,25 +208,25 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         if(jtest>len(classes)) and testMode:
            print("We are in test mode but jtest>len(classes), we will use jtest =0" )
            jtest =0
-        
+
         path_data = '/media/HDD/output_exp/ClassifPaintings/'
-        
-        if database=='IconArt_v1':
-            path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
-        else:
-            path_data_csvfile = path_data
-        
         Not_on_NicolasPC = False
         if not(os.path.exists(path_data)):
+            # Modification of the path used
             Not_on_NicolasPC = True
             print('you are not on the Nicolas PC, so I think you have the data in the data folder')
-            path_data_tab = path_data.split('/')
-            path_to_img_tab = path_to_img.split('/')
             path_tmp = 'data' 
-            path_to_img = path_tmp + '/'+path_to_img_tab[-2] +'/'
-            path_data = path_tmp + '/'+path_data_tab[-2] +'/'
+            path_to_img = path_tmp + path_to_img
+            path_data = path_tmp + 'ClassifPaintings/'
             path_data_csvfile = path_data
             dataImg_path='data/'
+            path_data_csvfile = path_data
+        else:
+            path_to_img = '/media/HDD/data/' + path_to_img
+            if database=='IconArt_v1':
+                path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+            else:
+                path_data_csvfile = path_data
         
         databasetxt = path_data_csvfile + database + ext    
         if database=='VOC2007' or database=='watercolor':
