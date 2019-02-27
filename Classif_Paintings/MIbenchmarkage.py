@@ -200,7 +200,8 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen=None,dataNorma
         pickle.dump(results,open(file_results,'bw'))
         
 def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std',
-             reDo=True,opts_MIMAX=None,pref_name_case='',verbose=True):
+             reDo=True,opts_MIMAX=None,pref_name_case='',verbose=True,
+             numberofW_to_keep = 12,number_of_reboots = 120):
     """
     The goal of this function is to draw the histogram of the value of the loss function 
     and the performance on a specific split of the dataset  
@@ -240,8 +241,7 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
     plt.ion()
     Dataset=getDataset(dataset)
     list_names,bags,labels_bags,labels_instance = Dataset
-    numberofW_to_keep = 1
-    number_of_reboots = 120
+
     for c_i,c in enumerate(list_names):
         if not(c in results.keys()):
             # Loop on the different class, we will consider each group one after the other
@@ -311,7 +311,7 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
                 ax.set_ylabel(yaxes[idx])
             
             
-            titlestr = 'Distribution of Loss Function for ' +c+' in '+dataset+' with best over'+str(numberofW_to_keep) +'W' 
+            titlestr = 'Distribution of Loss Function for ' +c+' in '+dataset+' with best over '+str(numberofW_to_keep) +' W' 
             plt.suptitle(titlestr,fontsize=12)
             script_dir = os.path.dirname(__file__)
             filename = method + '_' + dataset +'_' +c +pref_name_case 
@@ -825,7 +825,7 @@ def computePerfMImaxAllW(method,numberofW_to_keep,number_of_reboots ,numMetric,b
 
             perfObj[l,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
             perfObjB[l,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
-            loss_values[l] = loss_value[0]
+            loss_values[l] = np.min(loss_value)
         
     return(perfObj,perfObjB,loss_values)
 
