@@ -1510,8 +1510,8 @@ class tf_MI_max():
                     W_tmp=sess.run(W)
                     b_tmp=sess.run(b)
                     for j in range(self.num_classes):
-                        Wstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W,:] = W_tmp[j:self.num_classes,:]
-                        Bstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(b_tmp[j:self.num_classes])
+                        Wstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W,:] = W_tmp[j::self.num_classes,:]
+                        Bstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(b_tmp[j::self.num_classes])
                         Lossstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(loss_value[j::self.num_classes])
             
                 
@@ -2630,9 +2630,9 @@ class ModelHyperplan():
     This function take a certain number of vectors selected by one way or an other
     to create an save a model  
     """
-    def __init__(self,norm,AggregW,epsilon,mini_batch_size,num_features,num_rois,num_classes,
-                 with_scores,seuillage_by_score,proportionToKeep,restarts,seuil,
-                 obj_score_add_tanh,lambdas,obj_score_mul_tanh):
+    def __init__(self,norm='',AggregW='',epsilon=0.01,mini_batch_size=1000,num_features=2048,num_rois=300,num_classes=1,
+                 with_scores=False,seuillage_by_score=False,proportionToKeep=0.25,restarts=11,seuil=0.,
+                 obj_score_add_tanh=False,lambdas=0.,obj_score_mul_tanh=False):
         self.norm = norm
         if (norm=='STDall') or norm=='STDSaid' : raise(NotImplemented)
         self.AggregW = AggregW
@@ -2656,6 +2656,9 @@ class ModelHyperplan():
         
     def createIt(self,data_path,class_indice,W_tmp,b_tmp,loss_value):
     
+        W_tmp = np.float32(W_tmp)
+        b_tmp = np.float32(b_tmp)
+        
         # Create some variables. cela est completement stupide en fait la maniere dont tu fais ...
         v1 = tf.get_variable("v1", shape=[1], initializer = tf.zeros_initializer)
         init_op = tf.global_variables_initializer()
@@ -2778,9 +2781,9 @@ class ModelHyperplan():
                 # TODO posibility to take an other percentile than median
             elif self.AggregW=='maxOfTanh':
                 if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh: 
-                    print(Prod_tmp)
+#                    print(Prod_tmp)
                     Prod_score= tf.reduce_max(Prod_tmp,axis=0,name='Tanh')
-                    print(Prod_score)
+#                    print(Prod_score)
                 else:
                     Prod_best = tf.reduce_max(tf.tanh(Prod_best,name='Prod'),axis=0,name='Tanh')
                     #print('Tanh in saving part',Prod_best)
@@ -2797,7 +2800,7 @@ class ModelHyperplan():
                 if self.restarts_paral_V2:
                     Prod_best=tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
                                          ,b_best,name='Prod')
-                    print('Prod_best',Prod_best)
+#                    print('Prod_best',Prod_best)
             else:
                 Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')             
             

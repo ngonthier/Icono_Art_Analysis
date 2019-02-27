@@ -2584,7 +2584,8 @@ class ModelHyperplan():
         X_= tf.identity(X_, name="X")
         if self.norm=='L2':
             X_ = tf.nn.l2_normalize(X_,axis=-1, name="L2norm")
-#        elif self.norm=='STDall':
+        elif self.norm=='STDall':
+            raise(NotImplementedError)
 #            X_ = tf.divide(tf.add( X_,-mean_train_set), std_train_set, name="STD")
 #        elif self.norm=='STDSaid':
 #            X_ = tf.divide(tf.add( X_,-mean_train_set), tf.add(_EPSILON,reduce_std(X_, axis=-1,keepdims=True)), name="STDSaid")
