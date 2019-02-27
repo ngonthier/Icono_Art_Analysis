@@ -728,7 +728,7 @@ class tf_MI_max():
         train_local = optimizer_local.minimize(loss) 
         return(W_local,b_local,train_local)
 
-    def compute_STD_all(self,X_batch,iterator_batch):
+    def compute_STDall(self,X_batch,iterator_batch):
         """
         Compute the mean and variance per feature
         """
@@ -755,6 +755,8 @@ class tf_MI_max():
             mean_train_set = sum_train_set/(Number_elt*self.num_rois)
             var_train_set = (sumSquared_train_set/(Number_elt*self.num_rois)) - (mean_train_set)**2
             std_train_set = np.sqrt(var_train_set)
+        mean_train_set =  np.float32(mean_train_set)
+        std_train_set =  np.float32(std_train_set)
         return(mean_train_set,std_train_set)
 
     def fit_SVM_onMean(self,sess,W_local,b_local,train_local):
@@ -795,7 +797,7 @@ class tf_MI_max():
         W and bias b by a optimisation on a classification task on the mean 
         on all the regions of the image, = None, 'First' or 'All'
         @param : norm : normalisation of the data or not : possible : None or ''
-            'L2' : normalisation L2 or 'STD_all' : Standardisation on all data 
+            'L2' : normalisation L2 or 'STDall' : Standardisation on all data 
             'STD' standardisation by feature maps
         @param : performance : boolean use or not of optimize function for 
         shuffle and repeat TF dataset
@@ -981,8 +983,8 @@ class tf_MI_max():
               except tf.errors.OutOfRangeError:
                 break
             
-        if self.norm=='STD_all' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
-            mean_train_set, std_train_set = self.compute_STD_all(X_batch,iterator_batch)
+        if self.norm=='STDall' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
+            mean_train_set, std_train_set = self.compute_STDall(X_batch,iterator_batch)
             
         self.np_pos_value = np_pos_value
         self.np_neg_value = np_neg_value
@@ -1052,7 +1054,7 @@ class tf_MI_max():
             if self.debug: print('L2 normalisation')
             X_ = tf.nn.l2_normalize(X_,axis=-1)
             X_batch = tf.nn.l2_normalize(X_batch,axis=-1)
-        elif self.norm=='STD_all':
+        elif self.norm=='STDall':
             if self.debug: print('Standardisation')
             X_ = tf.divide(tf.add( X_,-mean_train_set), std_train_set)
             X_batch = tf.divide(tf.add(X_batch,-mean_train_set), std_train_set)
@@ -1643,8 +1645,8 @@ class tf_MI_max():
                   except tf.errors.OutOfRangeError:
                     break
                 
-            if self.norm=='STD_all' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
-                mean_train_set, std_train_set = self.compute_STD_all(X_batch,iterator_batch)
+            if self.norm=='STDall' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
+                mean_train_set, std_train_set = self.compute_STDall(X_batch,iterator_batch)
                 
             self.np_pos_value = np_pos_value
             self.np_neg_value = np_neg_value
@@ -1682,7 +1684,7 @@ class tf_MI_max():
                 if self.debug: print('L2 normalisation')
                 X_ = tf.nn.l2_normalize(X_,axis=-1)
                 X_batch = tf.nn.l2_normalize(X_batch,axis=-1)
-            elif self.norm=='STD_all':
+            elif self.norm=='STDall':
                 if self.debug: print('Standardisation')
                 X_ = tf.divide(tf.add( X_,-mean_train_set), std_train_set)
                 X_batch = tf.divide(tf.add(X_batch,-mean_train_set), std_train_set)
@@ -2026,7 +2028,7 @@ class tf_MI_max():
         X_= tf.identity(X_, name="X")
         if self.norm=='L2':
             X_ = tf.nn.l2_normalize(X_,axis=-1, name="L2norm")
-        elif self.norm=='STD_all':
+        elif self.norm=='STDall':
             X_ = tf.divide(tf.add( X_,-mean_train_set), std_train_set, name="STD")
         elif self.norm=='STDSaid':
             X_ = tf.divide(tf.add( X_,-mean_train_set), tf.add(_EPSILON,reduce_std(X_, axis=-1,keepdims=True)), name="STDSaid")
@@ -2632,7 +2634,7 @@ class ModelHyperplan():
                  with_scores,seuillage_by_score,proportionToKeep,restarts,seuil,
                  obj_score_add_tanh,lambdas,obj_score_mul_tanh):
         self.norm = norm
-        if (norm=='STD_all') or norm=='STDSaid' : raise(NotImplemented)
+        if (norm=='STDall') or norm=='STDSaid' : raise(NotImplemented)
         self.AggregW = AggregW
         self.epsilon = epsilon
         self.mini_batch_size = mini_batch_size
@@ -2713,7 +2715,7 @@ class ModelHyperplan():
         X_= tf.identity(X_, name="X")
         if self.norm=='L2':
             X_ = tf.nn.l2_normalize(X_,axis=-1, name="L2norm")
-#        elif self.norm=='STD_all':
+#        elif self.norm=='STDall':
 #            X_ = tf.divide(tf.add( X_,-mean_train_set), std_train_set, name="STD")
 #        elif self.norm=='STDSaid':
 #            X_ = tf.divide(tf.add( X_,-mean_train_set), tf.add(_EPSILON,reduce_std(X_, axis=-1,keepdims=True)), name="STDSaid")

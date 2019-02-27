@@ -2076,7 +2076,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     @param : C  :  Regularisation term for the optimizer in the MI_max 
     @param : Optimizer  : Optimizer for the MI_max GradientDescent or Adam
     @param : norm : normalisation of the data or not : possible : None or ''
-            'L2' : normalisation L2 or 'STD_all' : Standardisation on all data 
+            'L2' : normalisation L2 or 'STDall' : Standardisation on all data 
             'STD' standardisation by feature maps
     @param : restarts_paral : run several W vecteur optimisation in parallel 
             two versions exist 'Dim','paral'
@@ -2336,8 +2336,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     else: seuillage_by_score_str = ''
     if norm=='L2':
         extNorm = '_L2'
-    elif norm=='STD_all':
-        extNorm = '_STD_all'
+    elif norm=='STDall':
+        extNorm = '_STDall'
     elif norm=='STDSaid':
         extNorm = '_STDSaid'
     elif norm=='STD':
@@ -2583,7 +2583,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                  export_dir = classifierMI_max.fit_mi_model_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
-                       C_Searching=C_Searching,storeVectors=storeVectors,storeLossValues=storeLossValues)                
+                       C_Searching=C_Searching,storeVectors=storeVectors,storeLossValues=storeLossValues)  
+             else:
+                print('Model unknown')
+                raise(NotImplementedError)
                  
              if verbose: 
                  t1 = time.time() 
@@ -7541,9 +7544,9 @@ if __name__ == '__main__':
                               parallel_op=True,CV_Mode='',num_split=2,
                               WR=True,init_by_mean =None,seuil_estimation='',
                               restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                              C=1.0,Optimizer='GradientDescent',norm='STD_all',
+                              C=1.0,Optimizer='GradientDescent',norm='STDall',
                               transform_output='tanh',with_rois_scores_atEnd=False,
-                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+                              with_scores=True,epsilon=0.01,restarts_paral='paral',
                               Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
                               k_intopk=1,C_Searching=False,predict_with='MI_max',
                               gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
