@@ -48,7 +48,8 @@ def rand_convex(n):
     rand = np.matrix([uniform(0.0, 1.0) for i in range(n)])
     return(rand / np.sum(rand))
 
-def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1,C_finalSVM=1,cskind=None):
+def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1,C_finalSVM=1,cskind=None,
+                 testMode=False):
     """
     @param clf : LinearSVC, defaultSGD or SGDsquared_hinge 
     """
@@ -66,16 +67,21 @@ def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1
 #    if n_samples > n_features:
 #        dual = False
 
+    if testMode:
+        max_iter = 2
+    else:
+        max_iter=1000
+
     if gridSearch:
         if clf == 'LinearSVC':
             estimator = LinearSVC(penalty='l2',class_weight=class_weight, 
-                            loss='squared_hinge',max_iter=1000,dual=dual)
+                            loss='squared_hinge',max_iter=max_iter,dual=dual)
             param_grid = dict(C=cs)
         elif clf == 'defaultSGD':
-            estimator = SGDClassifier(max_iter=1000, tol=0.0001)
+            estimator = SGDClassifier(max_iter=max_iter, tol=0.0001)
             param_grid = dict(alpha=cs)
         elif clf == 'SGDsquared_hinge':
-            estimator = SGDClassifier(max_iter=1000, tol=0.0001,loss='squared_hinge')
+            estimator = SGDClassifier(max_iter=max_iter, tol=0.0001,loss='squared_hinge')
             param_grid = dict(alpha=cs)
     
         classifier = GridSearchCV(estimator, refit=True,
@@ -86,11 +92,11 @@ def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1
         # class_weight='balanced'
         if clf == 'LinearSVC':
             classifier = LinearSVC(penalty='l2',class_weight=class_weight,
-                                   loss='squared_hinge',max_iter=1000,dual=dual,C=C_finalSVM)
+                                   loss='squared_hinge',max_iter=max_iter,dual=dual,C=C_finalSVM)
         elif clf == 'defaultSGD':
-            classifier = SGDClassifier(max_iter=1000)
+            classifier = SGDClassifier(max_iter=max_iter)
         elif clf == 'SGDsquared_hinge':
-            classifier = SGDClassifier(max_iter=1000, tol=0.0001,loss='squared_hinge')
+            classifier = SGDClassifier(max_iter=max_iter, tol=0.0001,loss='squared_hinge')
     
     classifier.fit(X,y)
     
@@ -568,7 +574,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 X_trainval_select = np.ascontiguousarray(X_trainval_select)
                 classifier_trained = TrainClassif(X_trainval_select,y_trainval_select,
                     clf=clf,class_weight='balanced',gridSearch=gridSearch,
-                    n_jobs=n_jobs,C_finalSVM=1,cskind='small')  # TODO need to put it in parameters 
+                    n_jobs=n_jobs,C_finalSVM=1,cskind='small',testMode=testMode)  # TODO need to put it in parameters 
                 dict_clf[j] = classifier_trained
             elif baseline_kind=='miSVM': ## miSVM
                 ## Implementation of the miSVM of Andrews 2006
@@ -889,13 +895,42 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         gc.collect()  
   
 def BaselineRunAll():
+    """ Run severals baseline model on two datasets
+    """
     
-    datasets = ['watercolor','IconArt_v1']
-    list_methods =['MAXA','MAX1','SISVM','MISVM','miSVM']
+    datasets = ['IconArt_v1','watercolor']
+    list_methods =['MAX1','MAXA','SISVM','MISVM','miSVM']
     for database in datasets:
         for method in list_methods: 
             if method in ['MAXA','MAX1','SISVM']:
-                GS_tab = [True,False]
+                GS_tab = [False,True]
+                PCA_tab = [True,False]
+            else:
+                GS_tab = [False]
+                PCA_tab = [True]
+            for GS in GS_tab:
+                for PCAuse in PCA_tab:
+                    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database =database,Test_on_k_bag=False,
+                            normalisation= False,baseline_kind=method,verbose=False,
+                            gridSearch=GS,k_per_bag=300,n_jobs=4,PCAuse=PCAuse,variance_thres= 0.9,
+                            restarts=0,max_iter=50)
+    for database in datasets:
+        for method in ['MISVM','miSVM']:
+            Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database =database,Test_on_k_bag=False,
+                    normalisation= False,baseline_kind=method,verbose=False,
+                    gridSearch=False,k_per_bag=300,n_jobs=4,PCAuse=True,variance_thres= 0.9,
+                    restarts=10,max_iter=50)
+            
+def RunTest():
+    """ Run severals baseline model on two datasets
+    """
+    
+    datasets = ['IconArt_v1','watercolor']
+    list_methods =['MAX1','MAXA','SISVM','MISVM','miSVM']
+    for database in datasets:
+        for method in list_methods: 
+            if method in ['MAXA','MAX1','SISVM']:
+                GS_tab = [False]
                 PCA_tab = [True,False]
             else:
                 GS_tab = [False]
@@ -905,8 +940,8 @@ def BaselineRunAll():
                     Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database =database,Test_on_k_bag=False,
                             normalisation= False,baseline_kind=method,verbose=False,
                             gridSearch=GS,k_per_bag=300,n_jobs=3,PCAuse=PCAuse,variance_thres= 0.9,
-                            restarts=0,max_iter=50)
-    
+                            restarts=0,max_iter=2,testMode=True)
+
   
 if __name__ == '__main__':
     BaselineRunAll()
