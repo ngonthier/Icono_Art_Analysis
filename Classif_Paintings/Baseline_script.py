@@ -842,8 +842,9 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             with open(det_file, 'wb') as f:
                 pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
             max_per_image = 100
-            all_boxes_order = [[[] for _ in range(num_images)] for _ in range(imdb.num_classes)]
-            for i in range(num_images):
+            num_images_detect = len(imdb.image_index)
+            all_boxes_order = [[[] for _ in range(num_images_detect)] for _ in range(imdb.num_classes)]
+            for i in range(num_images_detect):
                 name_img = imdb.image_path_at(i)
                 name_img_wt_ext = name_img.split('/')[-1]
                 name_img_wt_ext =name_img_wt_ext.split('.')[0]
