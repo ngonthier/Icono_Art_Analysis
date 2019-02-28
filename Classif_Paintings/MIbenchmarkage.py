@@ -117,7 +117,8 @@ def EvaluationOnALot_ofParameters(dataset):
     
 
 
-def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen=None,dataNormalization=None,
+def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
+             dataNormalization='std',
              reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False):
     """
     This function evaluate the performance of our MIMAX algorithm
@@ -175,6 +176,7 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen=None,dataNorma
     
             perf,perfB=performExperimentWithCrossVal(method,D,dataset,
                                     dataNormalizationWhen,dataNormalization,
+                                    nRep=10,nFolds=10,
                                     GridSearch=False,opts_MIMAX=opts_MIMAX,
                                     verbose=verbose)
             mPerf = perf[0]
@@ -330,7 +332,7 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
 
  
 def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormalizationWhen=None,dataNormalization=None,
-             reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False,
+             reDo=True,opts_MIMAX=None,pref_name_case='',verbose=False,
              overlap = False,end_name=''):
     """
     This function evaluate the performance of our MIMAX algorithm
@@ -416,7 +418,7 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,data
             stdPerfB = perfB[1]
             ## Results
             print('=============================================================')
-            print("For class :",c)
+            print("For class :",c,"with ",method)
             print('-------------------------------------------------------------')
             print('- instances') # f1Score,UAR,aucScore,accuracyScore
             print('AUC: ',mPerf[2],' +/- ',stdPerf[2])
@@ -606,7 +608,7 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
         point = np.array([xx[i, j], yy[i, j]]).reshape(1, 2)
         points.append(point)
 
-    if method in['MIMAX','IA_mi_model']:
+    if method in['MIMAX','IA_mi_model','MIMAXaddLayer']:
         opts_MIMAX = 1.0,False,None,49,0.01 # Attention tu utilise 100 vecteurs
         pred_bag_labels, pred_instance_labels,result,bestloss = train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,pointsPrediction=points,get_bestloss=True)
@@ -659,8 +661,15 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
     plt.xlim(x_min, x_max)
     plt.ylim(y_min, y_max)
     titlestr = 'Classification for ' +method+' AUC: {0:.2f}, UAR: {1:.2f}, F1 : {2:.2f}'.format(mPerf[2],mPerf[1],mPerf[0])
-    if method in['MIMAX','IA_mi_model']:
-        titlestr += ' BL : {0:.2f}'.format(bestloss[0])
+    if method in['MIMAX','IA_mi_model','MIMAXaddLayer']:
+        try:
+            bestloss_length = len(bestloss)
+            if bestloss_length==1:
+                titlestr += ' BL : {0:.2f}'.format(bestloss[0])
+            else:
+                titlestr += ' BL : {0:.2f}'.format(bestloss)
+        except TypeError:
+            titlestr += ' BL : {0:.2f}'.format(bestloss)
     plt.title(titlestr)
     plt.savefig(path_filename)
     plt.show()
@@ -912,9 +921,6 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
            
     
     elif method == 'MIMAXaddLayer':
-        if not(pointsPrediction is None):
-            raise(NotImplementedError)
-        
         dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
         mini_batch_size = min(mini_batch_size_max,len(bags_train))
     
@@ -922,8 +928,20 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
         data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
                                            num_features,'train',dataset)
         export_dir=trainMIMAXaddLayer(bags_train, labels_bags_c_train,data_path_train,\
-                              size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX)
+                              size_biggest_bag,num_features,mini_batch_size,
+                              opts_MIMAX=opts_MIMAX,get_bestloss=get_bestloss)
 
+        if get_bestloss:
+            export_dir,best_loss = export_dir
+
+        if not(pointsPrediction is None):
+            labels_pointsPrediction = [np.array(0.)]*len(pointsPrediction)
+            data_path_points = Create_tfrecords(pointsPrediction, labels_pointsPrediction,\
+                                              size_biggest_bag,num_features,'points',dataset)
+            _, points_instance_labels = predict_MIMAX(export_dir,\
+                    data_path_points,pointsPrediction,size_biggest_bag,num_features,
+                    mini_batch_size,removeModel=False,predict_parall=False)
+        
         # Testing
         data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
                                           size_biggest_bag,num_features,'test',dataset)
@@ -1144,7 +1162,8 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
     classifierMI_max = tf_MI_max(LR=LR,restarts=restarts,is_betweenMinus1and1=True, \
                                  num_rois=size_biggest_bag,num_classes=1, \
                                  num_features=num_features,mini_batch_size=mini_batch_size, \
-                                 verbose=verbose,C=C,CV_Mode=CV_Mode,max_iters=300,debug=False)
+                                 verbose=verbose,C=C,CV_Mode=CV_Mode,max_iters=300,
+                                 debug=False)
     C_values =  np.logspace(-3,2,6,dtype=np.float32)
     classifierMI_max.set_C_values(C_values)
     export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
@@ -1194,9 +1213,9 @@ def trainIA_mi_model(bags_train, labels_bags_c_train,data_path_train,size_bigges
         return(export_dir)
     
 def trainMIMAXaddLayer(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
-               num_features,mini_batch_size,opts_MIMAX=None):
+               num_features,mini_batch_size,opts_MIMAX=None,get_bestloss=False):
     """
-    This function train a tidy MIMAX model
+    This function train a tidy MIMAX model with one layer more
     """
     path_model = os.path.join(path_tmp,'MI_max')
     pathlib.Path(path_model).mkdir(parents=True, exist_ok=True) 
@@ -1211,14 +1230,20 @@ def trainMIMAXaddLayer(bags_train, labels_bags_c_train,data_path_train,size_bigg
     classifierMI_max = tf_MI_max(LR=LR,restarts=restarts,is_betweenMinus1and1=True, \
                                  num_rois=size_biggest_bag,num_classes=1, \
                                  num_features=num_features,mini_batch_size=mini_batch_size, \
-                                 verbose=False,C=C,CV_Mode=CV_Mode,max_iters=300,
-                                 AddOneLayer=True,Optimizer='Momentum')
+                                 verbose=False,C=C,CV_Mode=CV_Mode,max_iters=500,
+                                 AddOneLayer=True,Optimizer='lbfgs')
 
     export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
-                       class_indice=0,shuffle=False,restarts_paral=None, \
+                       class_indice=0,shuffle=False,restarts_paral='', \
                        WR=True,C_Searching=C_Searching)
     tf.reset_default_graph()
-    return(export_dir)
+    if get_bestloss:
+        bestloss = classifierMI_max.get_bestloss()
+        tf.reset_default_graph()
+        return(export_dir,bestloss)
+    else:
+        tf.reset_default_graph()
+        return(export_dir)
 
 def ToyProblemRun():
     
@@ -1247,7 +1272,7 @@ def ToyProblemRun():
 def BenchmarkRun():
     
     datasets = ['Birds','Newsgroups']
-    list_of_algo= ['MIMAX','IA_mi_model']
+    list_of_algo= ['MIMAX','IA_mi_model','MIMAXaddLayer']
     # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
     
     for method in list_of_algo:

@@ -1249,7 +1249,7 @@ class tf_MI_max():
         else:
             if self.AddOneLayer:
                 W0 = tf.Variable(tf.random_normal([self.num_features,self.num_features], stddev=1.),name="W0")
-                b0=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.), name="b0")
+                b0=tf.Variable(tf.random_normal([1,1,self.num_features], stddev=1.), name="b0")
             W=tf.Variable(tf.random_normal([self.num_features], stddev=1.),name="weights")
             b=tf.Variable(tf.random_normal([1], stddev=1.), name="bias")
             if test_version_sup('1.8'):
@@ -1261,7 +1261,8 @@ class tf_MI_max():
                 embed = tf.reshape(X_, [-1, self.num_features])
                 h = tf.matmul(embed, W0)
                 h = tf.reshape(h, [-1, self.num_rois,self.num_features])
-                denselayer = tf.nn.relu(tf.add(h,b0))
+                denselayer = tf.tanh(tf.add(h,b0))
+#                denselayer = tf.nn.leaky_relu(tf.add(h,b0))
                 Prod=tf.reduce_sum(tf.multiply(W,denselayer),axis=2)+b
             else:
                 Prod=tf.reduce_sum(tf.multiply(W,X_),axis=2)+b
@@ -1282,7 +1283,8 @@ class tf_MI_max():
                 embed_batch = tf.reshape(X_batch, [-1, self.num_features])
                 h_batch = tf.matmul(embed_batch, W0)
                 h_batch = tf.reshape(h_batch, [-1, self.num_rois,self.num_features])
-                denselayer_batch = tf.nn.relu(tf.add(h_batch,b0))
+#                denselayer_batch = tf.nn.relu(tf.add(h_batch,b0))
+                denselayer_batch = tf.tanh(tf.add(h_batch,b0))
                 Prod_batch=tf.reduce_sum(tf.multiply(W,denselayer_batch),axis=2)+b
             else:
                 Prod_batch=tf.reduce_sum(tf.multiply(W,X_batch),axis=2)+b
@@ -1382,9 +1384,7 @@ class tf_MI_max():
                                 assert(np.min(list_elt)>= -2.0)
                             t5 = time.time()
                             print("duration loss eval :",str(t5-t4))
-                            print(list_elt.shape)
-                            print(np.min(list_elt))
-                            print(list_elt)
+                            
                 elif self.Optimizer=='lbfgs':
                     maxcor = 30
                     optimizer_kwargs = {'maxiter': self.max_iters,'maxcor': maxcor}
@@ -1439,7 +1439,7 @@ class tf_MI_max():
                                 loss_value_j_min = np.min(loss_value_j,axis=0)
                                 W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
                                 b_best[j,:,:] = b_tmp[j+argmin*self.num_classes]
-                                if self.verbose: loss_value_min+=[loss_value_j_min]
+                                loss_value_min+=[loss_value_j_min]
                                 if (self.C_Searching or  self.CV_Mode=='CVforCsearch') and self.verbose:
                                     print('Best C values : ',C_value_repeat[j+argmin*self.num_classes],'class ',j)
                                 if (self.C_Searching or  self.CV_Mode=='CVforCsearch'): self.Cbest[j] = C_value_repeat[j+argmin*self.num_classes]
@@ -1459,13 +1459,12 @@ class tf_MI_max():
                             for i,argmin in enumerate(index_keep):
                                 W_best[i,j,:] = W_tmp[j+argmin*self.num_classes,:]
                                 b_best[i,j,:,:] = b_tmp[j+argmin*self.num_classes]
-                            if self.verbose: 
                                 loss_value_j_min = np.sort(loss_value_j)[0:self.numberWtoKeep]
                                 loss_value_min+=[loss_value_j_min]
                         if self.AggregW=='AveragingW':
                             W_best = np.mean(W_best,axis=0)
                             b_best = np.mean(b_best,axis=0)
-    
+                self.bestloss = loss_value_min
                 if self.verbose : 
                     print("bestloss",loss_value_min)
                     t1 = time.time()
@@ -1514,8 +1513,7 @@ class tf_MI_max():
                         Wstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W,:] = W_tmp[j::self.num_classes,:]
                         Bstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(b_tmp[j::self.num_classes])
                         Lossstored[j,group_i*self.paral_number_W:(group_i+1)*self.paral_number_W] = np.ravel(loss_value[j::self.num_classes])
-            
-                
+
         else:
             if class_indice==-1:
                 bestloss = np.zeros((self.num_classes,),dtype=np.float32)
@@ -1538,12 +1536,30 @@ class tf_MI_max():
                         print("Initialisation by classif by mean durations :",str(t3-t2))
                     sess.run(assign_op, {placeholder: W_init})
                     sess.run(assign_op_b, {placeholder_b: b_init})
-                for step in range(self.max_iters):
-                    if self.debug: t2 = time.time()
-                    sess.run(train)
-                    if self.debug:
-                        t3 = time.time()
-                        print(step,"durations :",str(t3-t2))
+                if self.Optimizer in ['GradientDescent','Momentum','Adam']:
+                    for step in range(self.max_iters):
+                        if self.debug: t2 = time.time()
+                        sess.run(train)
+                        if self.debug:
+                            t3 = time.time()
+                            print(step,"duration :",str(t3-t2))
+                            t4 = time.time()
+                            list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
+                            if self.WR: 
+                                assert(np.max(list_elt)<= 2.0)
+                                assert(np.min(list_elt)>= -2.0)
+                            t5 = time.time()
+                            print("duration loss eval :",str(t5-t4))
+                            
+                elif self.Optimizer=='lbfgs':
+                    maxcor = 30
+                    optimizer_kwargs = {'maxiter': self.max_iters,'maxcor': maxcor}
+                    optimizer = tf.contrib.opt.ScipyOptimizerInterface(loss,method='L-BFGS-B',
+                                                                       options=optimizer_kwargs)    
+                    optimizer.minimize(sess)
+                else:
+                    print("The optimizer is unknown",self.Optimizer)
+                    raise(NotImplemented)
     
                 if class_indice==-1:
                     loss_value = np.zeros((self.num_classes,),dtype=np.float32)
@@ -1574,11 +1590,15 @@ class tf_MI_max():
                     if (essai==0) | (loss_value<bestloss): 
                         W_best=sess.run(W)
                         b_best=sess.run(b)
+                        if self.AddOneLayer:
+                            W0_best=sess.run(W0)
+                            b0_best=sess.run(b0)
                         bestloss= loss_value
                         if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
                 if self.verbose:
                     t1 = time.time()
                     print("durations :",str(t1-t0),' s')
+            self.bestloss = bestloss
         
         if self.CV_Mode=='CVforCsearch':
             if self.verbose: 
@@ -1997,7 +2017,7 @@ class tf_MI_max():
                             if self.AggregW=='AveragingW':
                                 W_best = np.mean(W_best,axis=0)
                                 b_best = np.mean(b_best,axis=0)
-                        
+                    self.bestloss = loss_value_min  
                     if self.verbose : 
                         print("bestloss",loss_value_min)
                         t1 = time.time()
@@ -2026,7 +2046,7 @@ class tf_MI_max():
             return(export_dir)
 
         ## End we save the best w
-        self.bestloss = loss_value_min
+        
         saver = tf.train.Saver()
         X_= tf.identity(X_, name="X")
         if self.norm=='L2':
@@ -2109,9 +2129,10 @@ class tf_MI_max():
             else:
                 if self.AddOneLayer:
                     embed_ = tf.reshape(X_, [-1, self.num_features])
-                    h_ = tf.matmul(embed_, W0)
+                    h_ = tf.matmul(embed_, W0_best)
                     h_ = tf.reshape(h_, [-1, self.num_rois,self.num_features])
-                    denselayer_ = tf.nn.relu(tf.add(h_,b0))
+#                    denselayer_ = tf.nn.relu(tf.add(h_,b0))
+                    denselayer_ = tf.tanh(tf.add(h_,b0_best))
                     Prod_best=tf.add(tf.reduce_sum(tf.multiply(W_best,denselayer_),axis=2),b,name='Prod')
                 else:
                     Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
@@ -2709,6 +2730,7 @@ class ModelHyperplan():
                 W_best = np.mean(W_best,axis=0)
                 b_best = np.mean(b_best,axis=0)
         if self.verbose: print('loss_value_min',loss_value_min)
+        self.bestloss = loss_value_min
         sess = tf.Session()
         sess.run(init_op)
         saver = tf.train.Saver()
