@@ -483,7 +483,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 X_trainval_select = []
                 index_nav = 0
                 with open(name_pkl, 'rb') as pkl:
-                    for i,name_img in  enumerate(df_label[item_name]):
+                    for i,name_img in enumerate(name_trainval):
                         if i%1000==0:
                             if verbose: print(i,name_img)
                             features_resnet_dict = pickle.load(pkl)
@@ -931,7 +931,7 @@ def RunTest():
     """
     
     datasets = ['IconArt_v1','watercolor']
-    list_methods =['MAX1','MAXA','SISVM','MISVM','miSVM']
+    list_methods =['SISVM','MISVM','miSVM','MAX1','MAXA']
     for database in datasets:
         for method in list_methods: 
             if method in ['MAXA','MAX1','SISVM']:
