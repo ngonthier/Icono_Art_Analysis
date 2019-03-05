@@ -611,6 +611,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 det_name_file += '_r'+str(restarts) +'_m'+str(max_iter)
             if PCAuse:
                 det_name_file += '_PCA'+str(number_composant)
+            if gridSearch:
+                det_name_file += '_GS'
             det_name_fileAP = os.path.join(path_data,det_name_file + '_AP.pkl')
             if os.path.isfile(det_name_fileAP) and not(reDo):
                 print('The results file already exists')
@@ -931,7 +933,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
 
             aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
             results_pkl['AP_IOU05'] = aps
-            print("Detection scores for Baseline :",baseline_kind,' on ',database)
+            print("Detection scores at 0.5 for Baseline :",baseline_kind,'gridSearch',gridSearch,'on ',database)
             if PCAuse: print("With PCA and ",number_composant," componants")
             print(arrayToLatex(aps,per=True))
             ovthresh_tab = [0.1]
@@ -954,7 +956,7 @@ def BaselineRunAll():
     """
     
     datasets = ['IconArt_v1','watercolor']
-    list_methods =['SISVM','MISVM','miSVM','MAX1','MAXA']
+    list_methods =['MISVM','miSVM','SISVM','MAX1','MAXA']
     normalisation = False
     restarts = 0
     max_iter = 50
