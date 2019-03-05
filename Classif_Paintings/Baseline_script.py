@@ -106,7 +106,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                              normalisation= False,baseline_kind = 'MAX1',
                              verbose = True,gridSearch=False,k_per_bag=300,jtest=0,testMode=False,
                              n_jobs=-1,clf='LinearSVC',PCAuse=False,variance_thres= 0.9,
-                             restarts = 0,max_iter = 10):
+                             restarts = 0,max_iter = 10,reDo=True):
     """ 
     27 juin 2018 ==> Il faut que les dossiers soit calculés avant sur mon ordi 
     puis passer sur le cluster
@@ -114,7 +114,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
     
     Detection based on CNN features with Transfer Learning on Faster RCNN output
     This is used to compute the baseline MAX1 (only the best score object as training exemple)
-    and MAXA (all the regions for the negatives)
+    and MAXA_lowMem (all the regions for the negatives)
     This one use pickle precomputed saved data
     
     
@@ -151,7 +151,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
     
     """
     # TODO be able to train on background 
-    list_methods =['MAXA','MAX1','MEAN','MISVM','miSVM','SISVM']
+    list_methods =['MAXA_lowMem','MAX1','MEAN','MISVM','miSVM','SISVM','MAXA']
     print('==========')
     print('Baseline for ',database,demonet,baseline_kind,'gridSearch',gridSearch,'clf',clf)
     try:
@@ -306,7 +306,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         else:
             num_images = len(df_label[df_label['set']=='test'])
         all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
-    
+
         # First we save the test images
         roi_test = {}
         name_test = {}
@@ -373,7 +373,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         P20_per_class = []
         if baseline_kind == 'MAX1':
             number_neg = 1
-        elif baseline_kind in ['MAXA','MISVM','miSVM','SISVM']:
+        elif baseline_kind in ['MAXA_lowMem','MISVM','miSVM','SISVM','MAXA']:
             number_neg = 300
             
         # Training time
@@ -409,6 +409,34 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                         else:
                             X_trainval_all += [fc7.astype(np.float32)]
                 if j==0: X_trainval_all = np.concatenate(X_trainval_all,axis=0).astype(np.float32)
+            elif baseline_kind == 'MAXA':
+                if j==0: X_trainval_all  = []
+                number_pos_ex = int(np.sum(y_trainval[:,j]))
+                number_neg_ex = (len(y_trainval) - number_pos_ex)
+                number_ex = number_pos_ex + number_neg*number_neg_ex
+                y_trainval_select = []
+                X_trainval_select = []  
+                index_nav = 0
+                for i,name_img in  enumerate(name_trainval):
+                    if i%1000==0 and not(i==0):
+                        if verbose: print(i,name_img)
+                    rois,roi_scores,fc7 = features_resnet_dict[name_img]
+                    if y_trainval[i,j] == 1: # Positive exemple
+                        X_to_add = fc7[0,:].astype(np.float32).reshape((1,-1))
+                        y_to_add = [1]
+                    else:
+                        X_to_add = fc7.astype(np.float32)
+                        y_to_add = [0]*len(fc7)
+                    y_trainval_select += y_to_add
+                    X_trainval_select += [X_to_add]
+                    if j==0:
+                        if not(len(X_trainval_all)==0):
+                            X_trainval_all += [fc7.astype(np.float32)]
+                        else:
+                            X_trainval_all = [fc7.astype(np.float32)]
+                if j==0: X_trainval_all = np.concatenate(X_trainval_all,axis=0).astype(np.float32)
+                X_trainval_select = np.concatenate(X_trainval_select,axis=0).astype(np.float32)
+                y_trainval_select = np.hstack(y_trainval_select).astype(np.float32)
             elif baseline_kind in ['MISVM','miSVM']:
                 if j==0: X_trainval_all  = []
                 number_pos_ex = int(np.sum(y_trainval[:,j]))
@@ -477,7 +505,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     X_trainval_all = X_trainval_select
                 y_trainval_select = np.array(y_trainval_select,dtype=np.float32)
                
-            elif baseline_kind=='MAXA':
+            elif baseline_kind=='MAXA_lowMem':
+                # Version low memory of MAXA but it doesn't work
                 if j==0: X_trainval_all  = []
                 y_trainval_select = []
                 X_trainval_select = []
@@ -526,14 +555,14 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                         raise(UnboundLocalError)
                 
             if (normalisation == True) or PCAuse:
-                if (baseline_kind in ['SISVM','MISVM','miSVM','MAXA','MAX1'] and j==0):
+                if (baseline_kind in ['SISVM','MISVM','miSVM','MAXA_lowMem','MAX1','MAXA'] and j==0):
                     if verbose: print('Normalisation of the data (X-mean)/std')
                     scaler = StandardScaler()
                     scaler.fit(X_trainval_all)
                     X_trainval_all = scaler.transform(X_trainval_all)
                     if not(baseline_kind in ['miSVM','MISVM']):
                         X_trainval_select = scaler.transform(X_trainval_select)
-                elif  (baseline_kind in ['MAXA','MAX1']):
+                elif  (baseline_kind in ['MAXA_lowMem','MAX1','MAXA']):
                     X_trainval_select = scaler.transform(X_trainval_select)
                     
                 if baseline_kind in ['miSVM','MISVM']:
@@ -544,7 +573,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                  
             # PCA computation
             if PCAuse :
-                if (baseline_kind in ['SISVM','MISVM','miSVM','MAXA','MAX1'] and j==0):
+                if (baseline_kind in ['SISVM','MISVM','miSVM','MAXA_lowMem','MAX1','MAXA'] and j==0):
                     if verbose: print("Use of a PCA for dimensionality reduction")
                     pca = PCA()
                     pca.fit(X_trainval_all)
@@ -566,11 +595,26 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     X_trainval_select_neg = np.ascontiguousarray(X_trainval_select_neg[:,0:number_composant])
                     for k in range(len(X_trainval_select_pos)):
                         X_trainval_select_pos[k] = np.ascontiguousarray(pca.transform(X_trainval_select_pos[k])[:,0:number_composant])
-                elif (baseline_kind in ['MAXA','MAX1']):
+                elif (baseline_kind in ['MAXA_lowMem','MAX1','MAXA']):
                     X_trainval_select = pca.transform(X_trainval_select)
                     X_trainval_select = X_trainval_select[:,0:number_composant]
             else:
                 number_composant = num_features
+
+
+            det_name_file = 'Detect_Baseline_'+database+'_'+baseline_kind
+            if testMode:
+                det_name_file += '_TestMode'
+            if normalisation:
+                det_name_file += '_Normed'
+            if baseline_kind in ['MISVM','miSVM']:
+                det_name_file += '_r'+str(restarts) +'_m'+str(max_iter)
+            if PCAuse:
+                det_name_file += '_PCA'+str(number_composant)
+            det_name_fileAP = os.path.join(path_data,det_name_file + '_AP.pkl')
+            if os.path.isfile(det_name_fileAP) and not(reDo):
+                print('The results file already exists')
+                return(0)
 
             # Training time
             if verbose: print("Start learning for class",j)
@@ -716,7 +760,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     dict_clf[j] = dict_clf[jtest]
         
         #Load test set 
-        if baseline_kind in ['MAXA']:
+        if baseline_kind in ['MAXA_lowMem']:
             #del features_resnet_dict
             with open(name_pkl, 'rb') as pkl:
                 for i,name_img in  enumerate(df_label[item_name]):
@@ -838,9 +882,9 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     if not(j==jtest):
                         #print(all_boxes[jtest])
                         all_boxes[j] = all_boxes[jtest]
-            det_file = os.path.join(path_data, 'detections_aux.pkl')
-            with open(det_file, 'wb') as f:
-                pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+#            det_file = os.path.join(path_data, 'detections_aux.pkl')
+#            with open(det_file, 'wb') as f:
+#                pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
             max_per_image = 100
             num_images_detect = len(imdb.image_index)
             all_boxes_order = [[[] for _ in range(num_images_detect)] for _ in range(imdb.num_classes)]
@@ -852,6 +896,10 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 name_img_ind = np.where(np.array(name_all_test)==name_img_wt_ext)[0]
                 #print(name_img_ind)
                 if len(name_img_ind)==0:
+                    print('len(name_img_ind)==0, that s strange')
+                    print('name_all_test',name_all_test)
+                    print('name_img_wt_ext',name_img_wt_ext)
+                    print('name_img_ind',name_img_ind)
                     raise(Exception)
                 #print(name_img_ind[0])
                 for j in range(1, imdb.num_classes):
@@ -867,18 +915,20 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                             all_boxes_order[j][i] = all_boxes_order[j][i][keep, :]
             results_pkl = {}
             
-            det_name_file = 'Detect_Baseline_'+database+'_'+baseline_kind
-            if normalisation:
-                det_name_file += '_Normed'
-            if baseline_kind in ['MISVM','miSVM']:
-                det_name_file += '_r'+str(restarts) +'_m'+str(max_iter)
-            if PCAuse:
-                det_name_file += '_PCAc'+str(number_composant)
+#            det_name_file = 'Detect_Baseline_'+database+'_'+baseline_kind
+#            if normalisation:
+#                det_name_file += '_Normed'
+#            if baseline_kind in ['MISVM','miSVM']:
+#                det_name_file += '_r'+str(restarts) +'_m'+str(max_iter)
+#            if PCAuse:
+#                det_name_file += '_PCAc'+str(number_composant)
+#            det_name_fileAP = os.path.join(path_data,det_name_file + '_AP.pkl')
             det_name_filef = det_name_file + '.pkl'
             det_file = os.path.join(path_data, det_name_filef)
             with open(det_file, 'wb') as f:
                 pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
-            output_dir = path_data +'tmp/' + database + '/'
+            output_dir =  os.path.join(path_data,'tmp',database) # path_data +'tmp/' + database + '/'
+
             aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
             results_pkl['AP_IOU05'] = aps
             print("Detection scores for Baseline :",baseline_kind,' on ',database)
@@ -892,7 +942,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 print("Detection score with thres at ",ovthresh)
                 print(arrayToLatex(aps,per=True))
             results_pkl['AP_IOU01'] = apsAt01
-            det_name_fileAP = os.path.join(path_data,det_name_file + '_AP.pkl')
+            
             pkl = open(det_name_fileAP, 'wb')
             pickle.dump(results_pkl,pkl)
 
@@ -904,7 +954,11 @@ def BaselineRunAll():
     """
     
     datasets = ['IconArt_v1','watercolor']
-    list_methods =['MAX1','MAXA','SISVM','MISVM','miSVM']
+    list_methods =['SISVM','MISVM','miSVM','MAX1','MAXA']
+    normalisation = False
+    restarts = 0
+    max_iter = 50
+    variance_thres = 0.9
     for database in datasets:
         for method in list_methods: 
             if method in ['MAXA','MAX1','SISVM']:
@@ -916,22 +970,23 @@ def BaselineRunAll():
             for GS in GS_tab:
                 for PCAuse in PCA_tab:
                     Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database =database,Test_on_k_bag=False,
-                            normalisation= False,baseline_kind=method,verbose=False,
-                            gridSearch=GS,k_per_bag=300,n_jobs=4,PCAuse=PCAuse,variance_thres= 0.9,
-                            restarts=0,max_iter=50)
+                            normalisation= normalisation,baseline_kind=method,verbose=False,
+                            gridSearch=GS,k_per_bag=300,n_jobs=4,PCAuse=PCAuse,variance_thres= variance_thres,
+                            restarts=restarts,max_iter=max_iter,reDo=False)
+    restarts = 10
     for database in datasets:
         for method in ['MISVM','miSVM']:
             Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database =database,Test_on_k_bag=False,
-                    normalisation= False,baseline_kind=method,verbose=False,
-                    gridSearch=False,k_per_bag=300,n_jobs=4,PCAuse=True,variance_thres= 0.9,
-                    restarts=10,max_iter=50)
+                    normalisation= normalisation,baseline_kind=method,verbose=False,
+                    gridSearch=False,k_per_bag=300,n_jobs=4,PCAuse=PCAuse,variance_thres= variance_thres,
+                    restarts=restarts,max_iter=max_iter,reDo=False)
             
 def RunTest():
     """ Run severals baseline model on two datasets
     """
     
     datasets = ['IconArt_v1','watercolor']
-    list_methods =['SISVM','MISVM','miSVM','MAX1','MAXA']
+    list_methods =['SISVM','MISVM','miSVM','MAX1','MAXA','MAXA_lowMem']
     for database in datasets:
         for method in list_methods: 
             if method in ['MAXA','MAX1','SISVM']:
@@ -983,7 +1038,7 @@ if __name__ == '__main__':
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
 #                        restarts=10,max_iter=50)
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-#                        normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                        normalisation= False,baseline_kind = 'MAXA_lowMem',verbose = True,
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
 #                        restarts=10,max_iter=50)
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
@@ -994,10 +1049,10 @@ if __name__ == '__main__':
 #                        normalisation= False,baseline_kind = 'MISVM',verbose = True,
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
 #                        restarts=0,max_iter=50,testMode=True)
-#   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
-#                        normalisation= False,baseline_kind = 'miSVM',verbose = True,
-#                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
-#                        restarts=0,max_iter=50)
+    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'watercolor',Test_on_k_bag=False,
+                        normalisation= False,baseline_kind = 'MAXA',verbose = True,
+                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+                        restarts=0,max_iter=50,testMode=True)
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
 #                        normalisation= False,baseline_kind = 'SISVM',verbose = True,
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
@@ -1007,7 +1062,7 @@ if __name__ == '__main__':
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
 #                        restarts=0,max_iter=50)
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
-#                        normalisation= False,baseline_kind = 'MAXA',verbose = True,
+#                        normalisation= False,baseline_kind = 'MAXA_lowMem',verbose = True,
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
 #                        restarts=0,max_iter=50)
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,

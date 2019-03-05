@@ -9,8 +9,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-import os
-
+#import os
 
 from ..datasets.pascal_voc import pascal_voc
 from ..datasets.CrossMod_db import CrossMod_db
@@ -19,12 +18,7 @@ from ..datasets.IconArt import IconArt_v1
 #from ..datasets.coco import coco # Commented by Nicolas because API COCO Python need python27 : it need to be modified problem with _mask
 
 
-
-
-def get_imdb(name,data_path='/media/HDD/data/'):
-  """Get an imdb (image database) by name.
-  @param : data_path : localisation of the dataset
-  """
+def get_sets(data_path='/media/HDD/data/'):
   __sets = {}
   # Set up voc_<year>_<split> 
   for year in ['2007', '2012']:
@@ -57,17 +51,13 @@ def get_imdb(name,data_path='/media/HDD/data/'):
         name = '{}_{}'.format(db,split)
         __sets[name] = (lambda split=split, db=db: IconArt_v1(db,split,devkit_path=data_path+'Wikidata_Paintings/',test_ext=True))
  
-## Set up coco_2014_<split>
-#for year in ['2014']:
-  #for split in ['train', 'val', 'minival', 'valminusminival', 'trainval']:
-    #name = 'coco_{}_{}'.format(year, split)
-    #__sets[name] = (lambda split=split, year=year: coco(split, year))
+  return(__sets)
 
-## Set up coco_2015_<split>
-#for year in ['2015']:
-  #for split in ['test', 'test-dev']:
-    #name = 'coco_{}_{}'.format(year, split)
-    #__sets[name] = (lambda split=split, year=year: coco(split, year))
+def get_imdb(name,data_path='/media/HDD/data/'):
+  """Get an imdb (image database) by name.
+  @param : data_path : localisation of the dataset
+  """
+  __sets = get_sets(data_path=data_path)
   
   if name not in __sets:
     raise KeyError('Unknown dataset: {}'.format(name))
@@ -76,4 +66,5 @@ def get_imdb(name,data_path='/media/HDD/data/'):
 
 def list_imdbs():
   """List all registered imdbs."""
+  __sets = get_sets()
   return list(__sets.keys())
