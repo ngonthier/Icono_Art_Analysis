@@ -1278,7 +1278,8 @@ def BenchmarkRun():
     for method in list_of_algo:
         for dataset in datasets:
             print('==== ',method,dataset,' ====')
-            for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
+#            for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
+            for dataWhen,dataNorm in zip(['onTrainSet'],['std']):
                 evalPerf(method=method,dataset=dataset,reDo=False,verbose=False,
                          dataNormalizationWhen=dataWhen,dataNormalization=dataNorm)
         
