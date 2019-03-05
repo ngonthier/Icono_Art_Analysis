@@ -2135,6 +2135,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     
     
     """
+    if not(AggregW==''):
+        print('There is an error on those AggregationVector due to tfR_evaluation_paral : with the next_get element not initialize')
+        raise(NotImplementedError)
+    
     debug = False
     print('==========')
     # TODO be able to train on background 
@@ -4840,7 +4844,7 @@ if __name__ == '__main__':
                               Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
                               k_intopk=1,C_Searching=False,predict_with='',
                               gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='maxOfTanh',proportionToKeep=0.25,
+                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
                               loss_type='',storeVectors=False,storeLossValues=False)
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
 #                          verbose = True,testMode = False,jtest = 'cow',
