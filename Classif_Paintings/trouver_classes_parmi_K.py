@@ -421,6 +421,9 @@ class tf_MI_max():
         self.np_neg_value = 1 # Ces elements peuvent etre des matrices ou des vecteurs selon les cas
         self.CV_Mode = CV_Mode
         if not(CV_Mode is None):
+            if not(CV_Mode in ['CV','LA','']):
+                print(CV_Mode,' is unknwonw')
+                raise(NotImplemented)
             assert(num_split>1) # Il faut plus d un folder pour separer
             self.num_split = num_split # Only useful if CrossVal==True
             if num_split>2:
