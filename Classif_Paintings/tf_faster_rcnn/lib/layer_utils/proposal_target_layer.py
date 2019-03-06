@@ -12,7 +12,14 @@ import numpy as np
 import numpy.random as npr
 from ..model.config import cfg
 from ..model.bbox_transform import bbox_transform
-from ..utils.cython_bbox import bbox_overlaps
+try:
+	from ..utils.cython_bbox import bbox_overlaps
+except ImportError: 
+    try:
+        from cython_bbox import bbox_overlaps
+        # That can be install by pip install
+    except ImportError:
+        from ..utils.bbox import bbox_overlaps
 
 
 def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, _num_classes):
