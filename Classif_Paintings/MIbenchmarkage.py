@@ -56,7 +56,7 @@ def EvaluationOnALot_ofParameters(dataset):
     # List of the parameter that can improve the resultats
     C_tab = np.logspace(start=-3,stop=3,num=7)
     C_Searching_tab = [True,False]
-    CV_Mode_tab = ['','CVforCsearch']
+    CV_Mode_tab = ['','CVforCsearch','CV']
     restarts_tab = [0,11,99]
     LR_tab = np.logspace(-5,1,7)
     LR_tab = np.logspace(-4,0,5)
@@ -216,6 +216,7 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
     @param : opts_MIMAX optimion for the MIMAX (i.e.  C,C_Searching,CV_Mode,restarts,LR)
     @param : pref_name_case prefixe of the results file name
     @param : verbose : print some information
+    opts_MIMAX = 1.0,False,'CV',12,0.01
     """
 
     if verbose: print('Start evaluation performance on ',dataset,'method :',method)
@@ -270,6 +271,10 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
                 
             mini_batch_size_max = 2000 # Maybe this value can be update depending on your GPU memory size
             opts = dataset,mini_batch_size_max,num_features,size_biggest_bag
+            
+            if method in['MIMAX','IA_mi_model','MIMAXaddLayer'] and not(opts_MIMAX is None):
+                C,C_Searching,CV_Mode,restarts,LR  = opts_MIMAX
+            
             if dataset=='SIVAL':
                 num_sample = 5
                 perfObj=np.empty((num_sample,number_of_reboots,numMetric))
@@ -281,14 +286,14 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
                     bags_k = bags_c[k]
                     perfObj_k,perfObjB_k,loss_values_k = computePerfMImaxAllW(method,numberofW_to_keep,number_of_reboots,
                                     numMetric,bags_k,labels_bags_c_k,labels_instance_c_k,opts,
-                                    dataNormalizationWhen,dataNormalization,opts_MIMAX=None,verbose=False,
+                                    dataNormalizationWhen,dataNormalization,opts_MIMAX=opts_MIMAX,verbose=False,
                                     test_size=0.1)
                     perfObj[k,:,:] = perfObj_k
                     perfObjB[k,:,:] = perfObjB_k
                     loss_values[k,:,:] = loss_values_k
             else:
                 perfObj,perfObjB,loss_values = computePerfMImaxAllW(method,numberofW_to_keep,number_of_reboots,numMetric,bags_c,labels_bags_c,labels_instance_c,opts,
-                                                                    dataNormalizationWhen,dataNormalization,opts_MIMAX=None,verbose=False,
+                                                                    dataNormalizationWhen,dataNormalization,opts_MIMAX=opts_MIMAX,verbose=False,
                                                                     test_size=0.1)
             data = [loss_values]
             data +=[perfObj[:,0]]
@@ -312,11 +317,21 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
                 ax.set_title(titles[idx])
                 ax.set_ylabel(yaxes[idx])
             
+            add_to_name = ''
+            if method in['MIMAX','IA_mi_model','MIMAXaddLayer'] and not(opts_MIMAX is None):
+                if not(C==1.0):
+                    add_to_name += '_C'+str(C)
+                if not(LR==0.01):
+                    add_to_name += '_LR'+str(LR)
+                if C_Searching:
+                    add_to_name += '_C_Searching'
+                if not(CV_Mode==''):
+                    add_to_name += '_' + CV_Mode
             
-            titlestr = 'Distribution of Loss Function for ' +c+' in '+dataset+' with best over '+str(numberofW_to_keep) +' W' 
+            titlestr = 'Distribution of Loss Function for ' +c+' in '+dataset+' with best over '+str(numberofW_to_keep) +' W' +add_to_name
             plt.suptitle(titlestr,fontsize=12)
             script_dir = os.path.dirname(__file__)
-            filename = method + '_' + dataset +'_' +c +pref_name_case 
+            filename = method + '_' + dataset +'_' +c +pref_name_case +add_to_name
             if dataNormalizationWhen=='onTrainSet':
                 filename += '_' +str(dataNormalization)
             filename += '_W'+ str(numberofW_to_keep)+".png"
@@ -332,7 +347,7 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
 
  
 def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormalizationWhen=None,dataNormalization=None,
-             reDo=True,opts_MIMAX=None,pref_name_case='',verbose=False,
+             reDo=True,opts_MIMAX=[1.0,False,None,49,0.01],pref_name_case='',verbose=False,
              overlap = False,end_name=''):
     """
     This function evaluate the performance of our MIMAX algorithm
@@ -560,7 +575,7 @@ def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
     return(perf,perfB)
     
 def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,StratifiedFold,opts,
-               dataNormalizationWhen,dataNormalization,opts_MIMAX=None,verbose=False,prefixName='',end_name=''):
+               dataNormalizationWhen,dataNormalization,opts_MIMAX=[1.0,False,None,49,0.01],verbose=False,prefixName='',end_name=''):
     
     nRep= 1
     nFolds = 1
@@ -609,7 +624,7 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
         points.append(point)
 
     if method in['MIMAX','IA_mi_model','MIMAXaddLayer']:
-        opts_MIMAX = 1.0,False,None,49,0.01 # Attention tu utilise 100 vecteurs
+         # Attention tu utilise 100 vecteurs
         pred_bag_labels, pred_instance_labels,result,bestloss = train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,pointsPrediction=points,get_bestloss=True)
     else:
@@ -660,6 +675,23 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
     
     plt.xlim(x_min, x_max)
     plt.ylim(y_min, y_max)
+    
+    
+    
+    add_to_name = ''
+    if method in['MIMAX','IA_mi_model','MIMAXaddLayer'] and not(opts_MIMAX is None):
+        C,C_Searching,CV_Mode,restarts,LR = opts_MIMAX
+        if not(restarts==49):
+            add_to_name += '_r'+str(restarts)
+        if not(C==1.0):
+            add_to_name += '_C'+str(C)
+        if not(LR==0.01):
+            add_to_name += '_LR'+str(LR)
+        if C_Searching:
+            add_to_name += '_C_Searching'
+        if not(CV_Mode=='') or not(CV_Mode is None):
+            add_to_name += '_' + CV_Mode
+    
     titlestr = 'Classification for ' +method+' AUC: {0:.2f}, UAR: {1:.2f}, F1 : {2:.2f}'.format(mPerf[2],mPerf[1],mPerf[0])
     if method in['MIMAX','IA_mi_model','MIMAXaddLayer']:
         try:
@@ -783,8 +815,11 @@ def computePerfMImaxAllW(method,numberofW_to_keep,number_of_reboots ,numMetric,b
         pathlib.Path(path_model).mkdir(parents=True, exist_ok=True) 
     
         tf.reset_default_graph()
-
-        C,C_Searching,CV_Mode,restarts,LR = 1.0,False,None,120,0.01
+        
+        if opts_MIMAX is None:
+            C,C_Searching,CV_Mode,restarts,LR = 1.0,False,None,120,0.01
+        else:
+            C,C_Searching,CV_Mode,restarts,LR = opts_MIMAX
         
         restarts = numberofW_to_keep*number_of_reboots
         
