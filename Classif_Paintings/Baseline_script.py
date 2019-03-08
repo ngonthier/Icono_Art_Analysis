@@ -13,6 +13,7 @@ import time
 import pickle
 import gc
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV
 from tf_faster_rcnn.lib.model.nms_wrapper import nms
 #import matplotlib.pyplot as plt
@@ -28,7 +29,6 @@ from Custom_Metrics import ranking_precision_score
 from tf_faster_rcnn.lib.model.test import get_blobs
 #from Classifier_Evaluation import Classification_evaluation
 import os.path
-from sklearn.preprocessing import StandardScaler
 from LatexOuput import arrayToLatex
 from sklearn.linear_model import SGDClassifier
 #import pathlib
@@ -101,6 +101,7 @@ def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1
     classifier.fit(X,y)
     
     return(classifier)
+
 
 def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test_on_k_bag = False,
                              normalisation= False,baseline_kind = 'MAX1',
@@ -935,6 +936,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             results_pkl['AP_IOU05'] = aps
             print("Detection scores at 0.5 for Baseline :",baseline_kind,'gridSearch',gridSearch,'on ',database)
             if PCAuse: print("With PCA and ",number_composant," componants")
+            if baseline_kind in ['MISVM','miSVM']:
+                print('restarts',restarts,'max_iter',max_iter)
             print(arrayToLatex(aps,per=True))
             ovthresh_tab = [0.1]
             for ovthresh in ovthresh_tab:

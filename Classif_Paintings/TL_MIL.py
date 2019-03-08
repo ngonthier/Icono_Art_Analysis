@@ -50,6 +50,7 @@ from trouver_classes_parmi_K import MI_max,TrainClassif,tf_MI_max #ModelHyperpla
 from trouver_classes_parmi_K_mi import tf_mi_model
 from LatexOuput import arrayToLatex
 from FasterRCNN import vis_detections_list,vis_detections,Compute_Faster_RCNN_features,vis_GT_list
+from CNNfeatures import Compute_EdgeBoxesAndCNN_features
 import pathlib
 from milsvm import mi_linearsvm # Version de nicolas avec LinearSVC et TODO SGD 
 from sklearn.externals import joblib # To save the classifier
@@ -2027,7 +2028,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
                                   plot_onSubSet=None,loss_type=None,storeVectors=False,
                                   storeLossValues=False,obj_score_add_tanh=False,lambdas=0.5,
-                                  obj_score_mul_tanh=False):
+                                  obj_score_mul_tanh=False,metamodel='FasterRCNN'):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2103,21 +2104,23 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     @param : thresh_evaluation : 0.05 : seuillage avant de fournir les boites a l evaluation de detections
     @param : TEST_NMS : 0.3 : recouvrement autorise avant le NMS avant l evaluation de detections
     @param proportionToKeep : proportion to keep in the votingW or votingWmedian case
-        @param AggregW (default =None ) The different solution for the aggregation 
-        of the differents W vectors :
-            Choice : None or '', we only take the vector that minimize the loss (with ou without CV)
-            'AveragingW' : that the average of the proportionToKeep*numberW first vectors
-            'meanOfProd' : Take the mean of the product the first vectors
-            'medianOfProd' : Take the meadian of the product of the first vectors
-            'maxOfProd' : Take the max of the product of the first vectors
-            'meanOfTanh' : Take the mean of the tanh of the product of the first vectors
-            'medianOfTanh' : Take the meadian of the tanh of product of the first vectors
-            'maxOfTanh' : Take the max of the tanh of product of the first vectors
+    @param AggregW (default =None ) The different solution for the aggregation 
+    of the differents W vectors :
+        Choice : None or '', we only take the vector that minimize the loss (with ou without CV)
+        'AveragingW' : that the average of the proportionToKeep*numberW first vectors
+        'meanOfProd' : Take the mean of the product the first vectors
+        'medianOfProd' : Take the meadian of the product of the first vectors
+        'maxOfProd' : Take the max of the product of the first vectors
+        'meanOfTanh' : Take the mean of the tanh of the product of the first vectors
+        'medianOfTanh' : Take the meadian of the tanh of product of the first vectors
+        'maxOfTanh' : Take the max of the tanh of product of the first vectors
             
    @param obj_score_add_tanh : the objectness_score is add to the tanh of the dot product
    @param obj_score_mul_tanh : the objectness_score is multiply to the tanh of the dot product
    @param lambdas : the lambda ratio between the tanh scalar product and the objectness score
-    
+   @param metamodel : default : FasterRCNN it is the meta algorithm use to get bouding boxes and features
+       metamodel in ['FasterRCNN','EdgeBoxes']
+   
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -2137,6 +2140,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     """
     if not(AggregW==''):
         print('There is an error on those AggregationVector due to tfR_evaluation_paral : with the next_get element not initialize')
+        raise(NotImplementedError)
+    
+    if not(metamodel in ['FasterRCNN','EdgeBoxes']):
+        print(metamodel,' is unknown')
         raise(NotImplementedError)
     
     debug = False
@@ -2245,7 +2252,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     extL2 = ''
     nms_thresh = 0.7
     savedstr = '_all'
-    
+
     sets = ['train','val','trainval','test']
     dict_name_file = {}
     data_precomputeed= True
@@ -2254,9 +2261,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     else:
         k_per_bag_str = '_k'+str(k_per_bag)
     for set_str in sets:
-        name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
+        name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
         if not(k_per_bag==300) and eval_onk300 and set_str=='test': # We will evaluate on all the 300 regions and not only the k_per_bag ones
-            name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
+            name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
         dict_name_file[set_str] = name_pkl_all_features
         if not(os.path.isfile(name_pkl_all_features)):
             data_precomputeed = False
@@ -2270,9 +2277,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     if not(data_precomputeed):
         # Compute the features
         if verbose: print("We will computer the CNN features")
-        Compute_Faster_RCNN_features(demonet=demonet,nms_thresh =nms_thresh,
-                                     database=database,augmentation=False,L2 =False,
-                                     saved='all',verbose=verbose,filesave='tfrecords',k_regions=k_per_bag)
+        if metamodel=='FasterRCNN':
+            Compute_Faster_RCNN_features(demonet=demonet,nms_thresh =nms_thresh,
+                                         database=database,augmentation=False,L2 =False,
+                                         saved='all',verbose=verbose,filesave='tfrecords',k_regions=k_per_bag)
+        elif metamodel=='EdgeBoxes':
+            Compute_EdgeBoxesAndCNN_features(demonet=demonet,nms_thresh =nms_thresh,database=database,
+                                 augmentation=False,L2 =False,
+                                 saved='all',verbose=verbose,filesave='tfrecords',k_regions=k_per_bag)
            
     # Config param for TF session 
     config = tf.ConfigProto()

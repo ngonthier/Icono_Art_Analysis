@@ -224,7 +224,7 @@ def resnet152_model(weights_path=None):
 
     return model
 
-def resnet152_model_2018output(weights_path=None):
+def resnet152_model_2048output(weights_path=None):
     '''Instantiate the ResNet152 architecture,
     # Arguments
         weights_path: path to pretrained weight file

@@ -685,7 +685,7 @@ def Compute_ResNet(kind='2048D',database='Paintings',L2=True,augmentation=True):
         model = resnet_152_keras.resnet152_model(weights_path)
         size_output = 1000
     elif(kind=='2048D'):
-        model = resnet_152_keras.resnet152_model_2018output(weights_path)
+        model = resnet_152_keras.resnet152_model_2048output(weights_path)
         size_output = 2048
     name_pkl = path_data+'ResNet152_'+ kind +'_'+database+'_N'+str(N)+extL2+'.pkl'
     name_img = df_label[item_name][0]
