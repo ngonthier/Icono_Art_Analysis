@@ -8,17 +8,19 @@ Created on Wed Feb 13 17:26:50 2019
 
 import pickle
 import tensorflow as tf
-from tf_faster_rcnn.lib.nets.vgg16 import vgg16
-from tf_faster_rcnn.lib.nets.resnet_v1 import resnetv1
+#from tf_faster_rcnn.lib.nets.vgg16 import vgg16
+#from tf_faster_rcnn.lib.nets.resnet_v1 import resnetv1
 import resnet_152_keras
-import sys
+#import sys
 import os
 import cv2 # Need the contrib :  pip install opencv-contrib-python
-# Tentative de build avec tes modifications !!! https://gist.github.com/jarle/8336eb9cd140ad95f26a54f1572fc2fd
+# Echec de la Tentative de build avec tes modifications !!! https://gist.github.com/jarle/8336eb9cd140ad95f26a54f1572fc2fd
 import pandas as pd
 import os.path
 from tool_on_Regions import reduce_to_k_regions
 import numpy as np
+from FasterRCNN import _int64_feature,_bytes_feature,_floats_feature
+
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -55,15 +57,58 @@ NETS_Pretrained = {'vgg16_VOC07' :'vgg16_faster_rcnn_iter_70000.ckpt',
 CLASSES_SET ={'VOC' : CLASSESVOC,
               'COCO' : CLASSESCOCO }
 
-def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database='Paintings',
+
+def get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False):
+    im = cv2.imread(complet_name) # Load image in BGR
+    rgb_im = im[:,:,[2,1,0]] # To shift from BGR to RGB
+#    rgb_im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    edges = edge_detection.detectEdges(np.float32(rgb_im) / 255.0)
+    orimap = edge_detection.computeOrientation(edges)
+    edges = edge_detection.edgesNms(edges, orimap)
+    edge_boxes = cv2.ximgproc.createEdgeBoxes()
+    edge_boxes.setMaxBoxes(k_regions)
+    boxes = edge_boxes.getBoundingBoxes(edges, orimap)
+    list_of_crop = []
+    rois = []
+    for b in boxes:
+        x, y, w, h = b
+        crop_img = im[x:x+w,y:y+h,:].astype(np.float32) # The network need an image in BGR
+        if not(crop_img.shape[0]==0) and not(crop_img.shape[1]==0):
+            if demonet=='res152':
+                if augmentation:
+                    sizeIm = 256
+                else:
+                    sizeIm = 224
+            else:
+                raise(NotImplemented)
+#            if(crop_img.shape[0] < crop_img.shape[1]):
+#                dim = (sizeIm, int(crop_img.shape[1] * sizeIm / crop_img.shape[0]),3)
+#            else:
+#                dim = (int(crop_img.shape[0] * sizeIm / crop_img.shape[1]),sizeIm,3)
+            dim = (sizeIm,sizeIm)
+            resized_img = cv2.resize(crop_img, dim, interpolation = cv2.INTER_AREA)
+            resized_img[:,:,0] -= 103.939
+            resized_img[:,:,1] -= 116.779
+            resized_img[:,:,2] -= 123.68
+            list_of_crop += [resized_img]
+            rois += [b]
+    rois = np.stack(rois).astype(np.float32)
+
+    list_im =  np.stack(list_of_crop)
+    return(list_im,rois)
+
+def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database='IconArt_v1',
                                  augmentation=False,L2 =False,
-                                 saved='all',verbose=True,filesave='pkl',k_regions=300):
+                                 saved='all',verbose=True,filesave='tfrecords',k_regions=300):
     """
     The goal of this function is to compute 
     @param : demonet : teh kind of inside network used it can be 'vgg16_VOC07',
         'vgg16_VOC12','vgg16_COCO','res101_VOC12','res101_COCO','res152_COCO'
     @param : nms_thresh : the nms threshold on the Region Proposal Network
     
+    /!\ Pour le moment la version de EdgeBoxes dans les contribs ne permet pas 
+    d'avoir de scores 
+        
     """
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     
@@ -90,6 +135,13 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
         path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
         num_classes = 20
         ext = '.csv'
+    elif(database=='IconArt_v1'):
+        ext='.csv'
+        item_name='item'
+        classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+        'Mary','nudity', 'ruins','Saint_Sebastien']
+        path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+        num_classes = 7
     elif database=='PeopleArt':
         item_name = 'name_img'
         path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
@@ -111,11 +163,15 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
         num_classes = 5
         ext = '.txt'
     else:
-        item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
-        ext = '.txt'
+        print(database,'is unknown')
+        raise(NotImplemented)
+        
+    if database=='IconArt_v1':
+        path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+    else:
+        path_data_csvfile = path_data
     
-    databasetxt = path_data + database + ext
+    databasetxt = path_data_csvfile + database + ext 
     if database=='VOC2007' or database=='watercolor' or database=='clipart':
         df_label = pd.read_csv(databasetxt,sep=",",dtype=str)
     elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
@@ -146,25 +202,25 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
         savedstr = '_pool5'
     
     tf.reset_default_graph() # Needed to use different nets one after the other
-    if verbose: print(demonet)
+    if verbose: print('=== demonet',demonet,'database',database,' ===')
     
     if demonet=='res152':
         weights_path = '/media/HDD/models/resnet152_weights_tf.h5'
-        model = resnet_152_keras.resnet152_model_2018output(weights_path)
+        model = resnet_152_keras.resnet152_model_2048output(weights_path)
         size_output = 2048
     else:
         raise(NotImplemented)
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
     tfconfig.gpu_options.allow_growth=True
     # init session
-    sess = tf.Session(config=tfconfig)
+#    sess = tf.Session(config=tfconfig)
     
     features_resnet_dict= {}
     
     sets = ['train','val','trainval','test']
     
     if filesave == 'pkl':
-        name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
+        name_pkl_all_features = path_data+'EdgeBoxes_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
         pkl = open(name_pkl_all_features, 'wb')
     elif filesave =='tfrecords':
         if k_regions==300:
@@ -173,20 +229,12 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             k_per_bag_str = '_k'+str(k_regions)
         dict_writers = {}
         for set_str in sets:
-            name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
+            name_pkl_all_features = path_data+'EdgeBoxes_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
             dict_writers[set_str] = tf.python_io.TFRecordWriter(name_pkl_all_features)
-        if database=='Paintings':
-            classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-        if database=='VOC2007' or database=='clipart':
-            classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
-               'bottle', 'bus', 'car', 'cat', 'chair',
-               'cow', 'diningtable', 'dog', 'horse',
-               'motorbike', 'person', 'pottedplant',
-               'sheep', 'sofa', 'train', 'tvmonitor']
-        if database=='watercolor':
-            classes = ["bicycle", "bird","car", "cat", "dog", "person"]
-        if database=='PeopleArt':
-            classes = ["person"]
+     
+    model_edgeboxes = 'model/model.yml'
+    # Need of  pip install opencv-contrib-python
+    edge_detection = cv2.ximgproc.createStructuredEdgeDetection(model_edgeboxes)
     
     Itera = 1000
     for i,name_img in  enumerate(df_label[item_name]):
@@ -198,7 +246,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
                 if not(i==0):
                     pickle.dump(features_resnet_dict,pkl) # Save the data
                     features_resnet_dict= {}
-            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['IconArt_v1','VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 complet_name = path_to_img + name_img + '.jpg'
             elif database=='PeopleArt':
                 complet_name = path_to_img + name_img
@@ -206,27 +254,23 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 name_sans_ext = os.path.splitext(name_img)[0]
                 complet_name = path_to_img +name_sans_ext + '.jpg'
-            im = cv2.imread(complet_name)
             
-            
-            
-            
-            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
-            
-            
-            
+            list_im, rois = get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False)
+            fc7 = model.predict(list_im)
+            roi_scores = np.ones((len(list_im,)))
+#            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
             #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
             if saved=='fc7':
                 features_resnet_dict[name_img] = fc7
-            elif saved=='pool5':
-                features_resnet_dict[name_img] = pool5
+#            elif saved=='pool5':
+#                features_resnet_dict[name_img] = pool5
             elif saved=='all':
                 features_resnet_dict[name_img] = rois,roi_scores,fc7
                 
         elif filesave=='tfrecords':
             if i%Itera==0:
                 if verbose : print(i,name_img)
-            if database in ['VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['IconArt_v1','VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
             elif database=='PeopleArt':
@@ -235,51 +279,33 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 name_sans_ext = os.path.splitext(name_img)[0]
                 complet_name = path_to_img +name_sans_ext + '.jpg'
+
             im = cv2.imread(complet_name)
+            
             height = im.shape[0]
             width = im.shape[1]
-            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
             
-            if k_regions==300:
-                num_regions = fc7.shape[0]
-                num_features = fc7.shape[1]
-                dim1_rois = rois.shape[1]
-                classes_vectors = np.zeros((num_classes,1))
-                rois_tmp = np.zeros((k_regions,5))
-                roi_scores_tmp = np.zeros((k_regions,1))
-                fc7_tmp = np.zeros((k_regions,size_output))
-                rois_tmp[0:rois.shape[0],0:rois.shape[1]] = rois
-                roi_scores_tmp[0:roi_scores.shape[0],0:roi_scores.shape[1]] = roi_scores
-                fc7_tmp[0:fc7.shape[0],0:fc7.shape[1]] = fc7           
-                rois = rois_tmp
-                roi_scores =roi_scores_tmp
-                fc7 = fc7_tmp
+            list_im, rois = get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False)
+            fc7 = model.predict(list_im)
+            roi_scores = np.ones((len(list_im,)))
+#            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+            
+            if(len(fc7) >= k_regions):
+                rois = rois[0:k_regions,:]
+                roi_scores =roi_scores[0:k_regions,]
+                fc7 = fc7[0:k_regions,:]
             else:
-                # We will select only k_regions 
-                new_nms_thresh = 0.0
-                score_threshold = 0.1
-                minimal_surface = 36*36
-                
-                num_regions = k_regions
-                num_features = fc7.shape[1]
-                dim1_rois = rois.shape[1]
-                classes_vectors = np.zeros((num_classes,1))
-                rois_reduce,roi_scores_reduce,fc7_reduce =  reduce_to_k_regions(k_regions,rois, \
-                                                       roi_scores, fc7,new_nms_thresh, \
-                                                       score_threshold,minimal_surface)
-                if(len(fc7_reduce) >= k_regions):
-                    rois = rois_reduce[0:k_regions,:]
-                    roi_scores =roi_scores_reduce[0:k_regions,]
-                    fc7 = fc7_reduce[0:k_regions,:]
-                else:
-                    number_repeat = k_regions // len(fc7_reduce)  +1
-                    f_repeat = np.repeat(fc7_reduce,number_repeat,axis=0)
-                    roi_scores_repeat = np.repeat(roi_scores_reduce,number_repeat,axis=0)
-                    rois_reduce_repeat = np.repeat(rois_reduce,number_repeat,axis=0)
-                    rois = rois_reduce_repeat[0:k_regions,:]
-                    roi_scores =roi_scores_repeat[0:k_regions,]
-                    fc7 = f_repeat[0:k_regions,:]
-               
+                number_repeat = k_regions // len(fc7)  +1
+                f_repeat = np.repeat(fc7,number_repeat,axis=0)
+                roi_scores_repeat = np.repeat(roi_scores,number_repeat,axis=0)
+                rois_reduce_repeat = np.repeat(rois,number_repeat,axis=0)
+                rois = rois_reduce_repeat[0:k_regions,:]
+                roi_scores =roi_scores_repeat[0:k_regions,]
+                fc7 = f_repeat[0:k_regions,:]
+            num_regions = fc7.shape[0]
+            num_features = fc7.shape[1]
+            dim1_rois = rois.shape[1]
+            classes_vectors = np.zeros((num_classes,1),dtype=np.float32)
             
             if database=='Paintings':
                 for j in range(num_classes):
@@ -290,7 +316,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
                     value = int((int(df_label[classes[j]][i])+1.)/2.)
                     #print(value)
                     classes_vectors[j] = value
-            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
                 for j in range(num_classes):
                     value = int(df_label[classes[j]][i])
                     classes_vectors[j] = value
@@ -342,7 +368,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
                     dict_writers['trainval'].write(example.SerializeToString())
                 elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
                     dict_writers['test'].write(example.SerializeToString())
-            if database in ['watercolor','clipart','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['IconArt_v1','watercolor','clipart','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
                     dict_writers['train'].write(example.SerializeToString())
                     dict_writers['trainval'].write(example.SerializeToString())
