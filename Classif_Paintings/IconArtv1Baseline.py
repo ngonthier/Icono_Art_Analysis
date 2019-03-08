@@ -28,9 +28,12 @@ def BaselineRunAll():
                 PCA_tab = [True]
             for GS in GS_tab:
                 for PCAuse in PCA_tab:
+                    n_jobs = 4
+                    if method=='SISVM' and GS_tab:
+                        n_jobs = 1
                     Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database =database,Test_on_k_bag=False,
                             normalisation= normalisation,baseline_kind=method,verbose=False,
-                            gridSearch=GS,k_per_bag=300,n_jobs=4,PCAuse=PCAuse,variance_thres= variance_thres,
+                            gridSearch=GS,k_per_bag=300,n_jobs=n_jobs,PCAuse=PCAuse,variance_thres= variance_thres,
                             restarts=restarts,max_iter=max_iter,reDo=False)
     restarts = 10
     for database in datasets:
