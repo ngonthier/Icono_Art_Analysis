@@ -23,6 +23,8 @@ TODO : change that
 import pickle
 import tensorflow as tf
 from sklearn import svm
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV
 from tf_faster_rcnn.lib.nets.vgg16 import vgg16
 from tf_faster_rcnn.lib.nets.resnet_v1 import resnetv1
@@ -1887,7 +1889,384 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     elif filesave=='tfrecords':
         for set_str  in sets:
             dict_writers[set_str].close()
+
+def Save_TFRecords_PCA_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
+                                 augmentation=False,L2 =False,
+                                 saved='all',verbose=True,k_regions=300,
+                                 variance_thres=0.9):
+    """
+    This function will save a PCA projected version of the features extracted from a 
+    Faster-RCNN
+    """
+    if database=='Paintings':
+        item_name = 'name_img'
+        path_to_img = 'Painting_Dataset/'
+        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    elif database=='VOC12':
+        item_name = 'name_img'
+        path_to_img = 'VOCdevkit/VOC2012/JPEGImages/'
+    elif database=='VOC2007':
+        ext = '.csv'
+        item_name = 'name_img'
+        path_to_img = 'VOCdevkit/VOC2007/JPEGImages/'
+        classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
+           'bottle', 'bus', 'car', 'cat', 'chair',
+           'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant',
+           'sheep', 'sofa', 'train', 'tvmonitor']
+    elif(database=='WikiTenLabels'):
+        ext='.csv'
+        item_name='item'
+        classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
+        'Mary','nudity', 'ruins','Saint_Sebastien','turban']
+    elif(database=='IconArt_v1'):
+        ext='.csv'
+        item_name='item'
+        classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+        'Mary','nudity', 'ruins','Saint_Sebastien']
+        path_to_img = 'Wikidata_Paintings/IconArt_v1/JPEGImages/'
+    elif database=='watercolor':
+        ext = '.csv'
+        item_name = 'name_img'
+        path_to_img = 'cross-domain-detection/datasets/watercolor/JPEGImages/'
+        classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
+    elif(database=='Wikidata_Paintings'):
+        item_name = 'image'
+        path_to_img = 'Wikidata_Paintings/600/'
+        raise NotImplemented # TODO implementer cela !!! 
+    elif(database=='Wikidata_Paintings_miniset_verif'):
+        item_name = 'image'
+        path_to_img = 'Wikidata_Paintings/600/'
+        classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
+    else:
+        print(database,' unknown')
+        raise NotImplemented
+    
+    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+
+    if augmentation:
+        raise NotImplementedError
+        N = 50
+    else: 
+        N=1
+    if L2:
+        raise NotImplementedError
+        extL2 = '_L2'
+    else:
+        extL2 = ''
+    if saved=='all':
+        savedstr = '_all'
+    elif saved=='fc7':
+        savedstr = ''
+    elif saved=='pool5':
+        savedstr = '_pool5'
+
+    name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+ \
+            '_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
+    path_to_img = '/media/HDD/data/' + path_to_img
+    dataImg_path = '/media/HDD/data/'
+    if database=='IconArt_v1':
+        path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+    else:
+        path_data_csvfile = path_data
+    
+    databasetxt = path_data_csvfile + database + ext    
+    if database=='VOC2007' or database=='watercolor' or database=='clipart':
+        df_label = pd.read_csv(databasetxt,sep=",",dtype=str)
+    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
+        dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
+                  'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
+                  'turban':int,'set':str,'Anno':int}
+        df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
+    else:
+        df_label = pd.read_csv(databasetxt,sep=",")
+    if database=='Wikidata_Paintings_miniset_verif':
+        df_label = df_label[df_label['BadPhoto'] <= 0.0]
+    
+    filesave = 'pkl'
+    if not(os.path.isfile(name_pkl)):
+        if verbose: print('We will computed the data in the pkl format')
+        Compute_Faster_RCNN_features(demonet=demonet,nms_thresh =nms_thresh,
+                                     database=database,augmentation=False,L2 =False,
+                                     saved='all',verbose=verbose,filesave=filesave)
         
+    if verbose: print("Start loading precomputed data",name_pkl)
+    
+    if database in ['VOC2007','watercolor','IconArt_v1','WikiTenLabels']:
+        str_val ='val' 
+    else: 
+        str_val='validation'
+    names = df_label.as_matrix(columns=[item_name])
+    name_train = names[df_label['set']=='train']
+    name_val = names[df_label['set']==str_val]
+    name_all_test =  names[df_label['set']=='test']
+    name_trainval = np.append(name_train,name_val,axis=0)
+
+    X_trainval_all = []
+    total_trainval_elt = 0
+    with open(name_pkl, 'rb') as pkl:
+        for i,_ in  enumerate(df_label[item_name]):
+            if i%1000==0 and not(i==0):
+                if verbose: print("Number of images loaded : ",i)
+                features_resnet_dict_tmp = pickle.load(pkl)
+                name_keys = features_resnet_dict_tmp.keys()
+                for j,name_img in enumerate(name_trainval):
+                    name_img = name_img[0]
+                    if name_img in name_keys:
+                        total_trainval_elt += 1
+                        rois,roi_scores,fc7 = features_resnet_dict_tmp[name_img]
+                        if not(len(X_trainval_all)==0):
+                            fc7np = [fc7.astype(np.float32)]
+                            X_trainval_all = np.hstack([X_trainval_all,fc7np]).astype(np.float32) 
+                        else:
+                            X_trainval_all = [fc7.astype(np.float32)]
+        if verbose: print('Last pack')
+        features_resnet_dict_tmp = pickle.load(pkl)
+        name_keys = features_resnet_dict_tmp.keys()
+        for j,name_img in enumerate(name_trainval):
+            name_img = name_img[0]
+            if name_img in name_keys:
+                total_trainval_elt += 1
+                rois,roi_scores,fc7 = features_resnet_dict_tmp[name_img]
+                if not(len(X_trainval_all)==0):
+                    fc7np = [fc7.astype(np.float32)]
+                    X_trainval_all = np.hstack([X_trainval_all,fc7np]).astype(np.float32)  
+                else:
+                    X_trainval_all = [fc7.astype(np.float32)]
+        X_trainval_all = np.concatenate(X_trainval_all,axis=0).astype(np.float32)
+    
+    del features_resnet_dict_tmp
+    assert(total_trainval_elt==len(name_trainval))
+                
+#            if i%1000==0 and not(i==0):
+#                if verbose: print(i,name_img)
+#                features_resnet_dict_tmp = pickle.load(pkl)
+#                
+#                
+#                if i==1000:
+#                    features_resnet_dict = features_resnet_dict_tmp
+#                else:
+#                    features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+#        features_resnet_dict_tmp = pickle.load(pkl)
+#        features_resnet_dict =  {**features_resnet_dict,**features_resnet_dict_tmp}
+#    if verbose: print("Data loaded",len(features_resnet_dict))
+    
+    if verbose: print('Normalisation of the data (X-mean)/std')
+    scaler = StandardScaler()
+    scaler.fit(X_trainval_all)
+    X_trainval_all = scaler.transform(X_trainval_all)
+
+    if verbose: print("Use of a PCA for dimensionality reduction")
+    pca = PCA()
+    pca.fit(X_trainval_all)
+    del X_trainval_all
+                    
+    cumsum_explained_variance_ratio = np.cumsum(pca.explained_variance_ratio_)
+    number_composant = 1+np.where(cumsum_explained_variance_ratio>variance_thres)[0][0]
+    print('We will reduce the number of features to : ',number_composant,' for variance_thres',variance_thres)
+    
+    sets = ['train','val','trainval','test']
+    if k_regions==300:
+        k_per_bag_str = ''
+    else:
+        k_per_bag_str = '_k'+str(k_regions)
+    dict_writers = {}
+    for set_str in sets:
+        name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N' \
+            +str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_PCAc'+str(number_composant)+\
+            '_'+set_str+'.tfrecords'
+        dict_writers[set_str] = tf.python_io.TFRecordWriter(name_pkl_all_features)
+    if database=='Paintings':
+        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    if database=='VOC2007' or database=='clipart':
+        classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
+           'bottle', 'bus', 'car', 'cat', 'chair',
+           'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant',
+           'sheep', 'sofa', 'train', 'tvmonitor']
+    if database=='watercolor':
+        classes = ["bicycle", "bird","car", "cat", "dog", "person"]
+    if database=='PeopleArt':
+        classes = ["person"]
+    if database=='IconArt_v1':
+        classes = ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+        'Mary','nudity', 'ruins','Saint_Sebastien']
+    tf.reset_default_graph() # Needed to use different nets one after the other
+    if verbose: print(demonet)
+    if 'VOC'in demonet:
+        CLASSES = CLASSES_SET['VOC']
+        anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+    elif 'COCO'in demonet:
+        CLASSES = CLASSES_SET['COCO']
+        anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
+    nbClassesDemoNet = len(CLASSES)
+    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+    tfconfig = tf.ConfigProto(allow_soft_placement=True)
+    tfconfig.gpu_options.allow_growth=True
+    # init session
+    sess = tf.Session(config=tfconfig)
+    
+    # load network
+    if  'vgg16' in demonet:
+      net = vgg16()
+      size_output = 4096
+    elif demonet == 'res50':
+      raise NotImplementedError
+    elif 'res101' in demonet:
+      net = resnetv1(num_layers=101)
+      size_output = 2048
+    elif 'res152' in demonet:
+      net = resnetv1(num_layers=152)
+      size_output = 2048
+    elif demonet == 'mobile':
+      raise NotImplementedError
+    else:
+      raise NotImplementedError
+    
+    net.create_architecture("TEST", nbClassesDemoNet,
+                          tag='default', anchor_scales=anchor_scales,
+                          modeTL= True,nms_thresh=nms_thresh)
+    saver = tf.train.Saver()
+    saver.restore(sess, tfmodel)
+    
+    Itera = 1000
+    num_classes = len(classes)
+    for i,name_img in  enumerate(df_label[item_name]):
+        if i%Itera==0:
+            if verbose : print(i,name_img)
+        if database in ['IconArt_v1','VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            complet_name = path_to_img + name_img + '.jpg'
+            name_sans_ext = name_img
+        elif database=='PeopleArt':
+            complet_name = path_to_img + name_img
+            name_sans_ext = os.path.splitext(name_img)[0]
+        elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+            name_sans_ext = os.path.splitext(name_img)[0]
+            complet_name = path_to_img +name_sans_ext + '.jpg'
+        im = cv2.imread(complet_name)
+        height = im.shape[0]
+        width = im.shape[1]
+        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+        
+        fc7 = scaler.transform(fc7)
+        fc7 = pca.transform(fc7)
+        fc7 = fc7[:,0:number_composant]
+        
+        if k_regions==300:
+            num_regions = fc7.shape[0]
+            num_features = fc7.shape[1]
+            dim1_rois = rois.shape[1]
+            classes_vectors = np.zeros((num_classes,1))
+            rois_tmp = np.zeros((k_regions,5))
+            roi_scores_tmp = np.zeros((k_regions,1))
+            fc7_tmp = np.zeros((k_regions,size_output))
+            rois_tmp[0:rois.shape[0],0:rois.shape[1]] = rois
+            roi_scores_tmp[0:roi_scores.shape[0],0:roi_scores.shape[1]] = roi_scores
+            fc7_tmp[0:fc7.shape[0],0:fc7.shape[1]] = fc7           
+            rois = rois_tmp
+            roi_scores =roi_scores_tmp
+            fc7 = fc7_tmp
+        else:
+            # We will select only k_regions 
+            new_nms_thresh = 0.0
+            score_threshold = 0.1
+            minimal_surface = 36*36
+            
+            num_regions = k_regions
+            num_features = fc7.shape[1]
+            dim1_rois = rois.shape[1]
+            classes_vectors = np.zeros((num_classes,1))
+            rois_reduce,roi_scores_reduce,fc7_reduce =  reduce_to_k_regions(k_regions,rois, \
+                                                   roi_scores, fc7,new_nms_thresh, \
+                                                   score_threshold,minimal_surface)
+            if(len(fc7_reduce) >= k_regions):
+                rois = rois_reduce[0:k_regions,:]
+                roi_scores =roi_scores_reduce[0:k_regions,]
+                fc7 = fc7_reduce[0:k_regions,:]
+            else:
+                number_repeat = k_regions // len(fc7_reduce)  +1
+                f_repeat = np.repeat(fc7_reduce,number_repeat,axis=0)
+                roi_scores_repeat = np.repeat(roi_scores_reduce,number_repeat,axis=0)
+                rois_reduce_repeat = np.repeat(rois_reduce,number_repeat,axis=0)
+                rois = rois_reduce_repeat[0:k_regions,:]
+                roi_scores =roi_scores_repeat[0:k_regions,]
+                fc7 = f_repeat[0:k_regions,:]
+           
+        
+        if database=='Paintings':
+            for j in range(num_classes):
+                if(classes[j] in df_label['classe'][i]):
+                    classes_vectors[j] = 1
+        if database in ['VOC2007','clipart','watercolor','PeopleArt']:
+            for j in range(num_classes):
+                value = int((int(df_label[classes[j]][i])+1.)/2.)
+                #print(value)
+                classes_vectors[j] = value
+        if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
+            for j in range(num_classes):
+                value = int(df_label[classes[j]][i])
+                classes_vectors[j] = value
+        #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
+        if saved=='fc7':
+            print('It is possible that you need to replace _bytes_feature by _floats_feature in this function')
+            print('!!!!!!!!!!!!!!!!!!!!!')
+            # TODO : modifier cela !
+            features=tf.train.Features(feature={
+                'height': _int64_feature(height),
+                'width': _int64_feature(width),
+                'num_regions': _int64_feature(num_regions),
+                'num_features': _int64_feature(num_features),
+                'fc7': _bytes_feature(tf.compat.as_bytes(fc7.tostring())),
+                'label' : _bytes_feature(tf.compat.as_bytes(classes_vectors.tostring())),
+                'name_img' : _bytes_feature(str.encode(name_sans_ext))})
+        elif saved=='pool5':
+            raise(NotImplementedError)
+        elif saved=='all':
+            features=tf.train.Features(feature={
+                'height': _int64_feature(height),
+                'width': _int64_feature(width),
+                'num_regions': _int64_feature(num_regions),
+                'num_features': _int64_feature(num_features),
+                'dim1_rois': _int64_feature(dim1_rois),
+                'rois': _floats_feature(rois),
+                'roi_scores': _floats_feature(roi_scores),
+                'fc7': _floats_feature(fc7),
+                'label' : _floats_feature(classes_vectors),
+                'name_img' : _bytes_feature(str.encode(name_sans_ext))})
+        example = tf.train.Example(features=features)    
+        
+        if database=='VOC2007' or database=='PeopleArt':
+            if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
+                dict_writers['train'].write(example.SerializeToString())
+                dict_writers['trainval'].write(example.SerializeToString())
+            elif (df_label.loc[df_label[item_name]==name_img]['set']=='val').any():
+                dict_writers['val'].write(example.SerializeToString())
+                dict_writers['trainval'].write(example.SerializeToString())
+            elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
+                dict_writers['test'].write(example.SerializeToString())
+        if (database=='Wikidata_Paintings_miniset') or database=='Paintings':
+            if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
+                dict_writers['train'].write(example.SerializeToString())
+                dict_writers['trainval'].write(example.SerializeToString())
+            elif (df_label.loc[df_label[item_name]==name_img]['set']=='validation').any():
+                dict_writers['val'].write(example.SerializeToString())
+                dict_writers['trainval'].write(example.SerializeToString())
+            elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
+                dict_writers['test'].write(example.SerializeToString())
+        if database in ['watercolor','clipart','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
+            if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
+                dict_writers['train'].write(example.SerializeToString())
+                dict_writers['trainval'].write(example.SerializeToString())
+            elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
+                dict_writers['test'].write(example.SerializeToString())
+
+    for set_str  in sets:
+        dict_writers[set_str].close()
+        
+    
+    
+
 def Illus_NMS_threshold_test():
     """
     The goal of this function is to test the modification of the NMS threshold 
@@ -2726,9 +3105,10 @@ if __name__ == '__main__':
     # RESNET152 sur COCO
     # VGG16 sur COCO
     # RES101 sur VOC12
-    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
-                                 augmentation=False,L2 =False,
-                                 saved='all',verbose=True,filesave='pkl')   
+    Save_TFRecords_PCA_features()
+#    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
+#                                 augmentation=False,L2 =False,
+#                                 saved='all',verbose=True,filesave='pkl')   
 #    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='VOC2007',
 #                                 augmentation=False,L2 =False,
 #                                 saved='all',verbose=True,filesave='tfrecords')   
