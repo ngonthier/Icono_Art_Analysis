@@ -29,7 +29,7 @@ def BaselineRunAll():
             for GS in GS_tab:
                 for PCAuse in PCA_tab:
                     n_jobs = 4
-                    if method=='SISVM' and GS_tab:
+                    if method=='SISVM' and GS and not(PCAuse):
                         n_jobs = 1
                     Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database =database,Test_on_k_bag=False,
                             normalisation= normalisation,baseline_kind=method,verbose=False,
