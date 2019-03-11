@@ -49,7 +49,8 @@ from sklearn.preprocessing import StandardScaler
 from trouver_classes_parmi_K import MI_max,TrainClassif,tf_MI_max #ModelHyperplan
 from trouver_classes_parmi_K_mi import tf_mi_model
 from LatexOuput import arrayToLatex
-from FasterRCNN import vis_detections_list,vis_detections,Compute_Faster_RCNN_features,vis_GT_list
+from FasterRCNN import vis_detections_list,vis_detections,Compute_Faster_RCNN_features,\
+    vis_GT_list,Save_TFRecords_PCA_features
 from CNNfeatures import Compute_EdgeBoxesAndCNN_features
 import pathlib
 from milsvm import mi_linearsvm # Version de nicolas avec LinearSVC et TODO SGD 
@@ -123,7 +124,8 @@ def parser_w_mei_reduce(record,num_rois=300,num_features=2048):
     fc7_selected = tf.reshape(fc7_selected, [num_rois,num_features])         
     return fc7_selected,label_300
 
-def parser_w_rois(record,classe_index=0,num_classes=10,num_rois=300,num_features=2048):
+def parser_w_rois(record,classe_index=0,num_classes=10,num_rois=300,num_features=2048,
+                  dim_rois=5):
     # Perform additional preprocessing on the parsed data.
     keys_to_features={
                 'height': tf.FixedLenFeature([], tf.int64),
@@ -131,7 +133,7 @@ def parser_w_rois(record,classe_index=0,num_classes=10,num_rois=300,num_features
                 'num_regions':  tf.FixedLenFeature([], tf.int64),
                 'num_features':  tf.FixedLenFeature([], tf.int64),
                 'dim1_rois':  tf.FixedLenFeature([], tf.int64),
-                'rois': tf.FixedLenFeature([num_rois*5],tf.float32),
+                'rois': tf.FixedLenFeature([num_rois*dim_rois],tf.float32),
                 'roi_scores':tf.FixedLenFeature([num_rois],tf.float32),
                 'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
                 'label' : tf.FixedLenFeature([num_classes],tf.float32),
@@ -146,32 +148,45 @@ def parser_w_rois(record,classe_index=0,num_classes=10,num_rois=300,num_features
     fc7 = parsed['fc7']
     fc7 = tf.reshape(fc7, [num_rois,num_features])
     rois = parsed['rois']
-    rois = tf.reshape(rois, [num_rois,5])           
+    rois = tf.reshape(rois, [num_rois,dim_rois])           
     return fc7,rois, label,name_img
 
 def parser_w_rois_all_class(record,num_classes=10,num_rois=300,num_features=2048,
-                            with_rois_scores=False):
+                            with_rois_scores=False,dim_rois=5):
         # Perform additional preprocessing on the parsed data.
-        keys_to_features={
-                    'height': tf.FixedLenFeature([], tf.int64),
-                    'width': tf.FixedLenFeature([], tf.int64),
-                    'num_regions':  tf.FixedLenFeature([], tf.int64),
-                    'num_features':  tf.FixedLenFeature([], tf.int64),
-                    'dim1_rois':  tf.FixedLenFeature([], tf.int64),
-                    'rois': tf.FixedLenFeature([5*num_rois],tf.float32),
-                    'roi_scores':tf.FixedLenFeature([num_rois],tf.float32),
-                    'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
-                    'label' : tf.FixedLenFeature([num_classes],tf.float32),
-                    'name_img' : tf.FixedLenFeature([],tf.string)}
+        if not(with_rois_scores):
+            keys_to_features={
+                        'rois': tf.FixedLenFeature([num_rois*dim_rois],tf.float32),
+                        'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
+                        'label' : tf.FixedLenFeature([num_classes],tf.float32),
+                        'name_img' : tf.FixedLenFeature([],tf.string)}
+        else:
+            keys_to_features={
+                        'roi_scores':tf.FixedLenFeature([num_rois],tf.float32),
+                        'rois': tf.FixedLenFeature([num_rois*dim_rois],tf.float32),
+                        'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
+                        'label' : tf.FixedLenFeature([num_classes],tf.float32),
+                        'name_img' : tf.FixedLenFeature([],tf.string)}
+#        keys_to_features={
+#                    'height': tf.FixedLenFeature([], tf.int64),
+#                    'width': tf.FixedLenFeature([], tf.int64),
+#                    'num_regions':  tf.FixedLenFeature([], tf.int64),
+#                    'num_features':  tf.FixedLenFeature([], tf.int64),
+#                    'dim1_rois':  tf.FixedLenFeature([], tf.int64),
+#                    'rois': tf.FixedLenFeature([5*num_rois],tf.float32),
+#                    'roi_scores':tf.FixedLenFeature([num_rois],tf.float32),
+#                    'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
+#                    'label' : tf.FixedLenFeature([num_classes],tf.float32),
+#                    'name_img' : tf.FixedLenFeature([],tf.string)}
+            
         parsed = tf.parse_single_example(record, keys_to_features)
-        
         # Cast label data into int32
         label = parsed['label']
         name_img = parsed['name_img']
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [num_rois,num_features])
         rois = parsed['rois']
-        rois = tf.reshape(rois, [num_rois,5])    
+        rois = tf.reshape(rois, [num_rois,dim_rois])    
         if not(with_rois_scores):
             return fc7,rois, label,name_img
         else:
@@ -2018,7 +2033,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   parallel_op =True,CV_Mode=None,num_split=2,
                                   WR=False,init_by_mean=None,seuil_estimation=None,
                                   restarts=19,max_iters_all_base=300,LR=0.01,
-                                  with_tanh=False,C=1.0,Optimizer='Adam',norm=None,
+                                  with_tanh=False,C=1.0,Optimizer='GradientDescent',norm=None,
                                   transform_output=None,with_rois_scores_atEnd=False,
                                   with_scores=False,epsilon=0.0,restarts_paral='',
                                   Max_version=None,w_exp=1.0,seuillage_by_score=True,
@@ -2028,7 +2043,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
                                   plot_onSubSet=None,loss_type=None,storeVectors=False,
                                   storeLossValues=False,obj_score_add_tanh=False,lambdas=0.5,
-                                  obj_score_mul_tanh=False,metamodel='FasterRCNN'):
+                                  obj_score_mul_tanh=False,metamodel='FasterRCNN',
+                                  PCAuse=False,variance_thres=0.9):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2120,7 +2136,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
    @param lambdas : the lambda ratio between the tanh scalar product and the objectness score
    @param metamodel : default : FasterRCNN it is the meta algorithm use to get bouding boxes and features
        metamodel in ['FasterRCNN','EdgeBoxes']
-   
+   @param PCAuse=False
+   @param variance_thres=0.9 variance keep to the PCA
+       number of component keeped in the PCA 
+       If variance_thres=0.9 for IconArt_v1 we have numcomp=675 and for watercolor=654
+    
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -2138,13 +2158,29 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     
     
     """
-    if not(AggregW==''):
+    if not(AggregW=='' or AggregW is None):
         print('There is an error on those AggregationVector due to tfR_evaluation_paral : with the next_get element not initialize')
         raise(NotImplementedError)
     
     if not(metamodel in ['FasterRCNN','EdgeBoxes']):
         print(metamodel,' is unknown')
         raise(NotImplementedError)
+    list_net_Edgeboxes = ['res152']
+    if metamodel=='EdgeBoxes' and not(demonet in list_net_Edgeboxes):
+        print('The pretrained nets are :',list_net_Edgeboxes)
+        print(demonet,' is unknown')
+        raise(NotImplementedError)
+    
+    if PCAuse:
+        if variance_thres==0.9:
+            if database=='IconArt_v1':
+                number_composant=675
+            elif database=='watercolor':
+                number_composant=654    
+            else:
+                print('You have to add the value of  number_composant here !')
+        else:
+            print('If you already have computed the PCA on the data you have to add the number_composant at the beginning of the tfR_FRCNN function')
     
     debug = False
     print('==========')
@@ -2218,9 +2254,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     if testMode and (jtest>len(classes)) :
        print("We are in test mode but jtest>len(classes), we will use jtest =0" )
        jtest =0
-    
-        
-    
+
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     
     if database=='IconArt_v1':
@@ -2261,9 +2295,15 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     else:
         k_per_bag_str = '_k'+str(k_per_bag)
     for set_str in sets:
-        name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
+        name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str
+        if PCAuse:
+            name_pkl_all_features+='_PCAc'+str(number_composant)
+        name_pkl_all_features+='_'+set_str+'.tfrecords'
         if not(k_per_bag==300) and eval_onk300 and set_str=='test': # We will evaluate on all the 300 regions and not only the k_per_bag ones
-            name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
+            name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr
+            if PCAuse:
+                name_pkl_all_features+='_PCAc'+str(number_composant)
+            name_pkl_all_features+='_'+set_str+'.tfrecords'
         dict_name_file[set_str] = name_pkl_all_features
         if not(os.path.isfile(name_pkl_all_features)):
             data_precomputeed = False
@@ -2271,21 +2311,35 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
 #    sLength_all = len(df_label[item_name])
     if demonet in ['vgg16_COCO','vgg16_VOC07','vgg16_VOC12']:
         num_features = 4096
-    elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
+    elif demonet in ['res101_COCO','res152_COCO','res101_VOC07','res152']:
         num_features = 2048
+
+
     
     if not(data_precomputeed):
         # Compute the features
         if verbose: print("We will computer the CNN features")
         if metamodel=='FasterRCNN':
-            Compute_Faster_RCNN_features(demonet=demonet,nms_thresh =nms_thresh,
-                                         database=database,augmentation=False,L2 =False,
-                                         saved='all',verbose=verbose,filesave='tfrecords',k_regions=k_per_bag)
+            if not(PCAuse):
+                Compute_Faster_RCNN_features(demonet=demonet,nms_thresh =nms_thresh,
+                                             database=database,augmentation=False,L2 =False,
+                                             saved='all',verbose=verbose,filesave='tfrecords',
+                                             k_regions=k_per_bag)
+            else:
+                number_composant = Save_TFRecords_PCA_features(demonet=demonet,nms_thresh =nms_thresh,database=database,
+                                 augmentation=False,L2 =False,
+                                 saved='all',verbose=verbose,k_regions=k_per_bag,
+                                 variance_thres=variance_thres)
         elif metamodel=='EdgeBoxes':
             Compute_EdgeBoxesAndCNN_features(demonet=demonet,nms_thresh =nms_thresh,database=database,
                                  augmentation=False,L2 =False,
                                  saved='all',verbose=verbose,filesave='tfrecords',k_regions=k_per_bag)
-           
+          
+    if PCAuse:    
+        num_features = number_composant
+    else:
+        number_composant  = num_features
+        
     # Config param for TF session 
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True  
@@ -2312,8 +2366,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
      # boolean paralleliation du W
     if CV_Mode == 'CVforCsearch':
         sizeMax //= 2
-    if not(num_features==2048):
+    if num_features > 2048:
         sizeMax //= (num_features//2048)
+#    elif num_features < 2048:
+#        sizeMax //= (2048//num_features)
     # InternalError: Dst tensor is not initialized. can mean that you are running out of GPU memory
     mini_batch_size = min(sizeMax,num_trainval_im)
     if CV_Mode=='1000max':
@@ -2492,7 +2548,22 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         
     if predict_with=='':
         predict_with = 'MI_max' 
+    if not(PCAuse):
+        PCAusestr =''
+    else:
+        PCAusestr= '_PCAc'+number_composant
+     
         
+    if metamodel=='FasterRCNN':
+        metamodelstr=''
+    else:
+        metamodelstr ='_'+ metamodel
+        
+    if metamodel=='FasterRCNN':
+        dim_rois = 5
+    if metamodel=='EdgeBoxes':
+        dim_rois = 4
+
     arrayParam = [demonet,database,N,extL2,nms_thresh,savedstr,mini_batch_size,
                   performance,buffer_size,predict_with,shuffle,C,testMode,restarts,max_iters_all_base,
                   max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
@@ -2501,7 +2572,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
-                  model]
+                  model,metamodel,PCAuse,number_composant]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2511,20 +2582,22 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
                      'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
                      'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
-                     'obj_score_mul_tanh','model']
+                     'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
 #          'parallel_op',parallel_op,'CV_Mode',CV_Mode,'WR',WR,'restarts',restarts,'demonet',demonet,
 #          'Optimizer',Optimizer,'init_by_mean',init_by_mean,'with_tanh',with_tanh)
     
-
-    cachefile_model_base= database +'_'+demonet+'_r'+str(restarts)+'_s' \
+    cachefilefolder = os.path.join(path_data,'cachefile')
+    cachefile_model_base='WLS_'+ database+metamodelstr+ '_'+demonet+'_r'+str(restarts)+'_s' \
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
         +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
-        + AggregW_str + loss_type_str+str_obj_score_add_tanh+str_obj_score_mul_tanh
-    cachefile_model = path_data +  cachefile_model_base+'_'+model_str+'.pkl'
+        + AggregW_str + loss_type_str+str_obj_score_add_tanh+str_obj_score_mul_tanh \
+        + PCAusestr
+    pathlib.Path(cachefilefolder).mkdir(parents=True, exist_ok=True)
+    cachefile_model = cachefilefolder +  cachefile_model_base+'_'+model_str+'.pkl'
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
 #        input_str = input('Answer yes or not')
@@ -2532,7 +2605,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     if verbose: print("cachefile name",cachefile_model)
     if not os.path.isfile(cachefile_model) or ReDo:
         name_milsvm = {}
-        if verbose: print("The cachefile doesn t exist")    
+        if verbose: print("The cachefile doesn t exist or we will erase it.")    
     else:
         with open(cachefile_model, 'rb') as f:
             name_milsvm = pickle.load(f)
@@ -2637,7 +2710,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                with_rois_scores_atEnd=with_rois_scores_atEnd,scoreInMI_max=(with_scores or seuillage_by_score),
                gridSearch=gridSearch,n_jobs=n_jobs,thres_FinalClassifier=thres_FinalClassifier,
                k_per_bag=k_per_bag,eval_onk300=eval_onk300,plot_onSubSet=plot_onSubSet,AggregW=AggregW,
-               obj_score_add_tanh=obj_score_add_tanh,obj_score_mul_tanh=obj_score_mul_tanh)
+               obj_score_add_tanh=obj_score_add_tanh,obj_score_mul_tanh=obj_score_mul_tanh,dim_rois=dim_rois)
    
         for j,classe in enumerate(classes):
             AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
@@ -2700,7 +2773,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                export_dir,dict_name_file,mini_batch_size,config,
                                PlotRegions,path_to_img,path_data,param_clf,classes,parameters,verbose,
                                seuil_estimation,thresh_evaluation,TEST_NMS,
-                               all_boxes=all_boxes,with_tanh=with_tanh)
+                               all_boxes=all_boxes,with_tanh=with_tanh,dim_rois=dim_rois)
                   
             # Regroupement des informations    
             if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
@@ -2916,14 +2989,14 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                with_rois_scores_atEnd=False,scoreInMI_max=False,seuillage_by_score=False,
                gridSearch=False,n_jobs=1,thres_FinalClassifier=0.5,k_per_bag=300,
                eval_onk300=False,plot_onSubSet=None,AggregW=None,obj_score_add_tanh=False,
-               obj_score_mul_tanh=False):
+               obj_score_mul_tanh=False,dim_rois=5):
      """
      @param : seuil_estimation : ByHist or MaxDesNeg
      @param : number_im : number of image plot at maximum
      @param : transform_output : use of a softmax or a 
      @ use the with_rois_scores_atEnd to pondare the final results
      """
-     
+
      # TODO : predict_with LinearSVC_Extremboth : use the most discriminative regions for each images
      # LinearSVC_Sign: use the negative examples for negatives and positive for positives
      # LinearSVC_MAXPos : use all the regions of negatives examples and the max for positives
@@ -3023,7 +3096,8 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
         if verbose: print("Start ploting Regions selected by the MI_max in training phase")
         train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
         train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
-            num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,num_rois=k_per_bag))
+            num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,\
+            num_rois=k_per_bag,dim_rois=dim_rois))
         dataset_batch = train_dataset.batch(mini_batch_size)
         dataset_batch.cache()
         iterator = dataset_batch.make_one_shot_iterator()
@@ -3135,7 +3209,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                             blobs, im_scales = get_blobs(im)
                             scores_all = PositiveExScoreAll[:,k,:]
                             roi = roiss[k,:]
-                            roi_boxes =  roi[:,1:5] / im_scales[0] 
+                            if dim_rois==5:
+                                roi_boxes =  roi[:,1:5] / im_scales[0] 
+                            else:
+                                roi_boxes =  roi / im_scales[0] 
                             roi_boxes_and_score = None
                             local_cls = []
                             for j in range(num_classes):
@@ -3145,7 +3222,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                         roi_with_object_of_the_class = PositiveRegions[j,k] % len(rois) # Because we have repeated some rois
                                         roi = rois[roi_with_object_of_the_class,:]
                                         roi_scores = [get_PositiveRegionsScore[j,k]]
-                                        roi_boxes =  roi[1:5] / im_scales[0]   
+                                        if dim_rois==5:
+                                            roi_boxes =  roi[1:5] / im_scales[0]
+                                        else:
+                                            roi_boxes =  roi / im_scales[0]   
                                         roi_boxes_score = np.expand_dims(np.expand_dims(np.concatenate((roi_boxes,roi_scores)),axis=0),axis=0)
                                         if roi_boxes_and_score is None:
                                             roi_boxes_and_score = roi_boxes_score
@@ -3186,7 +3266,8 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
         load_model = True
         train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
         train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
-            num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,num_rois=k_per_bag))
+            num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,
+            num_rois=k_per_bag,dim_rois=dim_rois))
         dataset_batch = train_dataset.batch(mini_batch_size)
         dataset_batch.cache()
         dataset_batch = dataset_batch.prefetch(1)
@@ -3480,10 +3561,12 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      train_dataset = tf.data.TFRecordDataset(dict_name_file['test'])
      if not(k_per_bag==300) and eval_onk300:
          train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r,\
-            num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,num_rois=300))
+            num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,
+            num_rois=300,dim_rois=dim_rois))
      else:
         train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r,\
-            num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,num_rois=k_per_bag))
+            num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,
+            num_rois=k_per_bag,dim_rois=dim_rois))
      dataset_batch = train_dataset.batch(mini_batch_size)
      dataset_batch.cache()
      iterator = dataset_batch.make_one_shot_iterator()
@@ -3609,7 +3692,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         scores_all = predict_label_all_test_batch[:,k,:]
 
                     roi = roiss[k,:]
-                    roi_boxes =  roi[:,1:5] / im_scales[0] 
+                    if dim_rois==5:
+                        roi_boxes =  roi[:,1:5] / im_scales[0] 
+                    else:
+                        roi_boxes =  roi / im_scales[0] 
                     
                     for j in range(num_classes):
                         scores = scores_all[j,:]
@@ -3685,6 +3771,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         if roi_boxes_and_score is None: roi_boxes_and_score = [[]]
                         ii += 1    
                         if RPN:
+                            print('You can have a problem here with the EdgeBoxes model or other model right number of dim_rois')
                             best_RPN_roi = rois[0,:]
                             best_RPN_roi_boxes =  best_RPN_roi[1:5] / im_scales[0]
                             best_RPN_roi_scores = [PositiveExScoreAll[j,k,0]]
@@ -3760,7 +3847,8 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
       
 def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                export_dir,dict_name_file,mini_batch_size,config,PlotRegions,
-               path_to_img,path_data,param_clf,classes,parameters,seuil_estimation,thresh_evaluation,TEST_NMS,verbose,all_boxes=None):
+               path_to_img,path_data,param_clf,classes,parameters,
+               seuil_estimation,thresh_evaluation,TEST_NMS,verbose,all_boxes=None,dim_rois=5):
     
      PlotRegions,RPN,Stocha,CompBest=parameters
      k_per_bag,positive_elt,size_output = param_clf
@@ -3804,7 +3892,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
      if PlotRegions or predict_with=='LinearSVC':
         if verbose: print("Start ploting Regions selected by the MI_max in training phase")
         train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
-        train_dataset = train_dataset.map(lambda r: parser_w_rois(r,classe_index=j,num_classes=num_classes))
+        train_dataset = train_dataset.map(lambda r: parser_w_rois(r,classe_index=j,num_classes=num_classes,dim_rois=dim_rois))
         dataset_batch = train_dataset.batch(mini_batch_size)
         dataset_batch.cache()
         iterator = dataset_batch.make_one_shot_iterator()
@@ -3885,7 +3973,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
              
      # Testing time !
      train_dataset = tf.data.TFRecordDataset(dict_name_file['test'])
-     train_dataset = train_dataset.map(lambda r: parser_w_rois(r,classe_index=j,num_classes=num_classes))
+     train_dataset = train_dataset.map(lambda r: parser_w_rois(r,classe_index=j,num_classes=num_classes,dim_rois=dim_rois))
      dataset_batch = train_dataset.batch(mini_batch_size)
      dataset_batch.cache()
      iterator = dataset_batch.make_one_shot_iterator()
@@ -4843,36 +4931,34 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
 #                              plot_onSubSet=['bicycle', 'bird', 'car', 'cat', 'dog', 'person']) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+    tfR_FRCNN(demonet = 'res152',database = 'IconArt_v1', ReDo=False,
                               verbose = True,testMode = False,jtest = 'cow',
                               PlotRegions = False,saved_clf=False,RPN=False,
                               CompBest=False,Stocha=True,k_per_bag=300,
                               parallel_op=True,CV_Mode='',num_split=2,
                               WR=True,init_by_mean =None,seuil_estimation='',
                               restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                              C=1.0,Optimizer='GradientDescent',norm='STDall',
+                              C=1.0,Optimizer='GradientDescent',norm='',
                               transform_output='tanh',with_rois_scores_atEnd=False,
-                              with_scores=True,epsilon=0.01,restarts_paral='paral',
+                              with_scores=False,epsilon=0.01,restarts_paral='paral',
                               Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
                               k_intopk=1,C_Searching=False,predict_with='',
                               gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
                               thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
-                              loss_type='',storeVectors=False,storeLossValues=False)
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
+                              loss_type='',storeVectors=False,storeLossValues=False,
+                              metamodel='EdgeBoxes')
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
 #                          verbose = True,testMode = False,jtest = 'cow',
 #                          PlotRegions = False,saved_clf=False,RPN=False,
 #                          CompBest=False,Stocha=True,k_per_bag=300,
 #                          parallel_op=True,CV_Mode='',num_split=2,
 #                          WR=True,init_by_mean =None,seuil_estimation='',
-#                          restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                          restarts=11,max_iters_all_base=300,LR=0.01,
 #                          C=1.0,Optimizer='GradientDescent',norm='',
 #                          transform_output='tanh',with_rois_scores_atEnd=False,
-#                          with_scores=True,epsilon=0.01,restarts_paral='paral',
-#                          Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                          k_intopk=1,C_Searching=False,predict_with='MI_max',
-#                          gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                          thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
-#                          loss_type='',storeVectors=True,storeLossValues=True) 
+#                          with_scores=False,epsilon=0.01,restarts_paral='paral',
+#                          predict_with='MI_max',
+#                          PCAuse=True,variance_thres=0.9) 
     
     ## Test of mi_model ! mi_model a finir !! 
     # A faire : faire en sorte que les npos et nneg soit recalcules pour chaque batch. 
