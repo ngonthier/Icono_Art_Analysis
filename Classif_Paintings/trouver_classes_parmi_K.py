@@ -470,7 +470,7 @@ class tf_MI_max():
         # case of Cvalue
         self.C_values =  np.arange(0.5,2.75,0.25,dtype=np.float32) # Case used in VISART2018 ??
         self.AddOneLayer = AddOneLayer
-        
+
         
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 
@@ -913,7 +913,6 @@ class tf_MI_max():
         
         ## Debut de la fonction        
         self.cpu_count = multiprocessing.cpu_count()
-        print('data_path',data_path)
         train_dataset_init = tf.data.TFRecordDataset(data_path)
         
         if self.CV_Mode=='CV' or self.CV_Mode == 'CVforCsearch' :
@@ -940,7 +939,6 @@ class tf_MI_max():
             else:
                 self.first_parser = self.parser
                 
-        print(self.first_parser)
         iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
         
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
@@ -1106,7 +1104,7 @@ class tf_MI_max():
                 Prod=tf.add(Prod,b)
             else:
                 Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_),axis=-1),b)
-            
+
             if self.with_scores: 
                 if self.verbose: print('With score multiplication')
                 Prod=tf.multiply(Prod,tf.add(scores_,self.epsilon))

@@ -2036,7 +2036,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   with_tanh=False,C=1.0,Optimizer='GradientDescent',norm=None,
                                   transform_output=None,with_rois_scores_atEnd=False,
                                   with_scores=False,epsilon=0.0,restarts_paral='',
-                                  Max_version=None,w_exp=1.0,seuillage_by_score=True,
+                                  Max_version=None,w_exp=1.0,seuillage_by_score=False,
                                   seuil=0.5,k_intopk=3,C_Searching=False,gridSearch=False,n_jobs=1,
                                   predict_with='MI_max',thres_FinalClassifier=0.5,
                                   thresh_evaluation=0.05,TEST_NMS=0.3,eval_onk300=False,
@@ -2445,6 +2445,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         opti_str=''
     elif Optimizer=='GradientDescent':
         opti_str='_gd'
+    elif Optimizer=='lbfgs':
+        opti_str='_lbfgs'
     else:
         raise(NotImplemented)
     if init_by_mean is None or init_by_mean=='':
@@ -4948,30 +4950,31 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
 #                              metamodel='EdgeBoxes')
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
                           verbose = True,testMode = False,jtest = 'cow',
                           PlotRegions = False,saved_clf=False,RPN=False,
                           CompBest=False,Stocha=True,k_per_bag=300,
                           parallel_op=True,CV_Mode='',num_split=2,
                           WR=True,init_by_mean =None,seuil_estimation='',
                           restarts=11,max_iters_all_base=300,LR=0.01,
-                          C=1.0,Optimizer='GradientDescent',norm='STDall',
+                          C=1.0,Optimizer='GradientDescent',norm='',
                           transform_output='tanh',with_rois_scores_atEnd=False,
                           with_scores=True,epsilon=0.01,restarts_paral='paral',
                           predict_with='MI_max',
                           PCAuse=False,variance_thres=0.9) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
-                          verbose = True,testMode = False,jtest = 'cow',
-                          PlotRegions = False,saved_clf=False,RPN=False,
-                          CompBest=False,Stocha=True,k_per_bag=300,
-                          parallel_op=True,CV_Mode='',num_split=2,
-                          WR=True,init_by_mean =None,seuil_estimation='',
-                          restarts=11,max_iters_all_base=300,LR=0.01,
-                          C=1.0,Optimizer='GradientDescent',norm='STDall',
-                          transform_output='tanh',with_rois_scores_atEnd=False,
-                          with_scores=False,epsilon=0.01,restarts_paral='paral',
-                          predict_with='MI_max',
-                          PCAuse=False,variance_thres=0.9) 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+#                          verbose = True,testMode = False,jtest = 'cow',
+#                          PlotRegions = False,saved_clf=False,RPN=False,
+#                          CompBest=False,Stocha=True,k_per_bag=300,
+#                          parallel_op=True,CV_Mode='',num_split=2,
+#                          WR=True,init_by_mean =None,seuil_estimation='',
+#                          restarts=11,max_iters_all_base=300,LR=0.01,
+#                          C=1.0,Optimizer='GradientDescent',norm='',
+#                          transform_output='tanh',with_rois_scores_atEnd=False,
+#                          with_scores=False,epsilon=0.01,restarts_paral='paral',
+#                          predict_with='MI_max',
+#                          PCAuse=True,variance_thres=0.9) 
+
     
     ## Test of mi_model ! mi_model a finir !! 
     # A faire : faire en sorte que les npos et nneg soit recalcules pour chaque batch. 
