@@ -1905,6 +1905,7 @@ def Save_TFRecords_PCA_features(demonet='res152_COCO',nms_thresh = 0.7,database=
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = 'VOCdevkit/VOC2012/JPEGImages/'
+        raise(NotImplementedError)
     elif database=='VOC2007':
         ext = '.csv'
         item_name = 'name_img'
@@ -1982,13 +1983,12 @@ def Save_TFRecords_PCA_features(demonet='res152_COCO',nms_thresh = 0.7,database=
         df_label = pd.read_csv(databasetxt,sep=",")
     if database=='Wikidata_Paintings_miniset_verif':
         df_label = df_label[df_label['BadPhoto'] <= 0.0]
-    
-    filesave = 'pkl'
+     
     if not(os.path.isfile(name_pkl)):
         if verbose: print('We will computed the data in the pkl format')
         Compute_Faster_RCNN_features(demonet=demonet,nms_thresh =nms_thresh,
                                      database=database,augmentation=False,L2 =False,
-                                     saved='all',verbose=verbose,filesave=filesave)
+                                     saved='all',verbose=verbose,filesave='pkl')
         
     if verbose: print("Start loading precomputed data",name_pkl)
     
@@ -2153,20 +2153,26 @@ def Save_TFRecords_PCA_features(demonet='res152_COCO',nms_thresh = 0.7,database=
         fc7 = pca.transform(fc7)
         fc7 = fc7[:,0:number_composant]
         
+        print(fc7.shape)
+        
         if k_regions==300:
             num_regions = fc7.shape[0]
             num_features = fc7.shape[1]
             dim1_rois = rois.shape[1]
             classes_vectors = np.zeros((num_classes,1))
-            rois_tmp = np.zeros((k_regions,5))
-            roi_scores_tmp = np.zeros((k_regions,1))
-            fc7_tmp = np.zeros((k_regions,size_output))
-            rois_tmp[0:rois.shape[0],0:rois.shape[1]] = rois
-            roi_scores_tmp[0:roi_scores.shape[0],0:roi_scores.shape[1]] = roi_scores
-            fc7_tmp[0:fc7.shape[0],0:fc7.shape[1]] = fc7           
-            rois = rois_tmp
-            roi_scores =roi_scores_tmp
-            fc7 = fc7_tmp
+            if num_regions > 300:
+                rois = rois[0:k_regions,:]
+                roi_scores =roi_scores[0:k_regions,]
+                fc7 = fc7[0:k_regions,:]
+            elif num_regions < 300:
+                number_repeat = k_regions // len(fc7)  +1
+                f_repeat = np.repeat(fc7,number_repeat,axis=0)
+                roi_scores_repeat = np.repeat(roi_scores,number_repeat,axis=0)
+                rois_reduce_repeat = np.repeat(rois,number_repeat,axis=0)
+                rois = rois_reduce_repeat[0:k_regions,:]
+                roi_scores =roi_scores_repeat[0:k_regions,]
+                fc7 = f_repeat[0:k_regions,:]
+
         else:
             # We will select only k_regions 
             new_nms_thresh = 0.0
@@ -2192,7 +2198,8 @@ def Save_TFRecords_PCA_features(demonet='res152_COCO',nms_thresh = 0.7,database=
                 rois = rois_reduce_repeat[0:k_regions,:]
                 roi_scores =roi_scores_repeat[0:k_regions,]
                 fc7 = f_repeat[0:k_regions,:]
-           
+          
+        print(fc7.shape)
         
         if database=='Paintings':
             for j in range(num_classes):
@@ -2265,7 +2272,7 @@ def Save_TFRecords_PCA_features(demonet='res152_COCO',nms_thresh = 0.7,database=
         dict_writers[set_str].close()
         
     
-    
+    return(number_composant)
 
 def Illus_NMS_threshold_test():
     """
@@ -3106,6 +3113,7 @@ if __name__ == '__main__':
     # VGG16 sur COCO
     # RES101 sur VOC12
     Save_TFRecords_PCA_features()
+#    Save_TFRecords_PCA_features(database='watercolor')
 #    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
 #                                 augmentation=False,L2 =False,
 #                                 saved='all',verbose=True,filesave='pkl')   

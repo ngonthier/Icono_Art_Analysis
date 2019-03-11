@@ -787,7 +787,7 @@ class tf_mi_model():
 #        tf.reset_default_graph()
         return(W_tmp,b_tmp)
         
-    def fit_mi_model_tfrecords(self,data_path,class_indice,shuffle=True,WR=False,
+    def fit_mi_model_tfrecords(self,data_path,class_indice,shuffle=True,WR=True,
                              init_by_mean=None,norm=None,performance=False,
                              restarts_paral='',C_Searching=False,storeVectors=False,
                              storeLossValues=False):

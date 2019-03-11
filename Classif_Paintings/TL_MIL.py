@@ -2175,6 +2175,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         if variance_thres==0.9:
             if database=='IconArt_v1':
                 number_composant=675
+                number_composant=2048
             elif database=='watercolor':
                 number_composant=654    
             else:
@@ -2551,7 +2552,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     if not(PCAuse):
         PCAusestr =''
     else:
-        PCAusestr= '_PCAc'+number_composant
+        PCAusestr= '_PCAc'+str(number_composant)
      
         
     if metamodel=='FasterRCNN':
@@ -2597,7 +2598,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         + AggregW_str + loss_type_str+str_obj_score_add_tanh+str_obj_score_mul_tanh \
         + PCAusestr
     pathlib.Path(cachefilefolder).mkdir(parents=True, exist_ok=True)
-    cachefile_model = cachefilefolder +  cachefile_model_base+'_'+model_str+'.pkl'
+    cachefile_model = os.path.join(cachefilefolder,cachefile_model_base+'_'+model_str+'.pkl')
 #    if os.path.isfile(cachefile_model_old):
 #        print('Do you want to erase the model or do a new one ?')
 #        input_str = input('Answer yes or not')
@@ -4931,34 +4932,46 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
 #                              plot_onSubSet=['bicycle', 'bird', 'car', 'cat', 'dog', 'person']) 
-    tfR_FRCNN(demonet = 'res152',database = 'IconArt_v1', ReDo=False,
-                              verbose = True,testMode = False,jtest = 'cow',
-                              PlotRegions = False,saved_clf=False,RPN=False,
-                              CompBest=False,Stocha=True,k_per_bag=300,
-                              parallel_op=True,CV_Mode='',num_split=2,
-                              WR=True,init_by_mean =None,seuil_estimation='',
-                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                              C=1.0,Optimizer='GradientDescent',norm='',
-                              transform_output='tanh',with_rois_scores_atEnd=False,
-                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-                              k_intopk=1,C_Searching=False,predict_with='',
-                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
-                              loss_type='',storeVectors=False,storeLossValues=False,
-                              metamodel='EdgeBoxes')
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
-#                          verbose = True,testMode = False,jtest = 'cow',
-#                          PlotRegions = False,saved_clf=False,RPN=False,
-#                          CompBest=False,Stocha=True,k_per_bag=300,
-#                          parallel_op=True,CV_Mode='',num_split=2,
-#                          WR=True,init_by_mean =None,seuil_estimation='',
-#                          restarts=11,max_iters_all_base=300,LR=0.01,
-#                          C=1.0,Optimizer='GradientDescent',norm='',
-#                          transform_output='tanh',with_rois_scores_atEnd=False,
-#                          with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                          predict_with='MI_max',
-#                          PCAuse=True,variance_thres=0.9) 
+#    tfR_FRCNN(demonet = 'res152',database = 'IconArt_v1', ReDo=False,
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = False,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                              k_intopk=1,C_Searching=False,predict_with='',
+#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
+#                              loss_type='',storeVectors=False,storeLossValues=False,
+#                              metamodel='EdgeBoxes')
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
+                          verbose = True,testMode = False,jtest = 'cow',
+                          PlotRegions = False,saved_clf=False,RPN=False,
+                          CompBest=False,Stocha=True,k_per_bag=300,
+                          parallel_op=True,CV_Mode='',num_split=2,
+                          WR=True,init_by_mean =None,seuil_estimation='',
+                          restarts=11,max_iters_all_base=300,LR=0.01,
+                          C=1.0,Optimizer='GradientDescent',norm='STDall',
+                          transform_output='tanh',with_rois_scores_atEnd=False,
+                          with_scores=True,epsilon=0.01,restarts_paral='paral',
+                          predict_with='MI_max',
+                          PCAuse=False,variance_thres=0.9) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
+                          verbose = True,testMode = False,jtest = 'cow',
+                          PlotRegions = False,saved_clf=False,RPN=False,
+                          CompBest=False,Stocha=True,k_per_bag=300,
+                          parallel_op=True,CV_Mode='',num_split=2,
+                          WR=True,init_by_mean =None,seuil_estimation='',
+                          restarts=11,max_iters_all_base=300,LR=0.01,
+                          C=1.0,Optimizer='GradientDescent',norm='STDall',
+                          transform_output='tanh',with_rois_scores_atEnd=False,
+                          with_scores=False,epsilon=0.01,restarts_paral='paral',
+                          predict_with='MI_max',
+                          PCAuse=False,variance_thres=0.9) 
     
     ## Test of mi_model ! mi_model a finir !! 
     # A faire : faire en sorte que les npos et nneg soit recalcules pour chaque batch. 

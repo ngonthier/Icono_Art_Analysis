@@ -414,7 +414,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
     if testMode:
         from TL_MIL import parser_w_rois_all_class
         import os
-        sets = ['train']
+        sets = ['train','test','trainval','val']
         dim_rois = 4
         for set_str in sets:
             name_pkl_all_features = path_data

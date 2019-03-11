@@ -552,13 +552,13 @@ class tf_MI_max():
         return fc7, label
     
     def parser_all_classes_wRoiScore(self,record):
+        print('self.num_features',self.num_features)
         keys_to_features={
                     'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
                     'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),
                     'label' : tf.FixedLenFeature([self.num_classes],tf.float32)}
         parsed = tf.parse_single_example(record, keys_to_features)
         
-        # Cast label data into int32
         label = parsed['label']
         roi_scores = parsed['roi_scores']
         fc7 = parsed['fc7']
@@ -570,7 +570,7 @@ class tf_MI_max():
         keys_to_features={
                     'num_regions':  tf.FixedLenFeature([], tf.int64),
                     'num_features':  tf.FixedLenFeature([], tf.int64),
-                    'rois': tf.FixedLenFeature([5*self.num_rois],tf.float32),
+                    'rois': tf.FixedLenFeature([5*self.num_rois],tf.float32), # Here we can have a problem if the rois is not size 5
                     'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),
                     'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
                     'label' : tf.FixedLenFeature([self.num_classes],tf.float32)
@@ -607,7 +607,7 @@ class tf_MI_max():
         fc7 = parsed['fc7']
         fc7 = tf.reshape(fc7, [self.num_rois,self.num_features])
         fc7_selected = parsed['fc7_selected']
-        fc7_selected = tf.reshape(fc7_selected, [300,self.num_features])
+        fc7_selected = tf.reshape(fc7_selected, [self.num_rois,self.num_features])
         rois = parsed['rois']
         rois = tf.reshape(rois, [self.num_rois,5])           
         return fc7_selected,fc7,mei,label_300
@@ -785,7 +785,7 @@ class tf_MI_max():
              # Used for the paper VISART2018
 #            C_values =  np.logspace(-3,3,7,dtype=np.float32)
         
-    def fit_MI_max_tfrecords(self,data_path,class_indice,shuffle=True,WR=False,
+    def fit_MI_max_tfrecords(self,data_path,class_indice,shuffle=True,WR=True,
                              init_by_mean=None,norm=None,performance=False,
                              restarts_paral='',C_Searching=False,storeVectors=False,
                              storeLossValues=False):
@@ -823,6 +823,7 @@ class tf_MI_max():
         # TODO enregistrer X vectors ! 
         
         # Travailler sur le min du top k des regions sinon 
+        
         self.C_Searching= C_Searching
         self.norm = norm
         self.First_run = True
@@ -912,6 +913,7 @@ class tf_MI_max():
         
         ## Debut de la fonction        
         self.cpu_count = multiprocessing.cpu_count()
+        print('data_path',data_path)
         train_dataset_init = tf.data.TFRecordDataset(data_path)
         
         if self.CV_Mode=='CV' or self.CV_Mode == 'CVforCsearch' :
@@ -937,7 +939,8 @@ class tf_MI_max():
                 self.first_parser = self.parser_wRoiScore
             else:
                 self.first_parser = self.parser
-            
+                
+        print(self.first_parser)
         iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
         
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
