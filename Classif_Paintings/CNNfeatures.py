@@ -411,6 +411,8 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
         for set_str  in sets:
             dict_writers[set_str].close()
     
+    tf.reset_default_graph()
+    
     if testMode:
         from TL_MIL import parser_w_rois_all_class
         import os
@@ -431,7 +433,6 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             dataset_batch.cache()
             iterator = dataset_batch.make_one_shot_iterator()
             next_element = iterator.get_next()
-            
             print(next_element)
             nx = sess.run(next_element)
             print(nx)
@@ -439,5 +440,5 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             
 if __name__ == '__main__':
 #    Compute_EdgeBoxesAndCNN_features()
-    Compute_EdgeBoxesAndCNN_features(database='watercolor')
+#    Compute_EdgeBoxesAndCNN_features(database='watercolor')
     Compute_EdgeBoxesAndCNN_features(database='VOC2007')

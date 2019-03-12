@@ -552,7 +552,6 @@ class tf_MI_max():
         return fc7, label
     
     def parser_all_classes_wRoiScore(self,record):
-        print('self.num_features',self.num_features)
         keys_to_features={
                     'fc7': tf.FixedLenFeature([self.num_rois*self.num_features],tf.float32),
                     'roi_scores':tf.FixedLenFeature([self.num_rois],tf.float32),

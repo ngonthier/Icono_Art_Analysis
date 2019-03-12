@@ -4934,7 +4934,7 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
 #                              plot_onSubSet=['bicycle', 'bird', 'car', 'cat', 'dog', 'person']) 
-#    tfR_FRCNN(demonet = 'res152',database = 'IconArt_v1', ReDo=False,
+#    tfR_FRCNN(demonet = 'res152',database = 'watercolor', ReDo=False,
 #                              verbose = True,testMode = False,jtest = 'cow',
 #                              PlotRegions = False,saved_clf=False,RPN=False,
 #                              CompBest=False,Stocha=True,k_per_bag=300,
@@ -4950,7 +4950,7 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
 #                              metamodel='EdgeBoxes')
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
                           verbose = True,testMode = False,jtest = 'cow',
                           PlotRegions = False,saved_clf=False,RPN=False,
                           CompBest=False,Stocha=True,k_per_bag=300,
