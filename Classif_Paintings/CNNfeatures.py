@@ -13,6 +13,7 @@ import tensorflow as tf
 import resnet_152_keras
 #import sys
 import os
+import pathlib
 import cv2 # Need the contrib :  pip install opencv-contrib-python
 # Echec de la Tentative de build avec tes modifications !!! https://gist.github.com/jarle/8336eb9cd140ad95f26a54f1572fc2fd
 import pandas as pd
@@ -58,8 +59,8 @@ CLASSES_SET ={'VOC' : CLASSESVOC,
               'COCO' : CLASSESCOCO }
 
 def resize(im,b,demonet,augmentation,list_of_crop,rois):
-    x, y, w, h = b
-    crop_img = im[x:x+w,y:y+h,:].astype(np.float32) # The network need an image in BGR
+    x, y, w, h = b # Attention Resize dans le bon sens car dans opencv ce n'est pas dans le même sens !!!
+    crop_img = im[y:y+h,x:x+w,:].astype(np.float32) # The network need an image in BGR
     if not(crop_img.shape[0]==0) and not(crop_img.shape[1]==0):
         if demonet=='res152':
             if augmentation:
@@ -103,11 +104,36 @@ def get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False):
 
     list_im =  np.stack(list_of_crop)
     return(list_im,rois)
+    
+def plot_im_withBoxes(complet_name,edge_detection,k_regions,path_to_save):
+    im = cv2.imread(complet_name) # Load image in BGR
+    rgb_im = im[:,:,[2,1,0]] # To shift from BGR to RGB
+#    rgb_im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    edges = edge_detection.detectEdges(np.float32(rgb_im) / 255.0)
+    orimap = edge_detection.computeOrientation(edges)
+    edges = edge_detection.edgesNms(edges, orimap)
+    edge_boxes = cv2.ximgproc.createEdgeBoxes()
+    edge_boxes.setMaxBoxes(k_regions)
+    boxes = edge_boxes.getBoundingBoxes(edges, orimap)
+    for b in boxes:
+        x, y, w, h = b
+        cv2.rectangle(im, (x, y), (x+w, y+h), (0, 255, 0), 1, cv2.LINE_AA)
+
+    if len(boxes)==0:
+        x, y, w, h  = [0,0,im.shape[0],im.shape[1]]
+        cv2.rectangle(im, (x, y), (x+w, y+h), (0, 255, 0), 1, cv2.LINE_AA)
+        
+    head,tail = os.path.split(complet_name)
+    name_img = '.'.join(tail.split('.')[0:-1])
+    name_img += '_EdgeBoxes'+str(k_regions)+'.jpg'
+    path_im = os.path.join(path_to_save,name_img)
+    cv2.imwrite(path_im,im)
+
 
 def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database='IconArt_v1',
                                  augmentation=False,L2 =False,
                                  saved='all',verbose=True,filesave='tfrecords',k_regions=300,
-                                 testMode=False):
+                                 testMode=False,plotProposedBoxes=False):
     """
     The goal of this function is to compute 
     @param : demonet : teh kind of inside network used it can be 'vgg16_VOC07',
@@ -120,6 +146,11 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
     """
 
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_imgs = path_data + 'EdgeBoxesIllust/'+database +'/'
+    
+    if plotProposedBoxes:
+        print("We will only plot the regions of the EdgeBoxes with k_regions = ",k_regions)
+        pathlib.Path(path_imgs).mkdir(parents=True, exist_ok=True) 
     
     if database=='Paintings':
         item_name = 'name_img'
@@ -279,6 +310,10 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
                 name_sans_ext = os.path.splitext(name_img)[0]
                 complet_name = path_to_img +name_sans_ext + '.jpg'
             
+            
+            if plotProposedBoxes:
+                plot_im_withBoxes(complet_name,edge_detection,k_regions,path_imgs)
+                continue
             list_im, rois = get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False)
             fc7 = model.predict(list_im)
             roi_scores = np.ones((len(list_im,)))
@@ -308,7 +343,9 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             
             height = im.shape[0]
             width = im.shape[1]
-            
+            if plotProposedBoxes:
+                plot_im_withBoxes(complet_name,edge_detection,k_regions,path_imgs)
+                continue
             list_im, rois = get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False)
             fc7 = model.predict(list_im)
             roi_scores = np.ones((len(list_im,)))
@@ -439,6 +476,6 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             os.remove(name_pkl_all_features)
             
 if __name__ == '__main__':
-#    Compute_EdgeBoxesAndCNN_features()
+    Compute_EdgeBoxesAndCNN_features(plotProposedBoxes=True,k_regions=300)
 #    Compute_EdgeBoxesAndCNN_features(database='watercolor')
-    Compute_EdgeBoxesAndCNN_features(database='VOC2007')
+#    Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=300)
