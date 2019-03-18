@@ -2372,14 +2372,29 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
 #    elif num_features < 2048:
 #        sizeMax //= (2048//num_features)
     # InternalError: Dst tensor is not initialized. can mean that you are running out of GPU memory
+    
+    if model=='MI_max' or model=='':
+        model_str = 'MI_max'
+        buffer_size = 10000
+    elif model=='mi_model':
+        model_str ='mi_model'
+        buffer_size = 10000
+        if not (database in ['watercolor','IconArt_v1']):
+            sizeMax //= 2
+    else:
+        print(model,' is unknown')
+        raise(NotImplementedError)
+
     mini_batch_size = min(sizeMax,num_trainval_im)
     if CV_Mode=='1000max':
         mini_batch_size = min(sizeMax,1000)
-    buffer_size = 10000
+    
     if testMode:
         ext_test = '_Test_Mode'
     else:
         ext_test= ''
+        
+    
         
     max_iters = ((num_trainval_im // mini_batch_size)+ \
                  np.sign(num_trainval_im % mini_batch_size))*max_iters_all_base
@@ -2544,10 +2559,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     dont_use_07_metric = True
     symway = True
     
-    if model=='MI_max' or model=='':
-        model_str = 'MI_max'
-    elif model=='mi_model':
-        model_str ='mi_model'
+
         
     if predict_with=='':
         predict_with = 'MI_max' 
@@ -4933,8 +4945,30 @@ if __name__ == '__main__':
 #                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
-#                              plot_onSubSet=['bicycle', 'bird', 'car', 'cat', 'dog', 'person']) 
-    tfR_FRCNN(demonet = 'res152',database = 'VOC2007', ReDo=False,
+#                              plot_onSubSet=['bicycle', 'bird', 'car', 'cat', 'dog', 'person'])
+#    for k_per_bag in [300]:
+##    for k_per_bag in [300,2000]:
+#        for database in ['VOC2007']:
+##        for database in ['watercolor','IconArt_v1','VOC2007']:
+#            for model in ['mi_model']:
+##            for model in ['MI_max','mi_model']:
+#                tfR_FRCNN(demonet = 'res152',database = database, ReDo=False,
+#                                          verbose = True,testMode = False,jtest = 'cow',
+#                                          PlotRegions = False,saved_clf=False,RPN=False,
+#                                          CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+#                                          parallel_op=True,CV_Mode='',num_split=2,
+#                                          WR=True,init_by_mean =None,seuil_estimation='',
+#                                          restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                                          C=1.0,Optimizer='GradientDescent',norm='',
+#                                          transform_output='tanh',with_rois_scores_atEnd=False,
+#                                          with_scores=False,epsilon=0.01,restarts_paral='paral',
+#                                          Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                                          k_intopk=1,C_Searching=False,predict_with='',
+#                                          gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                                          thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
+#                                          loss_type='',storeVectors=False,storeLossValues=False,
+#                                          metamodel='EdgeBoxes',model=model)
+    tfR_FRCNN(demonet = 'res152',database = 'VOC2007', ReDo=True,
                               verbose = True,testMode = False,jtest = 'cow',
                               PlotRegions = False,saved_clf=False,RPN=False,
                               CompBest=False,Stocha=True,k_per_bag=300,
@@ -4949,7 +4983,7 @@ if __name__ == '__main__':
                               gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
                               thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
                               loss_type='',storeVectors=False,storeLossValues=False,
-                              metamodel='EdgeBoxes')
+                              metamodel='EdgeBoxes',model='mi_model')
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
 #                          verbose = True,testMode = False,jtest = 'cow',
 #                          PlotRegions = False,saved_clf=False,RPN=False,

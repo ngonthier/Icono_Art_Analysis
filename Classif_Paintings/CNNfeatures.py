@@ -287,6 +287,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
     # Need of  pip install opencv-contrib-python
     edge_detection = cv2.ximgproc.createStructuredEdgeDetection(model_edgeboxes)
     
+    number_of_regions = []
     Itera = 1000
     if testMode:
         Itera = 1
@@ -315,6 +316,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
                 plot_im_withBoxes(complet_name,edge_detection,k_regions,path_imgs)
                 continue
             list_im, rois = get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False)
+            number_of_regions += [len(list_im)]
             fc7 = model.predict(list_im)
             roi_scores = np.ones((len(list_im,)))
 #            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
@@ -347,6 +349,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
                 plot_im_withBoxes(complet_name,edge_detection,k_regions,path_imgs)
                 continue
             list_im, rois = get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False)
+            number_of_regions += [len(list_im)]
             fc7 = model.predict(list_im)
             roi_scores = np.ones((len(list_im,)))
 #            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
@@ -367,9 +370,6 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             num_features = fc7.shape[1]
             dim1_rois = rois.shape[1]
             classes_vectors = np.zeros((num_classes,1),dtype=np.float32)
-            
-            print('fc7.shape',fc7.shape)
-            print('rois.shape',rois.shape)
             
             if database=='Paintings':
                 for j in range(num_classes):
@@ -448,6 +448,8 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
         for set_str  in sets:
             dict_writers[set_str].close()
     
+    print('Mean number of regions per image :',np.mean(number_of_regions),'with k max = ',k_regions)
+    
     tf.reset_default_graph()
     
     if testMode:
@@ -476,6 +478,6 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             os.remove(name_pkl_all_features)
             
 if __name__ == '__main__':
-    Compute_EdgeBoxesAndCNN_features(plotProposedBoxes=True,k_regions=300)
+#    Compute_EdgeBoxesAndCNN_features(plotProposedBoxes=True,k_regions=300)
 #    Compute_EdgeBoxesAndCNN_features(database='watercolor')
-#    Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=300)
+    Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=300)

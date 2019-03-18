@@ -308,7 +308,7 @@ class tf_mi_model():
     def __init__(self,LR=0.01,C=1.0,C_finalSVM=1.0,restarts=0, max_iters=300,
                  symway=True,all_notpos_inNeg=True,gridSearch=False,n_jobs=-1,
                  final_clf='LinearSVC',verbose=True,Optimizer='GradientDescent',loss_type=None,
-                  optimArg=None,mini_batch_size=200,buffer_size=10000,num_features=2048,
+                  optimArg=None,mini_batch_size=200,buffer_size=3000,num_features=2048,
                   num_rois=300,num_classes=10,max_iters_sgdc=None,debug=False,
                   is_betweenMinus1and1=False,CV_Mode=None,num_split=2,with_scores=False,
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
@@ -957,54 +957,54 @@ class tf_mi_model():
         self.config.gpu_options.allow_growth = True
         
         minus_1 = tf.constant(-1.)
-        if class_indice==-1:
-            label_vector = tf.placeholder(tf.float32, shape=(None,self.num_classes))
-            if self.is_betweenMinus1and1:
-                add_np_pos = tf.divide(tf.reduce_sum(tf.add(label_vector,tf.constant(1.))),tf.constant(2.))
-                add_np_neg = tf.divide(tf.reduce_sum(tf.add(label_vector,minus_1)),tf.constant(-2.))
-            else:
-                add_np_pos = tf.reduce_sum(label_vector,axis=0)
-                add_np_neg = -tf.reduce_sum(tf.add(label_vector,minus_1),axis=0)
-            np_pos_value = np.zeros((self.num_classes,),dtype=np.float32)
-            np_neg_value = np.zeros((self.num_classes,),dtype=np.float32)
-        else:
-            label_vector = tf.placeholder(tf.float32, shape=(None,))
-            if self.is_betweenMinus1and1:
-                add_np_pos = tf.divide(tf.reduce_sum(tf.add(label_vector,tf.constant(1.))),tf.constant(2.))
-                add_np_neg = tf.divide(tf.reduce_sum(tf.add(label_vector,minus_1)),tf.constant(-2.))
-            else:
-                add_np_pos = tf.reduce_sum(label_vector)
-                add_np_neg = -tf.reduce_sum(tf.add(label_vector,minus_1))
-            np_pos_value = 0.
-            np_neg_value = 0.
-            
-        with tf.Session(config=self.config) as sess:
-            sess.run(tf.global_variables_initializer())
-            sess.run(tf.local_variables_initializer())
-            sess.run(iterator_batch.initializer)
-            while True:
-              try:
-                  # Attention a chaque fois que l on appelle la fonction iterator on avance
-                  label_batch_value = sess.run(label_batch_iterator)
-                  np_pos_value += sess.run(add_np_pos, feed_dict = {label_vector:label_batch_value})
-                  np_neg_value += sess.run(add_np_neg, feed_dict = {label_vector:label_batch_value})
-              except tf.errors.OutOfRangeError:
-                break
-        # Here we consider that all the rois of a bag are the label of the bag
-        np_pos_value *= self.num_rois
-        np_neg_value *= self.num_rois
+#        if class_indice==-1:
+#            label_vector = tf.placeholder(tf.float32, shape=(None,self.num_classes))
+#            if self.is_betweenMinus1and1:
+#                add_np_pos = tf.divide(tf.reduce_sum(tf.add(label_vector,tf.constant(1.))),tf.constant(2.))
+#                add_np_neg = tf.divide(tf.reduce_sum(tf.add(label_vector,minus_1)),tf.constant(-2.))
+#            else:
+#                add_np_pos = tf.reduce_sum(label_vector,axis=0)
+#                add_np_neg = -tf.reduce_sum(tf.add(label_vector,minus_1),axis=0)
+#            np_pos_value = np.zeros((self.num_classes,),dtype=np.float32)
+#            np_neg_value = np.zeros((self.num_classes,),dtype=np.float32)
+#        else:
+#            label_vector = tf.placeholder(tf.float32, shape=(None,))
+#            if self.is_betweenMinus1and1:
+#                add_np_pos = tf.divide(tf.reduce_sum(tf.add(label_vector,tf.constant(1.))),tf.constant(2.))
+#                add_np_neg = tf.divide(tf.reduce_sum(tf.add(label_vector,minus_1)),tf.constant(-2.))
+#            else:
+#                add_np_pos = tf.reduce_sum(label_vector)
+#                add_np_neg = -tf.reduce_sum(tf.add(label_vector,minus_1))
+#            np_pos_value = 0.
+#            np_neg_value = 0.
+#            
+#        with tf.Session(config=self.config) as sess:
+#            sess.run(tf.global_variables_initializer())
+#            sess.run(tf.local_variables_initializer())
+#            sess.run(iterator_batch.initializer)
+#            while True:
+#              try:
+#                  # Attention a chaque fois que l on appelle la fonction iterator on avance
+#                  label_batch_value = sess.run(label_batch_iterator)
+#                  np_pos_value += sess.run(add_np_pos, feed_dict = {label_vector:label_batch_value})
+#                  np_neg_value += sess.run(add_np_neg, feed_dict = {label_vector:label_batch_value})
+#              except tf.errors.OutOfRangeError:
+#                break
+#        # Here we consider that all the rois of a bag are the label of the bag
+#        np_pos_value *= self.num_rois
+#        np_neg_value *= self.num_rois
         
         
             
         if self.norm=='STDall' or self.norm=='STDSaid': # Standardization on all the training set https://en.wikipedia.org/wiki/Feature_scaling
             mean_train_set, std_train_set = self.compute_STDall(X_batch_iterator,label_batch_iterator)
             
-        self.np_pos_value = np_pos_value
-        self.np_neg_value = np_neg_value
-        if self.verbose:
-            print("Finished to compute the proportion of each label :",np_pos_value,np_neg_value)
-            print("Those value are not used in the evaluation of the loss on the train set")
-       
+#        self.np_pos_value = np_pos_value
+#        self.np_neg_value = np_neg_value
+#        if self.verbose:
+#            print("Finished to compute the proportion of each label :",np_pos_value,np_neg_value)
+#            print("Those value are not used in the evaluation of the loss on the train set")
+#       
         if self.CV_Mode=='CV':
             train_dataset_tmp = train_dataset_init.shard(self.num_split,0)
             for i in range(1,self.num_split-1):
