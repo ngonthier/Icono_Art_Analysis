@@ -2044,7 +2044,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   plot_onSubSet=None,loss_type=None,storeVectors=False,
                                   storeLossValues=False,obj_score_add_tanh=False,lambdas=0.5,
                                   obj_score_mul_tanh=False,metamodel='FasterRCNN',
-                                  PCAuse=False,variance_thres=0.9):
+                                  PCAuse=False,variance_thres=0.9,trainOnTest=False,AddOneLayer=False):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2140,6 +2140,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
    @param variance_thres=0.9 variance keep to the PCA
        number of component keeped in the PCA 
        If variance_thres=0.9 for IconArt_v1 we have numcomp=675 and for watercolor=654
+       
+   @param trainOnTest : default False, if True, the model is learn on the test set
+   @param AddOneLayer : default False, if True, we add one layer on the model
     
     The idea of thi algo is : 
         1/ Compute CNN features
@@ -2158,6 +2161,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     
     
     """
+    if trainOnTest:
+        print('/!\ you will train the model on the test data be careful with the conclusion')
     if not(AggregW=='' or AggregW is None):
         print('There is an error on those AggregationVector due to tfR_evaluation_paral : with the next_get element not initialize')
         raise(NotImplementedError)
@@ -2376,11 +2381,16 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     if model=='MI_max' or model=='':
         model_str = 'MI_max'
         buffer_size = 10000
+        if AddOneLayer:
+            sizeMax //= 2
     elif model=='mi_model':
         model_str ='mi_model'
         buffer_size = 10000
         if not (database in ['watercolor','IconArt_v1']):
             sizeMax //= 2
+        if AddOneLayer:
+            print('AddOneLayer is not implemented in mi_model')
+            raise(NotImplementedError)
     else:
         print(model,' is unknown')
         raise(NotImplementedError)
@@ -2587,7 +2597,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
-                  model,metamodel,PCAuse,number_composant]
+                  model,metamodel,PCAuse,number_composant,AddOneLayer]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2597,7 +2607,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
                      'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
                      'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
-                     'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant']
+                     'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant','AddOneLayer']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2611,6 +2621,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
         + AggregW_str + loss_type_str+str_obj_score_add_tanh+str_obj_score_mul_tanh \
         + PCAusestr
+    if trainOnTest:
+        cachefile_model_base += '_trainOnTest'
+    if AddOneLayer:
+        cachefile_model_base += '_AddOneLayer'
     pathlib.Path(cachefilefolder).mkdir(parents=True, exist_ok=True)
     cachefile_model = os.path.join(cachefilefolder,cachefile_model_base+'_'+model_str+'.pkl')
 #    if os.path.isfile(cachefile_model_old):
@@ -2657,6 +2671,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
    
     data_path_train= dict_name_file['trainval']
+    if trainOnTest:
+        data_path_train= dict_name_file['test']
     
     if parallel_op:
         # For Pascal VOC2007 pour les 20 classes cela prend environ 2500s par iteration 
@@ -2673,7 +2689,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                        Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
                        k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
                        loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                       obj_score_mul_tanh=obj_score_mul_tanh)
+                       obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer)
                  export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
@@ -2725,7 +2741,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                with_rois_scores_atEnd=with_rois_scores_atEnd,scoreInMI_max=(with_scores or seuillage_by_score),
                gridSearch=gridSearch,n_jobs=n_jobs,thres_FinalClassifier=thres_FinalClassifier,
                k_per_bag=k_per_bag,eval_onk300=eval_onk300,plot_onSubSet=plot_onSubSet,AggregW=AggregW,
-               obj_score_add_tanh=obj_score_add_tanh,obj_score_mul_tanh=obj_score_mul_tanh,dim_rois=dim_rois)
+               obj_score_add_tanh=obj_score_add_tanh,obj_score_mul_tanh=obj_score_mul_tanh,dim_rois=dim_rois,
+               trainOnTest=trainOnTest)
    
         for j,classe in enumerate(classes):
             AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
@@ -2750,7 +2767,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
             if verbose : print(j,classes[j])       
             if verbose: print("Start train the MI_max")
 
-            
             #data_path_train=  '/home/gonthier/Data_tmp/FasterRCNN_res152_COCO_Paintings_N1_TLforMIL_nms_0.7_all_trainval.tfrecords'
             needToDo = False
             if not(ReDo):
@@ -2761,15 +2777,19 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                     print('The model of MI_max doesn t exist')
                     needToDo = True
             if ReDo or needToDo:
-                classifierMI_max = tf_MI_max(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,
-                   max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
-                   verbose=verboseMI_max,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
-                   mini_batch_size=mini_batch_size,num_features=num_features,debug=False,
-                   num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
-                   Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil) 
+                classifierMI_max = tf_MI_max(LR=LR,C=C,C_finalSVM=1.0,restarts=restarts,num_rois=k_per_bag,
+                       max_iters=max_iters,symway=symway,n_jobs=n_jobs,buffer_size=buffer_size,
+                       verbose=verboseMI_max,final_clf=final_clf,Optimizer=Optimizer,optimArg=optimArg,
+                       mini_batch_size=mini_batch_size,num_features=num_features,debug=debug,
+                       num_classes=num_classes,num_split=num_split,CV_Mode=CV_Mode,with_scores=with_scores,epsilon=epsilon,
+                       Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
+                       k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
+                       loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                       obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer) 
                 export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
-                   class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,\
-                   WR=WR,performance=performance,restarts_paral=restarts_paral)
+                       class_indice=j,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
+                       WR=WR,performance=performance,restarts_paral=restarts_paral,
+                       C_Searching=C_Searching,storeVectors=storeVectors,storeLossValues=storeLossValues)
                 np_pos_value,np_neg_value = classifierMI_max.get_porportions()
                 name_milsvm[j]=export_dir,np_pos_value,np_neg_value
                 with open(cachefile_model, 'wb') as f:
@@ -2784,12 +2804,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
             parameters=PlotRegions,RPN,Stocha,CompBest
             param_clf = k_per_bag,Number_of_positif_elt,num_features
             true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited,all_boxes = \
-                tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
-                               export_dir,dict_name_file,mini_batch_size,config,
-                               PlotRegions,path_to_img,path_data,param_clf,classes,parameters,verbose,
-                               seuil_estimation,thresh_evaluation,TEST_NMS,
+                tfR_evaluation(database=database,j=j,dict_class_weight=dict_class_weight,num_classes=num_classes,predict_with=predict_with,
+                               export_dir=export_dir,dict_name_file=dict_name_file,mini_batch_size=mini_batch_size,config=config,
+                               PlotRegions=PlotRegions,path_to_img=path_to_img,path_data=path_data,param_clf=param_clf,classes=classes,parameters=parameters,verbose=verbose,
+                               seuil_estimation=seuil_estimation,thresh_evaluation=thresh_evaluation,TEST_NMS=TEST_NMS,
                                all_boxes=all_boxes,with_tanh=with_tanh,dim_rois=dim_rois)
-                  
+                              
             # Regroupement des informations    
             if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
                 name_all_test = df_label[df_label['set']=='test'].as_matrix([item_name])
@@ -2864,14 +2884,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         output_dir = path_data +'tmp/' + database+'_mAP.txt'
         aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
         apsAt05 = aps
-        print("Detection score (thres = 0.5): ",database,'with ',model)
+        print("Detection score (thres = 0.5): ",database,'with ',model,'with score =',with_scores)
         print(arrayToLatex(aps,per=True))
         ovthresh_tab = [0.3,0.1,0.]
         for ovthresh in ovthresh_tab:
             aps = imdb.evaluate_localisation_ovthresh(all_boxes_order, output_dir,ovthresh)
             if ovthresh == 0.1:
                 apsAt01 = aps
-            print("Detection score with thres at ",ovthresh,'with ',model)
+            print("Detection score with thres at ",ovthresh,'with ',model,'with score =',with_scores)
             print(arrayToLatex(aps,per=True))
         imdb.set_use_diff(True) # Modification of the use_diff attribute in the imdb 
         aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
@@ -2888,7 +2908,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     print("mean Precision Classification for all the data = {0:.3f}".format(np.mean(P_per_class)))  
     print("mean Recall Classification for all the data = {0:.3f}".format(np.mean(R_per_class)))  
     print("mean Precision Classification @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
-    print('Mean Average Precision Classification :')
+    print('Mean Average Precision Classification with ',model,'with score =',with_scores,' : ')
     print(AP_per_class)
     print(arrayToLatex(AP_per_class,per=True))
     
@@ -3004,7 +3024,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                with_rois_scores_atEnd=False,scoreInMI_max=False,seuillage_by_score=False,
                gridSearch=False,n_jobs=1,thres_FinalClassifier=0.5,k_per_bag=300,
                eval_onk300=False,plot_onSubSet=None,AggregW=None,obj_score_add_tanh=False,
-               obj_score_mul_tanh=False,dim_rois=5):
+               obj_score_mul_tanh=False,dim_rois=5,trainOnTest=False):
      """
      @param : seuil_estimation : ByHist or MaxDesNeg
      @param : number_im : number of image plot at maximum
@@ -3071,6 +3091,8 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
              path_to_output2 += '/RPNetMISVM/'
          elif CompBest:
               path_to_output2 += '/BestObject/'
+         elif  trainOnTest:
+            path_to_output2 += '_trainOnTest/'
          else:
              path_to_output2 += '/'
          path_to_output2_bis = path_to_output2 + 'Train'
@@ -3106,7 +3128,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                  dict_seuil_estim[i][str_name] = []  # Array of the scalar product of the negative examples  
      get_roisScore = (with_rois_scores_atEnd or scoreInMI_max)
 
-     if (PlotRegions or seuil_estimation_bool) and not('LinearSVC' in predict_with):
+     if (PlotRegions or seuil_estimation_bool) and not('LinearSVC' in predict_with) and not(trainOnTest):
         index_im = 0
         if verbose: print("Start ploting Regions selected by the MI_max in training phase")
         train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
@@ -3863,7 +3885,8 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
 def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                export_dir,dict_name_file,mini_batch_size,config,PlotRegions,
                path_to_img,path_data,param_clf,classes,parameters,
-               seuil_estimation,thresh_evaluation,TEST_NMS,verbose,all_boxes=None,dim_rois=5):
+               seuil_estimation,thresh_evaluation,TEST_NMS,verbose,
+               all_boxes=None,dim_rois=5,with_tanh=False):
     
      PlotRegions,RPN,Stocha,CompBest=parameters
      k_per_bag,positive_elt,size_output = param_clf
@@ -3921,6 +3944,8 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
             X = graph.get_tensor_by_name("X:0")
             y = graph.get_tensor_by_name("y:0")
             Prod_best = graph.get_tensor_by_name("Prod:0")
+            if with_tanh:
+                Tanh = tf.tanh(Prod_best)
             mei = tf.argmax(Prod_best,axis=1)
             score_mei = tf.reduce_max(Prod_best,axis=1)
             sess.run(tf.global_variables_initializer())
@@ -3928,7 +3953,12 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
             while True:
                 try:
                     fc7s,roiss, labels,name_imgs = sess.run(next_element)
-                    PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll = sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
+                    if with_tanh:
+                        PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll =\
+                        sess.run([mei,score_mei,Tanh], feed_dict={X: fc7s, y: labels})
+                    else:
+                        PositiveRegions,get_PositiveRegionsScore,PositiveExScoreAll =\
+                        sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
                     if predict_with=='LinearSVC' and k_per_bag==300  and positive_elt==1:
                         for k in range(len(labels)):
                             label_i = labels[k]
@@ -4007,6 +4037,8 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
             X = graph.get_tensor_by_name("X:0")
             y = graph.get_tensor_by_name("y:0")
             Prod_best = graph.get_tensor_by_name("Prod:0")
+            if with_tanh:
+                Tanh = tf.tanh(Prod_best)
             mei = tf.argmax(Prod_best,axis=1)
             score_mei = tf.reduce_max(Prod_best,axis=1)
             sess.run(tf.global_variables_initializer())
@@ -4014,23 +4046,32 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
         while True:
             try:
                 fc7s,roiss, labels,name_imgs = sess.run(next_element)
-                PositiveRegions,get_RegionsScore,PositiveExScoreAll = sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
-                #print(PositiveExScoreAll.shape)
+                if with_tanh:
+                    PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
+                    sess.run([mei,score_mei,Tanh], feed_dict={X: fc7s, y: labels})
+                else:
+                    PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
+                    sess.run([mei,score_mei,Prod_best], feed_dict={X: fc7s, y: labels})
                 true_label_all_test += [labels]
                 if predict_with=='MI_max':
                     predict_label_all_test +=  [get_RegionsScore]
 #                if predict_with=='LinearSVC':
-                    
                 for k in range(len(labels)):
-                    if database=='VOC2007' or database=='watercolor' or database =='WikiTenLabels':
+                    if database in['IconArt_v1','VOC12','Paintings','VOC2007','watercolor','WikiTenLabels']:
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
+                    elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                        name_sans_ext = os.path.splitext(name_img)[0]
+                        complet_name = path_to_img +name_sans_ext + '.jpg'
+                    else:
+                        print(database,' is not known !')
                     im = cv2.imread(complet_name)
                     blobs, im_scales = get_blobs(im)
                     if predict_with=='MI_max':
                         scores = PositiveExScoreAll[k,:]
                     elif predict_with=='LinearSVC':
                         scores = clf.decision_function(fc7s[k,:])
-                    inds = np.where(scores > thresh)[0]
+
+                    inds = np.where(scores > float(thresh))[0]
                     cls_scores = scores[inds]
                     roi = roiss[k,:]
                     roi_boxes =  roi[:,1:5] / im_scales[0] 
@@ -4946,12 +4987,12 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
 #                              plot_onSubSet=['bicycle', 'bird', 'car', 'cat', 'dog', 'person'])
-#    for k_per_bag in [300]:
+#    for k_per_bag in [2000]:
 ##    for k_per_bag in [300,2000]:
-#        for database in ['VOC2007']:
-##        for database in ['watercolor','IconArt_v1','VOC2007']:
-#            for model in ['mi_model']:
-##            for model in ['MI_max','mi_model']:
+##        for database in ['VOC2007']:
+#        for database in ['watercolor','IconArt_v1','VOC2007']:
+##            for model in ['mi_model']:
+#            for model in ['MI_max','mi_model']:
 #                tfR_FRCNN(demonet = 'res152',database = database, ReDo=False,
 #                                          verbose = True,testMode = False,jtest = 'cow',
 #                                          PlotRegions = False,saved_clf=False,RPN=False,
@@ -4968,22 +5009,22 @@ if __name__ == '__main__':
 #                                          thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
 #                                          loss_type='',storeVectors=False,storeLossValues=False,
 #                                          metamodel='EdgeBoxes',model=model)
-    tfR_FRCNN(demonet = 'res152',database = 'VOC2007', ReDo=True,
-                              verbose = True,testMode = False,jtest = 'cow',
-                              PlotRegions = False,saved_clf=False,RPN=False,
-                              CompBest=False,Stocha=True,k_per_bag=300,
-                              parallel_op=True,CV_Mode='',num_split=2,
-                              WR=True,init_by_mean =None,seuil_estimation='',
-                              restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                              C=1.0,Optimizer='GradientDescent',norm='',
-                              transform_output='tanh',with_rois_scores_atEnd=False,
-                              with_scores=False,epsilon=0.01,restarts_paral='paral',
-                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-                              k_intopk=1,C_Searching=False,predict_with='',
-                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
-                              loss_type='',storeVectors=False,storeLossValues=False,
-                              metamodel='EdgeBoxes',model='mi_model')
+#    tfR_FRCNN(demonet = 'res152',database = 'VOC2007', ReDo=True,
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = False,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=11,max_iters_all_base=300,LR=0.001,with_tanh=True,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=False,epsilon=0.01,restarts_paral='paral',
+#                              Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                              k_intopk=1,C_Searching=False,predict_with='',
+#                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
+#                              loss_type='',storeVectors=False,storeLossValues=False,
+#                              metamodel='EdgeBoxes',model='mi_model')
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
 #                          verbose = True,testMode = False,jtest = 'cow',
 #                          PlotRegions = False,saved_clf=False,RPN=False,
@@ -4996,6 +5037,19 @@ if __name__ == '__main__':
 #                          with_scores=True,epsilon=0.01,restarts_paral='paral',
 #                          predict_with='MI_max',
 #                          PCAuse=False,variance_thres=0.9) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+                          verbose = True,testMode = False,jtest = 'cow',
+                          PlotRegions = False,saved_clf=False,RPN=False,
+                          CompBest=False,Stocha=True,k_per_bag=300,
+                          parallel_op=False,CV_Mode='',num_split=2,
+                          WR=True,init_by_mean =None,seuil_estimation='',
+                          restarts=0,max_iters_all_base=300,LR=0.01,
+                          C=1.0,Optimizer='GradientDescent',norm='',
+                          transform_output='tanh',with_rois_scores_atEnd=False,
+                          with_scores=False,epsilon=0.01,restarts_paral='',
+                          predict_with='MI_max',
+                          PCAuse=False,trainOnTest=True,AddOneLayer=True)  # Not parall computation at all
+#
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
 #                          verbose = True,testMode = False,jtest = 'cow',
 #                          PlotRegions = False,saved_clf=False,RPN=False,
@@ -5007,7 +5061,19 @@ if __name__ == '__main__':
 #                          transform_output='tanh',with_rois_scores_atEnd=False,
 #                          with_scores=False,epsilon=0.01,restarts_paral='paral',
 #                          predict_with='MI_max',
-#                          PCAuse=True,variance_thres=0.9) 
+#                          PCAuse=False,trainOnTest=True,AddOneLayer=True) 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+#                          verbose = True,testMode = False,jtest = 'cow',
+#                          PlotRegions = False,saved_clf=False,RPN=False,
+#                          CompBest=False,Stocha=True,k_per_bag=300,
+#                          parallel_op=True,CV_Mode='',num_split=2,
+#                          WR=True,init_by_mean =None,seuil_estimation='',
+#                          restarts=11,max_iters_all_base=300,LR=0.01,
+#                          C=1.0,Optimizer='GradientDescent',norm='',
+#                          transform_output='tanh',with_rois_scores_atEnd=False,
+#                          with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                          predict_with='MI_max',
+#                          PCAuse=False,trainOnTest=True,AddOneLayer=True) 
 
     
     ## Test of mi_model ! mi_model a finir !! 
