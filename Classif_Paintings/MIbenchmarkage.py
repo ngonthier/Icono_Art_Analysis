@@ -335,10 +335,11 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
              dataNormalizationWhen=None,dataNormalization=None,
              reDo=True,opts_MIMAX=None,pref_name_case='',verbose=False,
              overlap = False,end_name='',
-             specificCase=''):
+             specificCase='',OnePtTraining=False):
     """
     This function evaluate the performance of our MIMAX algorithm
-    @param : method = MIMAX or mi_model
+    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM, miSVM  or IA_mi_model,
+        MIMAXaddLayer
     @param : dataset = GaussianToy
     @param : dataNormalizationWhen : moment of the normalization of the data, 
         None = no normalization, onAllSet doing on all the set, onTrainSet 
@@ -351,7 +352,7 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
     @param : specificCase : we proposed different case of toy points clouds
         - 2clouds : 2 clouds distincts points of clouds as positives examples
         - 2cloudsOpposite : 2 points clouds positive at the opposite from the negatives
-        - 
+    @param : OnePtTraining : Only one point is available in the training set
     """
 
     list_specificCase = ['',None,'2clouds','2cloudsOpposite']
@@ -382,6 +383,8 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
         prefixName += '_OL'
     if not(specificCase is None):
         prefixName += specificCase
+    if OnePtTraining:
+        prefixName += '_OnePt'
         
     script_dir = os.path.dirname(__file__)
     if not(pref_name_case==''):
@@ -426,7 +429,7 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
                                       StratifiedFold,opts,dataNormalizationWhen,
                                       dataNormalization,opts_MIMAX=None,
                                       verbose=verbose,prefixName=prefixName,
-                                      end_name=end_name)
+                                      end_name=end_name,OnePtTraining=OnePtTraining)
             
             
             mPerf = perf[0]
@@ -578,8 +581,10 @@ def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
     perfB=getMeanPref(perfObjB,dataset)
     return(perf,perfB)
     
-def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,StratifiedFold,opts,
-               dataNormalizationWhen,dataNormalization,opts_MIMAX=None,verbose=False,prefixName='',end_name=''):
+def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,
+                   StratifiedFold,opts,
+               dataNormalizationWhen,dataNormalization,opts_MIMAX=None,
+               verbose=False,prefixName='',end_name='',OnePtTraining=False):
     
     nRep= 1
     nFolds = 1
@@ -598,7 +603,19 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
         getTest_and_Train_Sets(bags,train_index,test_index)
     _ , labels_instance_c_test = \
         getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
-
+    if OnePtTraining:
+        index_pos_pt = np.random.choice(np.where(np.vstack(labels_bags_c_train)==1.)[0],1)
+        index_neg_pts = np.where(np.vstack(labels_bags_c_train)==-1.)[0]
+        indextotal = np.concatenate((index_pos_pt,index_neg_pts))
+        local_index = 0
+        labels_bags_c_train_tmp = []
+        bags_train_tmp = []
+        for local_index in range(len(labels_bags_c_train)):
+            if local_index  in indextotal:
+                labels_bags_c_train_tmp += [labels_bags_c_train[local_index]]
+                bags_train_tmp += [bags_train[local_index]]
+        bags_train = bags_train_tmp
+        labels_bags_c_train = labels_bags_c_train_tmp
     if dataNormalizationWhen=='onTrainSet':
         bags_train,bags_test = normalizeDataSetTrain(bags_train,bags_test,dataNormalization)              
         
@@ -628,7 +645,7 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
         points.append(point)
 
     if method in['MIMAX','IA_mi_model','MIMAXaddLayer']:
-        opts_MIMAX = 1.0,False,None,49,0.01 # Attention tu utilise 100 vecteurs
+        opts_MIMAX = 1.0,False,None,11,0.01 # Attention tu utilise 12 vecteurs
         pred_bag_labels, pred_instance_labels,result,bestloss = train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,pointsPrediction=points,get_bestloss=True)
     else:
