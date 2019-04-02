@@ -9,7 +9,8 @@ import numpy as np
 
 npt=np.float32
 
-def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True,Between01=False):
+def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True,
+                          Between01=False,specificCase=''):
     """
     
     La premiere feature est décalé pour obtenir une classe différente
@@ -23,7 +24,16 @@ def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True,Between
     np2=200 # Number of negative bag
     overlap=True 
     @param : Between01 : if True the label of the class are 0-1 and not -1 and +1
+    @param : specificCase : we proposed different case of toy points clouds
+        - 2clouds : 2 clouds distincts points of clouds as positives examples
+        - 2cloudsOpposite : 2 points clouds positive at the opposite from the negatives
+        - 
     """
+    
+    list_specificCase = ['',None,'2clouds','2cloudsOpposite']
+    if not(specificCase in list_specificCase):
+        print(specificCase,'is unknown')
+        raise(NotImplementedError)
     
     np.random.seed(19680801)
     
@@ -32,15 +42,28 @@ def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True,Between
         number_of_positive = 1
         print('Must have at least one element per bag !')
     
+    if overlap:
+        shift_negative_instances = 4
+    else:
+        shift_negative_instances = 8
+    
     def gen_vect_p1():
-        return npt(np.random.randn(n))
+        """
+        Function that generate the features of the positives elements
+        """
+        features = npt(np.random.randn(n))
+#        if specificCase=='' or specificCase is None:
+#             # Standard case
+        if specificCase=='2clouds':
+            features[1:2] += np.random.choice([-4,4], 1)[0]
+        if specificCase=='2cloudsOpposite':
+            features[0:1] += np.random.choice([0,shift_negative_instances*2], 1)[0]
+            
+        return features
     
     def gen_vect_p2():
         g0=np.random.randn(n)
-        if overlap:
-            g0[0:1]+=4
-        else:
-            g0[0:1]+=8
+        g0[0:1]+=shift_negative_instances
         return npt(g0)
     
     def gen_paquet_p2():
@@ -50,6 +73,9 @@ def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True,Between
         return tab
     
     def gen_paquet_p1(N=np1):
+        """
+        Fct that return the positives bags !
+        """
         tab=np.zeros((k,n),dtype=npt)
         if Between01:
             instances_labels = -np.zeros(shape=(k,),dtype=npt)

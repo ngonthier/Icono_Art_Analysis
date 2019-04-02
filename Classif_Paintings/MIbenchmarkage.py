@@ -331,12 +331,14 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
             
 
  
-def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormalizationWhen=None,dataNormalization=None,
+def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
+             dataNormalizationWhen=None,dataNormalization=None,
              reDo=True,opts_MIMAX=None,pref_name_case='',verbose=False,
-             overlap = False,end_name=''):
+             overlap = False,end_name='',
+             specificCase=''):
     """
     This function evaluate the performance of our MIMAX algorithm
-    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM 
+    @param : method = MIMAX or mi_model
     @param : dataset = GaussianToy
     @param : dataNormalizationWhen : moment of the normalization of the data, 
         None = no normalization, onAllSet doing on all the set, onTrainSet 
@@ -346,7 +348,17 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,data
     @param : pref_name_case prefixe of the results file name
     @param : verbose : print some information
     @param : overlap = False overlapping between the 2 classes
+    @param : specificCase : we proposed different case of toy points clouds
+        - 2clouds : 2 clouds distincts points of clouds as positives examples
+        - 2cloudsOpposite : 2 points clouds positive at the opposite from the negatives
+        - 
     """
+
+    list_specificCase = ['',None,'2clouds','2cloudsOpposite']
+    if not(specificCase in list_specificCase):
+        print(specificCase,'is unknown')
+        raise(NotImplementedError)
+    
     dataset = 'GaussianToy_WR'+str(WR)
     
     if verbose: print('Start evaluation performance on ',dataset,'with WR = ',WR,'method :',method)
@@ -360,11 +372,16 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,data
 #    np_pos = 4
 #    np_neg = 6
     
-    Dataset=createGaussianToySets(WR=WR,n=n,k=k,np1=np_pos,np2=np_neg,overlap=overlap)
+    Dataset=createGaussianToySets(WR=WR,n=n,k=k,np1=np_pos,np2=np_neg,
+                                  overlap=overlap,specificCase=specificCase)
     list_names,bags,labels_bags,labels_instance = Dataset
-    prefixName = 'N'+str(n)+'_k'+str(k)+'_WR'+str(WR)+'_pos'+str(np_pos)+'_neg'+str(np_neg)
+    prefixName = 'N'+str(n)+'_k'+str(k)+'_WR'+str(WR)+'_pos'+str(np_pos)+\
+        '_neg'+str(np_neg)
+
     if overlap:
         prefixName += '_OL'
+    if not(specificCase is None):
+        prefixName += specificCase
         
     script_dir = os.path.dirname(__file__)
     if not(pref_name_case==''):
@@ -434,8 +451,10 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,data
             results[c] = [perf,perfB]
         pickle.dump(results,open(file_results,'bw'))
        
-def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormalizationWhen=None,dataNormalization=None,
-             reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False):
+def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
+                        dataNormalizationWhen=None,dataNormalization=None,
+                        reDo=False,opts_MIMAX=None,pref_name_case='',
+                        verbose=False):
     """
     This function evaluate the performance of our MIMAX algorithm
     @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM 
