@@ -317,7 +317,7 @@ class tf_MI_max():
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
                   seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
                   obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False,
-                  AddOneLayer=False):
+                  AddOneLayer=False,exp=10):
 #                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,AveragingWportion=False,
 #                  votingW=False,proportionToKeep=0.25,votingWmedian=False):
         # TODOD enelver les trucs inutiles ici
@@ -364,6 +364,8 @@ class tf_MI_max():
             'softmax' : a softmax witht the product multiplied by w_exp
             'sparsemax' : use a sparsemax
             'mintopk' : use the min of the top k regions 
+            'maxByPow': use the approximation of the max by the exposant sum
+            'LogSumExp' : use the approximation of the max by the LogSumExp formula            
         @param w_exp : default 1.0 : weight in the softmax 
         @param k_intopk : number of regions used
         @param seuillage_by_score : default False : remove the region with a score under seuil
@@ -442,7 +444,7 @@ class tf_MI_max():
         if self.Max_version=='sparsemax':
             print('This don t work right now') # TODO a faire LOL
             raise(NotImplemented) 
-        if not(self.Max_version in ['mintopk','sparsemax','max','','softmax'] or self.Max_version is None):
+        if not(self.Max_version in ['mintopk','sparsemax','max','','softmax','LogSumExp','maxByPow'] or self.Max_version is None):
             raise(NotImplemented)
         self.optim_wt_Reg= optim_wt_Reg
         self.AggregW = AggregW
@@ -466,7 +468,7 @@ class tf_MI_max():
             self.seuillage_by_score = False
             self.with_scores = False # Only one of the two is possible obj_score_add_tanh is priority !
             print('obj_score_add_tanh has the priority on the other score use case')
-        
+        self.exp = exp # exposant pour maxByPow
         # case of Cvalue
         self.C_values =  np.arange(0.5,2.75,0.25,dtype=np.float32) # Case used in VISART2018 ??
         self.AddOneLayer = AddOneLayer
@@ -1118,12 +1120,19 @@ class tf_MI_max():
             
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
+            elif self.Max_version=='maxByPow':
+                # (x^alpha)^(1/alpha) environ egal a max
+                Max = tf.pow(tf.reduce_sum(tf.pow(Prod,self.exp),axis=-1),1./self.exp)
+                if self.verbose: print('mintopk')
             elif self.Max_version=='mintopk':
                 Max=tf.reduce_min(tf.nn.top_k(Prod,self.k)[0],axis=-1)
                 if self.verbose: print('mintopk')
             elif self.Max_version=='softmax':
                 if self.verbose: print('softmax')
                 Max=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod,axis=-1),tf.multiply(Prod,self.w_exp)),axis=-1)
+            elif self.Max_version=='LogSumExp': # One approximation of max
+                if self.verbose: print('LogSumExp')
+                Max = tf.log(tf.reduce_sum(tf.exp(Prod),axis=-1))
             elif self.Max_version=='sparsemax':
                 Max=sparsemax(Prod,axis=-1,number_dim=3)
                 if self.verbose: print('sparsemax',Max)
@@ -1196,6 +1205,11 @@ class tf_MI_max():
                 Prod_batch= tf.multiply(scores_batch,tf.tanh(Prod_batch))
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
+            elif self.Max_version=='maxByPow':
+                # (sum x^alpha)^(1/alpha) environ egal a max
+                Max_batch = tf.pow(tf.reduce_sum(tf.pow(Prod_batch,self.exp),axis=-1),1./self.exp)
+            elif self.Max_version=='LogSumExp': # One approximation of max
+                Max_batch = tf.log(tf.reduce_sum(tf.exp(Prod_batch),axis=-1))
             elif self.Max_version=='mintopk':
                 Max_batch=tf.reduce_min(tf.nn.top_k(Prod_batch,self.k)[0],axis=-1)
             elif self.Max_version=='softmax':
@@ -1271,8 +1285,22 @@ class tf_MI_max():
             if self.with_scores: Prod=tf.multiply(Prod,tf.add(scores_,self.epsilon))
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
+            elif self.Max_version=='maxByPow':
+                # (x^alpha)^(1/alpha) environ egal a max
+                Max = tf.pow(tf.reduce_sum(tf.pow(Prod,self.exp),axis=-1),1./self.exp)
+                if self.verbose: print('mintopk')
+            elif self.Max_version=='mintopk':
+                Max=tf.reduce_min(tf.nn.top_k(Prod,self.k)[0],axis=-1)
+                if self.verbose: print('mintopk')
             elif self.Max_version=='softmax':
-                Max=tf.reduce_max(tf.multiply(tf.nn.softmax(Prod,axis=-1),Prod),axis=-1)
+                if self.verbose: print('softmax')
+                Max=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod,axis=-1),tf.multiply(Prod,self.w_exp)),axis=-1)
+            elif self.Max_version=='LogSumExp': # One approximation of max
+                if self.verbose: print('LogSumExp')
+                Max = tf.log(tf.reduce_sum(tf.exp(Prod),axis=-1))
+            elif self.Max_version=='sparsemax':
+                Max=sparsemax(Prod,axis=-1,number_dim=3)
+                if self.verbose: print('sparsemax',Max)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
             else:
@@ -1293,8 +1321,17 @@ class tf_MI_max():
             if self.with_scores: Prod_batch=tf.multiply(Prod_batch,tf.add(scores_batch,self.epsilon))
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
+            elif self.Max_version=='maxByPow':
+                # (sum x^alpha)^(1/alpha) environ egal a max
+                Max_batch = tf.pow(tf.reduce_sum(tf.pow(Prod_batch,self.exp),axis=-1),1./self.exp)
+            elif self.Max_version=='LogSumExp': # One approximation of max
+                Max_batch = tf.log(tf.reduce_sum(tf.exp(Prod_batch),axis=-1))
+            elif self.Max_version=='mintopk':
+                Max_batch=tf.reduce_min(tf.nn.top_k(Prod_batch,self.k)[0],axis=-1)
             elif self.Max_version=='softmax':
-                Max=tf.reduce_max(tf.multiply(tf.nn.softmax(Prod,axis=-1),Prod),axis=-1)
+                Max_batch=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod_batch,axis=-1),tf.multiply(Prod_batch,self.w_exp)),axis=-1)
+            elif self.Max_version=='sparsemax':
+                Max_batch=sparsemax(Prod_batch,axis=-1,number_dim=3)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
                 # Need to add 1 to avoid the case 
@@ -1767,12 +1804,19 @@ class tf_MI_max():
                     Prod=tf.multiply(scores_,Prod)
                 if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                     Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
+                elif self.Max_version=='maxByPow':
+                    # (x^alpha)^(1/alpha) environ egal a max
+                    Max = tf.pow(tf.reduce_sum(tf.pow(Prod,self.exp),axis=-1),1./self.exp)
+                    if self.verbose: print('mintopk')
                 elif self.Max_version=='mintopk':
                     Max=tf.reduce_min(tf.nn.top_k(Prod,self.k)[0],axis=-1)
                     if self.verbose: print('mintopk')
                 elif self.Max_version=='softmax':
                     if self.verbose: print('softmax')
                     Max=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod,axis=-1),tf.multiply(Prod,self.w_exp)),axis=-1)
+                elif self.Max_version=='LogSumExp': # One approximation of max
+                    if self.verbose: print('LogSumExp')
+                    Max = tf.log(tf.reduce_sum(tf.exp(Prod),axis=-1))
                 elif self.Max_version=='sparsemax':
                     Max=sparsemax(Prod,axis=-1,number_dim=3)
                     if self.verbose: print('sparsemax',Max)
@@ -1832,6 +1876,11 @@ class tf_MI_max():
                     Prod_batch=tf.multiply(scores_batch,Prod_batch)
                 if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                     Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
+                elif self.Max_version=='maxByPow':
+                    # (sum x^alpha)^(1/alpha) environ egal a max
+                    Max_batch = tf.pow(tf.reduce_sum(tf.pow(Prod_batch,self.exp),axis=-1),1./self.exp)
+                elif self.Max_version=='LogSumExp': # One approximation of max
+                    Max_batch = tf.log(tf.reduce_sum(tf.exp(Prod_batch),axis=-1))
                 elif self.Max_version=='mintopk':
                     Max_batch=tf.reduce_min(tf.nn.top_k(Prod_batch,self.k)[0],axis=-1)
                 elif self.Max_version=='softmax':

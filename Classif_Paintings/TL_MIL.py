@@ -2044,7 +2044,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   plot_onSubSet=None,loss_type=None,storeVectors=False,
                                   storeLossValues=False,obj_score_add_tanh=False,lambdas=0.5,
                                   obj_score_mul_tanh=False,metamodel='FasterRCNN',
-                                  PCAuse=False,variance_thres=0.9,trainOnTest=False,AddOneLayer=False):
+                                  PCAuse=False,variance_thres=0.9,trainOnTest=False,
+                                  AddOneLayer=False,exp=10):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2108,6 +2109,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         'softmax' : a softmax witht the product multiplied by w_exp
         'sparsemax' : use a sparsemax
         'mintopk' : use the min of the top k_intopk regions 
+        'maxByPow': use the approximation of the max by the exposant sum
+        'LogSumExp' : use the approximation of the max by the LogSumExp formula 
     @param : k_intopk
     @param w_exp : default 1.0 : weight in the softmax 
     @param seuillage_by_score : default False : remove the region with a score under seuil
@@ -2130,7 +2133,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         'meanOfTanh' : Take the mean of the tanh of the product of the first vectors
         'medianOfTanh' : Take the meadian of the tanh of product of the first vectors
         'maxOfTanh' : Take the max of the tanh of product of the first vectors
-            
    @param obj_score_add_tanh : the objectness_score is add to the tanh of the dot product
    @param obj_score_mul_tanh : the objectness_score is multiply to the tanh of the dot product
    @param lambdas : the lambda ratio between the tanh scalar product and the objectness score
@@ -2140,6 +2142,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
    @param variance_thres=0.9 variance keep to the PCA
        number of component keeped in the PCA 
        If variance_thres=0.9 for IconArt_v1 we have numcomp=675 and for watercolor=654
+   @param exp: exposant pour maxByPow
        
    @param trainOnTest : default False, if True, the model is learn on the test set
    @param AddOneLayer : default False, if True, we add one layer on the model
@@ -2319,8 +2322,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         num_features = 4096
     elif demonet in ['res101_COCO','res152_COCO','res101_VOC07','res152']:
         num_features = 2048
-
-
     
     if not(data_precomputeed):
         # Compute the features
@@ -2494,6 +2495,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         Max_version_str ='_MVSM'
     elif Max_version=='mintopk':
         Max_version_str ='_MVMT'+str(k_intopk)
+    elif Max_version=='LogSumExp':
+        Max_version_str ='_MLogSumExp'
+    elif Max_version=='maxByPow':
+        Max_version_str ='_maxByPow'+str(exp)
     optimArg = None
     #optimArg = {'learning_rate':LR,'beta1':0.9,'beta2':0.999,'epsilon':1}
     if optimArg== None or Optimizer=='GradientDescent':
@@ -2597,7 +2602,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
-                  model,metamodel,PCAuse,number_composant,AddOneLayer]
+                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2607,7 +2612,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
                      'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
                      'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
-                     'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant','AddOneLayer']
+                     'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant','AddOneLayer','exp']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2689,7 +2694,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                        Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
                        k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
                        loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                       obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer)
+                       obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer,exp=exp)
                  export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
@@ -3128,10 +3133,13 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                  dict_seuil_estim[i][str_name] = []  # Array of the scalar product of the negative examples  
      get_roisScore = (with_rois_scores_atEnd or scoreInMI_max)
 
-     if (PlotRegions or seuil_estimation_bool) and not('LinearSVC' in predict_with) and not(trainOnTest):
+     if (PlotRegions or seuil_estimation_bool) and not('LinearSVC' in predict_with):
         index_im = 0
         if verbose: print("Start ploting Regions selected by the MI_max in training phase")
-        train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
+        if trainOnTest:
+            train_dataset = tf.data.TFRecordDataset(dict_name_file['test'])
+        else:
+            train_dataset = tf.data.TFRecordDataset(dict_name_file['trainval'])
         train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
             num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,\
             num_rois=k_per_bag,dim_rois=dim_rois))
@@ -5041,18 +5049,31 @@ if __name__ == '__main__':
                           verbose = True,testMode = False,jtest = 'cow',
                           PlotRegions = False,saved_clf=False,RPN=False,
                           CompBest=False,Stocha=True,k_per_bag=300,
-                          parallel_op=False,CV_Mode='',num_split=2,
+                          parallel_op=True,CV_Mode='',num_split=2,
                           WR=True,init_by_mean =None,seuil_estimation='',
-                          restarts=0,max_iters_all_base=300,LR=0.01,
+                          restarts=11,max_iters_all_base=300,LR=0.001,
                           C=1.0,Optimizer='GradientDescent',norm='',
                           transform_output='tanh',with_rois_scores_atEnd=False,
-                          with_scores=False,epsilon=0.01,restarts_paral='',
+                          with_scores=False,epsilon=0.01,restarts_paral='paral',
                           predict_with='MI_max',
-                          PCAuse=False,trainOnTest=True,AddOneLayer=True)  # Not parall computation at all
-#
+                          PCAuse=False,trainOnTest=False,AddOneLayer=False,Max_version='LogSumExp')  # Not parall computation at all
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
 #                          verbose = True,testMode = False,jtest = 'cow',
 #                          PlotRegions = False,saved_clf=False,RPN=False,
+#                          CompBest=False,Stocha=True,k_per_bag=300,
+#                          parallel_op=False,CV_Mode='',num_split=2,
+#                          WR=True,init_by_mean =None,seuil_estimation='',
+#                          restarts=11,max_iters_all_base=300,LR=0.01,
+#                          C=1.0,Optimizer='GradientDescent',norm='',
+#                          transform_output='tanh',with_rois_scores_atEnd=False,
+#                          with_scores=True,epsilon=0.01,restarts_paral='',
+#                          predict_with='MI_max',
+#                          PCAuse=False,trainOnTest=False,AddOneLayer=True)  # Not parall computation at all
+#
+
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+#                          verbose = True,testMode = False,jtest = 'cow',
+#                          PlotRegions = True,saved_clf=False,RPN=False,
 #                          CompBest=False,Stocha=True,k_per_bag=300,
 #                          parallel_op=True,CV_Mode='',num_split=2,
 #                          WR=True,init_by_mean =None,seuil_estimation='',
@@ -5061,8 +5082,32 @@ if __name__ == '__main__':
 #                          transform_output='tanh',with_rois_scores_atEnd=False,
 #                          with_scores=False,epsilon=0.01,restarts_paral='paral',
 #                          predict_with='MI_max',
-#                          PCAuse=False,trainOnTest=True,AddOneLayer=True) 
+#                          PCAuse=False,trainOnTest=True,AddOneLayer=False) 
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+#                          verbose = True,testMode = False,jtest = 'cow',
+#                          PlotRegions = True,saved_clf=False,RPN=False,
+#                          CompBest=False,Stocha=True,k_per_bag=300,
+#                          parallel_op=True,CV_Mode='',num_split=2,
+#                          WR=True,init_by_mean =None,seuil_estimation='',
+#                          restarts=11,max_iters_all_base=300,LR=0.01,
+#                          C=1.0,Optimizer='GradientDescent',norm='',
+#                          transform_output='tanh',with_rois_scores_atEnd=False,
+#                          with_scores=True,epsilon=0.01,restarts_paral='paral',
+#                          predict_with='MI_max',
+#                          PCAuse=False,trainOnTest=True,AddOneLayer=False) 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+#                          verbose = True,testMode = False,jtest = 'cow',
+#                          PlotRegions = True,saved_clf=False,RPN=False,
+#                          CompBest=False,Stocha=True,k_per_bag=300,
+#                          parallel_op=True,CV_Mode='',num_split=2,
+#                          WR=True,init_by_mean =None,seuil_estimation='',
+#                          restarts=11,max_iters_all_base=300,LR=0.01,
+#                          C=1.0,Optimizer='GradientDescent',norm='',
+#                          transform_output='tanh',with_rois_scores_atEnd=False,
+#                          with_scores=False,epsilon=0.01,restarts_paral='paral',
+#                          predict_with='MI_max',
+#                          PCAuse=False,trainOnTest=False,AddOneLayer=False,model='mi_model') 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
 #                          verbose = True,testMode = False,jtest = 'cow',
 #                          PlotRegions = False,saved_clf=False,RPN=False,
 #                          CompBest=False,Stocha=True,k_per_bag=300,
@@ -5073,7 +5118,7 @@ if __name__ == '__main__':
 #                          transform_output='tanh',with_rois_scores_atEnd=False,
 #                          with_scores=True,epsilon=0.01,restarts_paral='paral',
 #                          predict_with='MI_max',
-#                          PCAuse=False,trainOnTest=True,AddOneLayer=True) 
+#                          PCAuse=False,trainOnTest=False,AddOneLayer=False) 
 
     
     ## Test of mi_model ! mi_model a finir !! 

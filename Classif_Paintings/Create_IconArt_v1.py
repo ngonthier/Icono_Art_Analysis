@@ -82,7 +82,6 @@ def createNewXML_files():
     path_to_im = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
     pd_b = pd.read_csv(path_b,sep=r"\s*",names=['item'],dtype=str)
     for index, row in pd_b.iterrows():
-        Erase = False
         i = row['item']
         path_i = path_to_im + i +'.jpg'
         im = cv2.imread(path_i)
@@ -93,11 +92,12 @@ def createNewXML_files():
         labels = np.array(df_train[df_train['item']==i][classes_a_garder])[0]
         
         for element,classe_elt in zip(labels,classes_a_garder):
-            xmin = 0
-            ymin = 0
-            xmax = im.shape[0]
-            ymax = im.shape[1]
-            writer.addObject(classe_elt, xmin, ymin, xmax, ymax)
+            if element==1.0:
+                xmin = 0
+                ymin = 0
+                xmax = im.shape[0]
+                ymax = im.shape[1]
+                writer.addObject(classe_elt, xmin, ymin, xmax, ymax)
                     
         writer.save(annotation_path=pathxml) 
         
