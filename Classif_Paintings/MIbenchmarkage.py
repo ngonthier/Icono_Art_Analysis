@@ -20,7 +20,7 @@ import pathlib
 import shutil
 import sys
 import misvm
-from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost
+from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost,siDLearlyStop
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -36,7 +36,7 @@ import pickle
 
 
 list_of_ClassicalMI = ['miSVM','SIL','SISVM','LinearSISVM','MIbyOneClassSVM',\
-                       'SIXGBoost','MISVM']
+                       'SIXGBoost','MISVM','SIDLearlyStop']
 
 path_tmp = '/media/HDD/output_exp/ClassifPaintings/tmp/'
 if not(os.path.exists(path_tmp)):
@@ -119,10 +119,10 @@ def EvaluationOnALot_ofParameters(dataset):
 
 def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
              dataNormalization='std',
-             reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False):
+             reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False,epochsSIDLearlyStop=10):
     """
     This function evaluate the performance of our MIMAX algorithm
-    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM 
+    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM, SIDLearlyStop
     @param : dataset = Newsgroups, Bird or SIVAL
     @param : dataNormalizationWhen : moment of the normalization of the data, 
         None = no normalization, onAllSet doing on all the set, onTrainSet 
@@ -142,6 +142,8 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
         pref_name_case = pref_name_case
     if dataNormalizationWhen=='onTrainSet':
         pref_name_case += '_' +str(dataNormalization)
+    if method=='SIDLearlyStop':
+        pref_name_case += 'epochs'+str(epochsSIDLearlyStop)
     filename = method + '_' + dataset + pref_name_case + '.pkl'
     filename = filename.replace('MISVM','bigMISVM')
     path_file_results = os.path.join(script_dir,'MILbenchmark','Results')
@@ -178,7 +180,7 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
                                     dataNormalizationWhen,dataNormalization,
                                     nRep=10,nFolds=10,
                                     GridSearch=False,opts_MIMAX=opts_MIMAX,
-                                    verbose=verbose)
+                                    verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
             mPerf = perf[0]
             stdPerf = perf[1]
             mPerfB = perfB[0]
@@ -346,12 +348,13 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
             
 
  
-def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormalizationWhen=None,dataNormalization=None,
+def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
+                               dataNormalizationWhen=None,dataNormalization=None,
              reDo=True,opts_MIMAX=[1.0,False,None,49,0.01],pref_name_case='',verbose=False,
              overlap = False,end_name=''):
     """
     This function evaluate the performance of our MIMAX algorithm
-    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM 
+    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM, SIDLearlyStop
     @param : dataset = GaussianToy
     @param : dataNormalizationWhen : moment of the normalization of the data, 
         None = no normalization, onAllSet doing on all the set, onTrainSet 
@@ -453,7 +456,7 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormali
              reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False):
     """
     This function evaluate the performance of our MIMAX algorithm
-    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM 
+    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM,SIDLearlyStop
     @param : dataset = GaussianToy
     @param : dataNormalizationWhen : moment of the normalization of the data, 
         None = no normalization, onAllSet doing on all the set, onTrainSet 
@@ -530,7 +533,7 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormali
 
 def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
                                   dataNormalization,nRep=10,nFolds=10,GridSearch=False,opts_MIMAX=None,
-                                  verbose=False):
+                                  verbose=False,epochsSIDLearlyStop=10):
 
     bags,labels_bags_c,labels_instance_c  = D
 
@@ -561,14 +564,14 @@ def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
                                               labels_bags_c_k,labels_instance_c_k,\
                                               StratifiedFold,opts,dataNormalizationWhen,\
                                               dataNormalization,opts_MIMAX=opts_MIMAX,\
-                                              verbose=verbose)
+                                              verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
             perfObj[k,:,:,:] = perfObj_k
             perfObjB[k,:,:,:] = perfObjB_k
     else:
         perfObj,perfObjB = doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,\
                                       labels_instance_c,StratifiedFold,opts\
                                       ,dataNormalizationWhen,dataNormalization,\
-                                      opts_MIMAX=opts_MIMAX,verbose=verbose)
+                                      opts_MIMAX=opts_MIMAX,verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
 
     perf=getMeanPref(perfObj,dataset)
     perfB=getMeanPref(perfObjB,dataset)
@@ -658,10 +661,10 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
     else:
         color = y
             
-    plt.scatter(X[:, 0], X[:, 1],
-                c=color, cmap=cm.Paired,alpha=0.5)
-#    plt.scatter(flatten(X[:, 0]), flatten(X[:, 1]),
-#                c=flatten(y), cmap=cm.Paired)
+#    plt.scatter(X[:, 0], X[:, 1],
+#                c=color, cmap=cm.Paired,alpha=0.5)
+    plt.scatter(flatten(X[:, 0]), flatten(X[:, 1]),
+                c=flatten(color), cmap=cm.Paired)
     
     X_pos = X[np.where(gt_instances_labels_stack==1)[0],:]
     X_neg = X[np.where(gt_instances_labels_stack==-1)[0],:]
@@ -710,7 +713,8 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
     return(perf,perfB)
 
 def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c,StratifiedFold,opts,
-               dataNormalizationWhen,dataNormalization,opts_MIMAX=None,verbose=False):
+               dataNormalizationWhen,dataNormalization,opts_MIMAX=None,verbose=False,
+               epochsSIDLearlyStop=10):
     """
     This function perform a cross validation evaluation or StratifiedFold cross 
     evaluation
@@ -745,7 +749,7 @@ def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c
                 
                 
                 pred_bag_labels, pred_instance_labels =train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
-                       method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose)
+                       method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
 
    
                 perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
@@ -769,7 +773,7 @@ def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c
                 gt_instances_labels_stack = np.hstack(labels_instance_c_test)
                 
                 pred_bag_labels, pred_instance_labels = train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
-                       method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose)
+                       method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
                 
                 perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
                 perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
@@ -888,6 +892,8 @@ def get_classicalMILclassifier(method,verbose=False):
         classifier = MIbyOneClassSVM.MIbyOneClassSVM(verbose=verbose)
     elif method=='SIXGBoost':
         classifier = sixgboost.SIXGBoost(verbose=verbose)
+    elif method=='SIDLearlyStop':
+        classifier = siDLearlyStop.SIDLearlyStop()
     else:
         print('Method unknown: ',method)
         raise(NotImplementedError)
@@ -895,7 +901,7 @@ def get_classicalMILclassifier(method,verbose=False):
 
 def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                        method,opts,opts_MIMAX=None,verbose=False,pointsPrediction=None,
-                       get_bestloss=False):
+                       get_bestloss=False,epochsSIDLearlyStop=10):
     """
     pointsPrediction=points : other prediction to do, points size
     """
@@ -987,7 +993,10 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
     elif method in list_of_ClassicalMI:
         
         classifier = get_classicalMILclassifier(method,verbose=verbose)
-        classifier.fit(bags_train, labels_bags_c_train)
+        if method=='SIDLearlyStop':
+            classifier.fit(bags_train, labels_bags_c_train,epochs=epochsSIDLearlyStop)
+        else:
+            classifier.fit(bags_train, labels_bags_c_train)
         pred_bag_labels, pred_instance_labels = classifier.predict(bags_test,instancePrediction=True)
         if not(pointsPrediction is None):
             _, points_instance_labels = classifier.predict(pointsPrediction,instancePrediction=True)
@@ -1303,7 +1312,25 @@ def ToyProblemRun():
                                        WR=0.01,verbose=True,reDo=reDo,
                                        dataNormalizationWhen='onTrainSet',dataNormalization='std',
                                        overlap = overlap)
-            
+   
+
+         
+def BenchmarkRunSIDLearlyStop():
+    
+    datasets = ['Birds','Newsgroups']
+    list_of_algo= ['SIDLearlyStop']
+    
+    # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
+    
+    for method in list_of_algo:
+        for dataset in datasets:
+            print('==== ',method,dataset,' ====')
+            for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
+                for epochs in [1,3,10]:
+                    evalPerf(method=method,dataset=dataset,reDo=True,verbose=False,
+                             dataNormalizationWhen=dataWhen,dataNormalization=dataNorm,
+                             epochsSIDLearlyStop=epochs)
+                    
 def BenchmarkRun():
     
     datasets = ['Birds','Newsgroups']
