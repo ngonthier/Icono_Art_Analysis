@@ -31,6 +31,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='3' # 1 to remove info, 2 to remove warning a
 import tensorflow as tf
 
 from trouver_classes_parmi_K import tf_MI_max,ModelHyperplan
+#from trouver_classes_parmi_K_MultiPlan import tf_MI_max,ModelHyperplan
 from trouver_classes_parmi_K_mi import tf_mi_model
 import pickle
 
@@ -203,7 +204,8 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
         
 def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std',
              reDo=True,opts_MIMAX=None,pref_name_case='',verbose=True,
-             numberofW_to_keep = 12,number_of_reboots = 120):
+             numberofW_to_keep = 12,number_of_reboots = 120,
+             corr='cov'):
     """
     The goal of this function is to draw the histogram of the value of the loss function 
     and the performance on a specific split of the dataset  
@@ -216,6 +218,10 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
     @param : opts_MIMAX optimion for the MIMAX (i.e.  C,C_Searching,CV_Mode,restarts,LR)
     @param : pref_name_case prefixe of the results file name
     @param : verbose : print some information
+    @param : numberofW_to_keep : number of W keeped
+    @param : number_of_reboots : number of differents runs for plotting the histogram
+    @param : corr type of correlation we compute cov compute the covariance whereas
+        pearsonr compute the pearson correlation coefficient
     """
 
     if verbose: print('Start evaluation performance on ',dataset,'method :',method)
@@ -294,16 +300,26 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
             data +=[perfObj[:,0]]
             data +=[perfObj[:,1]]
             data +=[perfObj[:,2]]
-            corrLossF1 = pearsonr(-loss_values,perfObj[:,0])[0]
-            corrLossAUC = pearsonr(-loss_values,perfObj[:,1])[0]
-            corrLossUAR = pearsonr(-loss_values,perfObj[:,2])[0]
+            if corr=='pearsonr':
+                corrLossF1 = pearsonr(-loss_values,perfObj[:,0])[0]
+                corrLossAUC = pearsonr(-loss_values,perfObj[:,1])[0]
+                corrLossUAR = pearsonr(-loss_values,perfObj[:,2])[0]
+            elif corr=='cov':
+                corrLossF1 = np.cov(-loss_values,perfObj[:,0])[0,1]
+                corrLossAUC = np.cov(-loss_values,perfObj[:,1])[0,1]
+                corrLossUAR = np.cov(-loss_values,perfObj[:,2])[0,1]
 
             yaxes = ['loss','F1','UAR','AUC']
             titles = []
             titles += ['Loss function']
-            titles += ['Corr with F1 : {0:.2f}'.format(corrLossF1)]
-            titles += ['Corr with AUC : {0:.2f}'.format(corrLossAUC)]
-            titles += ['Corr with UAR : {0:.2f}'.format(corrLossUAR)]
+            if corr=='pearsonr':
+                titles += ['Corr with F1 : {0:.2f}'.format(corrLossF1)]
+                titles += ['Corr with AUC : {0:.2f}'.format(corrLossAUC)]
+                titles += ['Corr with UAR : {0:.2f}'.format(corrLossUAR)]
+            elif corr=='cov':
+                titles += ['Cov with F1 : {0:.2f}'.format(corrLossF1)]
+                titles += ['Cov with AUC : {0:.2f}'.format(corrLossAUC)]
+                titles += ['Cov with UAR : {0:.2f}'.format(corrLossUAR)]
             
             f,a = plt.subplots(2,2,figsize=(8,8), dpi=80, facecolor='w', edgecolor='k')
             a = a.ravel()
@@ -313,10 +329,11 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
                 ax.set_ylabel(yaxes[idx])
             
             
-            titlestr = 'Distribution of Loss Function for ' +c+' in '+dataset+' with best over '+str(numberofW_to_keep) +' W' 
+            titlestr = 'Distribution of Loss Function for ' +c+' in '+dataset+\
+            ' with best over '+str(numberofW_to_keep) +' W' 
             plt.suptitle(titlestr,fontsize=12)
             script_dir = os.path.dirname(__file__)
-            filename = method + '_' + dataset +'_' +c +pref_name_case 
+            filename = method + '_' + dataset +'_' +c +pref_name_case +'_'+corr
             if dataNormalizationWhen=='onTrainSet':
                 filename += '_' +str(dataNormalization)
             filename += '_W'+ str(numberofW_to_keep)+".png"
@@ -332,12 +349,13 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
 
  
 def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
-             dataNormalizationWhen=None,dataNormalization=None,
+             dataNormalizationWhen='onTrainSet',dataNormalization='std',
              reDo=True,opts_MIMAX=None,pref_name_case='',verbose=False,
              overlap = False,end_name='',
              specificCase='',OnePtTraining=False):
     """
-    This function evaluate the performance of our MIMAX algorithm
+    This function evaluate the performance of our MIMAX algorithm and plot the
+    Hyperplan for the case 2D n=2
     @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM, miSVM  or IA_mi_model,
         MIMAXaddLayer
     @param : dataset = GaussianToy
@@ -455,12 +473,15 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
         pickle.dump(results,open(file_results,'bw'))
        
 def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
-                        dataNormalizationWhen=None,dataNormalization=None,
-                        reDo=False,opts_MIMAX=None,pref_name_case='',
-                        verbose=False):
+                        dataNormalizationWhen='onTrainSet',
+                        dataNormalization='std',
+                        reDo=True,opts_MIMAX=None,pref_name_case='',
+                        verbose=False,overlap = False,end_name='',
+                        specificCase=''):
     """
     This function evaluate the performance of our MIMAX algorithm
-    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM 
+    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM, miSVM  or IA_mi_model,
+        MIMAXaddLayer
     @param : dataset = GaussianToy
     @param : dataNormalizationWhen : moment of the normalization of the data, 
         None = no normalization, onAllSet doing on all the set, onTrainSet 
@@ -469,71 +490,121 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
     @param : opts_MIMAX optimion for the MIMAX (i.e.  C,C_Searching,CV_Mode,restarts,LR)
     @param : pref_name_case prefixe of the results file name
     @param : verbose : print some information
+    @param : overlap = False overlapping between the 2 classes
+    @param : specificCase : we proposed different case of toy points clouds
+        - 2clouds : 2 clouds distincts points of clouds as positives examples
+        - 2cloudsOpposite : 2 points clouds positive at the opposite from the negatives
+    @param : OnePtTraining : Only one point is available in the training set
     """
+
+    list_specificCase = ['',None,'2clouds','2cloudsOpposite']
+    if not(specificCase in list_specificCase):
+        print(specificCase,'is unknown')
+        raise(NotImplementedError)
+    
     dataset = 'GaussianToy_WR'+str(WR)
     
     if verbose: print('Start evaluation performance on ',dataset,'with WR = ',WR,'method :',method)
 
     if dataNormalization==None: dataNormalizationWhen=None
-
-    script_dir = os.path.dirname(__file__)
-    if not(pref_name_case==''):
-        pref_name_case = pref_name_case
-    filename = method + '_' + dataset + pref_name_case + '.pkl'
-    filename = filename.replace('MISVM','bigMISVM')
-    path_file_results = os.path.join(script_dir,'MILbenchmark','ResultsToy')
-    file_results = os.path.join(path_file_results,filename)
-    pathlib.Path(path_file_results).mkdir(parents=True, exist_ok=True) # creation of the folder if needed
-    if reDo:
-        results = {}
-    else:
-        try:
-            results = pickle.load(open(file_results,'br'))
-        except FileNotFoundError:
-            results = {}
-            
-    Dataset=createGaussianToySets(WR=WR,n=2,k=100,np1=50,np2=250)
-    list_names,bags,labels_bags,labels_instance = Dataset
-              
-    for c_i,c in enumerate(list_names):
-        if not(c in results.keys()):
-            # Loop on the different class, we will consider each group one after the other
-            if verbose: print("Start evaluation for class :",c)
-            labels_bags_c = labels_bags[c_i]
-            labels_instance_c = labels_instance[c_i]
-            bags_c = bags
-                
-            if dataNormalizationWhen=='onAllSet':
-                bags_c = normalizeDataSetFull(bags_c,dataNormalization)
-                
-            D = bags_c,labels_bags_c,labels_instance_c
+       
+#    n = 2 # Number of dimension 
+    n_list = [2,3,10,50,100,250,500,1000,2048]
+    n_list = [2,3,10,50,100,250,300,400,500,750,1000,2048]
+#    n_list = [2,3,10]
+    dict_perf = {}
+    for n in n_list[::-1]:
+        k = 100 # number of element in a bag
+        np_pos = 50 # Number of positive examples
+        np_neg = 250# Number of negative examples
+    #    np_pos = 4
+    #    np_neg = 6
+        
+        Dataset=createGaussianToySets(WR=WR,n=n,k=k,np1=np_pos,np2=np_neg,
+                                      overlap=overlap,specificCase=specificCase)
+        list_names,bags,labels_bags,labels_instance = Dataset
+#        prefixName = 'N'+str(n)+'_k'+str(k)+'_WR'+str(WR)+'_pos'+str(np_pos)+\
+#            '_neg'+str(np_neg)
+        
+        if verbose: print('Start evaluation performance on ',dataset,'with WR = ',WR,'method :',method)
     
-            perf,perfB=performExperimentWithCrossVal(method,D,dataset,
-                                    dataNormalizationWhen,dataNormalization,
-                                    nRep=1,nFolds=10,
-                                    GridSearch=False,opts_MIMAX=opts_MIMAX,
-                                    verbose=verbose)
-            mPerf = perf[0]
-            stdPerf = perf[1]
-            mPerfB = perfB[0]
-            stdPerfB = perfB[1]
-            ## Results
-            print('=============================================================')
-            print("For class :",c)
-            print('-------------------------------------------------------------')
-            print('- instances') # f1Score,UAR,aucScore,accuracyScore
-            print('AUC: ',mPerf[2],' +/- ',stdPerf[2])
-            print('UAR: ',mPerf[1],' +/- ',stdPerf[1])
-            print('F1: ',mPerf[0],' +/- ',stdPerf[0])
-            print('Accuracy: ',mPerf[3],' +/- ',stdPerf[3])
-            print('- bags')
-            print('AUC: ',mPerfB[2],' +/- ',stdPerfB[2])
-            print('UAR: ',mPerfB[1],' +/- ',stdPerfB[1])
-            print('F1: ',mPerfB[0],' +/- ',stdPerfB[0])
-            print('Accuracy: ',mPerfB[3],' +/- ',stdPerfB[3])
-            print('-------------------------------------------------------------')
-            results[c] = [perf,perfB]
-        pickle.dump(results,open(file_results,'bw'))
+        if dataNormalization==None: dataNormalizationWhen=None
+    
+        script_dir = os.path.dirname(__file__)
+        if not(pref_name_case==''):
+            pref_name_case = pref_name_case
+        filename = method + '_' + dataset + pref_name_case + '.pkl'
+        filename = filename.replace('MISVM','bigMISVM')
+        path_file_results = os.path.join(script_dir,'MILbenchmark','ResultsToy')
+        file_results = os.path.join(path_file_results,filename)
+        pathlib.Path(path_file_results).mkdir(parents=True, exist_ok=True) # creation of the folder if needed
+        if reDo:
+            results = {}
+        else:
+            try:
+                results = pickle.load(open(file_results,'br'))
+            except FileNotFoundError:
+                results = {}
+                  
+        for c_i,c in enumerate(list_names):
+            if not(c in results.keys()):
+                # Loop on the different class, we will consider each group one after the other
+                if verbose: print("Start evaluation for class :",c,"dim = ",n)
+                labels_bags_c = labels_bags[c_i]
+                labels_instance_c = labels_instance[c_i]
+                bags_c = bags
+                    
+                if dataNormalizationWhen=='onAllSet':
+                    bags_c = normalizeDataSetFull(bags_c,dataNormalization)
+                    
+                D = bags_c,labels_bags_c,labels_instance_c
+        
+                perf,perfB=performExperimentWithCrossVal(method,D,dataset,
+                                        dataNormalizationWhen,dataNormalization,
+                                        nRep=1,nFolds=2,
+                                        GridSearch=False,opts_MIMAX=opts_MIMAX,
+                                        verbose=verbose)
+                mPerf = perf[0]
+                stdPerf = perf[1]
+                dict_perf[n] = [mPerf,stdPerf]
+#                mPerfB = perfB[0]
+#                stdPerfB = perfB[1]
+                ## Results
+                print('=============================================================')
+                print("For class :",c,"dim = ",n)
+                print('-------------------------------------------------------------')
+                print('- instances') # f1Score,UAR,aucScore,accuracyScore
+                print('AUC: ',mPerf[2],' +/- ',stdPerf[2])
+                print('UAR: ',mPerf[1],' +/- ',stdPerf[1])
+                print('F1: ',mPerf[0],' +/- ',stdPerf[0])
+                print('Accuracy: ',mPerf[3],' +/- ',stdPerf[3])
+#                print('- bags')
+#                print('AUC: ',mPerfB[2],' +/- ',stdPerfB[2])
+#                print('UAR: ',mPerfB[1],' +/- ',stdPerfB[1])
+#                print('F1: ',mPerfB[0],' +/- ',stdPerfB[0])
+#                print('Accuracy: ',mPerfB[3],' +/- ',stdPerfB[3])
+#                print('-------------------------------------------------------------')
+#                results[c] = [perf,perfB]
+    list_metrics = ['F1','UAR','AUC','Accuracy']    
+    for i,metric in enumerate(list_metrics):
+        mPerf = []
+        stdPerf = []
+        for n in n_list:
+            mPerf += [dict_perf[n][0][i]]
+            stdPerf += [dict_perf[n][1][i]]
+        plt.semilogx(n_list,mPerf)
+#        plt.errorbar(n_list,mPerf,stdPerf)
+        plt.xlabel('d dimension')
+        plt.ylabel(metric)
+        titre = method + ' '+metric +' fct to d'
+        if overlap:
+            titre += ' with overlap'
+        plt.title(titre)
+        plt.tight_layout()
+        plt.show()
+        
+                
+#        pickle.dump(results,open(file_results,'bw'))
 
 def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
                                   dataNormalization,nRep=10,nFolds=10,GridSearch=False,opts_MIMAX=None,
