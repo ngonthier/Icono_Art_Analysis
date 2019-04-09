@@ -60,7 +60,8 @@ CLASSES_SET ={'VOC' : CLASSESVOC,
 
 def resize(im,b,demonet,augmentation,list_of_crop,rois):
     x, y, w, h = b # Attention Resize dans le bon sens car dans opencv ce n'est pas dans le même sens !!!
-    crop_img = im[y:y+h,x:x+w,:].astype(np.float32) # The network need an image in BGR
+    bcorrect = y,y+h,x,x+w
+    crop_img = im[y:y+h,x:x+w,:].astype(np.float32) 
     if not(crop_img.shape[0]==0) and not(crop_img.shape[1]==0):
         if demonet=='res152':
             if augmentation:
@@ -79,7 +80,7 @@ def resize(im,b,demonet,augmentation,list_of_crop,rois):
         resized_img[:,:,1] -= 116.779
         resized_img[:,:,2] -= 123.68
         list_of_crop += [resized_img]
-        rois += [b]
+        rois += [bcorrect]
     return(list_of_crop,rois)
     
 def get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False):
@@ -91,7 +92,8 @@ def get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False):
     edges = edge_detection.edgesNms(edges, orimap)
     edge_boxes = cv2.ximgproc.createEdgeBoxes()
     edge_boxes.setMaxBoxes(k_regions)
-    boxes = edge_boxes.getBoundingBoxes(edges, orimap)
+    boxes = edge_boxes.getBoundingBoxes(edges, orimap) # Becareful this fct return boxes not in the same way that Faster RCNN
+    # if  x, y, w, h = b  then  crop_img = im[y:y+h,x:x+w,:]
     list_of_crop = []
     rois = []
     for b in boxes:
@@ -478,6 +480,6 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             os.remove(name_pkl_all_features)
             
 if __name__ == '__main__':
-#    Compute_EdgeBoxesAndCNN_features(k_regions=2000)
-#    Compute_EdgeBoxesAndCNN_features(database='watercolor',k_regions=2000)
-    Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=2000)
+    Compute_EdgeBoxesAndCNN_features(database='watercolor',k_regions=300)
+    Compute_EdgeBoxesAndCNN_features(k_regions=300)
+    Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=300)
