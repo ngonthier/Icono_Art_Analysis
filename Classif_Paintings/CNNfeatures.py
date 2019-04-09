@@ -481,5 +481,5 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             
 if __name__ == '__main__':
     Compute_EdgeBoxesAndCNN_features(database='watercolor',k_regions=300)
-    Compute_EdgeBoxesAndCNN_features(k_regions=300)
-    Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=300)
+#    Compute_EdgeBoxesAndCNN_features(k_regions=300)
+#    Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=300)
