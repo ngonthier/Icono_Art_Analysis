@@ -2,7 +2,9 @@
 """
 Created on Mon Feb  4 19:22:51 2019
 
-The goal of this script is to evaluate the
+The goal of this script is to evaluate  the different model on the 
+classical MIL benchmark as Birds, SIVAL or NewsGroups and on some Toy 
+Problem
 
 @author: gonthier
 """
@@ -21,6 +23,7 @@ import shutil
 import sys
 import misvm
 from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost
+from sklearn.datasets.samples_generator import make_blobs
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -503,9 +506,9 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
         print(specificCase,'is unknown')
         raise(NotImplementedError)
     
-    dataset = 'GaussianToy_WR'+str(WR)
+    dataset_WR = dataset+'_WR'+str(WR)
     
-    if verbose: print('Start evaluation performance on ',dataset,'with WR = ',WR,'method :',method)
+    if verbose: print('Start evaluation performance on ',dataset_WR,'with WR = ',WR,'method :',method)
 
     if dataNormalization==None: dataNormalizationWhen=None
        
@@ -520,10 +523,26 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
         np_neg = 250# Number of negative examples
     #    np_pos = 4
     #    np_neg = 6
-        
-        Dataset=createGaussianToySets(WR=WR,n=n,k=k,np1=np_pos,np2=np_neg,
-                                      overlap=overlap,specificCase=specificCase)
-        list_names,bags,labels_bags,labels_instance = Dataset
+
+        if dataset=='GaussianToy':
+            Dataset=createGaussianToySets(WR=WR,n=n,k=k,np1=np_pos,np2=np_neg,
+                                          overlap=overlap,specificCase=specificCase)
+            list_names,bags,labels_bags,labels_instance = Dataset
+        elif dataset=='blobs':
+            if not(k==1):
+                print('You are using the blob features, the value of k is set to 1 element per bag. Sorry.')
+            n_samples = (np_pos + np_neg)*k
+            klocal=1
+            X,y=make_blobs(n_samples=n_samples,centers=2,n_features=n)
+            y[np.where(y==0)[0]] = -1
+            Xlist = []
+            labels_bags = []
+            for i in range(n_samples):
+                Xtmp = X[i*klocal:(i+1)*klocal,:]
+                Xlist += [Xtmp]
+            list_names,bags,labels_bags,labels_instance = ['blobs'],Xlist,[y],[y]
+        else:
+            raise(NotImplementedError)
 #        prefixName = 'N'+str(n)+'_k'+str(k)+'_WR'+str(WR)+'_pos'+str(np_pos)+\
 #            '_neg'+str(np_neg)
         
@@ -534,7 +553,7 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
         script_dir = os.path.dirname(__file__)
         if not(pref_name_case==''):
             pref_name_case = pref_name_case
-        filename = method + '_' + dataset + pref_name_case + '.pkl'
+        filename = method + '_' + dataset_WR + pref_name_case + '.pkl'
         filename = filename.replace('MISVM','bigMISVM')
         path_file_results = os.path.join(script_dir,'MILbenchmark','ResultsToy')
         file_results = os.path.join(path_file_results,filename)
@@ -560,7 +579,7 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
                     
                 D = bags_c,labels_bags_c,labels_instance_c
         
-                perf,perfB=performExperimentWithCrossVal(method,D,dataset,
+                perf,perfB=performExperimentWithCrossVal(method,D,dataset_WR,
                                         dataNormalizationWhen,dataNormalization,
                                         nRep=1,nFolds=2,
                                         GridSearch=False,opts_MIMAX=opts_MIMAX,
