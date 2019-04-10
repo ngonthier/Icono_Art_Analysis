@@ -477,7 +477,7 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
                         dataNormalization='std',
                         reDo=True,opts_MIMAX=None,pref_name_case='',
                         verbose=False,overlap = False,end_name='',
-                        specificCase=''):
+                        specificCase='',k=100):
     """
     This function evaluate the performance of our MIMAX algorithm
     @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM, miSVM  or IA_mi_model,
@@ -495,6 +495,7 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
         - 2clouds : 2 clouds distincts points of clouds as positives examples
         - 2cloudsOpposite : 2 points clouds positive at the opposite from the negatives
     @param : OnePtTraining : Only one point is available in the training set
+    @param : k : the number of element per bag
     """
 
     list_specificCase = ['',None,'2clouds','2cloudsOpposite']
@@ -514,7 +515,7 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
 #    n_list = [2,3,10]
     dict_perf = {}
     for n in n_list[::-1]:
-        k = 100 # number of element in a bag
+#        k = 100 # number of element in a bag
         np_pos = 50 # Number of positive examples
         np_neg = 250# Number of negative examples
     #    np_pos = 4
