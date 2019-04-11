@@ -9,6 +9,7 @@ from sklearn.utils import check_X_y
 from keras.models import Sequential
 from keras.layers import Dense
 import tensorflow as tf
+from sklearn.utils import class_weight
 
 class SIDLearlyStop():
     """
@@ -24,7 +25,7 @@ class SIDLearlyStop():
         self._bag_predictions = None
         self.verbose = verbose
 
-    def fit(self, bags, y,epochs=10):
+    def fit(self, bags, y,epochs=1):
         """
         @param bags : a sequence of n bags; each bag is an m-by-k array-like
                       object containing m instances with k features
@@ -37,20 +38,27 @@ class SIDLearlyStop():
         svm_y = np.vstack([float(cls) * np.matrix(np.ones((len(bag), 1)))
                            for bag, cls in zip(self._bags, y)])
         svm_X, svm_y = check_X_y(X=svm_X, y=svm_y)
-        
+        class_weights = class_weight.compute_class_weight('balanced',
+                                                 np.unique(y),
+                                                 y.ravel())
         input_features = svm_X.shape[1]
         model = Sequential()
         model.add(Dense(64, activation=tf.nn.relu, input_shape=(input_features,)))
         model.add(Dense(128, activation=tf.nn.relu))
-        model.add(Dense(256, activation=tf.nn.relu))
+        model.add(Dense(64, activation=tf.nn.relu))
         model.add(Dense(1, activation=tf.nn.tanh))
         self.model = model
         self.epochs = epochs
         
         self.model.compile(optimizer='Adadelta', 
-              loss='mean_squared_error',
+              loss='mean_squared_error', # binary_crossentropy < mean_squared_error < hinge : seems better
               metrics=['accuracy'])
-        self.model.fit(svm_X, svm_y, epochs=self.epochs)
+        if self.verbose:
+            verboseNum = 1
+        else:
+            verboseNum = 0
+        self.model.fit(svm_X, svm_y, epochs=self.epochs,verbose=verboseNum,
+                       class_weight=class_weights,validation_split=0)
         return(self)
         # http://danielhnyk.cz/creating-your-own-estimator-scikit-learn/
 

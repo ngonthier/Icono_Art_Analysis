@@ -20,7 +20,7 @@ import pathlib
 import shutil
 import sys
 import misvm
-from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost,siDLearlyStop
+from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost,siDLearlyStop,miDLearlyStop
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -36,7 +36,7 @@ import pickle
 
 
 list_of_ClassicalMI = ['miSVM','SIL','SISVM','LinearSISVM','MIbyOneClassSVM',\
-                       'SIXGBoost','MISVM','SIDLearlyStop']
+                       'SIXGBoost','MISVM','SIDLearlyStop','miDLearlyStop']
 
 path_tmp = '/media/HDD/output_exp/ClassifPaintings/tmp/'
 if not(os.path.exists(path_tmp)):
@@ -119,7 +119,8 @@ def EvaluationOnALot_ofParameters(dataset):
 
 def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
              dataNormalization='std',
-             reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False,epochsSIDLearlyStop=10):
+             reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False,
+             epochsSIDLearlyStop=10,nRep=10,nFolds=10):
     """
     This function evaluate the performance of our MIMAX algorithm
     @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM, SIDLearlyStop
@@ -131,6 +132,8 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
     @param : opts_MIMAX optimion for the MIMAX (i.e.  C,C_Searching,CV_Mode,restarts,LR)
     @param : pref_name_case prefixe of the results file name
     @param : verbose : print some information
+    @param : nRep number of repetition, it have to be equal to 10 for the benchmark evaluation
+    @param : nFolds number of folds, it have to be equal to 10 for the benchmark evaluation
     """
 
     if verbose: print('Start evaluation performance on ',dataset,'method :',method)
@@ -178,7 +181,7 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
     
             perf,perfB=performExperimentWithCrossVal(method,D,dataset,
                                     dataNormalizationWhen,dataNormalization,
-                                    nRep=10,nFolds=10,
+                                    nRep=nRep,nFolds=nFolds,
                                     GridSearch=False,opts_MIMAX=opts_MIMAX,
                                     verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
             mPerf = perf[0]
@@ -564,14 +567,16 @@ def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
                                               labels_bags_c_k,labels_instance_c_k,\
                                               StratifiedFold,opts,dataNormalizationWhen,\
                                               dataNormalization,opts_MIMAX=opts_MIMAX,\
-                                              verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
+                                              verbose=verbose,
+                                              epochsSIDLearlyStop=epochsSIDLearlyStop)
             perfObj[k,:,:,:] = perfObj_k
             perfObjB[k,:,:,:] = perfObjB_k
     else:
         perfObj,perfObjB = doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,\
                                       labels_instance_c,StratifiedFold,opts\
                                       ,dataNormalizationWhen,dataNormalization,\
-                                      opts_MIMAX=opts_MIMAX,verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
+                                      opts_MIMAX=opts_MIMAX,verbose=verbose,
+                                      epochsSIDLearlyStop=epochsSIDLearlyStop)
 
     perf=getMeanPref(perfObj,dataset)
     perfB=getMeanPref(perfObjB,dataset)
@@ -893,7 +898,9 @@ def get_classicalMILclassifier(method,verbose=False):
     elif method=='SIXGBoost':
         classifier = sixgboost.SIXGBoost(verbose=verbose)
     elif method=='SIDLearlyStop':
-        classifier = siDLearlyStop.SIDLearlyStop()
+        classifier = siDLearlyStop.SIDLearlyStop(verbose=verbose)
+    elif method=='miDLearlyStop':
+        classifier = miDLearlyStop.miDLearlyStop(verbose=verbose,max_iter=10)
     else:
         print('Method unknown: ',method)
         raise(NotImplementedError)
@@ -1324,7 +1331,23 @@ def BenchmarkRunSIDLearlyStop():
     
     for method in list_of_algo:
         for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
-            for epochs in [1,3,10]:
+            for epochs in [1,3]:
+                for dataset in datasets:
+                    print('==== ',method,dataset,epochs,' ====')
+                    evalPerf(method=method,dataset=dataset,reDo=False,verbose=False,
+                             dataNormalizationWhen=dataWhen,dataNormalization=dataNorm,
+                             epochsSIDLearlyStop=epochs)
+                    
+def BenchmarkRunmiDLearlyStop():
+    
+    datasets = ['Birds','Newsgroups']
+    list_of_algo= ['miDLearlyStop']
+    
+    # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
+    
+    for method in list_of_algo:
+        for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
+            for epochs in [1,3]:
                 for dataset in datasets:
                     print('==== ',method,dataset,epochs,' ====')
                     evalPerf(method=method,dataset=dataset,reDo=False,verbose=False,
