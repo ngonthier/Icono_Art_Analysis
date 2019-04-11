@@ -1323,11 +1323,11 @@ def BenchmarkRunSIDLearlyStop():
     # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
     
     for method in list_of_algo:
-        for dataset in datasets:
-            print('==== ',method,dataset,' ====')
-            for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
-                for epochs in [1,3,10]:
-                    evalPerf(method=method,dataset=dataset,reDo=True,verbose=False,
+        for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
+            for epochs in [1,3,10]:
+                for dataset in datasets:
+                    print('==== ',method,dataset,epochs,' ====')
+                    evalPerf(method=method,dataset=dataset,reDo=False,verbose=False,
                              dataNormalizationWhen=dataWhen,dataNormalization=dataNorm,
                              epochsSIDLearlyStop=epochs)
                     
@@ -1344,8 +1344,14 @@ def BenchmarkRun():
 #            for dataWhen,dataNorm in zip(['onTrainSet'],['std']):
                 evalPerf(method=method,dataset=dataset,reDo=False,verbose=False,
                          dataNormalizationWhen=dataWhen,dataNormalization=dataNorm)
-        
+     
+def BenchmarkRunClassical():
+    
+    datasets = ['Birds','Newsgroups']
     list_of_algo= ['LinearSISVM','miSVM','MISVM']
+    np.random.shuffle(list_of_algo)
+    np.random.shuffle(datasets)
+    
     for method in list_of_algo:
         for dataset in datasets:
             print('==== ',method,dataset,' ====')
@@ -1390,4 +1396,4 @@ if __name__ == '__main__':
 #    evalPerfGaussianToy(method='LinearSISVM',dataset='GaussianToy',WR=0.01,verbose=True)
 #    evalPerfGaussianToy(method='LinearSISVM',dataset='GaussianToy',WR=0.003,verbose=True)
 #    ToyProblemRun()
-    BenchmarkRun()
+    BenchmarkRunClassical()
