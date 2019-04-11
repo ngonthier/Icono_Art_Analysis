@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore")
 
 from MILbenchmark.utils import getDataset,normalizeDataSetFull,getMeanPref,\
     getTest_and_Train_Sets,normalizeDataSetTrain,getClassifierPerfomance
-from MILbenchmark.Dataset.GaussianToy import createGaussianToySets
+from MILbenchmark.Dataset.GaussianToy import createGaussianToySets,createMILblob
 from sklearn.model_selection import KFold,StratifiedKFold,StratifiedShuffleSplit
 import numpy as np
 import pathlib
@@ -23,7 +23,7 @@ import shutil
 import sys
 import misvm
 from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost
-from sklearn.datasets.samples_generator import make_blobs
+
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -529,18 +529,7 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
                                           overlap=overlap,specificCase=specificCase)
             list_names,bags,labels_bags,labels_instance = Dataset
         elif dataset=='blobs':
-            if not(k==1):
-                print('You are using the blob features, the value of k is set to 1 element per bag. Sorry.')
-            n_samples = (np_pos + np_neg)*k
-            klocal=1
-            X,y=make_blobs(n_samples=n_samples,centers=2,n_features=n)
-            y[np.where(y==0)[0]] = -1
-            Xlist = []
-            labels_bags = []
-            for i in range(n_samples):
-                Xtmp = X[i*klocal:(i+1)*klocal,:]
-                Xlist += [Xtmp]
-            list_names,bags,labels_bags,labels_instance = ['blobs'],Xlist,[y],[y]
+            list_names,bags,labels_bags,labels_instance = createMILblob(WR=WR,n=n,k=k,np1=np_pos,np2=np_neg,Between01=False)
         else:
             raise(NotImplementedError)
 #        prefixName = 'N'+str(n)+'_k'+str(k)+'_WR'+str(WR)+'_pos'+str(np_pos)+\
