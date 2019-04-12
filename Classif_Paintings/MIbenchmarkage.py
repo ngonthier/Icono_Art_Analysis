@@ -145,7 +145,7 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
         pref_name_case = pref_name_case
     if dataNormalizationWhen=='onTrainSet':
         pref_name_case += '_' +str(dataNormalization)
-    if method=='SIDLearlyStop':
+    if method in ['SIDLearlyStop','miDLearlyStop']:
         pref_name_case += 'epochs'+str(epochsSIDLearlyStop)
     filename = method + '_' + dataset + pref_name_case + '.pkl'
     filename = filename.replace('MISVM','bigMISVM')
@@ -1322,32 +1322,36 @@ def ToyProblemRun():
    
 
          
-def BenchmarkRunSIDLearlyStop():
+def BenchmarkRunSIDLearlyStop(firstset=0):
     
-    datasets = ['Birds','Newsgroups']
+    datasets = ['Newsgroups','Birds']
+    if firstset==1:
+        datasets = datasets[::-1]
     list_of_algo= ['SIDLearlyStop']
     
     # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
     
-    for method in list_of_algo:
-        for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
-            for epochs in [1,3]:
+    for epochs in [1,3,10]:
+        for method in list_of_algo:
+            for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
                 for dataset in datasets:
                     print('==== ',method,dataset,epochs,' ====')
                     evalPerf(method=method,dataset=dataset,reDo=False,verbose=False,
                              dataNormalizationWhen=dataWhen,dataNormalization=dataNorm,
                              epochsSIDLearlyStop=epochs)
                     
-def BenchmarkRunmiDLearlyStop():
+def BenchmarkRunmiDLearlyStop(firstset=0):
     
-    datasets = ['Birds','Newsgroups']
+    datasets = ['Newsgroups','Birds']
+    if firstset==1:
+        datasets = datasets[::-1]
     list_of_algo= ['miDLearlyStop']
     
     # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
     
-    for method in list_of_algo:
-        for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
-            for epochs in [1,3]:
+    for epochs in [1,3,10]:
+        for method in list_of_algo:
+            for dataWhen,dataNorm in zip([None,'onTrainSet'],[None,'std']):
                 for dataset in datasets:
                     print('==== ',method,dataset,epochs,' ====')
                     evalPerf(method=method,dataset=dataset,reDo=False,verbose=False,
