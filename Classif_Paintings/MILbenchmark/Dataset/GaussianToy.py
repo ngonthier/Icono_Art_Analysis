@@ -10,7 +10,8 @@ from sklearn.datasets.samples_generator import make_blobs
 
 npt=np.float32
 
-def createMILblob(WR=0.01,n=20,k=300,np1=20,np2=200,Between01=False):
+def createMILblob(WR=0.01,n=20,k=300,np1=20,np2=200,Between01=False,
+                  ):
     """
     @param WR : Witness rate = proportion of positive examples in the positive bags    
     @param n=20  # Number of featues
@@ -70,7 +71,7 @@ def createMILblob(WR=0.01,n=20,k=300,np1=20,np2=200,Between01=False):
     return(Dataset)
 
 def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=False,
-                          Between01=False,specificCase=''):
+                          Between01=False,specificCase='',scaleWell=True):
     """
     
     La premiere feature est décalé pour obtenir une classe différente
@@ -106,6 +107,8 @@ def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=False,
         shift_negative_instances = 4
     else:
         shift_negative_instances = 8
+        if scaleWell:
+            shift_negative_instances *= np.sqrt(n-1)
     
     def gen_vect_p1():
         """
