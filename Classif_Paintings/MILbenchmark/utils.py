@@ -10,7 +10,8 @@ from .Dataset.ExtractBirds import ExtractBirds
 from .Dataset.ExtractSIVAL import ExtractSIVAL,ExtractSubsampledSIVAL
 from .Dataset.ExtractNewsgroups import ExtractNewsgroups
 #from sklearn.model_selection import KFold
-from sklearn.metrics import f1_score,roc_auc_score,accuracy_score,recall_score
+from sklearn.metrics import f1_score,roc_auc_score,accuracy_score,recall_score,\
+    average_precision_score
 #from getMethodConfig import getMethodConfig
 #from sklearn.model_selection import GridSearchCV
 #from sklearn.metrics import make_scorer,SCORERS
@@ -159,7 +160,7 @@ def getTest_and_Train_Sets(Data,indextrain,indextest):
     DataTest = [ Data[i] for i in indextest]
     return(DataTrain,DataTest)
 
-def getClassifierPerfomance(y_true, y_pred):
+def getClassifierPerfomance(y_true, y_pred,numMetric=4):
     """
     This function compute 4 differents metrics :
     metrics = [f1Score,UAR,aucScore,accuracyScore]
@@ -173,11 +174,18 @@ def getClassifierPerfomance(y_true, y_pred):
     # This does not take label imbalance into account. :
     # ie UAR = unweighted average recall (of each class)
     accuracyScore = accuracy_score(y_true, np.sign(y_pred)) # Accuracy classification score
-    metrics = [f1Score,UAR,aucScore,accuracyScore] 
+    if numMetric==5:
+        AP = average_precision_score(y_true, y_pred)
+        metrics = [f1Score,UAR,aucScore,accuracyScore,AP] 
+    else:
+        metrics = [f1Score,UAR,aucScore,accuracyScore] 
     return(metrics)
     
 def getMeanPref(perfO=None,dataset=None):
     if not(dataset is None):
+        if  len(perfO.shape)==5:
+            mean = np.mean(perfO,axis=(0,1,2,3))
+            std = np.std(perfO,axis=(0,1,2,3))
         if  len(perfO.shape)==4:
             mean = np.mean(perfO,axis=(0,1,2))
             std = np.std(perfO,axis=(0,1,2))
@@ -185,6 +193,9 @@ def getMeanPref(perfO=None,dataset=None):
             mean = np.mean(perfO,axis=(0,1))
             std = np.std(perfO,axis=(0,1))
     elif dataset=='SIVAL':
+        if  len(perfO.shape)==6:
+            mean = np.mean(perfO,axis=(0,1,2,3,4))
+            std = np.std(perfO,axis=(0,1,2,3,4))
         if  len(perfO.shape)==5:
             mean = np.mean(perfO,axis=(0,1,2,3))
             std = np.std(perfO,axis=(0,1,2,3))

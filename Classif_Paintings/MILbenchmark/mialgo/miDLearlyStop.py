@@ -1,5 +1,6 @@
 """
-Implements Single Instance Learning Dep Neural Networl or Multi Layers perceptron
+Implements Multiple Instance Learning Deep neural network or multi-layers perceptron
+based on the mi-svm idea
 """
 
 import numpy as np
@@ -12,19 +13,21 @@ import tensorflow as tf
 from sklearn.utils import class_weight
 import keras
 
-class SIDLearlyStop():
+class miDLearlyStop():
     """
-    Deep Learning model Single-Instance Learning applied to MI data
-    based on the idea to do early stopping that seems to be reobust to noisy data
+    Deep Learning model Multiple-Instance Learning based on mi-SVM idea applied 
+    to MI data based on the idea to do early stopping that seems to be reobust 
+    to noisy data
     """
 
-    def __init__(self,verbose=False, **kwargs):
+    def __init__(self,max_iter=10,verbose=False, **kwargs):
         """
         @param : input_features
         """
         self._bags = None
         self._bag_predictions = None
         self.verbose = verbose
+        self.max_iter = max_iter
 
     def fit(self, bags, y,epochs=1):
         """
@@ -62,10 +65,41 @@ class SIDLearlyStop():
             verboseNum = 1
         else:
             verboseNum = 0
-        self.model.fit(svm_X, svm_y, epochs=self.epochs,verbose=verboseNum,
-                       class_weight=class_weights,validation_split=0)
+
+        iteration = 0
+        SelectirVar_haveChanged = True
+        while((iteration < self.max_iter) and SelectirVar_haveChanged):
+            if self.verbose: print("Iteration number in mi-NN :",iteration)
+            iteration +=1
+            self.model.fit(svm_X, svm_y, epochs=self.epochs,verbose=verboseNum,
+                       class_weight=class_weights,validation_split=0,batch_size=32,
+                       shuffle=True)
+            
+            all_labels = []
+            for bag,y_bag in zip(bags,y):
+                if y_bag==1:
+                    decision_fct = self.model.predict(bag) # positive bag k
+                    labels_k = np.sign(decision_fct)
+#                    print(labels_k)
+                    if len(np.nonzero(labels_k+1)[0])==0:
+#                        print("need to assign positive label")
+                        argmax_k = np.argmax(decision_fct)
+                        labels_k[argmax_k] = 1 # We assign the highest case to the value 1 in each of the positive bag
+                    assert(np.max(labels_k)==1)
+                    all_labels += [labels_k.ravel()]
+                else:   # Negative bags
+                    all_labels += [[-1]*len(bag)]
+            old_svm_y = svm_y
+            svm_y = np.hstack(all_labels)
+            class_weights = class_weight.compute_class_weight('balanced',
+                                                 np.unique(svm_y),
+                                                 svm_y.ravel())
+            yy_equal = old_svm_y==svm_y
+            if all(yy_equal):
+                SelectirVar_haveChanged=False          
+                if self.verbose: print("End of the mi-meta Algo at iteration ",iteration," on ",self.max_iter)
         return(self)
-        # http://danielhnyk.cz/creating-your-own-estimator-scikit-learn/
+
 
     def predict(self, bags, instancePrediction = None):
         """

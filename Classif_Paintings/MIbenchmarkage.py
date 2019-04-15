@@ -120,7 +120,7 @@ def EvaluationOnALot_ofParameters(dataset):
 def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
              dataNormalization='std',
              reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False,
-             epochsSIDLearlyStop=10,nRep=10,nFolds=10):
+             epochsSIDLearlyStop=10,nRep=10,nFolds=10,numMetric=5):
     """
     This function evaluate the performance of our MIMAX algorithm
     @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM, SIDLearlyStop
@@ -134,6 +134,7 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
     @param : verbose : print some information
     @param : nRep number of repetition, it have to be equal to 10 for the benchmark evaluation
     @param : nFolds number of folds, it have to be equal to 10 for the benchmark evaluation
+    @param : numMetric number of different metrics computed
     """
 
     if verbose: print('Start evaluation performance on ',dataset,'method :',method)
@@ -162,7 +163,7 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
             
     Dataset=getDataset(dataset)
     list_names,bags,labels_bags,labels_instance = Dataset
-              
+
     for c_i,c in enumerate(list_names):
         if not(c in results.keys()):
             # Loop on the different class, we will consider each group one after the other
@@ -181,7 +182,7 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
     
             perf,perfB=performExperimentWithCrossVal(method,D,dataset,
                                     dataNormalizationWhen,dataNormalization,
-                                    nRep=nRep,nFolds=nFolds,
+                                    nRep=nRep,nFolds=nFolds,numMetric=numMetric,
                                     GridSearch=False,opts_MIMAX=opts_MIMAX,
                                     verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
             mPerf = perf[0]
@@ -197,11 +198,15 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
             print('UAR: ',mPerf[1],' +/- ',stdPerf[1])
             print('F1: ',mPerf[0],' +/- ',stdPerf[0])
             print('Accuracy: ',mPerf[3],' +/- ',stdPerf[3])
+            if numMetric==5:
+                print('AP : ',mPerf[4],' +/- ',stdPerf[4])
             print('- bags')
             print('AUC: ',mPerfB[2],' +/- ',stdPerfB[2])
             print('UAR: ',mPerfB[1],' +/- ',stdPerfB[1])
             print('F1: ',mPerfB[0],' +/- ',stdPerfB[0])
             print('Accuracy: ',mPerfB[3],' +/- ',stdPerfB[3])
+            if numMetric==5:
+                print('AP : ',mPerfB[4],' +/- ',stdPerfB[4])
             print('-------------------------------------------------------------')
             results[c] = [perf,perfB]
         pickle.dump(results,open(file_results,'bw'))
@@ -415,7 +420,7 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
                 bags_c = normalizeDataSetFull(bags_c,dataNormalization)
                 
 #            D = bags_c,labels_bags_c,labels_instance_c
-            numMetric = 4
+            numMetric = 5
             StratifiedFold= True
             size_biggest_bag = 0
             for elt in bags:
@@ -446,11 +451,13 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
             print('UAR: ',mPerf[1],' +/- ',stdPerf[1])
             print('F1: ',mPerf[0],' +/- ',stdPerf[0])
             print('Accuracy: ',mPerf[3],' +/- ',stdPerf[3])
+            print('AP : ',mPerf[4],' +/- ',stdPerf[4])
             print('- bags')
             print('AUC: ',mPerfB[2],' +/- ',stdPerfB[2])
             print('UAR: ',mPerfB[1],' +/- ',stdPerfB[1])
             print('F1: ',mPerfB[0],' +/- ',stdPerfB[0])
             print('Accuracy: ',mPerfB[3],' +/- ',stdPerfB[3])
+            print('AP: ',mPerfB[4],' +/- ',stdPerfB[4])
             print('-------------------------------------------------------------')
             results[c] = [perf,perfB]
         pickle.dump(results,open(file_results,'bw'))
@@ -535,7 +542,8 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormali
         pickle.dump(results,open(file_results,'bw'))
 
 def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
-                                  dataNormalization,nRep=10,nFolds=10,GridSearch=False,opts_MIMAX=None,
+                                  dataNormalization,nRep=10,nFolds=10,numMetric=5,
+                                  GridSearch=False,opts_MIMAX=None,
                                   verbose=False,epochsSIDLearlyStop=10):
 
     bags,labels_bags_c,labels_instance_c  = D
@@ -543,7 +551,7 @@ def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
     StratifiedFold = True
     if verbose and StratifiedFold: print('Use of the StratifiedFold cross validation')
 
-    numMetric = 4
+#    numMetric = 5
 
     size_biggest_bag = 0
     for elt in bags:
@@ -640,8 +648,8 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
                method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,pointsPrediction=points)
     # result is the predited class for the points 
     
-    perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
-    perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
+    perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels,numMetric=numMetric)
+    perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels,numMetric=numMetric)
     
     y = np.sign(pred_instance_labels) # The class prediction +1 or -1
     Z = np.zeros_like(xx)
@@ -757,8 +765,8 @@ def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c
                        method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
 
    
-                perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
-                perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
+                perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels,numMetric=numMetric)
+                perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels,numMetric=numMetric)
                 fold += 1
         else:
             kf = KFold(n_splits=nFolds, shuffle=True, random_state=r)
@@ -780,8 +788,8 @@ def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c
                 pred_bag_labels, pred_instance_labels = train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                        method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
                 
-                perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
-                perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
+                perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels,numMetric=numMetric)
+                perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels,numMetric=numMetric)
                 fold += 1
     return(perfObj,perfObjB)
     
@@ -876,8 +884,8 @@ def computePerfMImaxAllW(method,numberofW_to_keep,number_of_reboots ,numMetric,b
             pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir_local,\
                 data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size,removeModel=True) 
 
-            perfObj[l,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels)
-            perfObjB[l,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels)
+            perfObj[l,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels,numMetric=numMetric)
+            perfObjB[l,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels,numMetric=numMetric)
             loss_values[l] = np.min(loss_value)
         
     return(perfObj,perfObjB,loss_values)
