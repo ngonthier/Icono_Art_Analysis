@@ -114,9 +114,6 @@ def EvaluationOnALot_ofParameters(dataset):
 
 #        
         
-    
-
-
 def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
              dataNormalization='std',
              reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False,
@@ -1332,14 +1329,16 @@ def ToyProblemRun():
          
 def BenchmarkRunSIDLearlyStop(firstset=0):
     
-    datasets = ['Newsgroups','Birds']
+    epochs_list = [1,3,10]
+    datasets = ['Newsgroups','Birds','SIVAL']
     if firstset==1:
         datasets = datasets[::-1]
     list_of_algo= ['SIDLearlyStop']
-    
+    np.random.shuffle(epochs_list)
+    np.random.shuffle(datasets)
     # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
     
-    for epochs in [1,3,10]:
+    for epochs in epochs_list:
         for method in list_of_algo:
             for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
                 for dataset in datasets:
@@ -1350,14 +1349,16 @@ def BenchmarkRunSIDLearlyStop(firstset=0):
                     
 def BenchmarkRunmiDLearlyStop(firstset=0):
     
-    datasets = ['Newsgroups','Birds']
+    epochs_list =[1,3,10]
+    datasets = ['Newsgroups','Birds','SIVAL']
     if firstset==1:
         datasets = datasets[::-1]
     list_of_algo= ['miDLearlyStop']
-    
+    np.random.shuffle(epochs_list)
+    np.random.shuffle(datasets)
     # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
     
-    for epochs in [1,3,10]:
+    for epochs in epochs_list:
         for method in list_of_algo:
             for dataWhen,dataNorm in zip([None,'onTrainSet'],[None,'std']):
                 for dataset in datasets:
@@ -1368,7 +1369,7 @@ def BenchmarkRunmiDLearlyStop(firstset=0):
                     
 def BenchmarkRun():
     
-    datasets = ['Birds','Newsgroups']
+    datasets = ['SIVAL','Birds','Newsgroups']
     list_of_algo= ['MIMAX','IA_mi_model','MIMAXaddLayer']
     # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
     
@@ -1431,4 +1432,4 @@ if __name__ == '__main__':
 #    evalPerfGaussianToy(method='LinearSISVM',dataset='GaussianToy',WR=0.01,verbose=True)
 #    evalPerfGaussianToy(method='LinearSISVM',dataset='GaussianToy',WR=0.003,verbose=True)
 #    ToyProblemRun()
-    BenchmarkRunClassical()
+    BenchmarkRun()
