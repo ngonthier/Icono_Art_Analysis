@@ -117,7 +117,7 @@ def EvaluationOnALot_ofParameters(dataset):
 def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
              dataNormalization='std',
              reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False,
-             epochsSIDLearlyStop=10,nRep=10,nFolds=10,numMetric=5):
+             epochsSIDLearlyStop=10,nRep=10,nFolds=10,numMetric=7):
     """
     This function evaluate the performance of our MIMAX algorithm
     @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM, SIDLearlyStop
@@ -195,15 +195,23 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
             print('UAR: ',mPerf[1],' +/- ',stdPerf[1])
             print('F1: ',mPerf[0],' +/- ',stdPerf[0])
             print('Accuracy: ',mPerf[3],' +/- ',stdPerf[3])
-            if numMetric==5:
+            if numMetric >= 5:
                 print('AP : ',mPerf[4],' +/- ',stdPerf[4])
+            if numMetric >= 6:
+                print('Balanced Accuracy : ',mPerf[5],' +/- ',stdPerf[5])
+            if numMetric >= 7:
+                print('Matthew Coeff : ',mPerf[6],' +/- ',stdPerf[6])
             print('- bags')
             print('AUC: ',mPerfB[2],' +/- ',stdPerfB[2])
             print('UAR: ',mPerfB[1],' +/- ',stdPerfB[1])
             print('F1: ',mPerfB[0],' +/- ',stdPerfB[0])
             print('Accuracy: ',mPerfB[3],' +/- ',stdPerfB[3])
-            if numMetric==5:
+            if numMetric >= 5:
                 print('AP : ',mPerfB[4],' +/- ',stdPerfB[4])
+            if numMetric >= 6:
+                print('Balanced Accuracy : ',mPerfB[5],' +/- ',stdPerfB[5])
+            if numMetric >= 7:
+                print('Matthew Coeff : ',mPerfB[6],' +/- ',stdPerfB[6])
             print('-------------------------------------------------------------')
             results[c] = [perf,perfB]
         pickle.dump(results,open(file_results,'bw'))
@@ -441,20 +449,30 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
             stdPerfB = perfB[1]
             ## Results
             print('=============================================================')
-            print("For class :",c,"with ",method)
+            print("For class :",c)
             print('-------------------------------------------------------------')
             print('- instances') # f1Score,UAR,aucScore,accuracyScore
             print('AUC: ',mPerf[2],' +/- ',stdPerf[2])
             print('UAR: ',mPerf[1],' +/- ',stdPerf[1])
             print('F1: ',mPerf[0],' +/- ',stdPerf[0])
             print('Accuracy: ',mPerf[3],' +/- ',stdPerf[3])
-            print('AP : ',mPerf[4],' +/- ',stdPerf[4])
+            if numMetric >= 5:
+                print('AP : ',mPerf[4],' +/- ',stdPerf[4])
+            if numMetric >= 6:
+                print('Balanced Accuracy : ',mPerf[5],' +/- ',stdPerf[5])
+            if numMetric >= 7:
+                print('Matthew Coeff : ',mPerf[6],' +/- ',stdPerf[6])
             print('- bags')
             print('AUC: ',mPerfB[2],' +/- ',stdPerfB[2])
             print('UAR: ',mPerfB[1],' +/- ',stdPerfB[1])
             print('F1: ',mPerfB[0],' +/- ',stdPerfB[0])
             print('Accuracy: ',mPerfB[3],' +/- ',stdPerfB[3])
-            print('AP: ',mPerfB[4],' +/- ',stdPerfB[4])
+            if numMetric >= 5:
+                print('AP : ',mPerfB[4],' +/- ',stdPerfB[4])
+            if numMetric >= 6:
+                print('Balanced Accuracy : ',mPerfB[5],' +/- ',stdPerfB[5])
+            if numMetric >= 7:
+                print('Matthew Coeff : ',mPerfB[6],' +/- ',stdPerfB[6])
             print('-------------------------------------------------------------')
             results[c] = [perf,perfB]
         pickle.dump(results,open(file_results,'bw'))
@@ -529,11 +547,23 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormali
             print('UAR: ',mPerf[1],' +/- ',stdPerf[1])
             print('F1: ',mPerf[0],' +/- ',stdPerf[0])
             print('Accuracy: ',mPerf[3],' +/- ',stdPerf[3])
+            if numMetric >= 5:
+                print('AP : ',mPerf[4],' +/- ',stdPerf[4])
+            if numMetric >= 6:
+                print('Balanced Accuracy : ',mPerf[5],' +/- ',stdPerf[5])
+            if numMetric >= 7:
+                print('Matthew Coeff : ',mPerf[6],' +/- ',stdPerf[6])
             print('- bags')
             print('AUC: ',mPerfB[2],' +/- ',stdPerfB[2])
             print('UAR: ',mPerfB[1],' +/- ',stdPerfB[1])
             print('F1: ',mPerfB[0],' +/- ',stdPerfB[0])
             print('Accuracy: ',mPerfB[3],' +/- ',stdPerfB[3])
+            if numMetric >= 5:
+                print('AP : ',mPerfB[4],' +/- ',stdPerfB[4])
+            if numMetric >= 6:
+                print('Balanced Accuracy : ',mPerfB[5],' +/- ',stdPerfB[5])
+            if numMetric >= 7:
+                print('Matthew Coeff : ',mPerfB[6],' +/- ',stdPerfB[6])
             print('-------------------------------------------------------------')
             results[c] = [perf,perfB]
         pickle.dump(results,open(file_results,'bw'))
@@ -760,7 +790,6 @@ def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c
                 
                 pred_bag_labels, pred_instance_labels =train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                        method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
-
    
                 perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels,numMetric=numMetric)
                 perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels,numMetric=numMetric)

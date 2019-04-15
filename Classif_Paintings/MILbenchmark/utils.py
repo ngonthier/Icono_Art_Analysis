@@ -11,7 +11,7 @@ from .Dataset.ExtractSIVAL import ExtractSIVAL,ExtractSubsampledSIVAL
 from .Dataset.ExtractNewsgroups import ExtractNewsgroups
 #from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score,roc_auc_score,accuracy_score,recall_score,\
-    average_precision_score
+    average_precision_score,balanced_accuracy_score,matthews_corrcoef
 #from getMethodConfig import getMethodConfig
 #from sklearn.model_selection import GridSearchCV
 #from sklearn.metrics import make_scorer,SCORERS
@@ -177,31 +177,49 @@ def getClassifierPerfomance(y_true, y_pred,numMetric=4):
     if numMetric==5:
         AP = average_precision_score(y_true, y_pred)
         metrics = [f1Score,UAR,aucScore,accuracyScore,AP] 
+    elif numMetric==6:
+        AP = average_precision_score(y_true, y_pred)
+        balanced_acc = balanced_accuracy_score(y_true, np.sign(y_pred))
+        metrics = [f1Score,UAR,aucScore,accuracyScore,AP,balanced_acc] 
+    elif numMetric==7:
+        AP = average_precision_score(y_true, y_pred)
+        balanced_acc = balanced_accuracy_score(y_true, np.sign(y_pred))
+        matthews_coeff = matthews_corrcoef(y_true, np.sign(y_pred))
+        metrics = [f1Score,UAR,aucScore,accuracyScore,AP,balanced_acc,matthews_coeff] 
     else:
         metrics = [f1Score,UAR,aucScore,accuracyScore] 
     return(metrics)
     
 def getMeanPref(perfO=None,dataset=None):
-    if not(dataset is None):
-        if  len(perfO.shape)==5:
-            mean = np.mean(perfO,axis=(0,1,2,3))
-            std = np.std(perfO,axis=(0,1,2,3))
-        if  len(perfO.shape)==4:
-            mean = np.mean(perfO,axis=(0,1,2))
-            std = np.std(perfO,axis=(0,1,2))
-        if  len(perfO.shape)==3:
-            mean = np.mean(perfO,axis=(0,1))
-            std = np.std(perfO,axis=(0,1))
-    elif dataset=='SIVAL':
-        if  len(perfO.shape)==6:
-            mean = np.mean(perfO,axis=(0,1,2,3,4))
-            std = np.std(perfO,axis=(0,1,2,3,4))
-        if  len(perfO.shape)==5:
-            mean = np.mean(perfO,axis=(0,1,2,3))
-            std = np.std(perfO,axis=(0,1,2,3))
-        if  len(perfO.shape)==4:
-            mean = np.mean(perfO,axis=(0,1,2))
-            std = np.std(perfO,axis=(0,1,2))
+#    if not(dataset is None):
+#        if  len(perfO.shape)==5:
+#            mean = np.mean(perfO,axis=(0,1,2,3))
+#            std = np.std(perfO,axis=(0,1,2,3))
+#        if  len(perfO.shape)==4:
+#            mean = np.mean(perfO,axis=(0,1,2))
+#            std = np.std(perfO,axis=(0,1,2))
+#        if  len(perfO.shape)==3:
+#            mean = np.mean(perfO,axis=(0,1))
+#            std = np.std(perfO,axis=(0,1))
+#    elif dataset=='SIVAL':
+    if  len(perfO.shape)==8:
+        mean = np.mean(perfO,axis=(0,1,2,3,4,5,6))
+        std = np.std(perfO,axis=(0,1,2,3,4,5,6))
+    if  len(perfO.shape)==7:
+        mean = np.mean(perfO,axis=(0,1,2,3,4,5))
+        std = np.std(perfO,axis=(0,1,2,3,4,5))
+    if  len(perfO.shape)==6:
+        mean = np.mean(perfO,axis=(0,1,2,3,4))
+        std = np.std(perfO,axis=(0,1,2,3,4))
+    if  len(perfO.shape)==5:
+        mean = np.mean(perfO,axis=(0,1,2,3))
+        std = np.std(perfO,axis=(0,1,2,3))
+    if  len(perfO.shape)==4:
+        mean = np.mean(perfO,axis=(0,1,2))
+        std = np.std(perfO,axis=(0,1,2))
+    if  len(perfO.shape)==3:
+        mean = np.mean(perfO,axis=(0,1))
+        std = np.std(perfO,axis=(0,1))
     return([mean,std])
     
 
