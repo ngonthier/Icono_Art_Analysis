@@ -20,7 +20,10 @@ import pathlib
 import shutil
 import sys
 import misvm
-from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost,siDLearlyStop,miDLearlyStop
+from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost,siDLearlyStop,\
+    miDLearlyStop,miDLstab,ensDLearlyStop
+
+from sklearn.metrics import roc_curve,f1_score,roc_auc_score
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -36,7 +39,8 @@ import pickle
 
 
 list_of_ClassicalMI = ['miSVM','SIL','SISVM','LinearSISVM','MIbyOneClassSVM',\
-                       'SIXGBoost','MISVM','SIDLearlyStop','miDLearlyStop']
+                       'SIXGBoost','MISVM','SIDLearlyStop','miDLearlyStop',\
+                       'miDLstab','ensDLearlyStop']
 
 path_tmp = '/media/HDD/output_exp/ClassifPaintings/tmp/'
 if not(os.path.exists(path_tmp)):
@@ -358,6 +362,180 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
             plt.savefig(path_filename)
             plt.show()
             plt.close()
+
+def plotROCcurve(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
+             dataNormalization='std',
+             reDo=True,opts_MIMAX=None,pref_name_case='ROCCurve',verbose=False,
+             epochsSIDLearlyStop=1,nRep=1,nFolds=10,numMetric=7):
+    """
+    This function evaluate the performance of our MIMAX algorithm
+    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM, SIDLearlyStop
+    @param : dataset = Newsgroups, Bird or SIVAL
+    @param : dataNormalizationWhen : moment of the normalization of the data, 
+        None = no normalization, onAllSet doing on all the set, onTrainSet 
+    @param : dataNormalization : kind of normalization possible : std, var or 0-1
+    @param : reDo : it will erase the results file
+    @param : opts_MIMAX optimion for the MIMAX (i.e.  C,C_Searching,CV_Mode,restarts,LR)
+    @param : pref_name_case prefixe of the results file name
+    @param : verbose : print some information
+    @param : nRep number of repetition, it have to be equal to 10 for the benchmark evaluation
+    @param : nFolds number of folds, it have to be equal to 10 for the benchmark evaluation
+    @param : numMetric number of different metrics computed
+    """
+
+    if verbose: print('Start evaluation performance on ',dataset,'method :',method)
+
+    if dataNormalization==None: dataNormalizationWhen=None
+
+    script_dir = os.path.dirname(__file__)
+    if not(pref_name_case==''):
+        pref_name_case = pref_name_case
+    if dataNormalizationWhen=='onTrainSet':
+        pref_name_case += '_' +str(dataNormalization)
+    filename = method + 'PlotROC_' + dataset + pref_name_case + '.pkl'
+    filename = filename.replace('MISVM','bigMISVM')
+    path_file_results = os.path.join(script_dir,'MILbenchmark','Results','ROCcurve')
+    file_results = os.path.join(path_file_results,filename)
+    pathlib.Path(path_file_results).mkdir(parents=True, exist_ok=True) # creation of the folder if needed
+    if reDo:
+        results = {}
+    else:
+        try:
+            results = pickle.load(open(file_results,'br'))
+        except FileNotFoundError:
+            results = {}
+         
+    plt.ion()
+    Dataset=getDataset(dataset)
+    list_names,bags,labels_bags,labels_instance = Dataset
+    print(list_names)
+    for c_i,c in enumerate(list_names):
+        if not(c in results.keys()):
+            # Loop on the different class, we will consider each group one after the other
+#            if verbose: 
+            print("Start evaluation for class :",c)
+            labels_bags_c = labels_bags[c_i]
+            labels_instance_c = labels_instance[c_i]
+            if dataset in ['Newsgroups','SIVAL']:
+                bags_c = bags[c_i]
+            else:
+                bags_c = bags
+                
+            if dataNormalizationWhen=='onAllSet':
+                bags_c = normalizeDataSetFull(bags_c,dataNormalization)
+        
+            size_biggest_bag = 0
+            for elt in bags_c:
+                size_biggest_bag = max(size_biggest_bag,len(elt))
+            if dataset=='SIVAL':
+                num_features = bags_c[0][0].shape[1]
+            else:
+                num_features = bags_c[0].shape[1]
+                
+            mini_batch_size_max = 2000 # Maybe this value can be update depending on your GPU memory size
+            opts = dataset,mini_batch_size_max,num_features,size_biggest_bag
+            
+            if method in['MIMAX','IA_mi_model','MIMAXaddLayer'] and not(opts_MIMAX is None):
+                C,C_Searching,CV_Mode,restarts,LR  = opts_MIMAX
+            
+            list_pred = []
+            list_gt = []
+            
+            perfObj=np.empty((nFolds,numMetric))
+            perfObjB=np.empty((nFolds,numMetric))
+            
+            if dataset=='SIVAL':
+                raise(NotImplementedError)
+            else:
+                
+                # Creation of nFolds splits
+                #Use a StratifiedKFold to get the same distribution in positive and negative class in the train and test set
+                r = 0
+                skf = StratifiedKFold(n_splits=nFolds, shuffle=True, random_state=r)
+                fold = 0
+    
+                for train_index, test_index in skf.split(bags_c,labels_bags_c):
+                    if verbose:
+                        sys.stdout.write('Rep number : {:d}/{:d}, Fold number : {:d}/{:d} \r' \
+                                         .format(r, nRep, fold, nFolds))
+                        sys.stdout.flush()
+                    labels_bags_c_train, labels_bags_c_test = \
+                        getTest_and_Train_Sets(labels_bags_c,train_index,test_index)
+                    bags_train, bags_test = \
+                        getTest_and_Train_Sets(bags_c,train_index,test_index)
+                    labels_instance_c_train , labels_instance_c_test = \
+                        getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
+                        
+                    if dataNormalizationWhen=='onTrainSet':
+                        bags_train,bags_test = normalizeDataSetTrain(bags_train,bags_test,dataNormalization)              
+                        
+                    gt_instances_labels_stack = np.hstack(labels_instance_c_test).ravel()
+                    
+                    
+                    pred_bag_labels, pred_instance_labels =train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
+                           method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
+                    
+                    labels_instance_c_train = np.hstack(labels_instance_c_train)
+                    print("Number of positive instances train",np.sum((labels_instance_c_train+1)/2.))
+                    print("Number of positive bags train",np.sum((np.hstack(labels_bags_c_train)+1)/2.))
+                    print("Number of neagative instances train",-np.sum((labels_instance_c_train-1)/2.))
+                    print("Number of positive instances test",np.sum((np.hstack(labels_instance_c_test)+1)/2.))
+                    print("Number of positive predicted instances test",np.sum((np.sign(pred_instance_labels)+1)/2.))
+                    print("F1 score on test :",f1_score(np.hstack(labels_instance_c_test), np.sign(pred_instance_labels),labels=[-1,1]))
+                
+        
+                    list_gt += [gt_instances_labels_stack]
+                    list_pred += [pred_instance_labels]
+                    perfObj[fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels,numMetric=numMetric)
+                    perfObjB[fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels,numMetric=numMetric)
+                    fold += 1
+#                    perf = getMeanPref(perfObj,dataset)
+#                    perfB = getMeanPref(perfObjB,dataset)
+
+            plt.figure()
+            plt.plot([0, 1], [0, 1], 'k--')
+            for gt_instances_labels_stack,pred_instance_labels in zip(list_gt,list_pred):
+                gt_instances_labels_stack = gt_instances_labels_stack.ravel()
+                pred_instance_labels = pred_instance_labels.ravel()
+#                print(gt_instances_labels_stack)
+#                print(pred_instance_labels.shape)
+                fpr, tpr, _ = roc_curve(gt_instances_labels_stack, pred_instance_labels,pos_label=1)
+                f1 = f1_score(gt_instances_labels_stack, np.sign(pred_instance_labels),labels=[-1,1])
+                aucScore = roc_auc_score(gt_instances_labels_stack, pred_instance_labels)
+                
+                label_i = "F1 : {0:.2f}, AUC : {1:.2f}".format(f1,aucScore)
+                plt.plot(fpr, tpr, label=label_i)
+
+            plt.xlabel('False positive rate')
+            plt.ylabel('True positive rate')
+            plt.title('ROC curve')
+            plt.legend(loc='best')
+            plt.show()
+            add_to_name = ''
+            if method in['MIMAX','IA_mi_model','MIMAXaddLayer'] and not(opts_MIMAX is None):
+                if not(C==1.0):
+                    add_to_name += '_C'+str(C)
+                if not(LR==0.01):
+                    add_to_name += '_LR'+str(LR)
+                if C_Searching:
+                    add_to_name += '_C_Searching'
+                if not(CV_Mode==''):
+                    add_to_name += '_' + CV_Mode
+            
+            titlestr = 'ROC curve for ' +c+' in '+dataset
+            plt.suptitle(titlestr,fontsize=12)
+            script_dir = os.path.dirname(__file__)
+            filename = method + '_' + dataset +'_' +c +'_'+pref_name_case +add_to_name
+            if dataNormalizationWhen=='onTrainSet':
+                filename += '_' +str(dataNormalization)
+            filename = filename.replace('MISVM','bigMISVM')
+            path_filename =os.path.join(script_dir,'MILbenchmark','Results','ROCcurve',filename)
+            head,tail = os.path.split(path_filename)
+            pathlib.Path(head).mkdir(parents=True, exist_ok=True) 
+#            plt.tight_layout()
+            plt.savefig(path_filename)
+        plt.show()
+        plt.close()
             
 
  
@@ -779,9 +957,14 @@ def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c
                     getTest_and_Train_Sets(labels_bags_c,train_index,test_index)
                 bags_train, bags_test = \
                     getTest_and_Train_Sets(bags,train_index,test_index)
-                _ , labels_instance_c_test = \
+                labels_instance_c_train , labels_instance_c_test = \
                     getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
-                    
+                
+                labels_instance_c_train = np.hstack(labels_instance_c_train)
+                print("Number of positive instances train",np.sum((labels_instance_c_train+1)/2.))
+                print("Number of positive bags train",np.sum((np.hstack(labels_bags_c_train)+1)/2.))
+                print("Number of neagative instances train",-np.sum((labels_instance_c_train-1)/2.))
+                
                 if dataNormalizationWhen=='onTrainSet':
                     bags_train,bags_test = normalizeDataSetTrain(bags_train,bags_test,dataNormalization)              
                     
@@ -790,7 +973,9 @@ def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c
                 
                 pred_bag_labels, pred_instance_labels =train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                        method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
-   
+                print("Number of positive instances test",np.sum((np.hstack(labels_instance_c_test)+1)/2.))
+                print("Number of positive predicted instances test",np.sum((np.sign(pred_instance_labels)+1)/2.))
+                print("F1 score :",f1_score(np.hstack(labels_instance_c_test), np.sign(pred_instance_labels),labels=[-1,1]))
                 perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels,numMetric=numMetric)
                 perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels,numMetric=numMetric)
                 fold += 1
@@ -935,6 +1120,10 @@ def get_classicalMILclassifier(method,verbose=False):
         classifier = siDLearlyStop.SIDLearlyStop(verbose=verbose)
     elif method=='miDLearlyStop':
         classifier = miDLearlyStop.miDLearlyStop(verbose=verbose,max_iter=10)
+    elif method=='miDLstab':
+        classifier = miDLstab.miDLstab(verbose=verbose,max_iter=10,epochs_final=20)
+    elif method=='ensDLearlyStop':
+        classifier = ensDLearlyStop.ensDLearlyStop(verbose=verbose,n_models=5)
     else:
         print('Method unknown: ',method)
         raise(NotImplementedError)
