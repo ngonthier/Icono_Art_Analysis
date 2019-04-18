@@ -37,6 +37,7 @@ import pickle
 
 list_of_ClassicalMI = ['miSVM','SIL','SISVM','LinearSISVM','MIbyOneClassSVM',\
                        'SIXGBoost','MISVM','SIDLearlyStop','miDLearlyStop']
+list_of_MIMAXbasedAlgo = ['MIMAX','MIMAXaddLayer','IA_mi_model','MAXMIMAX']
 
 path_tmp = '/media/HDD/output_exp/ClassifPaintings/tmp/'
 if not(os.path.exists(path_tmp)):
@@ -954,9 +955,38 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
         #Training
         data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
                                            num_features,'train',dataset)
-        export_dir=trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
+        export_dir= trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
                               size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
                               verbose=verbose,get_bestloss=get_bestloss)
+    
+        if get_bestloss:
+            export_dir,best_loss = export_dir
+
+        if not(pointsPrediction is None):
+            labels_pointsPrediction = [np.array(0.)]*len(pointsPrediction)
+            data_path_points = Create_tfrecords(pointsPrediction, labels_pointsPrediction,\
+                                              size_biggest_bag,num_features,'points',dataset)
+            _, points_instance_labels = predict_MIMAX(export_dir,\
+                    data_path_points,pointsPrediction,size_biggest_bag,num_features,mini_batch_size,removeModel=False)
+        
+        # Testing
+        data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
+                                          size_biggest_bag,num_features,'test',dataset)
+        pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
+                data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size,removeModel=True) 
+           
+    elif method == 'MAXMIMAX':
+        dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
+        mini_batch_size = min(mini_batch_size_max,len(bags_train))
+        AggregW = 'maxOfProd'
+        proportionToKeep = 1/12
+        #Training
+        data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
+                                           num_features,'train',dataset)
+        export_dir=trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
+                              size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
+                              verbose=verbose,get_bestloss=get_bestloss,
+                              AggregW=AggregW,proportionToKeep=proportionToKeep)
     
         if get_bestloss:
             export_dir,best_loss = export_dir
@@ -1230,7 +1260,8 @@ def Create_tfrecords(bags, labels_bags,size_biggest_bag,num_features,nameset,dat
     return(path_name)
 
 def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
-               num_features,mini_batch_size,opts_MIMAX=None,verbose=False,get_bestloss=False):
+               num_features,mini_batch_size,opts_MIMAX=None,verbose=False,
+               get_bestloss=False,AggregW=None,proportionToKeep=0.):
     """
     This function train a tidy MIMAX model
     """
@@ -1244,11 +1275,15 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
     else:
         C,C_Searching,CV_Mode,restarts,LR = 1.0,False,None,11,0.01
 
+    if not(AggregW is None):
+        numberOfFinalVector = 8
+        restarts = (restarts+1)*numberOfFinalVector-1
+
     classifierMI_max = tf_MI_max(LR=LR,restarts=restarts,is_betweenMinus1and1=True, \
                                  num_rois=size_biggest_bag,num_classes=1, \
                                  num_features=num_features,mini_batch_size=mini_batch_size, \
                                  verbose=verbose,C=C,CV_Mode=CV_Mode,max_iters=300,
-                                 debug=False)
+                                 debug=False,AggregW=AggregW,proportionToKeep=proportionToKeep)
     C_values =  np.logspace(-3,2,6,dtype=np.float32)
     classifierMI_max.set_C_values(C_values)
     export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
