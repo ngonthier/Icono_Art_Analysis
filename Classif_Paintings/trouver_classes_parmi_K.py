@@ -1491,7 +1491,7 @@ class tf_MI_max():
                         self.numberWtoKeep = min(int(np.ceil((self.restarts+1))*self.proportionToKeep),self.restarts+1)
                         W_best = np.zeros((self.numberWtoKeep,self.num_classes,self.num_features),dtype=np.float32)
                         b_best = np.zeros((self.numberWtoKeep,self.num_classes,1,1),dtype=np.float32)
-                        for j in range(self.num_classes):
+                        for j in range(self.num_classes): # Ici pour essayer de faire un tri sur quel vecteur garde !
                             loss_value_j = loss_value[j::self.num_classes]
                             loss_value_j_sorted_ascending = np.argsort(loss_value_j)  # We want to keep the one with the smallest value 
                             index_keep = loss_value_j_sorted_ascending[0:self.numberWtoKeep]
@@ -2112,6 +2112,7 @@ class tf_MI_max():
         if self.AggregW in self.listAggregOnProdorTanh:
             Prod_best=tf.add(tf.einsum('bak,ijk->baij',tf.convert_to_tensor(W_best),X_)\
                                          ,b_best)
+            
             if self.with_scores:
                 Prod_tmp = tf.multiply(Prod_best,tf.add(scores_,self.epsilon))
             elif self.seuillage_by_score:

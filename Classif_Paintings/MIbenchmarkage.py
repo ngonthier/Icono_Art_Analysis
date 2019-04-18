@@ -561,7 +561,7 @@ def plotROCcurve(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSe
 
  
 def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,\
-                               dataNormalizationWhen=None,dataNormalization=None,\
+                               dataNormalizationWhen='onTrainSet',dataNormalization='std',\
                                reDo=True,opts_MIMAX=None,\
                                pref_name_case='',verbose=False,\
                                overlap = False,end_name='',specificCase='',\
@@ -645,7 +645,7 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,\
                 bags_c = normalizeDataSetFull(bags_c,dataNormalization)
                 
 #            D = bags_c,labels_bags_c,labels_instance_c
-            numMetric = 5
+            numMetric = 7
             StratifiedFold= True
             size_biggest_bag = 0
             for elt in bags:
@@ -1036,6 +1036,8 @@ def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c
     evaluation
     """
      
+    debug = False
+    
     perfObj=np.empty((nRep,nFolds,numMetric))
     perfObjB=np.empty((nRep,nFolds,numMetric))
     for r in range(nRep):
@@ -1059,10 +1061,11 @@ def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c
                     getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
                 
                 labels_instance_c_train = np.hstack(labels_instance_c_train)
-                print("Number of positive instances train",np.sum((labels_instance_c_train+1)/2.))
-                print("Number of positive bags train",np.sum((np.hstack(labels_bags_c_train)+1)/2.))
-                print("Number of neagative instances train",-np.sum((labels_instance_c_train-1)/2.))
-                
+                if debug:
+                    print("Number of positive instances train",np.sum((labels_instance_c_train+1)/2.))
+                    print("Number of positive bags train",np.sum((np.hstack(labels_bags_c_train)+1)/2.))
+                    print("Number of neagative instances train",-np.sum((labels_instance_c_train-1)/2.))
+                    
                 if dataNormalizationWhen=='onTrainSet':
                     bags_train,bags_test = normalizeDataSetTrain(bags_train,bags_test,dataNormalization)              
                     
@@ -1071,9 +1074,10 @@ def doCrossVal(method,nRep,nFolds,numMetric,bags,labels_bags_c,labels_instance_c
                 
                 pred_bag_labels, pred_instance_labels =train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                        method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,epochsSIDLearlyStop=epochsSIDLearlyStop)
-                print("Number of positive instances test",np.sum((np.hstack(labels_instance_c_test)+1)/2.))
-                print("Number of positive predicted instances test",np.sum((np.sign(pred_instance_labels)+1)/2.))
-                print("F1 score :",f1_score(np.hstack(labels_instance_c_test), np.sign(pred_instance_labels),labels=[-1,1]))
+                if debug:
+                    print("Number of positive instances test",np.sum((np.hstack(labels_instance_c_test)+1)/2.))
+                    print("Number of positive predicted instances test",np.sum((np.sign(pred_instance_labels)+1)/2.))
+                    print("F1 score :",f1_score(np.hstack(labels_instance_c_test), np.sign(pred_instance_labels),labels=[-1,1]))
                 perfObj[r,fold,:]=getClassifierPerfomance(y_true=gt_instances_labels_stack,y_pred=pred_instance_labels,numMetric=numMetric)
                 perfObjB[r,fold,:]=getClassifierPerfomance(y_true=labels_bags_c_test,y_pred=pred_bag_labels,numMetric=numMetric)
                 fold += 1
@@ -1269,7 +1273,7 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
         #Training
         data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
                                            num_features,'train',dataset)
-        export_dir=trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
+        export_dir = trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
                               size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
                               verbose=verbose,get_bestloss=get_bestloss,
                               AggregW=AggregW,proportionToKeep=proportionToKeep)
@@ -1297,7 +1301,7 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
         #Training
         data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
                                            num_features,'train',dataset)
-        export_dir=trainIA_mi_model(bags_train, labels_bags_c_train,data_path_train,\
+        export_dir = trainIA_mi_model(bags_train, labels_bags_c_train,data_path_train,\
                               size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
                               verbose=verbose,get_bestloss=get_bestloss)
     
