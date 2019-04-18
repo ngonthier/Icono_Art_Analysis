@@ -2,7 +2,9 @@
 """
 Created on Mon Feb  4 19:22:51 2019
 
-The goal of this script is to evaluate the
+The goal of this script is to evaluate  the different model on the 
+classical MIL benchmark as Birds, SIVAL or NewsGroups and on some Toy 
+Problem
 
 @author: gonthier
 """
@@ -13,7 +15,7 @@ warnings.filterwarnings("ignore")
 
 from MILbenchmark.utils import getDataset,normalizeDataSetFull,getMeanPref,\
     getTest_and_Train_Sets,normalizeDataSetTrain,getClassifierPerfomance
-from MILbenchmark.Dataset.GaussianToy import createGaussianToySets
+from MILbenchmark.Dataset.GaussianToy import createGaussianToySets,createMILblob
 from sklearn.model_selection import KFold,StratifiedKFold,StratifiedShuffleSplit
 import numpy as np
 import pathlib
@@ -25,6 +27,7 @@ from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost,siDLearlyStop,\
 
 from sklearn.metrics import roc_curve,f1_score,roc_auc_score
 
+
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import itertools
@@ -34,6 +37,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='3' # 1 to remove info, 2 to remove warning a
 import tensorflow as tf
 
 from trouver_classes_parmi_K import tf_MI_max,ModelHyperplan
+#from trouver_classes_parmi_K_MultiPlan import tf_MI_max,ModelHyperplan
 from trouver_classes_parmi_K_mi import tf_mi_model
 import pickle
 
@@ -59,10 +63,10 @@ def EvaluationOnALot_ofParameters(dataset):
     """
     
     # List of the parameter that can improve the resultats
-    C_tab = np.logspace(start=-3,stop=3,num=7)
-    C_Searching_tab = [True,False]
-    CV_Mode_tab = ['','CVforCsearch','CV']
-    restarts_tab = [0,11,99]
+#    C_tab = np.logspace(start=-3,stop=3,num=7)
+#    C_Searching_tab = [True,False]
+#    CV_Mode_tab = ['','CVforCsearch','CV']
+#    restarts_tab = [0,11,99]
     LR_tab = np.logspace(-5,1,7)
     LR_tab = np.logspace(-4,0,5)
     dataNormalization_tab = ['std','var','0-1']
@@ -223,7 +227,8 @@ def evalPerf(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',
         
 def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSet',dataNormalization='std',
              reDo=True,opts_MIMAX=None,pref_name_case='',verbose=True,
-             numberofW_to_keep = 12,number_of_reboots = 120):
+             numberofW_to_keep = 12,number_of_reboots = 120,
+             corr='cov'):
     """
     The goal of this function is to draw the histogram of the value of the loss function 
     and the performance on a specific split of the dataset  
@@ -236,7 +241,10 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
     @param : opts_MIMAX optimion for the MIMAX (i.e.  C,C_Searching,CV_Mode,restarts,LR)
     @param : pref_name_case prefixe of the results file name
     @param : verbose : print some information
-    opts_MIMAX = 1.0,False,'CV',12,0.01
+    @param : numberofW_to_keep : number of W keeped
+    @param : number_of_reboots : number of differents runs for plotting the histogram
+    @param : corr type of correlation we compute cov compute the covariance whereas
+        pearsonr compute the pearson correlation coefficient
     """
 
     if verbose: print('Start evaluation performance on ',dataset,'method :',method)
@@ -319,16 +327,26 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
             data +=[perfObj[:,0]]
             data +=[perfObj[:,1]]
             data +=[perfObj[:,2]]
-            corrLossF1 = pearsonr(-loss_values,perfObj[:,0])[0]
-            corrLossAUC = pearsonr(-loss_values,perfObj[:,1])[0]
-            corrLossUAR = pearsonr(-loss_values,perfObj[:,2])[0]
+            if corr=='pearsonr':
+                corrLossF1 = pearsonr(-loss_values,perfObj[:,0])[0]
+                corrLossAUC = pearsonr(-loss_values,perfObj[:,1])[0]
+                corrLossUAR = pearsonr(-loss_values,perfObj[:,2])[0]
+            elif corr=='cov':
+                corrLossF1 = np.cov(-loss_values,perfObj[:,0])[0,1]
+                corrLossAUC = np.cov(-loss_values,perfObj[:,1])[0,1]
+                corrLossUAR = np.cov(-loss_values,perfObj[:,2])[0,1]
 
             yaxes = ['loss','F1','UAR','AUC']
             titles = []
             titles += ['Loss function']
-            titles += ['Corr with F1 : {0:.2f}'.format(corrLossF1)]
-            titles += ['Corr with AUC : {0:.2f}'.format(corrLossAUC)]
-            titles += ['Corr with UAR : {0:.2f}'.format(corrLossUAR)]
+            if corr=='pearsonr':
+                titles += ['Corr with F1 : {0:.2f}'.format(corrLossF1)]
+                titles += ['Corr with AUC : {0:.2f}'.format(corrLossAUC)]
+                titles += ['Corr with UAR : {0:.2f}'.format(corrLossUAR)]
+            elif corr=='cov':
+                titles += ['Cov with F1 : {0:.2f}'.format(corrLossF1)]
+                titles += ['Cov with AUC : {0:.2f}'.format(corrLossAUC)]
+                titles += ['Cov with UAR : {0:.2f}'.format(corrLossUAR)]
             
             f,a = plt.subplots(2,2,figsize=(8,8), dpi=80, facecolor='w', edgecolor='k')
             a = a.ravel()
@@ -348,10 +366,12 @@ def plotDistribScorePerd(method='MIMAX',dataset='Birds',dataNormalizationWhen='o
                 if not(CV_Mode==''):
                     add_to_name += '_' + CV_Mode
             
-            titlestr = 'Distribution of Loss Function for ' +c+' in '+dataset+' with best over '+str(numberofW_to_keep) +' W' +add_to_name
+            titlestr = 'Distribution of Loss Function for ' +c+' in '+dataset+\
+            ' with best over '+str(numberofW_to_keep) +' W' 
             plt.suptitle(titlestr,fontsize=12)
             script_dir = os.path.dirname(__file__)
-            filename = method + '_' + dataset +'_' +c +pref_name_case +add_to_name
+            filename = method + '_' + dataset +'_' +c +pref_name_case +'_'+corr
+
             if dataNormalizationWhen=='onTrainSet':
                 filename += '_' +str(dataNormalization)
             filename += '_W'+ str(numberofW_to_keep)+".png"
@@ -540,13 +560,17 @@ def plotROCcurve(method='MIMAX',dataset='Birds',dataNormalizationWhen='onTrainSe
             
 
  
-def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
-                               dataNormalizationWhen=None,dataNormalization=None,
-             reDo=True,opts_MIMAX=[1.0,False,None,49,0.01],pref_name_case='',verbose=False,
-             overlap = False,end_name=''):
+def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,\
+                               dataNormalizationWhen=None,dataNormalization=None,\
+                               reDo=True,opts_MIMAX=None,\
+                               pref_name_case='',verbose=False,\
+                               overlap = False,end_name='',specificCase='',\
+                               OnePtTraining=False):
     """
-    This function evaluate the performance of our MIMAX algorithm
-    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM, SIDLearlyStop
+    This function evaluate the performance of our MIMAX algorithm and plot the
+    Hyperplan for the case 2D n=2
+    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM, miSVM  or IA_mi_model,
+        MIMAXaddLayer etc
     @param : dataset = GaussianToy
     @param : dataNormalizationWhen : moment of the normalization of the data, 
         None = no normalization, onAllSet doing on all the set, onTrainSet 
@@ -556,7 +580,17 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
     @param : pref_name_case prefixe of the results file name
     @param : verbose : print some information
     @param : overlap = False overlapping between the 2 classes
+    @param : specificCase : we proposed different case of toy points clouds
+        - 2clouds : 2 clouds distincts points of clouds as positives examples
+        - 2cloudsOpposite : 2 points clouds positive at the opposite from the negatives
+    @param : OnePtTraining : Only one point is available in the training set
     """
+
+    list_specificCase = ['',None,'2clouds','2cloudsOpposite']
+    if not(specificCase in list_specificCase):
+        print(specificCase,'is unknown')
+        raise(NotImplementedError)
+    
     dataset = 'GaussianToy_WR'+str(WR)
     
     if verbose: print('Start evaluation performance on ',dataset,'with WR = ',WR,'method :',method)
@@ -570,11 +604,18 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
 #    np_pos = 4
 #    np_neg = 6
     
-    Dataset=createGaussianToySets(WR=WR,n=n,k=k,np1=np_pos,np2=np_neg,overlap=overlap)
+    Dataset=createGaussianToySets(WR=WR,n=n,k=k,np1=np_pos,np2=np_neg,
+                                  overlap=overlap,specificCase=specificCase)
     list_names,bags,labels_bags,labels_instance = Dataset
-    prefixName = 'N'+str(n)+'_k'+str(k)+'_WR'+str(WR)+'_pos'+str(np_pos)+'_neg'+str(np_neg)
+    prefixName = 'N'+str(n)+'_k'+str(k)+'_WR'+str(WR)+'_pos'+str(np_pos)+\
+        '_neg'+str(np_neg)
+
     if overlap:
         prefixName += '_OL'
+    if not(specificCase is None):
+        prefixName += specificCase
+    if OnePtTraining:
+        prefixName += '_OnePt'
         
     script_dir = os.path.dirname(__file__)
     if not(pref_name_case==''):
@@ -619,7 +660,7 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
                                       StratifiedFold,opts,dataNormalizationWhen,
                                       dataNormalization,opts_MIMAX=None,
                                       verbose=verbose,prefixName=prefixName,
-                                      end_name=end_name)
+                                      end_name=end_name,OnePtTraining=OnePtTraining)
             
             
             mPerf = perf[0]
@@ -656,11 +697,16 @@ def fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
             results[c] = [perf,perfB]
         pickle.dump(results,open(file_results,'bw'))
        
-def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormalizationWhen=None,dataNormalization=None,
-             reDo=False,opts_MIMAX=None,pref_name_case='',verbose=False):
+def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,
+                        dataNormalizationWhen='onTrainSet',
+                        dataNormalization='std',
+                        reDo=True,opts_MIMAX=None,pref_name_case='',
+                        verbose=False,overlap = False,end_name='',
+                        specificCase='',k=100):
     """
     This function evaluate the performance of our MIMAX algorithm
-    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM or miSVM,SIDLearlyStop
+    @param : method = MIMAX, SIL, siSVM, MIbyOneClassSVM, miSVM  or IA_mi_model,
+        MIMAXaddLayer, SIDLearlyStop etc
     @param : dataset = GaussianToy
     @param : dataNormalizationWhen : moment of the normalization of the data, 
         None = no normalization, onAllSet doing on all the set, onTrainSet 
@@ -669,27 +715,60 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormali
     @param : opts_MIMAX optimion for the MIMAX (i.e.  C,C_Searching,CV_Mode,restarts,LR)
     @param : pref_name_case prefixe of the results file name
     @param : verbose : print some information
+    @param : overlap = False overlapping between the 2 classes
+    @param : specificCase : we proposed different case of toy points clouds
+        - 2clouds : 2 clouds distincts points of clouds as positives examples
+        - 2cloudsOpposite : 2 points clouds positive at the opposite from the negatives
+    @param : OnePtTraining : Only one point is available in the training set
+    @param : k : the number of element per bag
     """
-    dataset = 'GaussianToy_WR'+str(WR)
+
+    list_specificCase = ['',None,'2clouds','2cloudsOpposite']
+    if not(specificCase in list_specificCase):
+        print(specificCase,'is unknown')
+        raise(NotImplementedError)
     
-    if verbose: print('Start evaluation performance on ',dataset,'with WR = ',WR,'method :',method)
+    dataset_WR = dataset+'_WR'+str(WR)
+    
+    if verbose: print('Start evaluation performance on ',dataset_WR,'with WR = ',WR,'method :',method)
 
     if dataNormalization==None: dataNormalizationWhen=None
+       
+#    n = 2 # Number of dimension 
+    n_list = [2,3,10,50,100,250,300,400,500,750,1000,2048]
+#    n_list = [2,3,10]
+#    dict_perf = {}
+    for n in n_list[::-1]:
+#        k = 100 # number of element in a bag
+        np_pos = 50 # Number of positive examples
+        np_neg = 250# Number of negative examples
+    #    np_pos = 4
+    #    np_neg = 6
 
-    script_dir = os.path.dirname(__file__)
-    if not(pref_name_case==''):
-        pref_name_case = pref_name_case
-    filename = method + '_' + dataset + pref_name_case + '.pkl'
-    filename = filename.replace('MISVM','bigMISVM')
-    path_file_results = os.path.join(script_dir,'MILbenchmark','ResultsToy')
-    file_results = os.path.join(path_file_results,filename)
-    pathlib.Path(path_file_results).mkdir(parents=True, exist_ok=True) # creation of the folder if needed
-    if reDo:
-        results = {}
-    else:
-        try:
-            results = pickle.load(open(file_results,'br'))
-        except FileNotFoundError:
+        if dataset=='GaussianToy':
+            Dataset=createGaussianToySets(WR=WR,n=n,k=k,np1=np_pos,np2=np_neg,
+                                          overlap=overlap,specificCase=specificCase)
+            list_names,bags,labels_bags,labels_instance = Dataset
+        elif dataset=='blobs':
+            list_names,bags,labels_bags,labels_instance = createMILblob(WR=WR,n=n,k=k,np1=np_pos,np2=np_neg,Between01=False)
+        else:
+            raise(NotImplementedError)
+#        prefixName = 'N'+str(n)+'_k'+str(k)+'_WR'+str(WR)+'_pos'+str(np_pos)+\
+#            '_neg'+str(np_neg)
+        
+        if verbose: print('Start evaluation performance on ',dataset,'with WR = ',WR,'method :',method)
+    
+        if dataNormalization==None: dataNormalizationWhen=None
+    
+        script_dir = os.path.dirname(__file__)
+        if not(pref_name_case==''):
+            pref_name_case = pref_name_case
+        filename = method + '_' + dataset_WR + pref_name_case + '.pkl'
+        filename = filename.replace('MISVM','bigMISVM')
+        path_file_results = os.path.join(script_dir,'MILbenchmark','ResultsToy')
+        file_results = os.path.join(path_file_results,filename)
+        pathlib.Path(path_file_results).mkdir(parents=True, exist_ok=True) # creation of the folder if needed
+        if reDo:
             results = {}
             
     Dataset=createGaussianToySets(WR=WR,n=2,k=100,np1=50,np2=250)
@@ -749,6 +828,7 @@ def evalPerfGaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,dataNormali
             results[c] = [perf,perfB]
         pickle.dump(results,open(file_results,'bw'))
 
+
 def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
                                   dataNormalization,nRep=10,nFolds=10,numMetric=5,
                                   GridSearch=False,opts_MIMAX=None,
@@ -798,9 +878,13 @@ def performExperimentWithCrossVal(method,D,dataset,dataNormalizationWhen,
     perfB=getMeanPref(perfObjB,dataset)
     return(perf,perfB)
     
-def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,StratifiedFold,opts,
-               dataNormalizationWhen,dataNormalization,opts_MIMAX=[1.0,False,None,49,0.01],verbose=False,prefixName='',end_name=''):
-    
+def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,
+                   StratifiedFold,opts,
+               dataNormalizationWhen,dataNormalization,opts_MIMAX=None,
+               verbose=False,prefixName='',end_name='',OnePtTraining=False): 
+    """
+    This fucntion will plot the plan in 2D
+    """
     nRep= 1
     nFolds = 1
     fold= 0 
@@ -818,7 +902,19 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
         getTest_and_Train_Sets(bags,train_index,test_index)
     _ , labels_instance_c_test = \
         getTest_and_Train_Sets(labels_instance_c,train_index,test_index)
-
+    if OnePtTraining:
+        index_pos_pt = np.random.choice(np.where(np.vstack(labels_bags_c_train)==1.)[0],1)
+        index_neg_pts = np.where(np.vstack(labels_bags_c_train)==-1.)[0]
+        indextotal = np.concatenate((index_pos_pt,index_neg_pts))
+        local_index = 0
+        labels_bags_c_train_tmp = []
+        bags_train_tmp = []
+        for local_index in range(len(labels_bags_c_train)):
+            if local_index  in indextotal:
+                labels_bags_c_train_tmp += [labels_bags_c_train[local_index]]
+                bags_train_tmp += [bags_train[local_index]]
+        bags_train = bags_train_tmp
+        labels_bags_c_train = labels_bags_c_train_tmp
     if dataNormalizationWhen=='onTrainSet':
         bags_train,bags_test = normalizeDataSetTrain(bags_train,bags_test,dataNormalization)              
         
@@ -848,7 +944,6 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,Stratif
         points.append(point)
 
     if method in['MIMAX','IA_mi_model','MIMAXaddLayer']:
-         # Attention tu utilise 100 vecteurs
         pred_bag_labels, pred_instance_labels,result,bestloss = train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,pointsPrediction=points,get_bestloss=True)
     else:

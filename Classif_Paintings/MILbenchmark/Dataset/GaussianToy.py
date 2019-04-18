@@ -6,24 +6,95 @@ Created on Mon Feb 18 11:04:36 2019
 """
 
 import numpy as np
+from sklearn.datasets.samples_generator import make_blobs
 
 npt=np.float32
 
-def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True,Between01=False):
+def createMILblob(WR=0.01,n=20,k=300,np1=20,np2=200,Between01=False,
+                  ):
+    """
+    @param WR : Witness rate = proportion of positive examples in the positive bags    
+    @param n=20  # Number of featues
+    @param k=300 # Number of element in the bag 
+    @param np1=20 # Number of positive bag
+    @param np2=200 # Number of negative bag
+    @param : Between01 : if True the label of the class are 0-1 and not -1 and +1
+    """
+    np_pos = np1
+    np_neg = np2
+    number_of_positive = int(np.floor(k*WR))
+    if number_of_positive < 1:
+        number_of_positive = 1
+        print('Must have at least one element per bag !')
+        
+    n_samples = (np_pos + np_neg)*k*2
+    X,y=make_blobs(n_samples=n_samples,centers=2,n_features=n)
+    Xneg = X[np.where(y==0)[0],:]
+    Xpos = X[np.where(y==1)[0],:]
+    Xlist = []
+    labels_bags = []
+    labels_instance = []
+    labels_bags = []
+    for i in range(np_neg): # Dot the negative bags
+        Xtmp = Xneg[i*k:(i+1)*k,:]
+        Xlist += [Xtmp]
+        if Between01:
+            labels_bags += [np.array(0.,dtype=npt)]
+            labels_instance += [np.zeros(shape=(k,),dtype=npt)]
+        else:
+            labels_bags += [np.array(-1.,dtype=npt)]
+            labels_instance += [-1.*np.ones(shape=(k,),dtype=npt)]
+
+    indexneg = np_neg*k+1
+    indexpos = 0
+    for j in range(np_pos):
+        # For one bag
+        tab=np.zeros((k,n),dtype=npt)
+        labels_bags += [np.array(1.,dtype=npt)]
+        if Between01:
+            instances_labelslocal = -np.zeros(shape=(k,),dtype=npt)
+        else:
+            instances_labelslocal = -np.ones(shape=(k,),dtype=npt)
+        positive_instance_index = np.random.choice(k, number_of_positive)
+        for i in range(k):
+            if (i in positive_instance_index):
+                tab[i]=Xpos[indexpos:indexpos+1,:]
+                indexpos+=1
+                instances_labelslocal[i] = 1.
+            else:
+                tab[i]=Xneg[indexneg:indexneg+1,:]
+                indexneg += 1
+        labels_instance += [instances_labelslocal]
+        Xlist += [tab]
+
+    Dataset = ['blobs'],Xlist,[labels_bags],[labels_instance]
+    return(Dataset)
+
+def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=False,
+                          Between01=False,specificCase='',scaleWell=True):
     """
     
     La premiere feature est décalé pour obtenir une classe différente
     
-    WR : Witness rate = proportion of positive examples in the positive bags    
+    @param WR : Witness rate = proportion of positive examples in the positive bags    
     # Variables communes 
-    n=20  # Number of featues
-    k=300 # Number of element in the bag 
+    @param n=20  # Number of featues
+    @param k=300 # Number of element in the bag 
     # la classe p1
-    np1=20 # Number of positive bag
-    np2=200 # Number of negative bag
-    overlap=True 
+    @param np1=20 # Number of positive bag
+    @param np2=200 # Number of negative bag
+    @param overlap=False  : overlapping between the point clouds
     @param : Between01 : if True the label of the class are 0-1 and not -1 and +1
+    @param : specificCase : we proposed different case of toy points clouds
+        - 2clouds : 2 clouds distincts points of clouds as positives examples
+        - 2cloudsOpposite : 2 points clouds positive at the opposite from the negatives
+        - 
     """
+    
+    list_specificCase = ['',None,'2clouds','2cloudsOpposite']
+    if not(specificCase in list_specificCase):
+        print(specificCase,'is unknown')
+        raise(NotImplementedError)
     
     np.random.seed(19680801)
     
@@ -32,15 +103,30 @@ def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True,Between
         number_of_positive = 1
         print('Must have at least one element per bag !')
     
+    if overlap:
+        shift_negative_instances = 4
+    else:
+        shift_negative_instances = 8
+        if scaleWell:
+            shift_negative_instances *= np.sqrt(n-1)
+    
     def gen_vect_p1():
-        return npt(np.random.randn(n))
+        """
+        Function that generate the features of the positives elements
+        """
+        features = npt(np.random.randn(n))
+#        if specificCase=='' or specificCase is None:
+#             # Standard case
+        if specificCase=='2clouds':
+            features[1:2] += np.random.choice([-4,4], 1)[0]
+        if specificCase=='2cloudsOpposite':
+            features[0:1] += np.random.choice([0,shift_negative_instances*2], 1)[0]
+            
+        return features
     
     def gen_vect_p2():
         g0=np.random.randn(n)
-        if overlap:
-            g0[0:1]+=4
-        else:
-            g0[0:1]+=8
+        g0[0:1]+=shift_negative_instances
         return npt(g0)
     
     def gen_paquet_p2():
@@ -50,6 +136,9 @@ def createGaussianToySets(WR=0.01,n=20,k=300,np1=20,np2=200,overlap=True,Between
         return tab
     
     def gen_paquet_p1(N=np1):
+        """
+        Fct that return the positives bags !
+        """
         tab=np.zeros((k,n),dtype=npt)
         if Between01:
             instances_labels = -np.zeros(shape=(k,),dtype=npt)

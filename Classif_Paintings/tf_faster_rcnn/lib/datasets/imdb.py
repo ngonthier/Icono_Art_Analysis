@@ -15,7 +15,11 @@ import PIL
 try:
 	from ..utils.cython_bbox import bbox_overlaps
 except ImportError: 
-	from cython_bbox import bbox_overlaps
+    try:
+        from cython_bbox import bbox_overlaps
+        # That can be install by pip install
+    except ImportError:
+        from ..utils.bbox import bbox_overlaps
 import numpy as np
 import scipy.sparse
 from ..model.config import cfg
