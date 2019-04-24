@@ -1254,7 +1254,8 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
             data_path_points = Create_tfrecords(pointsPrediction, labels_pointsPrediction,\
                                               size_biggest_bag,num_features,'points',dataset)
             _, points_instance_labels = predict_MIMAX(export_dir,\
-                    data_path_points,pointsPrediction,size_biggest_bag,num_features,mini_batch_size,removeModel=False)
+                    data_path_points,pointsPrediction,size_biggest_bag,
+                    num_features,mini_batch_size,removeModel=False)
 
         # Testing
         data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
@@ -1265,7 +1266,7 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
     elif method == 'MAXMIMAX':
         dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
         mini_batch_size = min(mini_batch_size_max,len(bags_train))
-        AggregW = 'maxOfProd'
+        AggregW = 'maxOfTanh'
         proportionToKeep = 1/12
         #Training
         data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
@@ -1282,14 +1283,18 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
             labels_pointsPrediction = [np.array(0.)]*len(pointsPrediction)
             data_path_points = Create_tfrecords(pointsPrediction, labels_pointsPrediction,\
                                               size_biggest_bag,num_features,'points',dataset)
+            print(data_path_points)
             _, points_instance_labels = predict_MIMAX(export_dir,\
-                    data_path_points,pointsPrediction,size_biggest_bag,num_features,mini_batch_size,removeModel=False)
+                    data_path_points,pointsPrediction,size_biggest_bag,
+                    num_features,mini_batch_size,AggregW=AggregW,removeModel=False)
 
         # Testing
         data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
                                           size_biggest_bag,num_features,'test',dataset)
+        print(data_path_test)
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
-                data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size,removeModel=True)
+                data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size
+                ,AggregW=AggregW,removeModel=True)
 
     elif method == 'IA_mi_model':
         dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
@@ -1391,7 +1396,8 @@ def parser(record,num_rois=300,num_features=2048,num_class=1):
     return fc7,label
 
 def predict_MIMAX(export_dir,data_path_test,bags_test,size_biggest_bag,num_features,\
-               num_class=1,mini_batch_size=256,verbose=False,predict_parall=True,removeModel=True):
+               num_class=1,mini_batch_size=256,verbose=False,predict_parall=True,AggregW=None,
+               removeModel=True):
     """
     This function as to goal to predict on the test set
     removeModel = True : erase the model created
@@ -1416,6 +1422,14 @@ def predict_MIMAX(export_dir,data_path_test,bags_test,size_biggest_bag,num_featu
     with_tanh_alreadyApplied = False
     with_softmax = False
     with_softmax_a_intraining = False
+    if not(AggregW is None): 
+        if'Tanh' in AggregW or 'Sign' in AggregW: 
+            # The tanh transformation have already be done
+            with_tanh = False
+            with_tanh_alreadyApplied = True
+
+    print('with_tanh',with_tanh)
+    print('with_tanh_alreadyApplied',with_tanh_alreadyApplied)
 
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
@@ -1429,12 +1443,12 @@ def predict_MIMAX(export_dir,data_path_test,bags_test,size_biggest_bag,num_featu
         y = graph.get_tensor_by_name("y:0")
         if with_tanh_alreadyApplied:
             try:
-                Prod_best = graph.get_tensor_by_name("Tanh:0")
+                Prod_best = graph.get_tensor_by_name("Tanh_2:0")
             except KeyError:
                 try:
-                     Prod_best = graph.get_tensor_by_name("Tanh_2:0")
+                    Prod_best = graph.get_tensor_by_name("Tanh_1:0")
                 except KeyError:
-                     Prod_best = graph.get_tensor_by_name("Tanh_1:0")
+                     Prod_best = graph.get_tensor_by_name("Tanh:0")
         else:
             Prod_best = graph.get_tensor_by_name("Prod:0")
 
