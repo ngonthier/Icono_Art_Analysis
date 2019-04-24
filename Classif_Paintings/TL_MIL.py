@@ -2166,9 +2166,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     """
     if trainOnTest:
         print('/!\ you will train the model on the test data be careful with the conclusion')
-    if 'Tanh' in AggregW:
-        print('There is an error on those AggregationVector due to tfR_evaluation_paral : with the next_get element not initialize')
-#        raise(NotImplementedError)
     
     if not(metamodel in ['FasterRCNN','EdgeBoxes']):
         print(metamodel,' is unknown')
@@ -5007,22 +5004,22 @@ if __name__ == '__main__':
 
 # Test PCA data
 
-    for model in  ['MI_max','mi_model']:
-        for with_scores in [False,True]:
-            for AggregW  in ['maxOfTanh','maxOfProd']:
-#            for AggregW  in ['maxOfProd']:
-                tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
-                              verbose = True,testMode = False,jtest = 'cow',
-                              PlotRegions = False,saved_clf=False,RPN=False,
-                              CompBest=False,Stocha=True,k_per_bag=300,
-                              parallel_op=True,CV_Mode='',num_split=2,
-                              WR=True,init_by_mean =None,seuil_estimation='',
-                              restarts=95,max_iters_all_base=300,LR=0.01,
-                              C=1.0,Optimizer='GradientDescent',norm='',
-                              transform_output='tanh',with_rois_scores_atEnd=False,
-                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-                              predict_with='MI_max',
-                              AggregW =AggregW ,proportionToKeep=0.84) 
+#    for model in  ['MI_max','mi_model']:
+#        for with_scores in [False,True]:
+#            for AggregW  in ['maxOfTanh','maxOfProd']:
+##            for AggregW  in ['maxOfProd']:
+#                tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = False,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=80,max_iters_all_base=300,LR=0.01,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+#                              predict_with='MI_max',
+#                              AggregW =AggregW ,proportionToKeep=0.01) 
 
 # Test EdgeBoxes 
 #    for k_per_bag in [300]:
@@ -5086,19 +5083,17 @@ if __name__ == '__main__':
 #                          predict_with='mi_model',
 #                          PCAuse=False,trainOnTest=False,AddOneLayer=False,
 #                          Max_version='')  # Not parall computation at all
-#    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
-#                          verbose = True,testMode = False,jtest = 'cow',
-#                          PlotRegions = False,saved_clf=False,RPN=False,
-#                          CompBest=False,Stocha=True,k_per_bag=300,
-#                          parallel_op=True,CV_Mode='',num_split=2,
-#                          WR=True,init_by_mean =None,seuil_estimation='',
-#                          restarts=11,max_iters_all_base=300,LR=0.01,
-#                          C=1.0,Optimizer='GradientDescent',norm='',
-#                          transform_output='tanh',with_rois_scores_atEnd=False,
-#                          with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                          predict_with='MI_max',
-#                          PCAuse=False,trainOnTest=False,AddOneLayer=False,
-#                          Max_version='LogSumExp')  # Not parall computation at all
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+                          verbose = True,testMode = False,jtest = 'cow',
+                          PlotRegions = False,saved_clf=False,RPN=False,
+                          CompBest=False,Stocha=True,k_per_bag=300,
+                          parallel_op=True,CV_Mode='',num_split=2,
+                          WR=True,init_by_mean =None,seuil_estimation='',
+                          restarts=11,max_iters_all_base=300,LR=0.01,
+                          C=1.0,Optimizer='GradientDescent',norm='',
+                          transform_output='tanh',with_rois_scores_atEnd=False,
+                          with_scores=False,epsilon=0.01,restarts_paral='paral',
+                          predict_with='MI_max')  # Not parall computation at all
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
 #                          verbose = True,testMode = False,jtest = 'cow',
 #                          PlotRegions = False,saved_clf=False,RPN=False,
