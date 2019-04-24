@@ -23,7 +23,7 @@ import shutil
 import sys
 import misvm
 from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost,siDLearlyStop,\
-    miDLearlyStop,miDLstab,ensDLearlyStop,kerasMultiMIMAX
+    miDLearlyStop,miDLstab,ensDLearlyStop#,kerasMultiMIMAX
 
 from sklearn.metrics import roc_curve,f1_score,roc_auc_score
 
@@ -1229,11 +1229,17 @@ def get_classicalMILclassifier(method,verbose=False):
     return(classifier)
 
 def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
-                       method,opts,opts_MIMAX=None,verbose=False,pointsPrediction=None,
+                       method,opts,opts_MIMAX=None,verbose=False,
+                       pointsPrediction=None,
                        get_bestloss=False,epochsSIDLearlyStop=10):
     """
     pointsPrediction=points : other prediction to do, points size
+    
+    /!\ For the moment we are only doing the binary case
     """
+
+    # Number of class : 
+    num_class = 1
 
     if method == 'MIMAX':
         dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
@@ -1255,13 +1261,14 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
                                               size_biggest_bag,num_features,'points',dataset)
             _, points_instance_labels = predict_MIMAX(export_dir,\
                     data_path_points,pointsPrediction,size_biggest_bag,
-                    num_features,mini_batch_size,removeModel=False)
+                    num_features,num_class,mini_batch_size,removeModel=False)
 
         # Testing
         data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
                                           size_biggest_bag,num_features,'test',dataset)
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
-                data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size,removeModel=True)
+                data_path_test,bags_test,size_biggest_bag,num_features,num_class,
+                mini_batch_size,removeModel=True)
 
     elif method == 'MAXMIMAX':
         dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
@@ -1286,14 +1293,14 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
             print(data_path_points)
             _, points_instance_labels = predict_MIMAX(export_dir,\
                     data_path_points,pointsPrediction,size_biggest_bag,
-                    num_features,mini_batch_size,AggregW=AggregW,removeModel=False)
+                    num_features,num_class,mini_batch_size,AggregW=AggregW,removeModel=False)
 
         # Testing
         data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
                                           size_biggest_bag,num_features,'test',dataset)
         print(data_path_test)
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
-                data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size
+                data_path_test,bags_test,size_biggest_bag,num_features,num_class,mini_batch_size
                 ,AggregW=AggregW,removeModel=True)
 
     elif method == 'IA_mi_model':
@@ -1315,13 +1322,15 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
             data_path_points = Create_tfrecords(pointsPrediction, labels_pointsPrediction,\
                                               size_biggest_bag,num_features,'points',dataset)
             _, points_instance_labels = predict_MIMAX(export_dir,\
-                    data_path_points,pointsPrediction,size_biggest_bag,num_features,mini_batch_size,removeModel=False)
+                    data_path_points,pointsPrediction,size_biggest_bag,num_features,
+                    num_class,mini_batch_size,removeModel=False)
 
         # Testing
         data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
                                           size_biggest_bag,num_features,'test',dataset)
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
-                data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size,removeModel=True)
+                data_path_test,bags_test,size_biggest_bag,num_features,
+                num_class,mini_batch_size,removeModel=True)
 
 
     elif method == 'MIMAXaddLayer':
@@ -1427,9 +1436,6 @@ def predict_MIMAX(export_dir,data_path_test,bags_test,size_biggest_bag,num_featu
             # The tanh transformation have already be done
             with_tanh = False
             with_tanh_alreadyApplied = True
-
-    print('with_tanh',with_tanh)
-    print('with_tanh_alreadyApplied',with_tanh_alreadyApplied)
 
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
