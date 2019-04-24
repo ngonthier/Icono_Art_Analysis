@@ -1374,12 +1374,12 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
             return(pred_bag_labels, pred_instance_labels,points_instance_labels)
 
 
-def parser(record,num_rois=300,num_features=2048):
+def parser(record,num_rois=300,num_features=2048,num_class=1):
     # Perform additional preprocessing on the parsed data.
     keys_to_features={
                 'num_features':  tf.FixedLenFeature([], tf.int64),
                 'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
-                'label' : tf.FixedLenFeature([1],tf.float32)}
+                'label' : tf.FixedLenFeature([num_class],tf.float32)}
     parsed = tf.parse_single_example(record, keys_to_features)
 
     # Cast label data into int32
@@ -1391,7 +1391,7 @@ def parser(record,num_rois=300,num_features=2048):
     return fc7,label
 
 def predict_MIMAX(export_dir,data_path_test,bags_test,size_biggest_bag,num_features,\
-               mini_batch_size=256,verbose=False,predict_parall=True,removeModel=True):
+               num_class=1,mini_batch_size=256,verbose=False,predict_parall=True,removeModel=True):
     """
     This function as to goal to predict on the test set
     removeModel = True : erase the model created
@@ -1404,7 +1404,8 @@ def predict_MIMAX(export_dir,data_path_test,bags_test,size_biggest_bag,num_featu
 
     test_dataset = tf.data.TFRecordDataset(data_path_test)
     test_dataset = test_dataset.map(lambda r: parser(r,num_rois=size_biggest_bag\
-                                                     ,num_features=num_features))
+                                                     ,num_features=num_features,\
+                                                     num_class=num_class))
     dataset_batch = test_dataset.batch(mini_batch_size)
     dataset_batch.cache()
     iterator = dataset_batch.make_one_shot_iterator()
@@ -1554,6 +1555,11 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
     """
     path_model = os.path.join(path_tmp,'MI_max')
     pathlib.Path(path_model).mkdir(parents=True, exist_ok=True)
+    
+    try:
+        M= len(labels_bags_c_train[0])
+    except TypeError:
+        M = 1
 
     tf.reset_default_graph()
 
@@ -1567,7 +1573,7 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
         restarts = (restarts+1)*numberOfFinalVector-1
 
     classifierMI_max = tf_MI_max(LR=LR,restarts=restarts,is_betweenMinus1and1=True, \
-                                 num_rois=size_biggest_bag,num_classes=1, \
+                                 num_rois=size_biggest_bag,num_classes=M, \
                                  num_features=num_features,mini_batch_size=mini_batch_size, \
                                  verbose=verbose,C=C,CV_Mode=CV_Mode,max_iters=300,
                                  debug=False,AggregW=AggregW,proportionToKeep=proportionToKeep)
