@@ -270,7 +270,7 @@ class miDLstab():
         from sklearn.metrics import f1_score
         pred_instance_labels = self.model.predict(svm_X)
         f1eval = f1_score(svm_y, np.sign(pred_instance_labels),labels=[-1,1])
-        print("F1 score training set",f1eval)
+        print("F1 score training set on pseudo-label",f1eval)
         
         return(self)
 
