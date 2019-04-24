@@ -2166,9 +2166,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     """
     if trainOnTest:
         print('/!\ you will train the model on the test data be careful with the conclusion')
-    if not(AggregW=='' or AggregW is None):
-        print('There is an error on those AggregationVector due to tfR_evaluation_paral : with the next_get element not initialize')
-        raise(NotImplementedError)
     
     if not(metamodel in ['FasterRCNN','EdgeBoxes']):
         print(metamodel,' is unknown')
@@ -2183,7 +2180,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         if variance_thres==0.9:
             if database=='IconArt_v1':
                 number_composant=675
-                number_composant=2048
             elif database=='watercolor':
                 number_composant=654    
             else:
@@ -2736,6 +2732,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
         parameters=PlotRegions,RPN,Stocha,CompBest
         param_clf = k_per_bag,Number_of_positif_elt,num_features
+
         true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited \
         ,all_boxes = \
         tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
@@ -2890,6 +2887,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
         apsAt05 = aps
         print("Detection score (thres = 0.5): ",database,'with ',model,'with score =',with_scores)
+        if not(AggregW is None or AggregW==''):
+            print('AggregW :',AggregW,proportionToKeep,'of',str(restarts+1),'vectors')
         print(arrayToLatex(aps,per=True))
         ovthresh_tab = [0.3,0.1,0.]
         for ovthresh in ovthresh_tab:
@@ -3161,7 +3160,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     try:
                         Prod_best = graph.get_tensor_by_name("Tanh_2:0")
                     except KeyError:
-                        Prod_best = graph.get_tensor_by_name("Tanh:0")
+                        try:
+                            Prod_best = graph.get_tensor_by_name("Tanh_1:0")
+                        except KeyError:
+                            Prod_best = graph.get_tensor_by_name("Tanh:0")
                 else:
                     Prod_best = graph.get_tensor_by_name("ProdScore:0")
             else:
@@ -3169,7 +3171,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     try:
                         Prod_best = graph.get_tensor_by_name("Tanh_2:0")
                     except KeyError:
-                        Prod_best = graph.get_tensor_by_name("Tanh:0")
+                        try:
+                            Prod_best = graph.get_tensor_by_name("Tanh_1:0")
+                        except KeyError:
+                            Prod_best = graph.get_tensor_by_name("Tanh:0")
                 else:
                     Prod_best = graph.get_tensor_by_name("Prod:0")
             if with_tanh:
@@ -3638,10 +3643,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 scores_tf = graph.get_tensor_by_name("scores:0")
                 if with_tanh_alreadyApplied:
                     try:
-                        Prod_best = graph.get_tensor_by_name("Tanh_1:0")
+                        Prod_best = graph.get_tensor_by_name("Tanh_2:0")
                     except KeyError:
                         try:
-                             Prod_best = graph.get_tensor_by_name("Tanh_2:0")
+                             Prod_best = graph.get_tensor_by_name("Tanh_1:0")
                         except KeyError:
                              Prod_best = graph.get_tensor_by_name("Tanh:0")
                 else:
@@ -3649,12 +3654,12 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             else:
                 if with_tanh_alreadyApplied:
                     try:
-                        Prod_best = graph.get_tensor_by_name("Tanh:0")
+                        Prod_best = graph.get_tensor_by_name("Tanh_2:0")
                     except KeyError:
                         try:
-                             Prod_best = graph.get_tensor_by_name("Tanh_2:0")
-                        except KeyError:
                              Prod_best = graph.get_tensor_by_name("Tanh_1:0")
+                        except KeyError:
+                             Prod_best = graph.get_tensor_by_name("Tanh:0")
                 else:
                     Prod_best = graph.get_tensor_by_name("Prod:0")
             if with_tanh:
@@ -4995,13 +5000,33 @@ if __name__ == '__main__':
 #                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=None,proportionToKeep=0.25,
 #                              loss_type='',storeVectors=False,storeLossValues=False,
 #                              plot_onSubSet=['bicycle', 'bird', 'car', 'cat', 'dog', 'person'])
-#    for k_per_bag in [2000]:
-##    for k_per_bag in [300,2000]:
-##        for database in ['VOC2007']:
-#        for database in ['watercolor','IconArt_v1','VOC2007']:
-##            for model in ['mi_model']:
+
+
+# Test PCA data
+
+#    for model in  ['MI_max','mi_model']:
+#        for with_scores in [False,True]:
+#            for AggregW  in ['maxOfTanh','maxOfProd']:
+##            for AggregW  in ['maxOfProd']:
+#                tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = False,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=80,max_iters_all_base=300,LR=0.01,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+#                              predict_with='MI_max',
+#                              AggregW =AggregW ,proportionToKeep=0.01) 
+
+# Test EdgeBoxes 
+#    for k_per_bag in [300]:
+##        for database in ['watercolor','IconArt_v1','VOC2007']:
+#        for database in ['IconArt_v1','VOC2007']:
 #            for model in ['MI_max','mi_model']:
-#                tfR_FRCNN(demonet = 'res152',database = database, ReDo=False,
+#                tfR_FRCNN(demonet = 'res152',database = database, ReDo=True,
 #                                          verbose = True,testMode = False,jtest = 'cow',
 #                                          PlotRegions = False,saved_clf=False,RPN=False,
 #                                          CompBest=False,Stocha=True,k_per_bag=k_per_bag,
@@ -5045,18 +5070,30 @@ if __name__ == '__main__':
 #                          with_scores=True,epsilon=0.01,restarts_paral='paral',
 #                          predict_with='MI_max',
 #                          PCAuse=False,variance_thres=0.9) 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=True,
+#                          verbose = True,testMode = False,jtest = 'cow',
+#                          PlotRegions = False,saved_clf=False,RPN=False,
+#                          CompBest=False,Stocha=True,k_per_bag=300,
+#                          parallel_op=True,CV_Mode='',num_split=2,
+#                          WR=True,init_by_mean =None,seuil_estimation='',
+#                          restarts=11,max_iters_all_base=300,LR=0.01,
+#                          C=1.0,Optimizer='GradientDescent',norm='',
+#                          transform_output='tanh',with_rois_scores_atEnd=False,
+#                          with_scores=False,epsilon=0.01,restarts_paral='paral',
+#                          predict_with='mi_model',
+#                          PCAuse=False,trainOnTest=False,AddOneLayer=False,
+#                          Max_version='')  # Not parall computation at all
     tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
                           verbose = True,testMode = False,jtest = 'cow',
                           PlotRegions = False,saved_clf=False,RPN=False,
                           CompBest=False,Stocha=True,k_per_bag=300,
                           parallel_op=True,CV_Mode='',num_split=2,
                           WR=True,init_by_mean =None,seuil_estimation='',
-                          restarts=11,max_iters_all_base=300,LR=0.001,
+                          restarts=11,max_iters_all_base=300,LR=0.01,
                           C=1.0,Optimizer='GradientDescent',norm='',
                           transform_output='tanh',with_rois_scores_atEnd=False,
                           with_scores=False,epsilon=0.01,restarts_paral='paral',
-                          predict_with='MI_max',
-                          PCAuse=False,trainOnTest=False,AddOneLayer=False,Max_version='LogSumExp')  # Not parall computation at all
+                          predict_with='MI_max')  # Not parall computation at all
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
 #                          verbose = True,testMode = False,jtest = 'cow',
 #                          PlotRegions = False,saved_clf=False,RPN=False,

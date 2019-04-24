@@ -1499,8 +1499,8 @@ class tf_MI_max():
                             for i,argmin in enumerate(index_keep):
                                 W_best[i,j,:] = W_tmp[j+argmin*self.num_classes,:]
                                 b_best[i,j,:,:] = b_tmp[j+argmin*self.num_classes]
-                                loss_value_j_min = np.sort(loss_value_j)[0:self.numberWtoKeep]
-                                loss_value_min+=[loss_value_j_min]
+                            loss_value_j_min = np.sort(loss_value_j)[0:self.numberWtoKeep]
+                            loss_value_min+=[loss_value_j_min]
                         if self.AggregW=='AveragingW':
                             W_best = np.mean(W_best,axis=0)
                             b_best = np.mean(b_best,axis=0)
@@ -1508,7 +1508,8 @@ class tf_MI_max():
                 if self.verbose : 
                     print("bestloss",loss_value_min)
                     t1 = time.time()
-                    print("durations :",str(t1-t0),' s')
+                    print("durations after simple training :",str(t1-t0),' s')
+                    
             else: # We will store the vectors
                 if not(self.restarts_paral_V2): raise(NotImplemented)
                 if self.storeLossValues:
@@ -2168,7 +2169,6 @@ class tf_MI_max():
                     Prod_score=tf.reduce_max(Prod_tmp,axis=0,name='Tanh')
                 else:
                     Prod_best = tf.reduce_max(tf.tanh(Prod_best,name='Prod'),axis=0,name='Tanh')
-                    #print('Tanh in saving part',Prod_best)
             elif self.AggregW=='minOfTanh':
                 if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh: 
                     Prod_score=tf.reduce_min(Prod_tmp,axis=0,name='Tanh')
