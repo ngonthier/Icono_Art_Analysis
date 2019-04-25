@@ -9,9 +9,11 @@ notre dataset IconArt :
 1/ Est ce que les boites des GT sont contenues dans les boites proposees par 
 Faster RCNN : Test_GT_inProposals
 
-3/ Faire defiler les boites sur une image donnee
+2/ Faire defiler les boites sur une image donnee
 
-2/ A quoi ressemble l'ensemble des points en TSNE ?
+3/ Quel est le score avec des boites aléatoires @ 0.1
+
+4/ A quoi ressemble l'ensemble des points en TSNE ?
 
 @author: gonthier
 """
@@ -182,10 +184,11 @@ def plotBoxesIm(name_im,boxes,path_to_img=''):
     complet_name = path_to_img + str(name_im) + '.jpg'
     im = cv2.imread(complet_name)
     for i in range(len(boxes)):
-        dets = np.hstack(([1.],boxes[i,:]))
+        dets = np.hstack((boxes[i,:],[1.]))
         class_name = ['object']
         vis_detections(im, class_name, dets, thresh=0.5,with_title=True)
-
+        input("Press Enter to continue...")
+        
 def Test_GT_inProposals(database='IconArt_v1'):
     
     if(database=='IconArt_v1'):
