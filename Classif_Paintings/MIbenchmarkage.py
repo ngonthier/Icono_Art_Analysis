@@ -1548,6 +1548,7 @@ def Create_tfrecords(bags, labels_bags,size_biggest_bag,num_features,nameset,dat
     if os.path.isfile(path_name):
         os.remove(path_name) # Need to remove the folder !
     writer = tf.python_io.TFRecordWriter(path_name)
+    i = 0
     for elt,elt_label in zip(bags,labels_bags):
         if len(elt) < size_biggest_bag:
             number_repeat = size_biggest_bag // len(elt)  +1
@@ -1560,7 +1561,9 @@ def Create_tfrecords(bags, labels_bags,size_biggest_bag,num_features,nameset,dat
                         'num_regions': _int64_feature(size_biggest_bag),
                         #'fc7': _bytes_feature(tf.compat.as_bytes(fc7.tostring())),
                         'fc7': _floats_feature(fc7),
-                        'label' : _floats_feature(elt_label)})
+                        'label' : _floats_feature(elt_label),
+                        'name_img' : _bytes_feature(str.encode(str(i)))})
+        i += 1
         example = tf.train.Example(features=features) #.tostring()
         writer.write(example.SerializeToString())
     writer.close()
