@@ -23,7 +23,7 @@ import shutil
 import sys
 import misvm
 from MILbenchmark.mialgo import sisvm,MIbyOneClassSVM,sixgboost,siDLearlyStop,\
-    miDLearlyStop,miDLstab,ensDLearlyStop,kerasMultiMIMAX
+    miDLearlyStop,miDLstab,ensDLearlyStop#,kerasMultiMIMAX
 
 from sklearn.metrics import roc_curve,f1_score,roc_auc_score
 
