@@ -25,7 +25,7 @@ import pathlib
 
 class IconArt_v1(imdb):
   def __init__(self, _image_db,image_set, use_diff=False,devkit_path=None,test_ext=False,
-               force_dont_use_07_metric=False):
+               force_dont_use_07_metric=True):
     name = image_set
     if use_diff:
       name += '_diff'

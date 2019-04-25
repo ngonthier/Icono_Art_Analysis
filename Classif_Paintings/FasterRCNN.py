@@ -906,13 +906,13 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=No
                 i_color = np.where(np.array(list_class)==class_name)[0][0] % len(list_colors)
                 color = list_colors[i_color]
             for i in inds:
-                bbox = dets[i, :4]
+                bbox = dets[i, :4] # Boxes are score, x1,y1,x2,y2
                 score = dets[i, -1]
                 ax.add_patch(
                     plt.Rectangle((bbox[0], bbox[1]),
                                   bbox[2] - bbox[0],
                                   bbox[3] - bbox[1], fill=False,
-                                  edgecolor=color, linewidth=3.5)
+                                  edgecolor=color, linewidth=3.5) # Need (x,y) lower corner then width, height
                     )
                 ax.text(bbox[0], bbox[1] - 2,
                         '{:s} {:.3f}'.format(class_name, score),
@@ -960,12 +960,12 @@ def vis_GT_list(im, class_name_list, dets_list,list_class=None):
             i_color = np.where(np.array(list_class)==class_name)[0][0] % len(list_colors)
             color = list_colors[i_color]
         for i in range(len(dets)):
-            bbox = dets[i,:]
+            bbox = dets[i,:] # Boxes are x1,y1,x2,y2
             ax.add_patch(
                 plt.Rectangle((bbox[0], bbox[1]),
                               bbox[2] - bbox[0],
                               bbox[3] - bbox[1], fill=False,
-                              edgecolor=color, linewidth=3.5)
+                              edgecolor=color, linewidth=3.5) # Need (x,y) lower corner then width, height
                 )
             ax.text(bbox[0], bbox[1] - 2,
                     '{:s}'.format(class_name),
