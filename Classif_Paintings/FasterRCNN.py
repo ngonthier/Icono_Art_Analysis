@@ -851,7 +851,7 @@ def run_FasterRCNN_demo():
                     print(CLASSES[cls_ind])
         sess.close()
  
-def vis_detections(im, class_name, dets, thresh=0.5,with_title=True):
+def vis_detections(im, class_name, dets, thresh=0.5,with_title=True,draw=True):
     """Draw detected bounding boxes."""
     inds = np.where(dets[:, -1] >= thresh)[0]
     if len(inds) == 0:
@@ -882,7 +882,8 @@ def vis_detections(im, class_name, dets, thresh=0.5,with_title=True):
                       fontsize=14)
     plt.axis('off')
     plt.tight_layout()
-    plt.draw()
+    if draw:
+        plt.draw()
     
 def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=None,Correct=None):
     """Draw detected bounding boxes."""

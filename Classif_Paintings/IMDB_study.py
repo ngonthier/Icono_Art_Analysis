@@ -22,6 +22,8 @@ import pandas as pd
 import tensorflow as tf
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+import pathlib
 
 from LatexOuput import arrayToLatex
 
@@ -112,7 +114,10 @@ def bb_intersection_over_union(boxA, boxB):
     # return the intersection over union value
     return iou
 
-def plotBoxesWithinImage():
+def plotBoxesWithinImage(number_Im_plot=None):
+    """
+    Number of images we save with the boxes
+    """
     
     database='IconArt_v1'
     if(database=='IconArt_v1'):
@@ -166,28 +171,53 @@ def plotBoxesWithinImage():
     sess.close()
     print('End read the boxes proposals')
     
-    print('Please provide the name of the image, to quit right quit and rand for random image')
-    name = input('Name of the image :')
-    while not(name=='quit'):
-        if name=='rand' or name in list_im_with_classes:
-            if name=='rand' :
-                name_im = np.choose(1,list_im_with_classes)
-            else:
-                name_im = name
-            boxes = dict_rois[name_im]
-            plotBoxesIm(name_im,boxes,path_to_img=path_to_img)
-        else:
-            print(name,'is not in the test image with a classes of interest')
-            name = input('Name of the image or rand or quit :')
+    # Plot all the boxes on all the images
+    base_plot = '/media/HDD/output_exp/ClassifPaintings/PlotBoxesIconArt_v1_Test'
+    if number_Im_plot is None:
+        list_im_with_classes_loc = list_im_with_classes
+    else:
+        list_im_with_classes_loc = list_im_with_classes[0:number_Im_plot]
+    for name_im in list_im_with_classes_loc:
+        path_tmp = base_plot +'/' + name_im
+        pathlib.Path(path_tmp).mkdir(parents=True, exist_ok=True) 
+        boxes = dict_rois[name_im]
+        complet_name = path_to_img + str(name_im) + '.jpg'
+        im = cv2.imread(complet_name)
+        for i in range(len(boxes)):
+            dets = np.hstack((boxes[i,:],[1.])).reshape(1,-1)
+            class_name ='object'
+            vis_detections(im, class_name, dets, thresh=0.5,with_title=True,draw=False)
+#            plt.show()
+            name_output = path_tmp + '/' +name_im +'_'+str(i)+'jpg'
+            plt.savefig(name_output)
+            plt.close()
+    
+    ## This doesn t work
+#    print('Please provide the name of the image, to quit right quit and rand for random image')
+#    name = input('Name of the image :') 
+#    while not(name=='quit'):
+#        if name=='rand' or name in list_im_with_classes:
+#            if name=='rand' :
+#                name_im = np.random.choice(list_im_with_classes,[1])[0]
+#            else:
+#                name_im = name
+#            boxes = dict_rois[name_im]
+#            plotBoxesIm(name_im,boxes,path_to_img=path_to_img)
+#        else:
+#            print(name,'is not in the test image with a classes of interest')
+#            name = input('Name of the image or rand or quit :')
 
 def plotBoxesIm(name_im,boxes,path_to_img=''):
     complet_name = path_to_img + str(name_im) + '.jpg'
     im = cv2.imread(complet_name)
     for i in range(len(boxes)):
-        dets = np.hstack((boxes[i,:],[1.]))
-        class_name = ['object']
+        dets = np.hstack((boxes[i,:],[1.])).reshape(1,-1)
+        class_name ='object'
         vis_detections(im, class_name, dets, thresh=0.5,with_title=True)
-        input("Press Enter to continue...")
+        plt.show()
+#        plt.savefig(name_output)
+        plt.close()
+#        input("Press Enter to continue...")
         
 def Test_GT_inProposals(database='IconArt_v1'):
     
