@@ -41,6 +41,9 @@ from matplotlib import offsetbox
 
 from time import time
 
+from tensorflow.contrib.tensorboard.plugins import projector
+import os
+
 def getDictFeaturesFasterRCNN(database,k_per_bag = 300):
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     
@@ -379,10 +382,19 @@ def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300):
     print(arrayToLatex(aps,per=True))
     
     tf.reset_default_graph()
+
+def draw_random_bbbox(h,w):
+    x = np.random.randint(0,h-60)
+    y = np.random.randint(0,w-60)
+    x2 = np.random.randint(x,h-30)
+    y2 = np.random.randint(y,w-30)
+    bbox = [x,y,x2,y2]
+    return bbox
     
-def RandomBoxes_withTrueGT(database='IconArt_v1'):
+def RandomBoxes_withTrueGT(database='IconArt_v1',withGT=True):
     """
     This function will compute the performance with random boxes 
+    @param : withGT : with the Ground truth instance
     """
     
     if(database=='IconArt_v1'):
@@ -417,19 +429,22 @@ def RandomBoxes_withTrueGT(database='IconArt_v1'):
         name_im = im_path.split('/')[-1]
         name_im = name_im.split('.')[0]
 
-        for element in read_file:
-            # For each instance we will draw a random boxes
-            number_gt_boxes += 1
-            classe_elt_xml = element['name']
-            c = classes.index(classe_elt_xml)
-#            bbox = element['bbox']
-            x = np.random.randint(0,h-60)
-            y = np.random.randint(0,w-60)
-            x2 = np.random.randint(x,h-30)
-            y2 = np.random.randint(y,w-30)
-            bbox = [x,y,x2,y2]
-            all_boxes[c+1][i] += [bbox]
+        if withGT:
 
+            for element in read_file:
+                # For each instance we will draw a random boxes
+                number_gt_boxes += 1
+                classe_elt_xml = element['name']
+                c = classes.index(classe_elt_xml)
+                bbox = draw_random_bbbox(h,w)
+                all_boxes[c+1][i] += [bbox]
+        else:
+            number_of_class = np.random.poisson(2, 1)[0]
+            cs = np.random.choice(6,number_of_class)
+            for c in cs:
+                bbox = draw_random_bbbox(h,w)
+                all_boxes[c+1][i] += [bbox]
+            
     for i in range(imdb.num_images):
         for j in range(imdb.num_classes):
             all_boxes[j+1][i] = np.array(all_boxes[j+1][i])
@@ -475,8 +490,11 @@ def plot_embedding(X,y, title=None):
     if title is not None:
         plt.title(title)
 
-def plotTSNE():
-
+def prepareData_to_TSNE(IuOValid=True):
+    """
+    Goal to prepare data for a TSNE tensorboard
+    We assign the label of the class if the IuO is superior to 0.5
+    """
     database='IconArt_v1'
     if(database=='IconArt_v1'):
         ext='.csv'
@@ -484,7 +502,7 @@ def plotTSNE():
         classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
         'Mary','nudity', 'ruins','Saint_Sebastien']
         path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
-    
+        path_to_xml = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/Annotations/'
     path_data = '/media/HDD/output_exp/ClassifPaintings/'
     path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
     databasetxt =path_data_csvfile + database + ext
@@ -510,50 +528,80 @@ def plotTSNE():
     list_im_with_classes = []
     num_features = 2048
     if set=='test':
-        num_ex = 857
+#        num_ex = 857
+        num_ex = 1480
     else:
         num_ex = 2978
     num_classes = 7
     k_per_bag = 300
-    X = np.empty(shape=(num_ex*k_per_bag,num_features),dtype=np.float32)
-    y = np.empty(shape=(num_ex*k_per_bag,num_classes),dtype=np.float32)
-    indexX = 0
+    k_per_im = 5
+    X = np.empty(shape=(num_ex*k_per_im,num_features),dtype=np.float32)
+    y = np.empty(shape=(num_ex*k_per_im,num_classes),dtype=np.float32)
     with tf.Session() as sess:
         while True:
             try:
                 fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
-                for k in range(len(labels)):
+                for k in range(len(labels)): # Loop on the images of the batch
                     name_im = name_imgs[k].decode("utf-8")
                     if name_im in list_im_withanno: 
-                        sum_labels = np.sum(labels[k,:])
-                        if sum_labels >0.:
-                            X[indexX:(k_per_bag+indexX),:]  =  fc7s[k,:]
-                            y[indexX:(k_per_bag+indexX),:]  = labels[k,:]
-                            indexX += k_per_bag
-    #                    complet_name = path_to_img + str(name_im) + '.jpg'
-    #                    im = cv2.imread(complet_name)
-    #                    blobs, im_scales = get_blobs(im)
-    #                    roi = roiss[k,:]
-    #                    roi_boxes =  roi[:,1:5] / im_scales[0] 
-    #                    dict_rois[name_im] = roi_boxes
-    #                    sum_labels = np.sum(labels[k,:])
-    #                    sum_of_classes += [sum_labels]
-    #                    if sum_labels >0.:
-    #                        list_im_with_classes += [name_im]
+                        labels_k = np.zeros((k_per_bag,num_classes),dtype=np.float32)
+                        complet_name =path_to_img + name_im + '.jpg'
+                        im = cv2.imread(complet_name)
+                        blobs, im_scales = get_blobs(im)
+                        fc7 = fc7s[k,:].reshape((-1,num_features))
+                        if IuOValid: # We will assign the label to the bbox with a IoU sup 0.5
+                            list_index = list(np.arange(k_per_bag,dtype=np.int))
+                            labels_k = np.zeros((k_per_bag,num_classes),dtype=np.float32)
+                            roi = roiss[k,:]
+                            roi_boxes =  roi[:,1:5] / im_scales[0]
+                            complet_name_xml =path_to_xml + name_im + '.xml'
+                            read_file = voc_eval.parse_rec(complet_name_xml)
+                            list_kb_pos = []
+                            for kb in range(k_per_bag): # Loop on the boxes of the image
+                                for element in read_file:
+                                    classe_elt_xml = element['name']
+                                    c = classes.index(classe_elt_xml)
+                                    bbox = element['bbox']
+                                    iuo = bb_intersection_over_union(roi_boxes[kb,:],bbox)
+                                    if iuo >= 0.5:
+                                        labels_k[kb,c] = 1.
+                                        list_kb_pos += [kb]
+                                        try: 
+                                            list_index.remove(kb)
+                                        except ValueError:
+                                            pass
+                            list_kb_pos = np.unique(np.array(list_kb_pos,dtype=np.int))
+                            if len(list_kb_pos) < k_per_im:   
+                                other_index = np.random.choice(list_index,k_per_im-len(list_kb_pos),replace=False)
+                                index_selected =  np.concatenate((list_kb_pos,other_index))
+                            elif len(list_kb_pos) == k_per_im: 
+                                index_selected = list_kb_pos
+                            else:
+                                index_selected = np.random.choice(list_kb_pos,k_per_im,replace=False)
+                                
+                        else:
+                             labels_k = np.reshape(np.tile(labels[k,:],k_per_bag),(k_per_bag,num_classes))
+                             index_selected = np.random.choice(300,(200,),replace=False)
+                             
+                             
+                        X[k:k+k_per_im,:] = fc7[index_selected,:]
+                        y[k:k+k_per_im,:] =  labels_k[index_selected,:]
             except tf.errors.OutOfRangeError:
                 break
-     
-    ## TensorFlow Variable from data
-    from tensorflow.contrib.tensorboard.plugins import projector
-    import os
-    metadata = y
-    tf_data = tf.Variable(X)
-    ## Get working directory
     PATH = os.getcwd()
-    
-    ## Path to save the embedding and checkpoints generated
+    # Path to save the embedding and checkpoints generated
     LOG_DIR = PATH + '/data/'
-    print('LOG_DIR',LOG_DIR)
+    # Write the metadata 
+    if IuOValid:
+        nametsv =  PATH + '/data/metadata_tsneIuo05_'+str(k_per_im)+'.tsv'
+    else:
+        nametsv =  PATH + '/data/metadata_tsneLabelPerIm_'+str(k_per_im)+'.tsv'
+    ypd = pd.DataFrame(y,columns=classes)
+    ypd.to_csv(nametsv,sep='\t',index=False,header=classes)
+    
+    metadata = nametsv
+    tf_data = tf.Variable(X)
+
     ## Running TensorFlow Session
     with tf.Session() as sess:
         saver = tf.train.Saver([tf_data])

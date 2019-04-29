@@ -3113,7 +3113,7 @@ if __name__ == '__main__':
     # RESNET152 sur COCO
     # VGG16 sur COCO
     # RES101 sur VOC12
-    Save_TFRecords_PCA_features()
+#    Save_TFRecords_PCA_features()
 #    Save_TFRecords_PCA_features(database='watercolor')
 #    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
 #                                 augmentation=False,L2 =False,
@@ -3121,9 +3121,9 @@ if __name__ == '__main__':
 #    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='VOC2007',
 #                                 augmentation=False,L2 =False,
 #                                 saved='all',verbose=True,filesave='tfrecords')   
-#    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='watercolor',
-#                                 augmentation=False,L2 =False,
-#                                 saved='all',verbose=True,filesave='tfrecords')   
+    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
+                                 augmentation=False,L2 =False,
+                                 saved='all',verbose=True,filesave='tfrecords',k_regions=2000)   
     
     # Test pour calculer les performances en prenant la moyenne des regions retournees par le réseau
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',nms_thresh = 0.0)
