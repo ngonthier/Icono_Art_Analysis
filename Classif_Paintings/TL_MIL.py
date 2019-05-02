@@ -86,7 +86,7 @@ CLASSESCOCO = ('__background__','person', 'bicycle','car','motorcycle', 'aeropla
 
 
 NETS = {'vgg16': ('vgg16_faster_rcnn_iter_70000.ckpt',)
-    ,'vgg16_coco': ('/media/HDD/models/tf-faster-rcnn/vgg16/vgg16_faster_rcnn_iter_1190000.ckpt',)    
+    ,'vgg16_coco': ('/media/gonthier/HDD/models/tf-faster-rcnn/vgg16/vgg16_faster_rcnn_iter_1190000.ckpt',)    
     ,'res101': ('res101_faster_rcnn_iter_110000.ckpt',)
     ,'res152' : ('res152_faster_rcnn_iter_1190000.ckpt',)}
 
@@ -202,8 +202,8 @@ def petitTestIllustratif():
     We will try on 20 image from the Art UK Your paintings database and see what 
     we get as best zone with the MI_max de Said 
     """
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
-    path = '/media/HDD/output_exp/ClassifPaintings/'
+    path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
+    path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt =path + database + '.txt'
 #    df_label = pd.read_csv(databasetxt,sep=",")
@@ -219,7 +219,7 @@ def petitTestIllustratif():
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
     nbClasses = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
     tfconfig.gpu_options.allow_growth=True
@@ -244,12 +244,12 @@ def petitTestIllustratif():
     elif 'res' in demonet :
         size_output = 2048
       
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
     symway = True
     if symway:
-        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max/'
+        path_to_output = '/media/gonthier/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max/'
     else:
-        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max_NotSymWay/'
+        path_to_output = '/media/gonthier/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max_NotSymWay/'
     list_dog = ['ny_yag_yorag_326_624x544', 'dur_dbm_770_624x544', 'ntii_skh_1196043_624x544', 'nti_ldk_884912_624x544', 'syo_bha_90009742_624x544', 'tate_tate_t00888_10_624x544', 'ntii_lyp_500458_624x544', 'ny_yag_yorag_37_b_624x544', 'ngs_ngs_ng_1193_f_624x544', 'dur_dbm_533_624x544']
     list_not_dog = ['nid_qub_qub_264_624x544', 'gmiii_mosi_a1978_72_3_624x544', 'ny_nrm_1979_7964_624x544', 'che_crhc_pcf40_624x544', 'not_ntmag_1997_31_624x544', 'stf_strm_832_624x544', 'ny_nrm_1986_9418_624x544', 'ny_nrm_2004_7349_624x544', 'ny_nrm_1986_9421_624x544', 'ny_nrm_1996_7374_624x544', 'llr_rlrh_l_h38_1988_3_0_624x544', 'iwm_iwm_ld_5509_624x544', 'ny_nrm_1977_5834_624x544', 'cw_mte_45_624x544', 'ny_yam_260367_624x544', 'lne_rafm_fa03538_624x544', 'dur_dbm_769_624x544', 'ny_yag_yorag_66_624x544', 'lw_narm_131900_624x544', 'syo_cg_cp_tr_156_624x544']
     list_nms_thresh = [0.0,0.1,0.5,0.7]
@@ -357,8 +357,8 @@ def petitTestIllustratif_RefineRegions():
     we get as best zone with the MI_max de Said 
     in this function we try to refine regions, ie remove not important regions
     """
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
-    path = '/media/HDD/output_exp/ClassifPaintings/'
+    path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
+    path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt =path + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -374,7 +374,7 @@ def petitTestIllustratif_RefineRegions():
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
     nbClasses = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
     tfconfig.gpu_options.allow_growth=True
@@ -399,12 +399,12 @@ def petitTestIllustratif_RefineRegions():
     elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
         size_output = 2048
       
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
     symway = True
     if symway:
-        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max_Refine/'
+        path_to_output = '/media/gonthier/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max_Refine/'
     else:
-        path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max_NotSymWay_Refine/'
+        path_to_output = '/media/gonthier/HDD/output_exp/ClassifPaintings/Test_nms_threshold/MI_max_NotSymWay_Refine/'
     list_dog = ['ny_yag_yorag_326_624x544', 'dur_dbm_770_624x544', 'ntii_skh_1196043_624x544', 'nti_ldk_884912_624x544', 'syo_bha_90009742_624x544', 'tate_tate_t00888_10_624x544', 'ntii_lyp_500458_624x544', 'ny_yag_yorag_37_b_624x544', 'ngs_ngs_ng_1193_f_624x544', 'dur_dbm_533_624x544']
     list_not_dog = ['nid_qub_qub_264_624x544', 'gmiii_mosi_a1978_72_3_624x544', 'ny_nrm_1979_7964_624x544', 'che_crhc_pcf40_624x544', 'not_ntmag_1997_31_624x544', 'stf_strm_832_624x544', 'ny_nrm_1986_9418_624x544', 'ny_nrm_2004_7349_624x544', 'ny_nrm_1986_9421_624x544', 'ny_nrm_1996_7374_624x544', 'llr_rlrh_l_h38_1988_3_0_624x544', 'iwm_iwm_ld_5509_624x544', 'ny_nrm_1977_5834_624x544', 'cw_mte_45_624x544', 'ny_yam_260367_624x544', 'lne_rafm_fa03538_624x544', 'dur_dbm_769_624x544', 'ny_yag_yorag_66_624x544', 'lw_narm_131900_624x544', 'syo_cg_cp_tr_156_624x544']
     
@@ -527,7 +527,7 @@ def old_FasterRCNN_TL_MI_max_newVersion():
     CNN features 
     Older version of the function than FasterRCNN_TL_MI_max_ClassifOutMI_max
     """
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt =path_data + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -717,15 +717,15 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         dtypes = str
         if database=='Paintings':
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/Painting_Dataset/'
+            path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
         elif database=='VOC12':
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+            path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
         elif database=='VOC2007':
             ext = '.csv'
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+            path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
             classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
                'bottle', 'bus', 'car', 'cat', 'chair',
                'cow', 'diningtable', 'dog', 'horse',
@@ -734,26 +734,26 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         elif database=='PeopleArt':
             ext = '.csv'
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
+            path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
             classes =  ['person']
         elif(database=='WikiTenLabels'):
             ext='.csv'
             item_name='item'
             classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
             'Mary','nudity', 'ruins','Saint_Sebastien','turban']
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
         elif database=='watercolor':
             ext = '.csv'
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+            path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
             classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
         elif(database=='Wikidata_Paintings'):
             item_name = 'image'
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
             raise NotImplemented # TODO implementer cela !!! 
         elif(database=='Wikidata_Paintings_miniset_verif'):
             item_name = 'image'
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
             classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
         else:
             print(database,'is unknown')
@@ -763,7 +763,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
            print("We are in test mode but jtest>len(classes), we will use jtest =0" )
            jtest =0
         
-        path_data = '/media/HDD/output_exp/ClassifPaintings/'
+        path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
         databasetxt =path_data + database + ext    
         if database=='VOC2007' or database=='watercolor' or database=='PeopleArt':
             dtypes = {0:str,'name_img':str,'aeroplane':int,'bicycle':int,'bird':int, \
@@ -1386,16 +1386,16 @@ def FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Pa
         dtypes = str
         if database=='Paintings':
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/Painting_Dataset/'
+            path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
         elif database=='VOC12':
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+            path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
         elif database=='VOC2007':
             ext = '.csv'
             isVOC = True
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+            path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
             classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
                'bottle', 'bus', 'car', 'cat', 'chair',
                'cow', 'diningtable', 'dog', 'horse',
@@ -1404,28 +1404,28 @@ def FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Pa
         elif database=='WikiTenLabels':
             ext = '.csv'
             item_name = 'item'
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
             classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
                         'Mary','nudity', 'ruins','Saint_Sebastien','turban']
         elif database=='watercolor':
             ext = '.csv'
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+            path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
             classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
         elif(database=='Wikidata_Paintings'):
             item_name = 'image'
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
             raise NotImplemented # TODO implementer cela !!! 
         elif(database=='Wikidata_Paintings_miniset_verif'):
             item_name = 'image'
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
             classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
         
         if(jtest>len(classes)) and testMode:
            print("We are in test mode but jtest>len(classes), we will use jtest =0" )
            jtest =0
         
-        path_data = '/media/HDD/output_exp/ClassifPaintings/'
+        path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
         databasetxt =path_data + database + ext    
         if database=='VOC2007' or database=='watercolor':
             dtypes = {0:str,'name_img':str,'aeroplane':int,'bicycle':int,'bird':int, \
@@ -2045,7 +2045,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   storeLossValues=False,obj_score_add_tanh=False,lambdas=0.5,
                                   obj_score_mul_tanh=False,metamodel='FasterRCNN',
                                   PCAuse=False,variance_thres=0.9,trainOnTest=False,
-                                  AddOneLayer=False,exp=10):
+                                  AddOneLayer=False,exp=10,debug = False):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2187,21 +2187,21 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         else:
             print('If you already have computed the PCA on the data you have to add the number_composant at the beginning of the tfR_FRCNN function')
     
-    debug = False
+    
     print('==========')
     # TODO be able to train on background 
     ext = '.txt'
     if database=='Paintings':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/Painting_Dataset/'
+        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
         classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     elif database=='VOC12':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
     elif database=='VOC2007':
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
         classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
            'bottle', 'bus', 'car', 'cat', 'chair',
            'cow', 'diningtable', 'dog', 'horse',
@@ -2210,17 +2210,17 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     elif database=='watercolor':
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
         classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
     elif database=='PeopleArt':
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
         classes =  ["person"]
     elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
         ext = '.csv'
         item_name = 'item'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
         classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
                     'Mary','nudity', 'ruins','Saint_Sebastien','turban']
     elif(database=='IconArt_v1'):
@@ -2228,11 +2228,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
             item_name='item'
             classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
             'Mary','nudity', 'ruins','Saint_Sebastien']
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
     elif database=='clipart':
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
         classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
            'bottle', 'bus', 'car', 'cat', 'chair',
            'cow', 'diningtable', 'dog', 'horse',
@@ -2240,12 +2240,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
            'sheep', 'sofa', 'train', 'tvmonitor']
     elif(database=='Wikidata_Paintings'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         print(database,' is not implemented yet')
         raise NotImplemented # TODO implementer cela !!! 
     elif(database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
     else:
         print('This database don t exist :',database)
@@ -2260,10 +2260,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
        print("We are in test mode but jtest>len(classes), we will use jtest =0" )
        jtest =0
 
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
     if database=='IconArt_v1':
-        path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+        path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
     else:
         path_data_csvfile = path_data
     
@@ -4211,30 +4211,30 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
 def detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Paintings_miniset_verif'):
     if database=='Paintings':
 #        item_name = 'name_img'
-#        path_to_img = '/media/HDD/data/Painting_Dataset/'
+#        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
         classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
 #    elif database=='VOC12':
 #        item_name = 'name_img'
-#        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+#        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
     elif(database=='Wikidata_Paintings'):
 #        item_name = 'image'
-#        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+#        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         raise NotImplemented # TODO implementer cela !!! 
     elif(database=='Wikidata_Paintings_miniset_verif'):
 #        item_name = 'image'
-#        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+#        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']    
     elif(database=='IconArt_v1'):
         classes = ['angel','Child_Jesus', 'crucifixion_of_Jesus',
             'Mary','nudity', 'ruins','Saint_Sebastien']    
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
 #    databasetxt =path_data + database + '.txt'
 #    df_label = pd.read_csv(databasetxt,sep=",")
 #    if database=='Wikidata_Paintings_miniset_verif':
 #        df_label = df_label[df_label['BadPhoto'] <= 0.0]
     
-    DATA_DIR =  '/media/HDD/data/Fondazione_Zeri/Selection_Olivier/'
-    output_DIR = '/media/HDD/output_exp/ClassifPaintings/Zeri/'
+    DATA_DIR =  '/media/gonthier/HDD/data/Fondazione_Zeri/Selection_Olivier/'
+    output_DIR = '/media/gonthier/HDD/output_exp/ClassifPaintings/Zeri/'
     pathlib.Path(output_DIR).mkdir(parents=True, exist_ok=True)
         
     N = 1
@@ -4249,7 +4249,7 @@ def detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Painting
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
     nbClasses = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
     tfconfig.gpu_options.allow_growth=True
@@ -4353,25 +4353,25 @@ def FasterRCNN_TL_MISVM(demonet = 'res152_COCO',database = 'Paintings',
     # TODO be able to train on background 
     if database=='Paintings':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/Painting_Dataset/'
+        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
         classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     elif database=='VOC12':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
     elif(database=='Wikidata_Paintings'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         raise NotImplemented # TODO implementer cela !!! 
     elif(database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
     
     if(jtest>len(classes)) and testMode:
        print("We are in test mode but jtest>len(classes), we will use jtest =0" )
        jtest =0
     
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     databasetxt =path_data + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
     if database=='Wikidata_Paintings_miniset_verif':
@@ -4620,13 +4620,13 @@ def PlotRegionsLearnByMI_max():
    during the training and after during the testing
     """
     verbose = True
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
-#    path_to_output2 = '/media/HDD/output_exp/ClassifPaintings/dogRegion/'
-#    path_to_output2 = '/media/HDD/output_exp/ClassifPaintings/aeroplaneRegion/'
-#    path_to_output2 = '/media/HDD/output_exp/ClassifPaintings/chairRegion/'
-#    path_to_output2 = '/media/HDD/output_exp/ClassifPaintings/boatRegion/'
-#    path_to_output2 = '/media/HDD/output_exp/ClassifPaintings/birdRegion/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
+#    path_to_output2 = '/media/gonthier/HDD/output_exp/ClassifPaintings/dogRegion/'
+#    path_to_output2 = '/media/gonthier/HDD/output_exp/ClassifPaintings/aeroplaneRegion/'
+#    path_to_output2 = '/media/gonthier/HDD/output_exp/ClassifPaintings/chairRegion/'
+#    path_to_output2 = '/media/gonthier/HDD/output_exp/ClassifPaintings/boatRegion/'
+#    path_to_output2 = '/media/gonthier/HDD/output_exp/ClassifPaintings/birdRegion/'
     database = 'Paintings'
     databasetxt =path_data + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -5004,22 +5004,34 @@ if __name__ == '__main__':
 
 # Test PCA data
 
-    for model in  ['MI_max']:
-        for with_scores in [False,True]:
-#            for AggregW  in ['maxOfTanh','maxOfProd']:
-            for AggregW  in ['maxOfTanh','meanOfTanh']:
-                tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
-                              verbose = True,testMode = False,jtest = 'cow',
-                              PlotRegions = False,saved_clf=False,RPN=False,
-                              CompBest=False,Stocha=True,k_per_bag=300,
-                              parallel_op=True,CV_Mode='',num_split=2,
-                              WR=True,init_by_mean =None,seuil_estimation='',
-                              restarts=11,max_iters_all_base=300,LR=0.01,
-                              C=1.0,Optimizer='GradientDescent',norm='',
-                              transform_output='tanh',with_rois_scores_atEnd=False,
-                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-                              predict_with='MI_max',
-                              AggregW =AggregW ,proportionToKeep=1.0,model=model) 
+#    for model in  ['MI_max']:
+#        for with_scores in [False,True]:
+##            for AggregW  in ['maxOfTanh','maxOfProd']:
+#            for AggregW  in ['maxOfTanh','meanOfTanh']:
+#                tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+#                              verbose = True,testMode = False,jtest = 'cow',
+#                              PlotRegions = False,saved_clf=False,RPN=False,
+#                              CompBest=False,Stocha=True,k_per_bag=300,
+#                              parallel_op=True,CV_Mode='',num_split=2,
+#                              WR=True,init_by_mean =None,seuil_estimation='',
+#                              restarts=11,max_iters_all_base=300,LR=0.01,
+#                              C=1.0,Optimizer='GradientDescent',norm='',
+#                              transform_output='tanh',with_rois_scores_atEnd=False,
+#                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+#                              predict_with='MI_max',
+#                              AggregW =AggregW ,proportionToKeep=1.0,model=model) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+              verbose = True,testMode = False,jtest = 'cow',
+              PlotRegions = False,saved_clf=False,RPN=False,
+              CompBest=False,Stocha=True,k_per_bag=300,
+              parallel_op=True,CV_Mode='',num_split=2,
+              WR=True,init_by_mean =None,seuil_estimation='',
+              restarts=11,max_iters_all_base=300,LR=0.01,
+              C=1.0,Optimizer='GradientDescent',norm='',
+              transform_output='tanh',with_rois_scores_atEnd=False,
+              with_scores=True,epsilon=0.01,restarts_paral='paral',
+              predict_with='MI_max',
+              AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
 
 # Test EdgeBoxes 
 #    for k_per_bag in [300]:

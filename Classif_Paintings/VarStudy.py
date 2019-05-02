@@ -197,8 +197,8 @@ def Etude_Wvectors():
     
     plt.ion()
     
-    name_dict = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/1533740133.283923.pkl'
-    name_dict = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/MImax_PeopletArt_10800W_withScore_classicLoss.pkl'
+    name_dict = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/1533740133.283923.pkl'
+    name_dict = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/MImax_PeopletArt_10800W_withScore_classicLoss.pkl'
     with open(name_dict, 'rb') as f:
         Dict = pickle.load(f)
     
@@ -287,8 +287,8 @@ def plotDecroissanceFct():
     Le but de cette fonction est d afficher la decroissance de la fonction de cout 
     au cours du temps
     """
-    export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss.pkl'
-    export_dir_withoutscore = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss.pkl'
+    export_dir = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss.pkl'
+    export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss.pkl'
 
 
     list_export_dir = [export_dir,export_dir_withoutscore]
@@ -309,8 +309,8 @@ def plotDecroissanceFct():
         plt.ylabel('Loss value')
         plt.show()
         
-    export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss_CsearchCVmodeTrue.pkl'
-    export_dir_withoutscore = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss_CsearchCVmodeTrue.pkl'
+    export_dir = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss_CsearchCVmodeTrue.pkl'
+    export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss_CsearchCVmodeTrue.pkl'
 
     list_export_dir = [export_dir,export_dir_withoutscore]
     list_plots_elt = ['with score','without score']

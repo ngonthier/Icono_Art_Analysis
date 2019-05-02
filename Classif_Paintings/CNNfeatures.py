@@ -147,7 +147,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
         
     """
 
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_imgs = path_data + 'EdgeBoxesIllust/'+database +'/'
     
     if plotProposedBoxes:
@@ -156,26 +156,26 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
     
     if database=='Paintings':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/Painting_Dataset/' 
+        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/' 
         num_classes = 10
         ext = '.txt'
         classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     elif database=='VOC12':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
         num_classes = 20
         ext = '.txt'
         raise(NotImplementedError)
     elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
         ext = '.csv'
         item_name = 'item'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
         classes = ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
                     'Mary','nudity', 'ruins','Saint_Sebastien','turban']
         num_classes = 10
     elif database=='VOC2007':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
         num_classes = 20
         ext = '.csv'
         classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
@@ -188,28 +188,28 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
         item_name='item'
         classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
         'Mary','nudity', 'ruins','Saint_Sebastien']
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
         num_classes = 7
     elif database=='PeopleArt':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
         num_classes = 1
         ext = '.csv'
     elif database=='watercolor':
         num_classes = 6
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
         classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
     elif database=='clipart':
         num_classes = 20
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
         raise(NotImplementedError)
     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         num_classes = 5
         ext = '.txt'
         classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
@@ -218,7 +218,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
         raise(NotImplemented)
         
     if database=='IconArt_v1':
-        path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+        path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
     else:
         path_data_csvfile = path_data
     
@@ -256,7 +256,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
     if verbose: print('=== EdgeBoxes net',demonet,'database',database,' ===')
     
     if demonet=='res152':
-        weights_path = '/media/HDD/models/resnet152_weights_tf.h5'
+        weights_path = '/media/gonthier/HDD/models/resnet152_weights_tf.h5'
         model = resnet_152_keras.resnet152_model_2048output(weights_path)
         size_output = 2048
     else:

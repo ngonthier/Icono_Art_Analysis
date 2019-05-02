@@ -45,7 +45,7 @@ from tensorflow.contrib.tensorboard.plugins import projector
 import os
 
 def getDictFeaturesFasterRCNN(database,k_per_bag = 300):
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
     demonet = 'res152_COCO'
     metamodel = 'FasterRCNN'
@@ -134,10 +134,10 @@ def plotBoxesWithinImage(number_Im_plot=None):
         item_name='item'
         classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
         'Mary','nudity', 'ruins','Saint_Sebastien']
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
     
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
-    path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
     databasetxt =path_data_csvfile + database + ext
 
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -181,7 +181,7 @@ def plotBoxesWithinImage(number_Im_plot=None):
     print('End read the boxes proposals')
     
     # Plot all the boxes on all the images
-    base_plot = '/media/HDD/output_exp/ClassifPaintings/PlotBoxesIconArt_v1_Test'
+    base_plot = '/media/gonthier/HDD/output_exp/ClassifPaintings/PlotBoxesIconArt_v1_Test'
     if number_Im_plot is None:
         list_im_with_classes_loc = list_im_with_classes
     else:
@@ -235,10 +235,10 @@ def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300):
         item_name='item'
         classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
         'Mary','nudity', 'ruins','Saint_Sebastien']
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
     
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
-    path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
     databasetxt =path_data_csvfile + database + ext
 
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -403,8 +403,8 @@ def RandomBoxes_withTrueGT(database='IconArt_v1',withGT=True):
         classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
         'Mary','nudity', 'ruins','Saint_Sebastien']
     
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
-#    path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'s
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+#    path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'s
 #    databasetxt =path_data_csvfile + database + ext
 
 #    df_label = pd.read_csv(databasetxt,sep=",")
@@ -501,10 +501,10 @@ def prepareData_to_TSNE(IuOValid=True):
         item_name='item'
         classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
         'Mary','nudity', 'ruins','Saint_Sebastien']
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
-        path_to_xml = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/Annotations/'
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
-    path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+        path_to_xml = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/Annotations/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
     databasetxt =path_data_csvfile + database + ext
 
     df_label = pd.read_csv(databasetxt,sep=",")

@@ -3,6 +3,8 @@
 """
 Created on Wed Feb 27 13:12:57 2019
 
+This script will run our code 100 times only for the MIMAX model for the moment
+
 @author: gonthier
 """
 
@@ -79,7 +81,7 @@ CLASSESCOCO = ('__background__','person', 'bicycle','car','motorcycle', 'aeropla
 
 
 NETS = {'vgg16': ('vgg16_faster_rcnn_iter_70000.ckpt',)
-    ,'vgg16_coco': ('/media/HDD/models/tf-faster-rcnn/vgg16/vgg16_faster_rcnn_iter_1190000.ckpt',)    
+    ,'vgg16_coco': ('/media/gonthier/HDD/models/tf-faster-rcnn/vgg16/vgg16_faster_rcnn_iter_1190000.ckpt',)    
     ,'res101': ('res101_faster_rcnn_iter_110000.ckpt',)
     ,'res152' : ('res152_faster_rcnn_iter_1190000.ckpt',)}
 
@@ -105,7 +107,7 @@ def VariationStudyPart1_forVOC07():
     method
     First Part Store thevectors computed
     '''
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     database_tab = ['VOC2007','PeopleArt','watercolor','WikiTenLabels']
 #    database_tab = ['VOC2007','PeopleArt']
@@ -280,15 +282,25 @@ def VariationStudyPart1_forVOC07():
             print(name_dict,'copied')
     
              
-def VariationStudyPart1():
+def VariationStudyPart1(database=None,scenarioSubset=None):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
     First Part Store thevectors computed
     '''
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
-    database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
+    if database is None:
+        database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
+    else:
+        database_tab = [database]
+    start_i = 0
+    end_i = 17
+    if scenarioSubset is None:
+        listi = np.arange(start_i,end_i)
+    # Just to have with and without score : scenario 0 and 5 
+    else:
+        listi = scenarioSubset
 #    database_tab = ['VOC2007','PeopleArt']
 #    database_tab = ['PeopleArt']
     number_restarts = 100*12-1
@@ -296,214 +308,15 @@ def VariationStudyPart1():
     
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
-    start_i = 13
-    end_i = 13
+
     seuil = 0.9 
 
-    for i in range(start_i,end_i+1):
-        print('Scenario :',i)
-        if i==0:
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = True
-            seuillage_by_score=False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i==1:
-            loss_type='MSE'
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = True
-            seuillage_by_score=False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i==2:
-            loss_type='hinge_tanh'
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = True
-            seuillage_by_score=False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i==3:
-            loss_type='hinge'
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = True
-            seuillage_by_score=False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i==4:
-            loss_type=''
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = False
-            with_scores = True
-            seuillage_by_score=False
-        if i==5:
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i==6:
-            loss_type='MSE'
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = False
-            seuillage_by_score=False
-        elif i==7:
-            loss_type=''
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = False
-            seuillage_by_score=True
-            seuil=0.9
-        elif i==8:
-            loss_type=''
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = False
-            seuillage_by_score=True
-            seuil=0.5
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i==9:
-            loss_type=''
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = False
-            seuillage_by_score=True
-            seuil=0.3
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i==10:
-            loss_type=''
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = False
-            seuillage_by_score=True
-            seuil=0.1
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i==11:
-            C_Searching = True
-            CV_Mode = 'CV'
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = True
-            seuillage_by_score=False   
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i==12: # deja fait 
-            C_Searching = True
-            CV_Mode = 'CV'
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False 
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i==13:
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False 
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = True
-        elif i==14:
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False 
-            obj_score_add_tanh=True
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i==15:
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False 
-            obj_score_add_tanh=True
-            lambdas = 0.9
-            obj_score_mul_tanh = False
-        elif i==16:
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False 
-            obj_score_add_tanh=True
-            lambdas = 0.75
-            obj_score_mul_tanh = False   
+
+    for i_scenario in listi:
+        print('Scenario :',i_scenario)
+        output = get_params_fromi_scenario(i_scenario)
+        listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,WR,\
+        with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh = output   
             
             
        # TODO rajouter ici un cas ou l on fait normalise les features
@@ -546,7 +359,7 @@ def VariationStudyPart1():
             print(name_dict,'copied')
             
 def ComputationForLossPlot(database= 'PeopleArt'):
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     C_Searching = False
     loss_type = ''
@@ -585,17 +398,245 @@ def ComputationForLossPlot(database= 'PeopleArt'):
         name_dict += '.pkl'
         copyfile(exportname,name_dict)
         print(name_dict,'copied')
-            
-def VariationStudyPart2():
+     
+def get_params_fromi_scenario(i_scenario):
+    listAggregW = [None]
+    if i_scenario==0:
+        listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        loss_type = ''
+        WR = True
+        with_scores = True
+        seuillage_by_score=False
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+    elif i_scenario==1:
+        listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+        loss_type='MSE'
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        WR = True
+        with_scores = True
+        seuillage_by_score=False
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+    elif i_scenario==2:
+        loss_type='hinge_tanh'
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        WR = True
+        with_scores = True
+        seuillage_by_score=False
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+    elif i_scenario==3:
+        loss_type='hinge'
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        WR = True
+        with_scores = True
+        seuillage_by_score=False
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+    elif i_scenario==4:
+        loss_type=''
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        WR = False
+        with_scores = True
+        seuillage_by_score=False
+    if i_scenario==5:
+        listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        loss_type = ''
+        WR = True
+        with_scores = False
+        seuillage_by_score=False
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+    elif i_scenario==6:
+        loss_type='MSE'
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        WR = True
+        with_scores = False
+        seuillage_by_score=False
+    elif i_scenario==7:
+        loss_type=''
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        WR = True
+        with_scores = False
+        seuillage_by_score=True
+        seuil=0.9
+    elif i_scenario==8:
+        loss_type=''
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        WR = True
+        with_scores = False
+        seuillage_by_score=True
+        seuil=0.5
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+    elif i_scenario==9:
+        loss_type=''
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        WR = True
+        with_scores = False
+        seuillage_by_score=True
+        seuil=0.3
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+    elif i_scenario==10:
+        loss_type=''
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        WR = True
+        with_scores = False
+        seuillage_by_score=True
+        seuil=0.1
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+    elif i_scenario==11:
+        listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+        C_Searching = True
+        CV_Mode = 'CV'
+        AggregW = None
+        proportionToKeep = 0.25
+        loss_type = ''
+        WR = True
+        with_scores = True
+        seuillage_by_score=False   
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+    elif i_scenario==12:
+        listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
+        C_Searching = True
+        CV_Mode = 'CV'
+        AggregW = None
+        proportionToKeep = 0.25
+        loss_type = ''
+        WR = True
+        with_scores = False
+        seuillage_by_score=False 
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+    elif i_scenario==13:
+        listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        loss_type = ''
+        WR = True
+        with_scores = False
+        seuillage_by_score=False 
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = True
+    elif i_scenario==14:
+        listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        loss_type = ''
+        WR = True
+        with_scores = False
+        seuillage_by_score=False 
+        obj_score_add_tanh=True
+        lambdas = 0.5
+        obj_score_mul_tanh = False
+    elif i_scenario==15:
+        listAggregW = [None]
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        loss_type = ''
+        WR = True
+        with_scores = False
+        seuillage_by_score=False 
+        obj_score_add_tanh=True
+        lambdas = 0.9
+        obj_score_mul_tanh = False
+    elif i_scenario==16:
+        listAggregW = [None]
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = 0.25
+        loss_type = ''
+        WR = True
+        with_scores = False
+        seuillage_by_score=False 
+        obj_score_add_tanh=True
+        lambdas = 0.75
+        obj_score_mul_tanh = False
+        
+    output = listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,WR,with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh
+    
+    return(output)
+        
+def VariationStudyPart2(database=None,scenarioSubset=None):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
     The second part compute the score in AP 
     '''
     demonet = 'res152_COCO'
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
-    database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
+    if database is None:
+        database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
+    else:
+        database_tab = [database]
+    start_i = 0
+    end_i = 17
+    if scenarioSubset is None:
+        listi = np.arange(start_i,end_i)
+    # Just to have with and without score : scenario 0 and 5 
+    else:
+        listi = scenarioSubset
 #    database_tab = ['watercolor']
 ##    database_tab = ['VOC2007','PeopleArt']
 #    database_tab = ['PeopleArt','watercolor']
@@ -609,228 +650,16 @@ def VariationStudyPart2():
     dont_use_07_metric  =True
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
-    start_i = 13
-    #start_i = 13
-    end_i = 17
-    listi = np.arange(start_i,end_i)
     seuil = 0.9 
     
-    data_path = '/media/HDD/output_exp/ClassifPaintings/'
+    data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
     for i_scenario in listi:
         print('Scenario :',i_scenario)
-        listAggregW = [None]
-        if i_scenario==0:
-            listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = True
-            seuillage_by_score=False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i_scenario==1:
-            listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
-            loss_type='MSE'
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = True
-            seuillage_by_score=False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i_scenario==2:
-            loss_type='hinge_tanh'
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = True
-            seuillage_by_score=False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i_scenario==3:
-            loss_type='hinge'
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = True
-            seuillage_by_score=False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i_scenario==4:
-            loss_type=''
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = False
-            with_scores = True
-            seuillage_by_score=False
-        if i_scenario==5:
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i_scenario==6:
-            loss_type='MSE'
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = False
-            seuillage_by_score=False
-        elif i_scenario==7:
-            loss_type=''
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = False
-            seuillage_by_score=True
-            seuil=0.9
-        elif i_scenario==8:
-            loss_type=''
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = False
-            seuillage_by_score=True
-            seuil=0.5
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i_scenario==9:
-            loss_type=''
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = False
-            seuillage_by_score=True
-            seuil=0.3
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i_scenario==10:
-            loss_type=''
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            WR = True
-            with_scores = False
-            seuillage_by_score=True
-            seuil=0.1
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i_scenario==11:
-            listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
-            C_Searching = True
-            CV_Mode = 'CV'
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = True
-            seuillage_by_score=False   
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i_scenario==12:
-            listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
-            C_Searching = True
-            CV_Mode = 'CV'
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False 
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i_scenario==13:
-            listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False 
-            obj_score_add_tanh=False
-            lambdas = 0.5
-            obj_score_mul_tanh = True
-        elif i_scenario==14:
-            listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False 
-            obj_score_add_tanh=True
-            lambdas = 0.5
-            obj_score_mul_tanh = False
-        elif i_scenario==15:
-            listAggregW = [None]
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False 
-            obj_score_add_tanh=True
-            lambdas = 0.9
-            obj_score_mul_tanh = False
-        elif i_scenario==16:
-            listAggregW = [None]
-            C_Searching = False
-            CV_Mode = ''
-            AggregW = None
-            proportionToKeep = 0.25
-            loss_type = ''
-            WR = True
-            with_scores = False
-            seuillage_by_score=False 
-            obj_score_add_tanh=True
-            lambdas = 0.75
-            obj_score_mul_tanh = False
-       
+        output = get_params_fromi_scenario(i_scenario)
+        listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,WR,\
+        with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh = output
+
         if C_Searching:
             numberofW_to_keep = numberofW_to_keep_base*9 #Number of element in C
         else:
@@ -856,15 +685,15 @@ def VariationStudyPart2():
             ext = '.txt'
             if database=='Paintings':
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/Painting_Dataset/'
+                path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
                 classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
             elif database=='VOC12':
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
             elif database=='VOC2007':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
                 classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
                    'bottle', 'bus', 'car', 'cat', 'chair',
                    'cow', 'diningtable', 'dog', 'horse',
@@ -873,23 +702,23 @@ def VariationStudyPart2():
             elif database=='watercolor':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
                 classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
             elif database=='PeopleArt':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
                 classes =  ["person"]
             elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 ext = '.csv'
                 item_name = 'item'
-                path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
                 classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
                             'Mary','nudity', 'ruins','Saint_Sebastien','turban']
             elif database=='clipart':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
                 classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
                    'bottle', 'bus', 'car', 'cat', 'chair',
                    'cow', 'diningtable', 'dog', 'horse',
@@ -897,16 +726,16 @@ def VariationStudyPart2():
                    'sheep', 'sofa', 'train', 'tvmonitor']
             elif(database=='Wikidata_Paintings'):
                 item_name = 'image'
-                path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
                 raise NotImplemented # TODO implementer cela !!! 
             elif(database=='Wikidata_Paintings_miniset_verif'):
                 item_name = 'image'
-                path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
                 classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
             else:
                 raise NotImplemented
             
-            path_data = '/media/HDD/output_exp/ClassifPaintings/'
+            path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
             databasetxt =path_data + database + ext
             if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
@@ -1139,7 +968,7 @@ def VariationStudyPart2_forVOC07():
     The second part compute the score in AP 
     '''
     demonet = 'res101_VOC07'
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
 #    database_tab = ['watercolor']
@@ -1155,7 +984,7 @@ def VariationStudyPart2_forVOC07():
 
     seuil = 0.9 
     
-    data_path = '/media/HDD/output_exp/ClassifPaintings/'
+    data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     listi = [0,5]
     seuil = 0.9 
 
@@ -1398,15 +1227,15 @@ def VariationStudyPart2_forVOC07():
             ext = '.txt'
             if database=='Paintings':
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/Painting_Dataset/'
+                path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
                 classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
             elif database=='VOC12':
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
             elif database=='VOC2007':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
                 classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
                    'bottle', 'bus', 'car', 'cat', 'chair',
                    'cow', 'diningtable', 'dog', 'horse',
@@ -1415,23 +1244,23 @@ def VariationStudyPart2_forVOC07():
             elif database=='watercolor':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
                 classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
             elif database=='PeopleArt':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
                 classes =  ["person"]
             elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 ext = '.csv'
                 item_name = 'item'
-                path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
                 classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
                             'Mary','nudity', 'ruins','Saint_Sebastien','turban']
             elif database=='clipart':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
                 classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
                    'bottle', 'bus', 'car', 'cat', 'chair',
                    'cow', 'diningtable', 'dog', 'horse',
@@ -1439,16 +1268,16 @@ def VariationStudyPart2_forVOC07():
                    'sheep', 'sofa', 'train', 'tvmonitor']
             elif(database=='Wikidata_Paintings'):
                 item_name = 'image'
-                path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
                 raise NotImplemented # TODO implementer cela !!! 
             elif(database=='Wikidata_Paintings_miniset_verif'):
                 item_name = 'image'
-                path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
                 classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
             else:
                 raise NotImplemented
             
-            path_data = '/media/HDD/output_exp/ClassifPaintings/'
+            path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
             databasetxt =path_data + database + ext
             if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
@@ -1683,7 +1512,7 @@ def VariationStudyPart2bis():
     
     '''
     demonet = 'res152_COCO'
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
 #    database_tab = ['watercolor']
@@ -1703,7 +1532,7 @@ def VariationStudyPart2bis():
     end_i = 12
     seuil = 0.9 
     
-    data_path = '/media/HDD/output_exp/ClassifPaintings/'
+    data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
 #    listi = range(start_i,end_i+1) 
     listi = [0,5]
@@ -1833,15 +1662,15 @@ def VariationStudyPart2bis():
             ext = '.txt'
             if database=='Paintings':
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/Painting_Dataset/'
+                path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
                 classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
             elif database=='VOC12':
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
             elif database=='VOC2007':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
                 classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
                    'bottle', 'bus', 'car', 'cat', 'chair',
                    'cow', 'diningtable', 'dog', 'horse',
@@ -1850,23 +1679,23 @@ def VariationStudyPart2bis():
             elif database=='watercolor':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
                 classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
             elif database=='PeopleArt':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
                 classes =  ["person"]
             elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 ext = '.csv'
                 item_name = 'item'
-                path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
                 classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
                             'Mary','nudity', 'ruins','Saint_Sebastien','turban']
             elif database=='clipart':
                 ext = '.csv'
                 item_name = 'name_img'
-                path_to_img = '/media/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
+                path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
                 classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
                    'bottle', 'bus', 'car', 'cat', 'chair',
                    'cow', 'diningtable', 'dog', 'horse',
@@ -1874,16 +1703,16 @@ def VariationStudyPart2bis():
                    'sheep', 'sofa', 'train', 'tvmonitor']
             elif(database=='Wikidata_Paintings'):
                 item_name = 'image'
-                path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
                 raise NotImplemented # TODO implementer cela !!! 
             elif(database=='Wikidata_Paintings_miniset_verif'):
                 item_name = 'image'
-                path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
                 classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
             else:
                 raise NotImplemented
             
-            path_data = '/media/HDD/output_exp/ClassifPaintings/'
+            path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
             databasetxt =path_data + database + ext
             if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
@@ -2103,16 +1932,26 @@ def VariationStudyPart2bis():
                     with open(name_dictAP, 'wb') as f:
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
       
-def VariationStudyPart3(demonet = 'res152_COCO',onlyAP05=False):
+def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO',onlyAP05=False):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
     The third part print the results 
     '''
     
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
-    database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
+    if database is None:
+        database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
+    else:
+        database_tab = [database]
+    start_i = 0
+    end_i = 17
+    if scenarioSubset is None:
+        listi = np.arange(start_i,end_i)
+    # Just to have with and without score : scenario 0 and 5 
+    else:
+        listi = scenarioSubset
 #    database_tab = ['VOC2007','PeopleArt']
 #    database_tab = ['PeopleArt']
     number_restarts = 100*12-1
@@ -2123,219 +1962,18 @@ def VariationStudyPart3(demonet = 'res152_COCO',onlyAP05=False):
     dont_use_07_metric  =True
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
-    start_i = 0
-    end_i = 16
     seuil = 0.9 
     listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
-    data_path = '/media/HDD/output_exp/ClassifPaintings/'
+    data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
     for database  in database_tab:
         print('--------------------------------')
         print(database)
-        for i in range(start_i,end_i+1):
-            print('% Scenario :',i)
-            if i==0:
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                loss_type = ''
-                WR = True
-                with_scores = True
-                seuillage_by_score=False
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-            elif i==1:
-                loss_type='MSE'
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                WR = True
-                with_scores = True
-                seuillage_by_score=False
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-            elif i==2:
-                loss_type='hinge_tanh'
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                WR = True
-                with_scores = True
-                seuillage_by_score=False
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-            elif i==3:
-                loss_type='hinge'
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                WR = True
-                with_scores = True
-                seuillage_by_score=False
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-            elif i==4:
-                loss_type=''
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                WR = False
-                with_scores = True
-                seuillage_by_score=False
-            if i==5:
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                loss_type = ''
-                WR = True
-                with_scores = False
-                seuillage_by_score=False
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-            elif i==6:
-                loss_type='MSE'
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                WR = True
-                with_scores = False
-                seuillage_by_score=False
-            elif i==7:
-                loss_type=''
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                WR = True
-                with_scores = False
-                seuillage_by_score=True
-                seuil=0.9
-            elif i==8:
-                loss_type=''
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                WR = True
-                with_scores = False
-                seuillage_by_score=True
-                seuil=0.5
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-            elif i==9:
-                loss_type=''
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                WR = True
-                with_scores = False
-                seuillage_by_score=True
-                seuil=0.3
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-            elif i==10:
-                loss_type=''
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                WR = True
-                with_scores = False
-                seuillage_by_score=True
-                seuil=0.1
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-            elif i==11:
-                C_Searching = True
-                CV_Mode = 'CV'
-                AggregW = None
-                proportionToKeep = 0.25
-                loss_type = ''
-                WR = True
-                with_scores = True
-                seuillage_by_score=False   
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-            elif i==12:
-                C_Searching = True
-                CV_Mode = 'CV'
-                AggregW = None
-                proportionToKeep = 0.25
-                loss_type = ''
-                WR = True
-                with_scores = False
-                seuillage_by_score=False 
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-            elif i==13:
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                loss_type = ''
-                WR = True
-                with_scores = False
-                seuillage_by_score=False 
-                obj_score_add_tanh=False
-                lambdas = 0.5
-                obj_score_mul_tanh = True
-            elif i==14:
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                loss_type = ''
-                WR = True
-                with_scores = False
-                seuillage_by_score=False 
-                obj_score_add_tanh=True
-                lambdas = 0.5
-                obj_score_mul_tanh = False
-            elif i==15:
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                loss_type = ''
-                WR = True
-                with_scores = False
-                seuillage_by_score=False 
-                obj_score_add_tanh=True
-                lambdas = 0.9
-                obj_score_mul_tanh = False
-            elif i==16:
-                C_Searching = False
-                CV_Mode = ''
-                AggregW = None
-                proportionToKeep = 0.25
-                loss_type = ''
-                WR = True
-                with_scores = False
-                seuillage_by_score=False 
-                obj_score_add_tanh=True
-                lambdas = 0.75
-                obj_score_mul_tanh = False 
+        for i_scenario in listi:
+            print('% Scenario :',i_scenario)
+            output = get_params_fromi_scenario(i_scenario)
+            listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,WR,\
+            with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh = output 
                     
                 
             name_dict = path_data_output +database
@@ -2419,7 +2057,7 @@ def VariationStudyPart3bis():
     The third part print the results 
     '''
     demonet = 'res152_COCO'
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
 #    database_tab = ['VOC2007','PeopleArt']
@@ -2436,7 +2074,7 @@ def VariationStudyPart3bis():
     end_i = 12
     seuil = 0.9 
     listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
-    data_path = '/media/HDD/output_exp/ClassifPaintings/'
+    data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     listi = [0,4]
     for database  in database_tab:
         print('--------------------------------')
@@ -2620,7 +2258,7 @@ def VariationStudy():
     The goal of this function is to study the variation of the performance of our 
     method
     '''
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
 #    database_tab = ['VOC2007','PeopleArt']
@@ -2822,14 +2460,14 @@ if __name__ == '__main__':
     #    VariationStudyPart1_forVOC07()
 #    VariationStudyPart2_forVOC07()
     # Il faudra faire le part3 pour VOC07
-#    VariationStudyPart1()
-#    VariationStudyPart2()
+    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5])
+    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5])
 #     VariationStudyPart3(demonet = 'res101_VOC07')
 #    VariationStudyPart1()
 ##    VariationStudyPart2bis()
 #    VariationStudyPart2()
 
-    VariationStudyPart3(onlyAP05=True)
-    VariationStudyPart3bis()
-    ComputationForLossPlot()
-    VariationStudyPart1_forVOC07()
+#    VariationStudyPart3(onlyAP05=True)
+#    VariationStudyPart3bis()
+#    ComputationForLossPlot()
+#    VariationStudyPart1_forVOC07()

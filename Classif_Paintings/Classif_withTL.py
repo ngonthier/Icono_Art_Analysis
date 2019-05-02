@@ -41,26 +41,26 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',concate
     Inception ResNet v2 take RGB image as input
     """
     ext = '.txt'
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     if database=='Paintings':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/Painting_Dataset/' 
+        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/' 
     elif database=='VOC12':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
     elif(database=='WikiTenLabels'):
         ext = '.csv'
         item_name='item'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset'):
         item_name = 'image'
         if not(augmentation):
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/299/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/299/'
         else:
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/340/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/340/'
     else:
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/299/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/299/'
 
         
     databasetxt = path_data + database + ext
@@ -73,7 +73,7 @@ def compute_InceptionResNetv2_features(kind='1536D',database='Paintings',concate
         extL2 = '_L2'
     else:
         extL2 = ''
-    checkpoint_file = '/media/HDD/models/inception_resnet_v2_2016_08_30.ckpt'
+    checkpoint_file = '/media/gonthier/HDD/models/inception_resnet_v2_2016_08_30.ckpt'
     name_img = df_label[item_name][0]
     i = 0
     itera = 1000
@@ -177,26 +177,26 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',concate = Fa
     Inception ResNet v2 take RGB image as input
     """
     ext = '.txt'
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     if database=='Paintings':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/Painting_Dataset/' 
+        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/' 
     elif database=='VOC12':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
     elif(database=='WikiTenLabels'):
         ext = '.csv'
         item_name='item'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset'):
         item_name = 'image'
         if not(augmentation):
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/224/'
         else:
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/256/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/256/'
     else:
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/224/'
     databasetxt = path_data + database + ext
     df_label = pd.read_csv(databasetxt,sep=",")
 
@@ -315,29 +315,29 @@ def Compute_ResNet(kind='2048D',database='Paintings',concate = False,L2=False,au
     Inception ResNet v2 take RGB image as input
     """
     ext = '.txt'
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     if database=='Paintings':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/Painting_Dataset/'
+        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
     elif(database=='WikiTenLabels'):
         ext = '.csv'
         item_name='item'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
     elif database=='VOC12':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset'):
         item_name = 'image'
         if not(augmentation):
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/224/'
         else:
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/256/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/256/'
     else:
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/224/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/224/'
     databasetxt = path_data + database + ext
     df_label = pd.read_csv(databasetxt,sep=",")
-    weights_path = '/media/HDD/models/resnet152_weights_tf.h5'
+    weights_path = '/media/gonthier/HDD/models/resnet152_weights_tf.h5'
     if augmentation:
         N = 50
     else: 
@@ -454,10 +454,10 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
         extL2 = '_L2'
     else:
         extL2 = ''
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
     if(database=='WikiTenLabels'):
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
         ext='.csv'
         item_name='item'
         depicts = ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
@@ -465,7 +465,7 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
         colums_selected = depicts
         database_verif = database
     elif(database=='Wikidata_Paintings_miniset'):
-        path_to_img= '/media/HDD/data/Wikidata_Paintings/340/'
+        path_to_img= '/media/gonthier/HDD/data/Wikidata_Paintings/340/'
         ext = '.txt'
         item_name = 'image'
         depicts = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
@@ -562,7 +562,7 @@ def TransferLearning_onRawFeatures(kind='1536D',kindnetwork='InceptionResNetv2',
 
     
         if plot_fp_fn:
-            path_output = '/media/HDD/output_exp/html_output/'
+            path_output = '/media/gonthier/HDD/output_exp/html_output/'
             
             name_trainval_tab = name_im_order
 #    print(len(indice_train),len(y_trainval),len(name_trainval_tab))
@@ -675,7 +675,7 @@ def TransferLearning_onRawFeatures_protocol(kind='1536D',kindnetwork='InceptionR
         extL2 = '_L2'
     else:
         extL2 = ''
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database_verif = 'Wikidata_Paintings_miniset_verif' # TODO changer cela
 
     databasetxt = path_data + database_verif + '.txt'
@@ -951,7 +951,7 @@ def TL_RawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database=
         extL2 = '_L2'
     else:
         extL2 = ''
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database_verif = 'Wikidata_Paintings_miniset_verif' # TODO changer cela
 
     databasetxt = path_data + database_verif + '.txt'
@@ -1019,7 +1019,7 @@ def TL_RawFeatures_JustAP(kind='1536D',kindnetwork='InceptionResNetv2',database=
 def vision_of_data():
     import math
     database_verif = 'Wikidata_Paintings_miniset_verif' # TODO changer cela
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     databasetxt = path_data + database_verif + '.txt'
     databaseArtist = path_data +'Dates_Artists_rewied.csv'
     df_artists = pd.read_csv(databaseArtist)

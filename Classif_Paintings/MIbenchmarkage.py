@@ -47,7 +47,7 @@ list_of_ClassicalMI = ['miSVM','SIL','SISVM','LinearSISVM','MIbyOneClassSVM',\
                        'miDLstab','ensDLearlyStop','kerasMultiMIMAX']
 list_of_MIMAXbasedAlgo = ['MIMAX','MIMAXaddLayer','IA_mi_model','MAXMIMAX']
 
-path_tmp = '/media/HDD/output_exp/ClassifPaintings/tmp/'
+path_tmp = '/media/gonthier/HDD/output_exp/ClassifPaintings/tmp/'
 if not(os.path.exists(path_tmp)):
     path_tmp = 'tmp'
 # test if the folder need exist :

@@ -77,7 +77,7 @@ depicts_depictsLabel_with_Underscore = {'Q51636':'crucifixion_of_Jesus','Q109607
 
 # Chercher des chapitaux dans stairs et steps, column 
 def VerifChildJesus():
-    df = pd.read_csv('/media/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv',sep=',')
+    df = pd.read_csv('/media/gonthier/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv',sep=',')
 #    df[['nudity','turban']] = df[['nudity','turban']].apply(pd.to_numeric)
     print(len(df))
     print(df.sum())
@@ -92,7 +92,7 @@ def VerifChildJesus():
     list_name = d_test3['item']
     print(len(list_name))
     path_to_save = ''
-    read_data = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
+    read_data = '/media/gonthier/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
     dstfolder = path_to_save + 'Here' + '/'
     do_mkdir(dstfolder)
     im = 0
@@ -110,14 +110,14 @@ def VerifChildJesus():
         itemi = elt[0].split('.')[0]
         df.loc[df['item']==itemi,'nudity'] = 1.0
     df.sum()
-    df.to_csv('/media/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
+    df.to_csv('/media/gonthier/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
     
     
     
 def splitData():
     """ Split the base in training and testing """
     from sklearn.model_selection import train_test_split
-    df = pd.read_csv('/media/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
+    df = pd.read_csv('/media/gonthier/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
 #    df['nudity'] = df['nudity'].astype('float32')
     random_state = 1
     elt_intraining = ['Q18565885','Q18579032']
@@ -135,13 +135,13 @@ def splitData():
     print(df[df['set']=='test'].sum())
     print('All')
     print(df.sum())
-    df.to_csv('/media/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
+    df.to_csv('/media/gonthier/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
     
 def SplitForBoundingBox():
     """split the set in 5 blocks for bounding box annotations"""
-    df = pd.read_csv('/media/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
+    df = pd.read_csv('/media/gonthier/HDD/output_exp/ClassifPaintings/WikiTenLabels.csv')
     path_to_save = '/home/gonthier/owncloud/Miniset10c/BoundingBox/'
-    read_data = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
+    read_data = '/media/gonthier/HDD/data/Wikidata_Paintings/MiniSet10c_Qname/'
     df_test = df[df['set']=='train']
     name_of_folders = ['Nicolas','Yann','Said','Subset4','Subset5']
     array = df_test.as_matrix(['item']).ravel()
@@ -170,7 +170,7 @@ def SplitForBoundingBox():
     
 def prepareVOC12():
      classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-     path_to_VOC12_imageset = '/media/HDD/data/VOCdevkit/VOC2012/ImageSets/Main'
+     path_to_VOC12_imageset = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/ImageSets/Main'
      set_list = ['train','validation']
 
      frames = []
@@ -204,7 +204,7 @@ def prepareVOC12():
      print(len(df_test['classe']))
 
 def preparePaintings():
-    name_file = '/media/HDD/data/Painting_Dataset/painting_dataset_updated.csv'
+    name_file = '/media/gonthier/HDD/data/Painting_Dataset/painting_dataset_updated.csv'
     df = pd.read_csv(name_file, sep=",")
     df.columns = ['a','name_img','page','set','classe']
     df = df.drop('a', 1)
@@ -226,16 +226,16 @@ def preparePaintings():
     print(len(df_test['classe'])) # Must be 8621, to count the number of jpeg images find *.jpg | wc -l
     
 def prepareWikiData():
-    name_file_paitings = '/media/HDD/Wikidata_query/query_paitings_wikidata.csv'
+    name_file_paitings = '/media/gonthier/HDD/Wikidata_query/query_paitings_wikidata.csv'
     
-    name_file_unique_url_paitings = '/media/HDD/Wikidata_query/paitings_wikidata.csv'
-    name_file_unique_url_prints = '/media/HDD/Wikidata_query/estampe_wikidata.csv'
-    name_file_print = '/media/HDD/Wikidata_query/query_estampe_wikidata.csv'
+    name_file_unique_url_paitings = '/media/gonthier/HDD/Wikidata_query/paitings_wikidata.csv'
+    name_file_unique_url_prints = '/media/gonthier/HDD/Wikidata_query/estampe_wikidata.csv'
+    name_file_print = '/media/gonthier/HDD/Wikidata_query/query_estampe_wikidata.csv'
     df_estampe = pd.read_csv(name_file_print, sep=",")
 
 
     
-    name_file_class = '/media/HDD/Wikidata_query/query_Depict_class.csv'
+    name_file_class = '/media/gonthier/HDD/Wikidata_query/query_Depict_class.csv'
     df_class = pd.read_csv(name_file_class, sep=",")
 
     df = pd.read_csv(name_file_paitings, sep=",",encoding='utf-8')
@@ -326,7 +326,7 @@ def prepareWikiData():
     return(0)
     
 def prepare_Dates_WikiData():
-    name_file= '/media/HDD/Wikidata_query/Dates_Artists.csv'
+    name_file= '/media/gonthier/HDD/Wikidata_query/Dates_Artists.csv'
     df = pd.read_csv(name_file, sep=",",encoding='utf-8')
     print(df.head(3))    
     df_drop = df.drop_duplicates(subset='peintre', keep="last")
@@ -345,9 +345,9 @@ def prepare_Dates_WikiData():
 def prepareWikiDataWithSubSet():
     already = False
     
-    name_file_paitings = '/media/HDD/Wikidata_query/query_paitings_wikidata.csv'
-    name_file_unique_url_paitings = '/media/HDD/Wikidata_query/paitings_wikidata.csv'
-    name_file_class = '/media/HDD/Wikidata_query/query_Depict_class.csv'
+    name_file_paitings = '/media/gonthier/HDD/Wikidata_query/query_paitings_wikidata.csv'
+    name_file_unique_url_paitings = '/media/gonthier/HDD/Wikidata_query/paitings_wikidata.csv'
+    name_file_class = '/media/gonthier/HDD/Wikidata_query/query_Depict_class.csv'
     df_class = pd.read_csv(name_file_class, sep=",")
     df_class = df_class.drop('count',axis=1)
     df_class =  df_class.append(['',''])
@@ -491,7 +491,7 @@ def prepareWikidataSetsPaitings():
     """
     The goal of this file is to create a training and a test sets
     """
-    name_file_class = '/media/HDD/Wikidata_query/query_Depict_paintings.csv'
+    name_file_class = '/media/gonthier/HDD/Wikidata_query/query_Depict_paintings.csv'
     df_class = pd.read_csv(name_file_class, sep=",")
     df_class['depicts'] = df_class['depicts'].apply(lambda a: str.split(str(a),'/')[-1]) 
     number_elt = 500
@@ -606,7 +606,7 @@ def MiseDeCote2():
     else:
         name_tab_index = np.array(df.index)
     folder=database +'/'
-    target_path = '/media/HDD/data/'
+    target_path = '/media/gonthier/HDD/data/'
     write_data = target_path + folder 
     bigger_size = 600
     read_data = write_data + str(bigger_size) + '/'
@@ -663,9 +663,9 @@ def CreationMiniSet10C():
                     'Q81710','Q13147','Q35500','Q488841','Q132543','Q618057','Q80513']
     already = False
     
-    name_file_paitings = '/media/HDD/Wikidata_query/query_paitings_wikidata.csv'
-    name_file_unique_url_paitings = '/media/HDD/Wikidata_query/paitings_wikidata.csv'
-    name_file_class = '/media/HDD/Wikidata_query/query_Depict_class.csv'
+    name_file_paitings = '/media/gonthier/HDD/Wikidata_query/query_paitings_wikidata.csv'
+    name_file_unique_url_paitings = '/media/gonthier/HDD/Wikidata_query/paitings_wikidata.csv'
+    name_file_class = '/media/gonthier/HDD/Wikidata_query/query_Depict_class.csv'
     df_class = pd.read_csv(name_file_class, sep=",")
     df_class = df_class.drop('count',axis=1)
     df_class =  df_class.append(['',''])
@@ -709,16 +709,16 @@ def CreationMiniSet10C():
         
         df_copy2 = df_copy.groupby('item').apply(fusion_wikidata_withurl)
         df_copy2 = df_copy2.drop_duplicates(subset=['image'], keep="last")
-        df_copy2.to_csv('/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_modify.txt', index=None, sep=',', mode='w')
+        df_copy2.to_csv('/media/gonthier/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_modify.txt', index=None, sep=',', mode='w')
     # Test
-    df_copy2 = pd.read_csv('/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_modify.txt',sep=",", encoding='utf-8')
+    df_copy2 = pd.read_csv('/media/gonthier/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_modify.txt',sep=",", encoding='utf-8')
     #print("Wikidata Paintings")
     print(df_copy2.head(2))
     number_paitings = len(df_copy2['image'])
     print("Number of Paintings : ",number_paitings) # 88323 au 30 mars 2018
     
     # Need to merge with Wikidata_Paintings_miniset_verif
-    name_file_verif = '/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset_verif.txt'
+    name_file_verif = '/media/gonthier/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset_verif.txt'
     df_verif = pd.read_csv(name_file_verif, sep=",")
     
     list_image_with_it = []
@@ -740,20 +740,20 @@ def CreationMiniSet10C():
     list_image_with_it = np.unique(list_image_with_it) 
     df_new = df_copy2.loc[list_image_with_it]
     print("Number of image in this subset",len(df_new['image_url']))
-    df_new.to_csv('/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset10cRaw.csv', index=None, sep=',', mode='w')
+    df_new.to_csv('/media/gonthier/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset10cRaw.csv', index=None, sep=',', mode='w')
     
     # Merge
     df_merge = df_new.merge(df_verif,how='outer')
-    df_merge.to_csv('/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset10cMerge.csv', index=None, sep=',', mode='w')
+    df_merge.to_csv('/media/gonthier/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset10cMerge.csv', index=None, sep=',', mode='w')
    
     df22 = df_merge.sort_values('Q109607_verif',ascending=False)
     df222 = df22.drop_duplicates(subset=['item'],keep='first')
     df2 = df222.drop_duplicates(subset=['image'],keep='first')
-    databasetxt2 = '/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset10cMerge3.csv'
+    databasetxt2 = '/media/gonthier/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_miniset10cMerge3.csv'
     df2.to_csv(databasetxt2)
     
     
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database='Wikidata_Paintings'
     databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge3.csv'  #6576 images
     df = pd.read_csv(databasetxt,sep=",")
@@ -763,7 +763,7 @@ def CreationMiniSet10C():
     database='Wikidata_Paintings'
     name_tab_index = np.array(df.index)
     folder=database +'/'
-    target_path = '/media/HDD/data/'
+    target_path = '/media/gonthier/HDD/data/'
     write_data = target_path + folder 
     bigger_size = 600
     read_data = write_data + str(bigger_size) + '/'
@@ -797,7 +797,7 @@ def MiseDeCote10c():
     """
     Creation du MiniSet10c
     """
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database='Wikidata_Paintings'
     databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge3.csv'  #6528 images
     databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge6_verif2.csv'  #6525 images
@@ -845,7 +845,7 @@ def MiseDeCote10c():
                     print("et len(name_tab_index2)",len(name_tab_index2))
     
             folder=database +'/'
-            target_path = '/media/HDD/data/'
+            target_path = '/media/gonthier/HDD/data/'
             write_data = target_path + folder 
             bigger_size = 600
             read_data = write_data + str(bigger_size) + '/'
@@ -877,7 +877,7 @@ def MiseDeCote10c():
             #input("Press input when you have remove all the image containing this class...")
         else:
             print('Recolte des données')
-            target_path = '/media/HDD/data/Wikidata_Paintings/MiniSet10c_afterRM/'
+            target_path = '/media/gonthier/HDD/data/Wikidata_Paintings/MiniSet10c_afterRM/'
             dstfolder=  target_path + 'Not_' + classe_a_annotee +'_'+depicts_depictsLabel[classe_a_annotee]+ '/'
         
             name_tab_index = np.array(df.index)
@@ -915,7 +915,7 @@ def MiseDeCote10c_crucifictionChrist():
     """
     Creation du MiniSet10c
     """
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database='Wikidata_Paintings'
     databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge3.csv'  #6528 images
     allelt = True
@@ -958,7 +958,7 @@ def MiseDeCote10c_crucifictionChrist():
                     print("et len(name_tab_index2)",len(name_tab_index2))
     
             folder=database +'/'
-            target_path = '/media/HDD/data/'
+            target_path = '/media/gonthier/HDD/data/'
             write_data = target_path + folder 
             bigger_size = 600
             read_data = write_data + str(bigger_size) + '/'
@@ -1027,7 +1027,7 @@ def MiseDeCote():
     else:
         name_tab_index = np.array(df.index)
     folder=database +'/'
-    target_path = '/media/HDD/data/'
+    target_path = '/media/gonthier/HDD/data/'
     write_data = target_path + folder 
     bigger_size = 600
     read_data = write_data + str(bigger_size) + '/'
@@ -1071,7 +1071,7 @@ def MiseDeCote():
  
     
 def BadPhoto2():
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database='Wikidata_Paintings'
     databasetxt = path_data +  'Wikidata_Paintings_miniset10cMerge.csv'  #6576 images
     allelt = True
@@ -1089,7 +1089,7 @@ def BadPhoto2():
 
     classe_a_annotee = 'BadPhoto'
     folder=database +'/'
-    target_path = '/media/HDD/data/'
+    target_path = '/media/gonthier/HDD/data/'
     write_data = target_path + folder 
     bigger_size = 600
     read_data = write_data + str(bigger_size) + '/'
@@ -1137,7 +1137,7 @@ def BadPhoto2():
         df.loc[df['item']==item_name,classe_a_annotee_verif] = 1
     #df[df['BadPhoto']==-1]['BadPhoto'] = 1 # Replace the -1 by 1 
     print(df.head(2))
-    namefile = '/media/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_'+classe_a_annotee+'_.txt'
+    namefile = '/media/gonthier/HDD/output_exp/ClassifPaintings/Wikidata_Paintings_'+classe_a_annotee+'_.txt'
     df.to_csv(namefile, index=None, sep=',', mode='w') #  26.0
 
     input("Need to remove the bad Photo from other folder ")
@@ -1171,7 +1171,7 @@ def MiseDeCotePourAnnotationRapideBadPhoto():
     name_tab_index =  df.index
 
     folder=database +'/'
-    target_path = '/media/HDD/data/'
+    target_path = '/media/gonthier/HDD/data/'
     write_data = target_path + folder 
     bigger_size = 600
     read_data = write_data + str(bigger_size) + '/'
@@ -1282,7 +1282,7 @@ def MiseDeCotePourAnnotationRapide():
         name_tab_index = np.where(np.sum(np_classes,axis=1) <= 0)[0]
 
     folder=database +'/'
-    target_path = '/media/HDD/data/'
+    target_path = '/media/gonthier/HDD/data/'
     write_data = target_path + folder 
     bigger_size = 600
     read_data = write_data + str(bigger_size) + '/'
@@ -1352,7 +1352,7 @@ def AnnoterCapital_in_ruins():
         name_tab_index = np.where(np.sum(np_classes,axis=1) <= 0)[0]
 
     folder=database +'/'
-    target_path = '/media/HDD/data/'
+    target_path = '/media/gonthier/HDD/data/'
     write_data = target_path + folder 
     bigger_size = 600
     read_data = write_data + str(bigger_size) + '/'
@@ -1423,7 +1423,7 @@ def createSubset2():
         name_tab_index = np.where(np.sum(np_classes,axis=1) <= 0)[0]
 
     folder=database +'/'
-    target_path = '/media/HDD/data/'
+    target_path = '/media/gonthier/HDD/data/'
     write_data = target_path + folder 
     bigger_size = 600
     read_data = write_data + str(bigger_size) + '/'

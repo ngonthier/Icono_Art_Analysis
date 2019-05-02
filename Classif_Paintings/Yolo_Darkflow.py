@@ -51,7 +51,7 @@ def _softmax(x):
 
 def compute_YOLO_Perf_Paintings():
     classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
     database = 'Paintings'
     databasetxt = database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -60,7 +60,7 @@ def compute_YOLO_Perf_Paintings():
     name_img = df_test['name_img'][0]
     i = 0
     y_test = np.zeros((sLength,10))
-    path_model ='/media/HDD/models/yolo/'
+    path_model ='/media/gonthier/HDD/models/yolo/'
 
     for model in NETS_Pretrained:
         print(model)
@@ -168,7 +168,7 @@ def compute_YOLO_output():
     Load YOLO model and compute the output : 
     Possible model : yolov1
     """
-    path_model ='/media/HDD/models/yolo/'
+    path_model ='/media/gonthier/HDD/models/yolo/'
     model = 'yolo-full' # Version 1 de YOLO trained on VOC12+07
     model = 'yolo-voc' # YOLOv2 	VOC 2007+2012 	2007
     model = 'yolo' #YOLOv2 608x608 	COCO trainval

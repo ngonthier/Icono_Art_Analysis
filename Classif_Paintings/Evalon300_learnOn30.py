@@ -104,15 +104,15 @@ def LearnOn30andTestOn300():
     ext = '.txt'
     if database=='Paintings':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/Painting_Dataset/'
+        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
         classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     elif database=='VOC12':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
     elif database=='VOC2007':
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
         classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
            'bottle', 'bus', 'car', 'cat', 'chair',
            'cow', 'diningtable', 'dog', 'horse',
@@ -121,23 +121,23 @@ def LearnOn30andTestOn300():
     elif database=='watercolor':
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
         classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
     elif database=='PeopleArt':
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
         classes =  ["person"]
     elif database=='WikiTenLabels':
         ext = '.csv'
         item_name = 'item'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
         classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
                     'Mary','nudity', 'ruins','Saint_Sebastien','turban']
     elif database=='clipart':
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
         classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
            'bottle', 'bus', 'car', 'cat', 'chair',
            'cow', 'diningtable', 'dog', 'horse',
@@ -145,11 +145,11 @@ def LearnOn30andTestOn300():
            'sheep', 'sofa', 'train', 'tvmonitor']
     elif(database=='Wikidata_Paintings'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         raise NotImplemented # TODO implementer cela !!! 
     elif(database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
     
     if testMode and not(type(jtest)==int):
@@ -163,7 +163,7 @@ def LearnOn30andTestOn300():
     
         
     
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     databasetxt =path_data + database + ext
     if database=='WikiTenLabels':
         dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \

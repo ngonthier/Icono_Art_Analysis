@@ -67,7 +67,7 @@ CLASSESCOCO = ('__background__','person', 'bicycle','car','motorcycle', 'aeropla
 
 
 NETS = {'vgg16': ('vgg16_faster_rcnn_iter_70000.ckpt',)
-    ,'vgg16_coco': ('/media/HDD/models/tf-faster-rcnn/vgg16/vgg16_faster_rcnn_iter_1190000.ckpt',)    
+    ,'vgg16_coco': ('/media/gonthier/HDD/models/tf-faster-rcnn/vgg16/vgg16_faster_rcnn_iter_1190000.ckpt',)    
     ,'res101': ('res101_faster_rcnn_iter_110000.ckpt',)
     ,'res152' : ('res152_faster_rcnn_iter_1190000.ckpt',)}
 
@@ -112,20 +112,20 @@ def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxO
     
     if database=='Paintings':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/Painting_Dataset/'
+        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
         classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     elif database=='VOC12':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
     elif(database=='Wikidata_Paintings'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         raise NotImplemented # TODO implementer cela !!! 
     elif(database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
-    path = '/media/HDD/output_exp/ClassifPaintings/'
+    path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     databasetxt = path +database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
     
@@ -165,7 +165,7 @@ def run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'MaxO
             CLASSES = CLASSES_SET['COCO']
             anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
         nbClasses = len(CLASSES)
-        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
         tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
         tfconfig = tf.ConfigProto(allow_soft_placement=True)
         tfconfig.gpu_options.allow_growth=True
@@ -335,8 +335,8 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
     max_per_image= 100
     TEST_NMS = 0.3
     thresh= 0.05
-    output_dir=  '/media/HDD/output_exp/ClassifPaintings/tmp/'
-    input_dir=  '/media/HDD/output_exp/ClassifPaintings/'
+    output_dir=  '/media/gonthier/HDD/output_exp/ClassifPaintings/tmp/'
+    input_dir=  '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     if database=='VOC2007' or  database=='clipart':
         per =True
         ext = '.csv'
@@ -397,7 +397,7 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
         elif 'COCO'in demonet:
             CLASSES = CLASSES_SET['COCO']
             anchor_scales = [4, 8, 16, 32]
-        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
         tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
         tfconfig = tf.ConfigProto(allow_soft_placement=True)
         tfconfig.gpu_options.allow_growth=True
@@ -508,7 +508,7 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
         elif 'COCO'in demonet:
             CLASSES = CLASSES_SET['COCO']
             anchor_scales = [4, 8, 16, 32]
-        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
         tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
         tfconfig = tf.ConfigProto(allow_soft_placement=True)
         tfconfig.gpu_options.allow_growth=True
@@ -538,7 +538,7 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
         
         plot = False
         if plot:
-            path_to_output2  = '/media/HDD/output_exp/ClassifPaintings/Perf_FasterRCNN/VOC2007_Test/'
+            path_to_output2  = '/media/gonthier/HDD/output_exp/ClassifPaintings/Perf_FasterRCNN/VOC2007_Test/'
             pathlib.Path(path_to_output2).mkdir(parents=True, exist_ok=True) 
         
         for i in range(num_images):
@@ -667,7 +667,7 @@ def run_FRCNN_Detection_perf(database='VOC2007'):
             
 def read_features_computePerfPaintings():
     """ Function to test if you can refind the same AP metric by reading the saved CNN features """
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt =path_data + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -788,7 +788,7 @@ def run_FasterRCNN_demo():
             CLASSES = CLASSES_SET['COCO']
             anchor_scales = [4, 8, 16, 32]
         nbClasses = len(CLASSES)
-        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
         tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
         
         #tfmodel = os.path.join(path_to_model,DATASETS[dataset][0],NETS[demonet][0])
@@ -824,7 +824,7 @@ def run_FasterRCNN_demo():
         print('Loaded network {:s}'.format(tfmodel))
     
         im_names = ['loulou.jpg', 'cat.jpg', 'dog.jpg']
-        DATA_DIR = '/media/HDD/data/Images/'
+        DATA_DIR = '/media/gonthier/HDD/data/Images/'
         #im_names = ['000456.jpg', '000542.jpg', '001150.jpg',
         #            '001763.jpg', '004545.jpg']
         for im_name in im_names:
@@ -978,7 +978,7 @@ def vis_GT_list(im, class_name_list, dets_list,list_class=None):
     plt.draw()
            
 def FasterRCNN_bigImage():
-    DATA_DIR =  '/media/HDD/data/Art Paintings from Web/'
+    DATA_DIR =  '/media/gonthier/HDD/data/Art Paintings from Web/'
     demonet = 'res152_COCO'
     tf.reset_default_graph() # Needed to use different nets one after the other
     print(demonet)
@@ -989,7 +989,7 @@ def FasterRCNN_bigImage():
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32]
     nbClasses = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     
     #tfmodel = os.path.join(path_to_model,DATASETS[dataset][0],NETS[demonet][0])
@@ -1025,7 +1025,7 @@ def FasterRCNN_bigImage():
     print('Loaded network {:s}'.format(tfmodel))
     #im_name = 'L Adoration des mages - Jan Mabuse - 1515.jpg'
     im_name = '000002.jpg'
-    path = '/media/HDD/data/VOCdevkit/VOC2007test/JPEGImages/'
+    path = '/media/gonthier/HDD/data/VOCdevkit/VOC2007test/JPEGImages/'
     im_name = path + im_name
     print('Demo for data/demo/{}'.format(im_name))
     imfile = os.path.join(DATA_DIR, im_name)
@@ -1055,7 +1055,7 @@ def FasterRCNN_bigImage():
     sess.close()
     
 def FasterRCNN_demo2():
-    DATA_DIR =  '/media/HDD/data/Art Paintings from Web/'
+    DATA_DIR =  '/media/gonthier/HDD/data/Art Paintings from Web/'
     demonet = 'res152_COCO'
     tf.reset_default_graph() # Needed to use different nets one after the other
     print(demonet)
@@ -1066,7 +1066,7 @@ def FasterRCNN_demo2():
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32]
     nbClasses = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     
     #tfmodel = os.path.join(path_to_model,DATASETS[dataset][0],NETS[demonet][0])
@@ -1102,7 +1102,7 @@ def FasterRCNN_demo2():
     print('Loaded network {:s}'.format(tfmodel))
     #im_name = 'L Adoration des mages - Jan Mabuse - 1515.jpg'
     im_name = '000002.jpg'
-    path = '/media/HDD/data/VOCdevkit/VOC2007test/JPEGImages/'
+    path = '/media/gonthier/HDD/data/VOCdevkit/VOC2007test/JPEGImages/'
     im_name = path + im_name
     print('Demo for data/demo/{}'.format(im_name))
     imfile = os.path.join(DATA_DIR, im_name)
@@ -1147,7 +1147,7 @@ def FasterRCNN_TransferLearning_outlier():
     """
     reDo = False
     classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
+    path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
     database = 'Paintings'
     databasetxt = database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -1174,7 +1174,7 @@ def FasterRCNN_TransferLearning_outlier():
             CLASSES = CLASSES_SET['COCO']
             anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
         nbClasses = len(CLASSES)
-        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
         tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
         tfconfig = tf.ConfigProto(allow_soft_placement=True)
         tfconfig.gpu_options.allow_growth=True
@@ -1197,7 +1197,7 @@ def FasterRCNN_TransferLearning_outlier():
           
         if database=='Paintings':
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/Painting_Dataset/'
+            path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
         path_data = 'data/'
         N = 1
@@ -1368,8 +1368,8 @@ def FasterRCNN_TransferLearning_misvm():
     """
     reDo = False
     classes_paitings = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
-    path = '/media/HDD/output_exp/ClassifPaintings/'
+    path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
+    path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt =path + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -1395,7 +1395,7 @@ def FasterRCNN_TransferLearning_misvm():
             CLASSES = CLASSES_SET['COCO']
             anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
         nbClasses = len(CLASSES)
-        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
         tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
         tfconfig = tf.ConfigProto(allow_soft_placement=True)
         tfconfig.gpu_options.allow_growth=True
@@ -1418,7 +1418,7 @@ def FasterRCNN_TransferLearning_misvm():
           
         if database=='Paintings':
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/Painting_Dataset/'
+            path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
         path_data = path
         N = 1
@@ -1566,49 +1566,49 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     @param : nms_thresh : the nms threshold on the Region Proposal Network
     
     """
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
     if database=='Paintings':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/Painting_Dataset/' 
+        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/' 
         num_classes = 10
         ext = '.txt'
     elif database=='VOC12':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
         num_classes = 20
         ext = '.txt'
         raise(NotImplementedError)
     elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
         ext = '.csv'
         item_name = 'item'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
         classes = ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
                     'Mary','nudity', 'ruins','Saint_Sebastien','turban']
         num_classes = 10
     elif database=='VOC2007':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
         num_classes = 20
         ext = '.csv'
     elif database=='PeopleArt':
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/PeopleArt/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
         num_classes = 1
         ext = '.csv'
     elif database=='watercolor':
         num_classes = 6
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
     elif database=='clipart':
         num_classes = 20
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         num_classes = 5
         ext = '.txt'
     elif(database=='IconArt_v1'):
@@ -1617,14 +1617,14 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         item_name='item'
         classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
         'Mary','nudity', 'ruins','Saint_Sebastien']
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
     else:
         item_name = 'image'
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
         ext = '.txt'
     
     if database=='IconArt_v1':
-        path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+        path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
     else:
         path_data_csvfile = path_data
         
@@ -1667,7 +1667,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
     nbClassesDemoNet = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
     tfconfig.gpu_options.allow_growth=True
@@ -1944,7 +1944,7 @@ def Save_TFRecords_PCA_features(demonet='res152_COCO',nms_thresh = 0.7,database=
         print(database,' unknown')
         raise NotImplemented
     
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
 
     if augmentation:
         raise NotImplementedError
@@ -1965,10 +1965,10 @@ def Save_TFRecords_PCA_features(demonet='res152_COCO',nms_thresh = 0.7,database=
 
     name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+ \
             '_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
-    path_to_img = '/media/HDD/data/' + path_to_img
-    dataImg_path = '/media/HDD/data/'
+    path_to_img = '/media/gonthier/HDD/data/' + path_to_img
+    dataImg_path = '/media/gonthier/HDD/data/'
     if database=='IconArt_v1':
-        path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+        path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
     else:
         path_data_csvfile = path_data
     
@@ -2101,7 +2101,7 @@ def Save_TFRecords_PCA_features(demonet='res152_COCO',nms_thresh = 0.7,database=
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
     nbClassesDemoNet = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
     tfconfig.gpu_options.allow_growth=True
@@ -2282,7 +2282,7 @@ def Illus_NMS_threshold_test():
     And plot the zone considered as the best by the Faster RCNN 
     """ 
     NETS_Pretrained = {'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'}
-    path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/'
+    path_to_output = '/media/gonthier/HDD/output_exp/ClassifPaintings/Test_nms_threshold/'
     demonet = 'res152_COCO'
     tf.reset_default_graph() # Needed to use different nets one after the other
     print(demonet)
@@ -2293,7 +2293,7 @@ def Illus_NMS_threshold_test():
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
     nbClasses = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
     tfconfig.gpu_options.allow_growth=True
@@ -2315,8 +2315,8 @@ def Illus_NMS_threshold_test():
       raise NotImplementedError
       
     # List des images a test 
-    path_to_img = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/'
-    path_to_imgARTUK =  '/media/HDD/data/Painting_Dataset/'
+    path_to_img = '/media/gonthier/HDD/output_exp/ClassifPaintings/Test_nms_threshold/'
+    path_to_imgARTUK =  '/media/gonthier/HDD/data/Painting_Dataset/'
     list_name_img = ['dog','acc_acc_ac_5289_624x544','not_ncmg_1941_23_624x544',
                      'Albertinelli Franciabigio Vièrge et saints','1979.18 01 p01',
                      'abd_aag_003796_624x544',
@@ -2427,7 +2427,7 @@ def Illus_ScoreObjectness():
     TEST_NMS = 0.7
     num_classes = 21
     thresh = 0.0
-    path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_ObjectScore/'
+    path_to_output = '/media/gonthier/HDD/output_exp/ClassifPaintings/Test_ObjectScore/'
     pathlib.Path(path_to_output).mkdir(parents=True, exist_ok=True) 
     demonet = 'res152_COCO'
     tf.reset_default_graph() # Needed to use different nets one after the other
@@ -2439,7 +2439,7 @@ def Illus_ScoreObjectness():
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
     nbClasses = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
     tfconfig.gpu_options.allow_growth=True
@@ -2461,7 +2461,7 @@ def Illus_ScoreObjectness():
       raise NotImplementedError
       
     # List des images a test 
-    path_to_img = '/media/HDD/output_exp/ClassifPaintings/im/'
+    path_to_img = '/media/gonthier/HDD/output_exp/ClassifPaintings/im/'
     
     # creation of the images :
 #    random_im = np.clip(np.random.normal(loc=125,size=(600,600,3),scale=25),0,255)
@@ -2526,7 +2526,7 @@ def Illus_box_ratio():
     num_classes = 21
     thresh = 0.0
     #NETS_Pretrained = {'res152_COCO' :'res152_faster_rcnn_iter_1190000.ckpt'}
-    path_to_output = '/media/HDD/output_exp/ClassifPaintings/Test_nms_threshold/'
+    path_to_output = '/media/gonthier/HDD/output_exp/ClassifPaintings/Test_nms_threshold/'
     demonet = 'res152_COCO'
     tf.reset_default_graph() # Needed to use different nets one after the other
     print(demonet)
@@ -2537,7 +2537,7 @@ def Illus_box_ratio():
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
     nbClasses = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
     tfconfig.gpu_options.allow_growth=True
@@ -2559,8 +2559,8 @@ def Illus_box_ratio():
       raise NotImplementedError
       
     # List des images a test 
-    path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
-    path_to_img = '/media/HDD/output_exp/ClassifPaintings/im/'
+    path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+    path_to_img = '/media/gonthier/HDD/output_exp/ClassifPaintings/im/'
     list_name_img = ['000001']
     list_name_img = ['medaille-charms-need-dog']
     nms_thresh = 0.7
@@ -2688,8 +2688,8 @@ def FasterRCNN_TL_MI_max(reDo = False,normalisation=False):
     print("Attention cette fonction ne fonctionne pas et je n'ai pas trouver le bug, il ne faut pas utiliser cette fonction mais plutot aller voir TL_MI_max")
     raise NotImplemented # TODO remove this function !
     TestMode_ComparisonWithBestObjectScoreKeep = True
-    path_to_img = '/media/HDD/data/Painting_Dataset/'
-    path = '/media/HDD/output_exp/ClassifPaintings/'
+    path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
+    path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     database = 'Paintings'
     databasetxt =path + database + '.txt'
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -2710,7 +2710,7 @@ def FasterRCNN_TL_MI_max(reDo = False,normalisation=False):
             CLASSES = CLASSES_SET['COCO']
             anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
         nbClasses = len(CLASSES)
-        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
         tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
         tfconfig = tf.ConfigProto(allow_soft_placement=True)
         tfconfig.gpu_options.allow_growth=True
@@ -2733,18 +2733,18 @@ def FasterRCNN_TL_MI_max(reDo = False,normalisation=False):
           
         if database=='Paintings':
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/Painting_Dataset/'
+            path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
             classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
         elif database=='VOC12':
             item_name = 'name_img'
-            path_to_img = '/media/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
+            path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
         elif(database=='Wikidata_Paintings'):
             item_name = 'image'
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
             raise NotImplemented # TODO implementer cela !!! 
         elif(database=='Wikidata_Paintings_miniset_verif'):
             item_name = 'image'
-            path_to_img = '/media/HDD/data/Wikidata_Paintings/600/'
+            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
             classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
         path_data = path
         N = 1
@@ -2917,7 +2917,7 @@ def FasterRCNN_TL_MI_max(reDo = False,normalisation=False):
         print(AP_per_class)
     
 def FasterRCNN_TransferLearning_Test_Bidouille():
-    DATA_DIR =  '/media/HDD/data/Art Paintings from Web/'
+    DATA_DIR =  '/media/gonthier/HDD/data/Art Paintings from Web/'
     demonet = 'res152_COCO'
     tf.reset_default_graph() # Needed to use different nets one after the other
     print(demonet)
@@ -2928,7 +2928,7 @@ def FasterRCNN_TransferLearning_Test_Bidouille():
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32]
     nbClasses = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     
     #tfmodel = os.path.join(path_to_model,DATASETS[dataset][0],NETS[demonet][0])
@@ -3010,9 +3010,9 @@ def FasterRCNN_TransferLearning_Test_Bidouille():
     sess.close()
     
 def FasterRCNN_ImagesObject():
-    DATA_DIR =  '/media/HDD/data/Art Paintings from Web/'
-    DATA_DIR =  '/media/HDD/data/Fondazione_Zeri/Selection_Olivier/'
-    output_DIR = '/media/HDD/output_exp/ClassifPaintings/Zeri/'
+    DATA_DIR =  '/media/gonthier/HDD/data/Art Paintings from Web/'
+    DATA_DIR =  '/media/gonthier/HDD/data/Fondazione_Zeri/Selection_Olivier/'
+    output_DIR = '/media/gonthier/HDD/output_exp/ClassifPaintings/Zeri/'
     pathlib.Path(output_DIR).mkdir(parents=True, exist_ok=True)
     demonet = 'res152_COCO'
     tf.reset_default_graph() # Needed to use different nets one after the other
@@ -3024,7 +3024,7 @@ def FasterRCNN_ImagesObject():
         CLASSES = CLASSES_SET['COCO']
         anchor_scales = [4, 8, 16, 32]
     nbClasses = len(CLASSES)
-    path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
     
     #tfmodel = os.path.join(path_to_model,DATASETS[dataset][0],NETS[demonet][0])
