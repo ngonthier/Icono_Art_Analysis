@@ -129,7 +129,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = True
@@ -139,7 +139,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = True
             seuillage_by_score=False
@@ -148,7 +148,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = True
             seuillage_by_score=False
@@ -157,7 +157,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = True
             seuillage_by_score=False
@@ -166,7 +166,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = False
             with_scores = True
             seuillage_by_score=False
@@ -174,7 +174,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = False
@@ -184,7 +184,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=False
@@ -193,7 +193,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -203,7 +203,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -213,7 +213,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -223,7 +223,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -232,7 +232,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = True
             CV_Mode = 'CV'
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = True
@@ -241,7 +241,7 @@ def VariationStudyPart1_forVOC07():
             C_Searching = True
             CV_Mode = 'CV'
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = False
@@ -406,7 +406,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         loss_type = ''
         WR = True
         with_scores = True
@@ -420,7 +420,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         WR = True
         with_scores = True
         seuillage_by_score=False
@@ -435,7 +435,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         WR = True
         with_scores = True
         seuillage_by_score=False
@@ -447,7 +447,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         WR = True
         with_scores = True
         seuillage_by_score=False
@@ -459,7 +459,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         WR = False
         with_scores = True
         seuillage_by_score=False
@@ -468,7 +468,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         loss_type = ''
         WR = True
         with_scores = False
@@ -481,7 +481,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         WR = True
         with_scores = False
         seuillage_by_score=False
@@ -490,7 +490,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         WR = True
         with_scores = False
         seuillage_by_score=True
@@ -500,7 +500,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         WR = True
         with_scores = False
         seuillage_by_score=True
@@ -513,7 +513,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         WR = True
         with_scores = False
         seuillage_by_score=True
@@ -526,7 +526,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         WR = True
         with_scores = False
         seuillage_by_score=True
@@ -539,7 +539,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = True
         CV_Mode = 'CV'
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         loss_type = ''
         WR = True
         with_scores = True
@@ -552,7 +552,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = True
         CV_Mode = 'CV'
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         loss_type = ''
         WR = True
         with_scores = False
@@ -565,7 +565,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         loss_type = ''
         WR = True
         with_scores = False
@@ -578,7 +578,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         loss_type = ''
         WR = True
         with_scores = False
@@ -591,7 +591,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         loss_type = ''
         WR = True
         with_scores = False
@@ -604,7 +604,7 @@ def get_params_fromi_scenario(i_scenario):
         C_Searching = False
         CV_Mode = ''
         AggregW = None
-        proportionToKeep = 0.25
+        proportionToKeep = [0.25,1.0]
         loss_type = ''
         WR = True
         with_scores = False
@@ -657,7 +657,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
     for i_scenario in listi:
         print('Scenario :',i_scenario)
         output = get_params_fromi_scenario(i_scenario)
-        listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,WR,\
+        listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeepTab,loss_type,WR,\
         with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh = output
 
         if C_Searching:
@@ -728,6 +728,12 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
                 item_name = 'image'
                 path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
                 raise NotImplemented # TODO implementer cela !!! 
+            elif(database=='IconArt_v1'):
+                ext='.csv'
+                item_name='item'
+                classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+                'Mary','nudity', 'ruins','Saint_Sebastien']
+                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
             elif(database=='Wikidata_Paintings_miniset_verif'):
                 item_name = 'image'
                 path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
@@ -736,7 +742,11 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
                 raise NotImplemented
             
             path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-            databasetxt =path_data + database + ext
+            if database=='IconArt_v1':
+                path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+            else:
+                path_data_csvfile = path_data
+            databasetxt =path_data_csvfile + database + ext
             if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
                               'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
@@ -800,7 +810,11 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
             elif database=='clipart':
                 imdb = get_imdb('clipart_test')
                 imdb.set_force_dont_use_07_metric(dont_use_07_metric)
-                num_images = len(imdb.image_index) 
+                num_images = len(imdb.image_index)
+            elif database=='IconArt_v1':
+                imdb = get_imdb('IconArt_v1_test')
+                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+                num_images = len(df_label[df_label['set']=='test'][item_name])
             elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 imdb = get_imdb('WikiTenLabels_test')
                 imdb.set_force_dont_use_07_metric(dont_use_07_metric)
@@ -808,9 +822,6 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
                 num_images =  len(df_label[df_label['set']=='test'][item_name])
             else:
                 num_images =  len(df_label[df_label['set']=='test'][item_name])
-            
-                           
-               
                 
             with open(name_dictW, 'rb') as f:
                  Dict = pickle.load(f)
@@ -820,146 +831,164 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
             np_pos_value =  Dict['np_pos_value'] 
             np_neg_value =  Dict['np_neg_value']
     #            print(Wstored.shape)
-
+            
+            if not(list==type(proportionToKeepTab)):
+                proportionToKeepTab = [proportionToKeepTab]
+    
             for AggregW in listAggregW:
                 print('Scenario',i_scenario,'AggregW',AggregW,'for ',database)
-                name_dictAP = name_dict  + '_' +str(AggregW)  + '_APscore.pkl'
-                ReDo  =False
-                if not os.path.isfile(name_dictAP) or ReDo:
-#                    print('name_dictAP',name_dictAP)
-#                    print('Wstored',Wstored.shape)
-#                    print('numberofW_to_keep',numberofW_to_keep)
-#                    input('wait')
-                    DictAP = {}
-                
-                    ll = []
-                    l01 = []
-                    lclassif = []
-                    ## Create the model
-                    modelcreator = ModelHyperplan(norm='',AggregW=AggregW,epsilon=0.01,mini_batch_size=1000,num_features=num_features,num_rois=k_per_bag,num_classes=num_classes,
-                         with_scores=with_scores,seuillage_by_score=seuillage_by_score,
-                         proportionToKeep=proportionToKeep,restarts=numberofW_to_keep-1,seuil=seuil,
-                         obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                         obj_score_mul_tanh=obj_score_mul_tanh)
-                    class_indice = -1
-                    ## Compute the best vectors 
-                    for l in range(number_of_reboots): 
-                        print('reboot :',l)
-                        all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
-                        Wstored_extract = Wstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep,:]
-                        W_tmp = np.reshape(Wstored_extract,(-1,num_features),order='F')
-                        b_tmp =np.reshape( Bstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep],(-1,1,1),order='F')
-                        Lossstoredextract = Lossstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep]
-                        loss_value = np.reshape(Lossstoredextract,(-1,),order='F')
-                        ## Creation of the model
-                        export_dir =  modelcreator.createIt(data_path,class_indice,W_tmp,b_tmp,loss_value)
-                        number_zone = 300
-                        Number_of_positif_elt = 1
-                        dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
-                        parameters=False,False,False,False
-    #                    parameters=PlotRegions,RPN,Stocha,CompBest
-                        param_clf = k_per_bag,1,num_features
-    #                    param_clf = k_per_bag,Number_of_positif_elt,num_features
-                        thresh_evaluation = 0.05
-                        TEST_NMS = 0.3
-                        predict_with= 'MI_max'
-                        transform_output = 'tanh'
-                        seuil_estimation= False
-                        mini_batch_size = 1000
-                        verbose = False
-                        true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited \
-                        ,all_boxes = \
-                        tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
-                               export_dir,dict_name_file,mini_batch_size,config,
-                               path_to_img,path_data,param_clf,classes,parameters,verbose,
-                               seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
-                               cachefile_model_base='',transform_output=transform_output,
-                               scoreInMI_max=(with_scores or seuillage_by_score or obj_score_add_tanh or obj_score_mul_tanh)
-                               ,AggregW=AggregW,obj_score_add_tanh=obj_score_add_tanh,
-                               obj_score_mul_tanh=obj_score_mul_tanh)
-                        tf.reset_default_graph()
-                        # Classification Perf
-                        AP_per_class = []
-                        for j,classe in enumerate(classes):
-                            AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
-                            AP_per_class += [AP]    
-                        
-                        # Detection Perf 
-#                        det_file = os.path.join(path_data, 'detections_aux.pkl')
-#                        with open(det_file, 'wb') as f:
-#                            pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
-                        max_per_image = 100
-                        num_images_detect = len(imdb.image_index)  # We do not have the same number of images in the WikiTenLabels case
-                        all_boxes_order = [[[] for _ in range(num_images_detect)] for _ in range(imdb.num_classes)]
-                        number_im = 0
-                        for idetect in range(num_images_detect):
-                            name_img = imdb.image_path_at(idetect)
-                            if database=='PeopleArt':
-                                name_img_wt_ext = name_img.split('/')[-2] +'/' +name_img.split('/')[-1]
-                                name_img_wt_ext_tab =name_img_wt_ext.split('.')
-                                name_img_wt_ext = '.'.join(name_img_wt_ext_tab[0:-1])
-                            else:
-                                name_img_wt_ext = name_img.split('/')[-1]
-                                name_img_wt_ext =name_img_wt_ext.split('.')[0]
-                            name_img_ind = np.where(np.array(name_all_test)==name_img_wt_ext)[0]
-                            #print(name_img_ind)
-                            if len(name_img_ind)==0:
-                                print('len(name_img_ind), images not found in the all_boxes')
-                                print(name_img_wt_ext)
-                                raise(Exception)
-                            else:
-                                number_im += 1 
-                            #print(name_img_ind[0])
-                            for j in range(1, imdb.num_classes):
-                                j_minus_1 = j-1
-                                all_boxes_order[j][idetect]  = all_boxes[j_minus_1][name_img_ind[0]]
-                            if max_per_image > 0:
-                                image_scores = np.hstack([all_boxes_order[j][idetect][:, -1]
-                                            for j in range(1, imdb.num_classes)])
-                                if len(image_scores) > max_per_image:
-                                    image_thresh = np.sort(image_scores)[-max_per_image]
-                                    for j in range(1, imdb.num_classes):
-                                        keep = np.where(all_boxes_order[j][idetect][:, -1] >= image_thresh)[0]
-                                        all_boxes_order[j][idetect] = all_boxes_order[j][idetect][keep, :]
-                        assert (number_im==num_images_detect) # To check that we have the all the images in the detection prediction
-                        det_file = os.path.join(path_data, 'detections.pkl')
-                        with open(det_file, 'wb') as f:
-                            pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
-                        output_dir = path_data +'tmp/' + database+'_mAP.txt'
-                        aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
-                        apsAt05 = aps
-#                        print("Detection score (thres = 0.5): ",database)
-#                        print(arrayToLatex(aps,per=True))
-                        ovthresh_tab = [0.1]
-                        for ovthresh in ovthresh_tab:
-                            aps = imdb.evaluate_localisation_ovthresh(all_boxes_order, output_dir,ovthresh)
-                            if ovthresh == 0.1:
-                                apsAt01 = aps
-#                            print("Detection score with thres at ",ovthresh)
-#                            print(arrayToLatex(aps,per=True))
-#                        imdb.set_use_diff(True) # Modification of the use_diff attribute in the imdb 
-#                        aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
-#                        print("Detection score with the difficult element")
-#                        print(arrayToLatex(aps,per=True))
-#                        imdb.set_use_diff(False)
-                        
-                        print(apsAt05,apsAt01,AP_per_class)
-                        tf.reset_default_graph()
-                        # aps ne contient pas le mean sur les classes en fait
-                        ll += [apsAt05]
-                        l01 += [apsAt01]
-                        lclassif += [AP_per_class]
-                    # End of the 100 experiment for a specific AggreW
-                    ll_all = np.vstack(ll)
-                    l01_all = np.vstack(l01)
-                    apsClassif_all = np.vstack(lclassif)
+                if AggregW is None or AggregW=='':
+                    proportionToKeepTabLocal = [0.]
+                    name_dictAP = name_dict  + '_' +str(AggregW)  + '_APscore.pkl'
+                else:
+                    proportionToKeepTabLocal = proportionToKeepTab
+                for proportionToKeep in proportionToKeepTabLocal:
+                    name_dictAP = name_dict  + '_' +str(AggregW) 
+                    if not(AggregW is None or AggregW==''):
+                        name_dictAP += '_'+str(proportionToKeep)+ '_APscore.pkl'
 
-                    DictAP['AP@.5'] =  ll_all
-                    DictAP['AP@.1'] =  l01_all
-                    DictAP['APClassif'] =  apsClassif_all
-                
-                    with open(name_dictAP, 'wb') as f:
-                        pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+                    ReDo  =False
+                    if not os.path.isfile(name_dictAP) or ReDo:
+    #                    print('name_dictAP',name_dictAP)
+    #                    print('Wstored',Wstored.shape)
+    #                    print('numberofW_to_keep',numberofW_to_keep)
+    #                    input('wait')
+                        DictAP = {}
+                    
+                        ll = []
+                        l01 = []
+                        lclassif = []
+                        ## Create the model
+                        modelcreator = ModelHyperplan(norm='',AggregW=AggregW,epsilon=0.01,mini_batch_size=1000,num_features=num_features,num_rois=k_per_bag,num_classes=num_classes,
+                             with_scores=with_scores,seuillage_by_score=seuillage_by_score,
+                             proportionToKeep=proportionToKeep,restarts=numberofW_to_keep-1,seuil=seuil,
+                             obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                             obj_score_mul_tanh=obj_score_mul_tanh)
+                        class_indice = -1
+                        ## Compute the best vectors 
+                        cachefile_model_base='WLS_run100'
+                        for l in range(number_of_reboots): 
+                            print('reboot :',l)
+                            all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
+                            Wstored_extract = Wstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep,:]
+                            W_tmp = np.reshape(Wstored_extract,(-1,num_features),order='F')
+                            b_tmp =np.reshape( Bstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep],(-1,1,1),order='F')
+                            Lossstoredextract = Lossstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep]
+                            loss_value = np.reshape(Lossstoredextract,(-1,),order='F')
+                            ## Creation of the model
+                            export_dir =  modelcreator.createIt(data_path,class_indice,W_tmp,b_tmp,loss_value)
+                            number_zone = 300
+                            Number_of_positif_elt = 1
+                            dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
+                            parameters=False,False,False,False
+        #                    parameters=PlotRegions,RPN,Stocha,CompBest
+                            param_clf = k_per_bag,1,num_features
+        #                    param_clf = k_per_bag,Number_of_positif_elt,num_features
+                            thresh_evaluation = 0.05
+                            TEST_NMS = 0.3
+                            predict_with= 'MI_max'
+                            if 'Tanh' in AggregW:
+                                transform_output = ''
+                            else:
+                                transform_output = 'tanh'
+                            seuil_estimation= False
+                            mini_batch_size = 1000
+                            verbose = False
+                            true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited \
+                            ,all_boxes = \
+                            tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
+                                   export_dir,dict_name_file,mini_batch_size,config,
+                                   path_to_img,path_data,param_clf,classes,parameters,verbose,
+                                   seuil_estimation,thresh_evaluation,TEST_NMS,all_boxes=all_boxes,
+                                   cachefile_model_base=cachefile_model_base,transform_output=transform_output,
+                                   scoreInMI_max=(with_scores or seuillage_by_score or obj_score_add_tanh or obj_score_mul_tanh)
+                                   ,AggregW=AggregW,obj_score_add_tanh=obj_score_add_tanh,
+                                   obj_score_mul_tanh=obj_score_mul_tanh)
+                            tf.reset_default_graph()
+#                            print(export_dir)
+#                            os.remove(export_dir)
+                            # Classification Perf
+                            AP_per_class = []
+                            for j,classe in enumerate(classes):
+                                AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
+                                AP_per_class += [AP]    
+                            
+                            # Detection Perf 
+    #                        det_file = os.path.join(path_data, 'detections_aux.pkl')
+    #                        with open(det_file, 'wb') as f:
+    #                            pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+                            max_per_image = 100
+                            num_images_detect = len(imdb.image_index)  # We do not have the same number of images in the WikiTenLabels case
+                            all_boxes_order = [[[] for _ in range(num_images_detect)] for _ in range(imdb.num_classes)]
+                            number_im = 0
+                            for idetect in range(num_images_detect):
+                                name_img = imdb.image_path_at(idetect)
+                                if database=='PeopleArt':
+                                    name_img_wt_ext = name_img.split('/')[-2] +'/' +name_img.split('/')[-1]
+                                    name_img_wt_ext_tab =name_img_wt_ext.split('.')
+                                    name_img_wt_ext = '.'.join(name_img_wt_ext_tab[0:-1])
+                                else:
+                                    name_img_wt_ext = name_img.split('/')[-1]
+                                    name_img_wt_ext =name_img_wt_ext.split('.')[0]
+                                name_img_ind = np.where(np.array(name_all_test)==name_img_wt_ext)[0]
+                                #print(name_img_ind)
+                                if len(name_img_ind)==0:
+                                    print('len(name_img_ind), images not found in the all_boxes')
+                                    print(name_img_wt_ext)
+                                    raise(Exception)
+                                else:
+                                    number_im += 1 
+                                #print(name_img_ind[0])
+                                for j in range(1, imdb.num_classes):
+                                    j_minus_1 = j-1
+                                    all_boxes_order[j][idetect]  = all_boxes[j_minus_1][name_img_ind[0]]
+                                if max_per_image > 0:
+                                    image_scores = np.hstack([all_boxes_order[j][idetect][:, -1]
+                                                for j in range(1, imdb.num_classes)])
+                                    if len(image_scores) > max_per_image:
+                                        image_thresh = np.sort(image_scores)[-max_per_image]
+                                        for j in range(1, imdb.num_classes):
+                                            keep = np.where(all_boxes_order[j][idetect][:, -1] >= image_thresh)[0]
+                                            all_boxes_order[j][idetect] = all_boxes_order[j][idetect][keep, :]
+                            assert (number_im==num_images_detect) # To check that we have the all the images in the detection prediction
+                            det_file = os.path.join(path_data, 'detections.pkl')
+                            with open(det_file, 'wb') as f:
+                                pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
+                            output_dir = path_data +'tmp/' + database+'_mAP.txt'
+                            aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
+                            apsAt05 = aps
+    #                        print("Detection score (thres = 0.5): ",database)
+    #                        print(arrayToLatex(aps,per=True))
+                            ovthresh_tab = [0.1]
+                            for ovthresh in ovthresh_tab:
+                                aps = imdb.evaluate_localisation_ovthresh(all_boxes_order, output_dir,ovthresh)
+                                if ovthresh == 0.1:
+                                    apsAt01 = aps
+    #                            print("Detection score with thres at ",ovthresh)
+    #                            print(arrayToLatex(aps,per=True))
+    #                        imdb.set_use_diff(True) # Modification of the use_diff attribute in the imdb 
+    #                        aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
+    #                        print("Detection score with the difficult element")
+    #                        print(arrayToLatex(aps,per=True))
+    #                        imdb.set_use_diff(False)
+                            
+                            print(apsAt05,apsAt01,AP_per_class)
+                            tf.reset_default_graph()
+                            # aps ne contient pas le mean sur les classes en fait
+                            ll += [apsAt05]
+                            l01 += [apsAt01]
+                            lclassif += [AP_per_class]
+                        # End of the 100 experiment for a specific AggreW
+                        ll_all = np.vstack(ll)
+                        l01_all = np.vstack(l01)
+                        apsClassif_all = np.vstack(lclassif)
+    
+                        DictAP['AP@.5'] =  ll_all
+                        DictAP['AP@.1'] =  l01_all
+                        DictAP['APClassif'] =  apsClassif_all
+                    
+                        with open(name_dictAP, 'wb') as f:
+                            pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
                         
 def VariationStudyPart2_forVOC07():
     '''
@@ -996,7 +1025,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = True
@@ -1010,7 +1039,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = True
             seuillage_by_score=False
@@ -1025,7 +1054,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = True
             seuillage_by_score=False
@@ -1037,7 +1066,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = True
             seuillage_by_score=False
@@ -1049,7 +1078,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = False
             with_scores = True
             seuillage_by_score=False
@@ -1057,7 +1086,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = False
@@ -1070,7 +1099,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=False
@@ -1079,7 +1108,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -1089,7 +1118,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -1102,7 +1131,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -1115,7 +1144,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -1128,7 +1157,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = True
             CV_Mode = 'CV'
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = True
@@ -1141,7 +1170,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = True
             CV_Mode = 'CV'
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = False
@@ -1154,7 +1183,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = False
@@ -1167,7 +1196,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = False
@@ -1180,7 +1209,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = False
@@ -1193,7 +1222,7 @@ def VariationStudyPart2_forVOC07():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = False
@@ -1545,7 +1574,7 @@ def VariationStudyPart2bis():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = True
@@ -1556,7 +1585,7 @@ def VariationStudyPart2bis():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = True
             seuillage_by_score=False
@@ -1565,7 +1594,7 @@ def VariationStudyPart2bis():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = True
             seuillage_by_score=False
@@ -1574,7 +1603,7 @@ def VariationStudyPart2bis():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = True
             seuillage_by_score=False
@@ -1583,7 +1612,7 @@ def VariationStudyPart2bis():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = False
             with_scores = True
             seuillage_by_score=False
@@ -1591,7 +1620,7 @@ def VariationStudyPart2bis():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
             WR = True
             with_scores = False
@@ -1601,7 +1630,7 @@ def VariationStudyPart2bis():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=False
@@ -1610,7 +1639,7 @@ def VariationStudyPart2bis():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -1620,7 +1649,7 @@ def VariationStudyPart2bis():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -1630,7 +1659,7 @@ def VariationStudyPart2bis():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -1640,7 +1669,7 @@ def VariationStudyPart2bis():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             WR = True
             with_scores = False
             seuillage_by_score=True
@@ -2089,7 +2118,7 @@ def VariationStudyPart3bis():
                 C_Searching = False
                 CV_Mode = ''
                 AggregW = None
-                proportionToKeep = 0.25
+                proportionToKeep = [0.25,1.0]
                 loss_type = ''
                 WR = True
                 with_scores = True
@@ -2100,7 +2129,7 @@ def VariationStudyPart3bis():
                 C_Searching = False
                 CV_Mode = ''
                 AggregW = None
-                proportionToKeep = 0.25
+                proportionToKeep = [0.25,1.0]
                 WR = True
                 with_scores = True
                 seuillage_by_score=False
@@ -2109,7 +2138,7 @@ def VariationStudyPart3bis():
                 C_Searching = False
                 CV_Mode = ''
                 AggregW = None
-                proportionToKeep = 0.25
+                proportionToKeep = [0.25,1.0]
                 WR = True
                 with_scores = True
                 seuillage_by_score=False
@@ -2118,7 +2147,7 @@ def VariationStudyPart3bis():
                 C_Searching = False
                 CV_Mode = ''
                 AggregW = None
-                proportionToKeep = 0.25
+                proportionToKeep = [0.25,1.0]
                 WR = True
                 with_scores = True
                 seuillage_by_score=False
@@ -2127,7 +2156,7 @@ def VariationStudyPart3bis():
                 C_Searching = False
                 CV_Mode = ''
                 AggregW = None
-                proportionToKeep = 0.25
+                proportionToKeep = [0.25,1.0]
                 WR = False
                 with_scores = True
                 seuillage_by_score=False
@@ -2135,7 +2164,7 @@ def VariationStudyPart3bis():
                 C_Searching = False
                 CV_Mode = ''
                 AggregW = None
-                proportionToKeep = 0.25
+                proportionToKeep = [0.25,1.0]
                 loss_type = ''
                 WR = True
                 with_scores = False
@@ -2145,7 +2174,7 @@ def VariationStudyPart3bis():
                 C_Searching = False
                 CV_Mode = ''
                 AggregW = None
-                proportionToKeep = 0.25
+                proportionToKeep = [0.25,1.0]
                 WR = True
                 with_scores = False
                 seuillage_by_score=False
@@ -2154,7 +2183,7 @@ def VariationStudyPart3bis():
                 C_Searching = False
                 CV_Mode = ''
                 AggregW = None
-                proportionToKeep = 0.25
+                proportionToKeep = [0.25,1.0]
                 WR = True
                 with_scores = False
                 seuillage_by_score=True
@@ -2164,7 +2193,7 @@ def VariationStudyPart3bis():
                 C_Searching = False
                 CV_Mode = ''
                 AggregW = None
-                proportionToKeep = 0.25
+                proportionToKeep = [0.25,1.0]
                 WR = True
                 with_scores = False
                 seuillage_by_score=True
@@ -2174,7 +2203,7 @@ def VariationStudyPart3bis():
                 C_Searching = False
                 CV_Mode = ''
                 AggregW = None
-                proportionToKeep = 0.25
+                proportionToKeep = [0.25,1.0]
                 WR = True
                 with_scores = False
                 seuillage_by_score=True
@@ -2184,7 +2213,7 @@ def VariationStudyPart3bis():
                 C_Searching = False
                 CV_Mode = ''
                 AggregW = None
-                proportionToKeep = 0.25
+                proportionToKeep = [0.25,1.0]
                 WR = True
                 with_scores = False
                 seuillage_by_score=True
@@ -2275,56 +2304,56 @@ def VariationStudy():
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
             loss_type = ''
         elif i==1:
             loss_type='MSE'
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
         elif i==2:
             loss_type='hinge_tanh'
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
         elif i==3:
             loss_type='hinge'
             C_Searching = False
             CV_Mode = ''
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
         elif i==4:
             loss_type = ''
             C_Searching = False
             CV_Mode = ''
             AggregW = 'maxOfTanh'
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
         elif i==5:
             loss_type = ''
             C_Searching = False
             CV_Mode = ''
             AggregW = 'meanOfTanh'
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
         elif i==6:
             loss_type = ''
             C_Searching = False
             CV_Mode = ''
             AggregW = 'AveragingW'
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
         elif i==7:
             loss_type = ''
             C_Searching = False
             CV_Mode = 'CVforCsearch'
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
         elif i==8:
             loss_type = ''
             C_Searching = True
             CV_Mode = 'CV' 
             AggregW = None
-            proportionToKeep = 0.25
+            proportionToKeep = [0.25,1.0]
     
         for database in database_tab:
             ll = []
@@ -2460,7 +2489,7 @@ if __name__ == '__main__':
     #    VariationStudyPart1_forVOC07()
 #    VariationStudyPart2_forVOC07()
     # Il faudra faire le part3 pour VOC07
-    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5])
+#    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5])
     VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5])
 #     VariationStudyPart3(demonet = 'res101_VOC07')
 #    VariationStudyPart1()

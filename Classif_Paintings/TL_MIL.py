@@ -190,7 +190,7 @@ def parser_w_rois_all_class(record,num_classes=10,num_rois=300,num_features=2048
         if not(with_rois_scores):
             return fc7,rois, label,name_img
         else:
-            roi_scores = parsed['roi_scores']
+            roi_scores = parsed['roi_scores'] 
             return fc7,rois,roi_scores,label,name_img
 
 def rand_convex(n):
@@ -3152,31 +3152,26 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             new_saver.restore(sess, tf.train.latest_checkpoint(export_dir_path))
             load_model = True
             graph= tf.get_default_graph()
-            X = graph.get_tensor_by_name("X:0")
-            y = graph.get_tensor_by_name("y:0")
+            if not(k_per_bag==300) and eval_onk300:
+                print('Que fais tu la ?')
+                X = tf.placeholder(tf.float32, shape=(None,300,num_features),name='X')
+                y = tf.placeholder(tf.float32, shape=(None,num_classes),name='y')
+                if scoreInMI_max:
+                    scores_tf = tf.placeholder(tf.float32, shape=(None,),name='scores')
+            else:
+                X = get_tensor_by_nameDescendant(graph,"X")
+                y = get_tensor_by_nameDescendant(graph,"y")
             if scoreInMI_max: 
-                scores_tf = graph.get_tensor_by_name("scores:0")
+                scores_tf = get_tensor_by_nameDescendant(graph,"scores")
                 if with_tanh_alreadyApplied:
-                    try:
-                        Prod_best = graph.get_tensor_by_name("Tanh_2:0")
-                    except KeyError:
-                        try:
-                            Prod_best = graph.get_tensor_by_name("Tanh_1:0")
-                        except KeyError:
-                            Prod_best = graph.get_tensor_by_name("Tanh:0")
+                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
                 else:
-                    Prod_best = graph.get_tensor_by_name("ProdScore:0")
+                    Prod_best = get_tensor_by_nameDescendant(graph,"ProdScore")
             else:
                 if with_tanh_alreadyApplied:
-                    try:
-                        Prod_best = graph.get_tensor_by_name("Tanh_2:0")
-                    except KeyError:
-                        try:
-                            Prod_best = graph.get_tensor_by_name("Tanh_1:0")
-                        except KeyError:
-                            Prod_best = graph.get_tensor_by_name("Tanh:0")
+                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
                 else:
-                    Prod_best = graph.get_tensor_by_name("Prod:0")
+                    Prod_best =  get_tensor_by_nameDescendant(graph,"Prod")
             if with_tanh:
                 if verbose: print('use of tanh')
                 Tanh = tf.tanh(Prod_best)
@@ -3329,13 +3324,26 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             new_saver.restore(sess, tf.train.latest_checkpoint(export_dir_path))
             load_model = True
             graph= tf.get_default_graph()
-            X = graph.get_tensor_by_name("X:0")
-            y = graph.get_tensor_by_name("y:0")
-            if scoreInMI_max: 
-                scores_tf = graph.get_tensor_by_name("scores:0")
-                Prod_best = graph.get_tensor_by_name("ProdScore:0")
+            if not(k_per_bag==300) and eval_onk300:
+                print('Que fais tu la ?')
+                X = tf.placeholder(tf.float32, shape=(None,300,num_features),name='X')
+                y = tf.placeholder(tf.float32, shape=(None,num_classes),name='y')
+                if scoreInMI_max:
+                    scores_tf = tf.placeholder(tf.float32, shape=(None,),name='scores')
             else:
-                Prod_best = graph.get_tensor_by_name("Prod:0")
+                X = get_tensor_by_nameDescendant(graph,"X")
+                y = get_tensor_by_nameDescendant(graph,"y")
+            if scoreInMI_max: 
+                scores_tf = get_tensor_by_nameDescendant(graph,"scores")
+                if with_tanh_alreadyApplied:
+                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+                else:
+                    Prod_best = get_tensor_by_nameDescendant(graph,"ProdScore")
+            else:
+                if with_tanh_alreadyApplied:
+                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+                else:
+                    Prod_best =  get_tensor_by_nameDescendant(graph,"Prod")
             if with_tanh:
                 print('use of tanh')
                 Tanh = tf.tanh(Prod_best)
@@ -3634,36 +3642,26 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             graph= tf.get_default_graph()
             if not(k_per_bag==300) and eval_onk300:
                 print('Que fais tu la ?')
-                X = tf.placeholder(tf.float32, shape=(None,300,2048),name='X')
-                y = tf.placeholder(tf.float32, shape=(None,10),name='y')
+                X = tf.placeholder(tf.float32, shape=(None,300,num_features),name='X')
+                y = tf.placeholder(tf.float32, shape=(None,num_classes),name='y')
+                if scoreInMI_max:
+                    scores_tf = tf.placeholder(tf.float32, shape=(None,),name='scores')
             else:
-                X = graph.get_tensor_by_name("X:0")
-                y = graph.get_tensor_by_name("y:0")
+                X = get_tensor_by_nameDescendant(graph,"X")
+                y = get_tensor_by_nameDescendant(graph,"y")
             if scoreInMI_max: 
-                scores_tf = graph.get_tensor_by_name("scores:0")
+                scores_tf = get_tensor_by_nameDescendant(graph,"scores")
                 if with_tanh_alreadyApplied:
-                    try:
-                        Prod_best = graph.get_tensor_by_name("Tanh_2:0")
-                    except KeyError:
-                        try:
-                             Prod_best = graph.get_tensor_by_name("Tanh_1:0")
-                        except KeyError:
-                             Prod_best = graph.get_tensor_by_name("Tanh:0")
+                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
                 else:
-                    Prod_best = graph.get_tensor_by_name("ProdScore:0")
+                    Prod_best = get_tensor_by_nameDescendant(graph,"ProdScore")
             else:
                 if with_tanh_alreadyApplied:
-                    try:
-                        Prod_best = graph.get_tensor_by_name("Tanh_2:0")
-                    except KeyError:
-                        try:
-                             Prod_best = graph.get_tensor_by_name("Tanh_1:0")
-                        except KeyError:
-                             Prod_best = graph.get_tensor_by_name("Tanh:0")
+                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
                 else:
-                    Prod_best = graph.get_tensor_by_name("Prod:0")
+                    Prod_best =  get_tensor_by_nameDescendant(graph,"Prod")
             if with_tanh:
-                print('use of tanh')
+                print('We add the tanh in the test fct')
                 Tanh = tf.tanh(Prod_best)
                 mei = tf.argmax(Tanh,axis=2)
                 score_mei = tf.reduce_max(Tanh,axis=2)
@@ -3676,7 +3674,6 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 mei = tf.argmax(Softmax,axis=2)
                 score_mei = tf.reduce_max(Softmax,axis=2)
             else:
-                print('Tanh in testing time',Prod_best)
                 mei = tf.argmax(Prod_best,axis=-1)
                 score_mei = tf.reduce_max(Prod_best,axis=-1)
             sess.run(tf.global_variables_initializer())
@@ -3694,7 +3691,6 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
                     else:
                         feed_dict_value = {X: fc7s, y: labels}
-
                     if with_tanh:
                         PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
                         sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
@@ -3715,7 +3711,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 true_label_all_test += [labels]
                 
                 if predict_with=='MI_max':
-                    predict_label_all_test +=  [get_RegionsScore]
+                    predict_label_all_test +=  [get_RegionsScore] # For the classification task
                 elif 'LinearSVC' in predict_with:
                     predict_label_all_test_tmp = []
                     for j in range(num_classes):
@@ -3894,7 +3890,24 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      labels_test_predited[np.where(labels_test_predited==0.5)] = 0 # To deal with the case where predict_label_all_test == 0 
      return(true_label_all_test,predict_label_all_test,name_all_test,
             labels_test_predited,all_boxes)
-      
+
+def get_tensor_by_nameDescendant(graph,name):
+    """
+    This function is a very bad way to get the tensor by name from the graph
+    because it will test the different possibility in a ascending way starting 
+    by none and stop when it get the highest
+    """
+    complet_name = name + ':0'
+    tensor = graph.get_tensor_by_name(complet_name)
+    for i in range(100):
+        try:
+            complet_name = name + '_'+str(i+1)+':0'
+            tensor = graph.get_tensor_by_name(complet_name)
+        except KeyError:
+            return(tensor)
+    print("We only test the 100 possible tensor, we will return the 101st tensor")
+    return(tensor)
+    
 def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                export_dir,dict_name_file,mini_batch_size,config,PlotRegions,
                path_to_img,path_data,param_clf,classes,parameters,
@@ -5020,13 +5033,13 @@ if __name__ == '__main__':
 #                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
 #                              predict_with='MI_max',
 #                              AggregW =AggregW ,proportionToKeep=1.0,model=model) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
               verbose = True,testMode = False,jtest = 'cow',
               PlotRegions = False,saved_clf=False,RPN=False,
               CompBest=False,Stocha=True,k_per_bag=300,
               parallel_op=True,CV_Mode='',num_split=2,
               WR=True,init_by_mean =None,seuil_estimation='',
-              restarts=11,max_iters_all_base=300,LR=0.01,
+              restarts=11,max_iters_all_base=2,LR=0.01,
               C=1.0,Optimizer='GradientDescent',norm='',
               transform_output='tanh',with_rois_scores_atEnd=False,
               with_scores=True,epsilon=0.01,restarts_paral='paral',
