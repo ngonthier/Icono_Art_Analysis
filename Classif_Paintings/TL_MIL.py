@@ -2377,12 +2377,15 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     
     if model=='MI_max' or model=='':
         model_str = 'MI_max'
-        buffer_size = 10000
+        if k_per_bag==300:
+            buffer_size = 10000
+        else:
+            buffer_size = 5000*300 // k_per_bag
         if AddOneLayer:
             sizeMax //= 2
     elif model=='mi_model':
         model_str ='mi_model'
-        buffer_size = 10000
+        buffer_size = 10000*300 // k_per_bag
         if not (database in ['watercolor','IconArt_v1']):
             sizeMax //= 2
         if AddOneLayer:
@@ -2393,6 +2396,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         raise(NotImplementedError)
 
     mini_batch_size = min(sizeMax,num_trainval_im)
+    
     if CV_Mode=='1000max':
         mini_batch_size = min(sizeMax,1000)
     
@@ -2400,9 +2404,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         ext_test = '_Test_Mode'
     else:
         ext_test= ''
-        
-    
-        
+
     max_iters = ((num_trainval_im // mini_batch_size)+ \
                  np.sign(num_trainval_im % mini_batch_size))*max_iters_all_base
             
@@ -5033,18 +5035,18 @@ if __name__ == '__main__':
 #                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
 #                              predict_with='MI_max',
 #                              AggregW =AggregW ,proportionToKeep=1.0,model=model) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
               verbose = True,testMode = False,jtest = 'cow',
               PlotRegions = False,saved_clf=False,RPN=False,
               CompBest=False,Stocha=True,k_per_bag=300,
               parallel_op=True,CV_Mode='',num_split=2,
               WR=True,init_by_mean =None,seuil_estimation='',
-              restarts=11,max_iters_all_base=2,LR=0.01,
+              restarts=11,max_iters_all_base=300,LR=0.01,
               C=1.0,Optimizer='GradientDescent',norm='',
               transform_output='tanh',with_rois_scores_atEnd=False,
               with_scores=True,epsilon=0.01,restarts_paral='paral',
               predict_with='MI_max',
-              AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
+              AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=True) 
 
 # Test EdgeBoxes 
 #    for k_per_bag in [300]:
