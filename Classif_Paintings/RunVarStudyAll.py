@@ -887,7 +887,9 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
                             thresh_evaluation = 0.05
                             TEST_NMS = 0.3
                             predict_with= 'MI_max'
-                            if 'Tanh' in AggregW:
+                            if  AggregW is None or AggregW =='':
+                                transform_output = 'tanh'
+                            elif 'Tanh' in AggregW:
                                 transform_output = ''
                             else:
                                 transform_output = 'tanh'
@@ -1999,16 +2001,11 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
         print('--------------------------------')
         print(database)
         for i_scenario in listi:
-            print('% Scenario :',i_scenario)
             output = get_params_fromi_scenario(i_scenario)
-            listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,WR,\
-            with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh = output 
-                    
-                
-            name_dict = path_data_output +database
-            if not(demonet=='res152_COCO'):
-                name_dict += demonet+'_'
-            name_dict += '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeepTab,loss_type,WR,\
+            with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh = output
+
+            name_dict = path_data_output +database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
             CV_Mode+'_'+str(loss_type)
             if not(WR):
                 name_dict += '_withRegularisationTermInLoss'
@@ -2019,10 +2016,18 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
             if obj_score_add_tanh:
                 name_dict += 'SAdd'+str(lambdas)
             if obj_score_mul_tanh:
-                name_dict += 'SMul'  
+                name_dict += 'SMul'    
 
             for AggregW in listAggregW:
-                name_dictAP = name_dict +  '_' + str(AggregW)+ '_APscore.pkl'
+                if AggregW is None or AggregW=='':
+                    proportionToKeepTabLocal = [0.]
+                    name_dictAP = name_dict  + '_' +str(AggregW)  + '_APscore.pkl'
+                else:
+                    proportionToKeepTabLocal = proportionToKeepTab
+                for proportionToKeep in proportionToKeepTabLocal:
+                    name_dictAP = name_dict  + '_' +str(AggregW) 
+                    if not(AggregW is None or AggregW==''):
+                        name_dictAP += '_'+str(proportionToKeep)+ '_APscore.pkl'
                 multi = 100
                 try:
                     f= open(name_dictAP, 'rb')
@@ -2076,7 +2081,7 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                         elif Metric=='AP@.5':
                             print(string_to_print)
                 except FileNotFoundError:
-                    #print(name_dictAP,'don t exist')
+                    print(name_dictAP,'don t exist')
                     pass
     
 def VariationStudyPart3bis():
@@ -2490,7 +2495,8 @@ if __name__ == '__main__':
 #    VariationStudyPart2_forVOC07()
     # Il faudra faire le part3 pour VOC07
 #    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5])
-    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5])
+#    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5])
+    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5])
 #     VariationStudyPart3(demonet = 'res101_VOC07')
 #    VariationStudyPart1()
 ##    VariationStudyPart2bis()
