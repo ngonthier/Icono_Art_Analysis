@@ -2396,6 +2396,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         raise(NotImplementedError)
 
     mini_batch_size = min(sizeMax,num_trainval_im)
+    mini_batch_size = 2 #TODO attention !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
     if CV_Mode=='1000max':
         mini_batch_size = min(sizeMax,1000)
@@ -5038,7 +5039,7 @@ if __name__ == '__main__':
     tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
               verbose = True,testMode = False,jtest = 'cow',
               PlotRegions = False,saved_clf=False,RPN=False,
-              CompBest=False,Stocha=True,k_per_bag=300,
+              CompBest=False,Stocha=True,k_per_bag=2000,
               parallel_op=True,CV_Mode='',num_split=2,
               WR=True,init_by_mean =None,seuil_estimation='',
               restarts=11,max_iters_all_base=300,LR=0.01,

@@ -401,6 +401,8 @@ def CovarianceOfTheVectors():
             titre= 'CorrCoeff without selection classe : '+str(j)
             plot_AddValues(corrcoef_matrix,titre,loss_value)
             
+            
+            
 ##            print(cov_matrix)
 ##            plt.imshow(cov_matrix)
 ##            

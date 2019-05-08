@@ -2028,60 +2028,63 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                     name_dictAP = name_dict  + '_' +str(AggregW) 
                     if not(AggregW is None or AggregW==''):
                         name_dictAP += '_'+str(proportionToKeep)+ '_APscore.pkl'
-                multi = 100
-                try:
-                    f= open(name_dictAP, 'rb')
-                    DictAP = pickle.load(f)
-                    for Metric in DictAP.keys():
-                        
-                        string_to_print =  str(Metric) + ' & ' +'Mimax ' + str(loss_type) + ' ' 
-                        if C_Searching:
-                            string_to_print += 'C_Searching '
-                        if CV_Mode=='CV':
-                            string_to_print += 'CV '
-                        if with_scores:
-                            string_to_print += 'with_scores '
-                        if not(WR):
-                            string_to_print += 'with regularisation'
-                        if seuillage_by_score:
-                            string_to_print += 'seuillage score at ' +str(seuil)
-                        if obj_score_mul_tanh :
-                            string_to_print += 'obj score multi tanh '
-                        if obj_score_add_tanh:
-                            string_to_print += 'obj score add to tanh (lambda =' +str(lambdas)+')'
-                        string_to_print += ' & '
-                        string_to_print += str(AggregW) + ' & '  
-                        ll_all = DictAP[Metric] 
-                        if database=='WikiTenLabels':
-                            ll_all = np.delete(ll_all, [1,2,9], axis=1)         
-                        if not(database=='PeopleArt'):
-                            mean_over_reboot = np.mean(ll_all,axis=1) # Moyenne par ligne / reboot 
-#                            print(mean_over_reboot.shape)
-                            std_of_mean_over_reboot = np.std(mean_over_reboot)
-                            mean_of_mean_over_reboot = np.mean(mean_over_reboot)
-                            mean_over_class = np.mean(ll_all,axis=0) # Moyenne par column
-                            std_over_class = np.std(ll_all,axis=0) # Moyenne par column 
-#                            print('ll_all.shape',ll_all.shape)
-#                            print(mean_over_class.shape)
-#                            print(std_over_class.shape)
-#                            input('wait')
-                            for mean_c,std_c in zip(mean_over_class,std_over_class):
-                                s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
-                                string_to_print += s + ' & '
-                            s =  "{0:.1f}  ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f}  ".format(std_of_mean_over_reboot*multi)
-                            string_to_print += s + ' \\\  '
-                        else:
-                            std_of_mean_over_reboot = np.std(ll_all)
-                            mean_of_mean_over_reboot = np.mean(ll_all)
-                            s =  "{0:.1f} ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f} ".format(std_of_mean_over_reboot*multi)
-                            string_to_print += s + ' \\\ '
-                        string_to_print = string_to_print.replace('_','\_')
-                        if not(onlyAP05):
-                            print(string_to_print)
-                        elif Metric=='AP@.5':
-                            print(string_to_print)
-                except FileNotFoundError:
-                    print(name_dictAP,'don t exist')
+                    multi = 100
+                    try:
+                        f= open(name_dictAP, 'rb')
+                        DictAP = pickle.load(f)
+                        for Metric in DictAP.keys():
+                            string_to_print =  str(Metric) + ' & ' +'Mimax ' + str(loss_type) + ' ' 
+                            if C_Searching:
+                                string_to_print += 'C_Searching '
+                            if CV_Mode=='CV':
+                                string_to_print += 'CV '
+                            if with_scores:
+                                string_to_print += 'with_scores '
+                            if not(WR):
+                                string_to_print += 'with regularisation'
+                            if seuillage_by_score:
+                                string_to_print += 'seuillage score at ' +str(seuil)
+                            if obj_score_mul_tanh :
+                                string_to_print += 'obj score multi tanh '
+                            if obj_score_add_tanh:
+                                string_to_print += 'obj score add to tanh (lambda =' +str(lambdas)+')'
+                            string_to_print += ' & '
+                            string_to_print += str(AggregW)
+                            if AggregW is None or AggregW=='':
+                                string_to_print += ' & '  
+                            else:
+                                 string_to_print +=  ' '+str(proportionToKeep)  +' & ' 
+                            ll_all = DictAP[Metric] 
+                            if database=='WikiTenLabels':
+                                ll_all = np.delete(ll_all, [1,2,9], axis=1)         
+                            if not(database=='PeopleArt'):
+                                mean_over_reboot = np.mean(ll_all,axis=1) # Moyenne par ligne / reboot 
+    #                            print(mean_over_reboot.shape)
+                                std_of_mean_over_reboot = np.std(mean_over_reboot)
+                                mean_of_mean_over_reboot = np.mean(mean_over_reboot)
+                                mean_over_class = np.mean(ll_all,axis=0) # Moyenne par column
+                                std_over_class = np.std(ll_all,axis=0) # Moyenne par column 
+    #                            print('ll_all.shape',ll_all.shape)
+    #                            print(mean_over_class.shape)
+    #                            print(std_over_class.shape)
+    #                            input('wait')
+                                for mean_c,std_c in zip(mean_over_class,std_over_class):
+                                    s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
+                                    string_to_print += s + ' & '
+                                s =  "{0:.1f}  ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f}  ".format(std_of_mean_over_reboot*multi)
+                                string_to_print += s + ' \\\  '
+                            else:
+                                std_of_mean_over_reboot = np.std(ll_all)
+                                mean_of_mean_over_reboot = np.mean(ll_all)
+                                s =  "{0:.1f} ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f} ".format(std_of_mean_over_reboot*multi)
+                                string_to_print += s + ' \\\ '
+                            string_to_print = string_to_print.replace('_','\_')
+                            if not(onlyAP05):
+                                print(string_to_print)
+                            elif Metric=='AP@.5':
+                                print(string_to_print)
+                    except FileNotFoundError:
+                        print(name_dictAP,'don t exist')
                     pass
     
 def VariationStudyPart3bis():
@@ -2494,9 +2497,9 @@ if __name__ == '__main__':
     #    VariationStudyPart1_forVOC07()
 #    VariationStudyPart2_forVOC07()
     # Il faudra faire le part3 pour VOC07
-#    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5])
-#    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5])
-    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5])
+    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[11,12])
+    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[11,12])
+#    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5])
 #     VariationStudyPart3(demonet = 'res101_VOC07')
 #    VariationStudyPart1()
 ##    VariationStudyPart2bis()
