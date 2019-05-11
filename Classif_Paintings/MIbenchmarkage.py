@@ -1656,11 +1656,11 @@ def trainMIMAXaddLayer(bags_train, labels_bags_c_train,data_path_train,size_bigg
         C,C_Searching,CV_Mode,restarts,LR = opts_MIMAX
     else:
         C,C_Searching,CV_Mode,restarts,LR = 1.0,False,None,11,0.01
-    restarts = 0
+
     classifierMI_max = tf_MI_max(LR=LR,restarts=restarts,is_betweenMinus1and1=True, \
                                  num_rois=size_biggest_bag,num_classes=1, \
                                  num_features=num_features,mini_batch_size=mini_batch_size, \
-                                 verbose=False,C=C,CV_Mode=CV_Mode,max_iters=1,
+                                 verbose=False,C=C,CV_Mode=CV_Mode,max_iters=300,
                                  AddOneLayer=True,Optimizer='lbfgs')
 
     export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
