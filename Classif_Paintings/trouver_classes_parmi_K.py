@@ -2186,7 +2186,7 @@ class tf_MI_max():
                     h_ = tf.reshape(h_, [-1, self.num_rois,self.num_features])
 #                    denselayer_ = tf.nn.relu(tf.add(h_,b0))
                     denselayer_ = tf.tanh(tf.add(h_,b0_best))
-                    Prod_best=tf.add(tf.reduce_sum(tf.multiply(W_best,denselayer_),axis=2),b,name='Prod')
+                    Prod_best=tf.add(tf.reduce_sum(tf.multiply(W_best,denselayer_),axis=2),b_best,name='Prod')
                 else:
                     Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
             if self.with_scores: 
