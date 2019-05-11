@@ -1741,7 +1741,7 @@ def BenchmarkRunmiDLearlyStop(firstset=0):
 def BenchmarkRun():
 
     datasets = ['SIVAL','Birds','Newsgroups']
-    list_of_algo= ['MIMAX','IA_mi_model','MIMAXaddLayer']
+    list_of_algo= ['MIMAXaddLayer','MIMAX','IA_mi_model']
     # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
 
     for method in list_of_algo:

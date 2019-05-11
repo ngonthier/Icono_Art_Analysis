@@ -461,7 +461,7 @@ class tf_MI_max():
             self.seuillage_by_score = False
             self.with_scores = False # Only one of the two is possible obj_score_add_tanh is priority !
             print('obj_score_add_tanh has the priority on the other score use case')
-        assert(lambdas > 0.0)
+        assert(lambdas >= 0.0)
         assert(lambdas <= 1.0)
         self.obj_score_mul_tanh = obj_score_mul_tanh
         if self.obj_score_mul_tanh:

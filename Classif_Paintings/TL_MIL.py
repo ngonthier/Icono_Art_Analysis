@@ -15,6 +15,7 @@ Page utile sur VOC 2007 :
 """
 
 import time
+
 import pickle
 import gc
 import tensorflow as tf
@@ -2396,7 +2397,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         raise(NotImplementedError)
 
     mini_batch_size = min(sizeMax,num_trainval_im)
-    mini_batch_size = 2 #TODO attention !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#    mini_batch_size = 2 #TODO attention !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
     if CV_Mode=='1000max':
         mini_batch_size = min(sizeMax,1000)

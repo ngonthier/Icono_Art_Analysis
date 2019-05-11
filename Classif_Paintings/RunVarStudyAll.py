@@ -295,7 +295,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None):
     else:
         database_tab = [database]
     start_i = 0
-    end_i = 17
+    end_i = 19
     if scenarioSubset is None:
         listi = np.arange(start_i,end_i)
     # Just to have with and without score : scenario 0 and 5 
@@ -310,20 +310,22 @@ def VariationStudyPart1(database=None,scenarioSubset=None):
     metric_tab = ['AP@.5','AP@.1','APClassif']
 
     seuil = 0.9 
-
+    ReDo = False
+    # TODO implement a ReDo that works !
 
     for i_scenario in listi:
         print('Scenario :',i_scenario)
         output = get_params_fromi_scenario(i_scenario)
         listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,WR,\
-        with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh = output   
+        with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
+        PCAuse = output   
             
             
        # TODO rajouter ici un cas ou l on fait normalise les features
     
         for database in database_tab:
             ## Compte the vectors and bias W
-            exportname,arrayParam = tfR_FRCNN(demonet = 'res152_COCO',database = database,ReDo=True,
+            exportname,arrayParam = tfR_FRCNN(demonet = 'res152_COCO',database = database,ReDo=ReDo,
                                           verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
                                           PlotRegions = False,saved_clf=False,RPN=False,
                                           CompBest=False,Stocha=True,k_per_bag=300,
@@ -339,7 +341,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None):
                                           thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
                                           ,proportionToKeep=proportionToKeep,storeVectors=True,
                                           obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                                          obj_score_mul_tanh=obj_score_mul_tanh)
+                                          obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse)
             tf.reset_default_graph()
             name_dict = path_data_output +database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
             CV_Mode+'_'+str(loss_type)
@@ -401,6 +403,7 @@ def ComputationForLossPlot(database= 'PeopleArt'):
      
 def get_params_fromi_scenario(i_scenario):
     listAggregW = [None]
+    PCAuse = False
     if i_scenario==0:
         listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
         C_Searching = False
@@ -612,12 +615,42 @@ def get_params_fromi_scenario(i_scenario):
         obj_score_add_tanh=True
         lambdas = 0.75
         obj_score_mul_tanh = False
+    elif i_scenario==17:
+        listAggregW = [None]
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = []
+        loss_type = ''
+        WR = True
+        with_scores = True
+        seuillage_by_score=False 
+        obj_score_add_tanh=False
+        lambdas = 0.0
+        obj_score_mul_tanh = False
+        PCAuse = True
+    elif i_scenario==18:
+        listAggregW = [None]
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = []
+        loss_type = ''
+        WR = True
+        with_scores = False
+        seuillage_by_score=False 
+        obj_score_add_tanh=False
+        lambdas = 0.0
+        obj_score_mul_tanh = False
+        PCAuse = True
         
-    output = listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,WR,with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh
+    output = listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,\
+    WR,with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
+    PCAuse
     
     return(output)
         
-def VariationStudyPart2(database=None,scenarioSubset=None):
+def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -631,7 +664,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
     else:
         database_tab = [database]
     start_i = 0
-    end_i = 17
+    end_i = 19
     if scenarioSubset is None:
         listi = np.arange(start_i,end_i)
     # Just to have with and without score : scenario 0 and 5 
@@ -658,7 +691,11 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
         print('Scenario :',i_scenario)
         output = get_params_fromi_scenario(i_scenario)
         listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeepTab,loss_type,WR,\
-        with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh = output
+        with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
+        PCAuse = output
+        
+        if withoutAggregW:
+            listAggregW  = [None]
 
         if C_Searching:
             numberofW_to_keep = numberofW_to_keep_base*9 #Number of element in C
@@ -679,6 +716,8 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
                 name_dict += 'SAdd'+str(lambdas)
             if obj_score_mul_tanh:
                 name_dict += 'SMul'    
+            if PCAuse:
+                name_dict +='_PCA09'
             name_dictW = name_dict + '.pkl'
             
 
@@ -770,6 +809,18 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
             extL2 = ''
             nms_thresh = 0.7
             savedstr = '_all'
+            variance_thres = 0.9
+            if PCAuse:
+                if variance_thres==0.9:
+                    if database=='IconArt_v1':
+                        number_composant=675
+                    elif database=='watercolor':
+                        number_composant=654    
+                    else:
+                        print('You have to add the value of  number_composant here !')
+                else:
+                    print('If you already have computed the PCA on the data you have to add the number_composant at the beginning of the tfR_FRCNN function')
+    
             
             sets = ['train','val','trainval','test']
             dict_name_file = {}
@@ -778,10 +829,22 @@ def VariationStudyPart2(database=None,scenarioSubset=None):
                 k_per_bag_str = ''
             else:
                 k_per_bag_str = '_k'+str(k_per_bag)
+#            for set_str in sets:
+#                name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
+#                if not(k_per_bag==300) and eval_onk300 and set_str=='test': # We will evaluate on all the 300 regions and not only the k_per_bag ones
+#                    name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
+#                dict_name_file[set_str] = name_pkl_all_features
+            metamodel = 'FasterRCNN'
             for set_str in sets:
-                name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
+                name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str
+                if PCAuse:
+                    name_pkl_all_features+='_PCAc'+str(number_composant)
+                name_pkl_all_features+='_'+set_str+'.tfrecords'
                 if not(k_per_bag==300) and eval_onk300 and set_str=='test': # We will evaluate on all the 300 regions and not only the k_per_bag ones
-                    name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
+                    name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr
+                    if PCAuse:
+                        name_pkl_all_features+='_PCAc'+str(number_composant)
+                    name_pkl_all_features+='_'+set_str+'.tfrecords'
                 dict_name_file[set_str] = name_pkl_all_features
         
         #    sLength_all = len(df_label[item_name])
@@ -1963,7 +2026,8 @@ def VariationStudyPart2bis():
                     with open(name_dictAP, 'wb') as f:
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
       
-def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO',onlyAP05=False):
+def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO',onlyAP05=False,
+                        withoutAggregW=False):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -1977,7 +2041,7 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
     else:
         database_tab = [database]
     start_i = 0
-    end_i = 17
+    end_i = 19
     if scenarioSubset is None:
         listi = np.arange(start_i,end_i)
     # Just to have with and without score : scenario 0 and 5 
@@ -2003,7 +2067,11 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
         for i_scenario in listi:
             output = get_params_fromi_scenario(i_scenario)
             listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeepTab,loss_type,WR,\
-            with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh = output
+            with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
+            PCAuse = output
+            
+            if withoutAggregW:
+                listAggregW  = [None]
 
             name_dict = path_data_output +database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
             CV_Mode+'_'+str(loss_type)
@@ -2017,6 +2085,8 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict += 'SAdd'+str(lambdas)
             if obj_score_mul_tanh:
                 name_dict += 'SMul'    
+            if PCAuse:
+                name_dict +='_PCA09'
 
             for AggregW in listAggregW:
                 if AggregW is None or AggregW=='':
@@ -2497,9 +2567,9 @@ if __name__ == '__main__':
     #    VariationStudyPart1_forVOC07()
 #    VariationStudyPart2_forVOC07()
     # Il faudra faire le part3 pour VOC07
-    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[11,12])
-    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[11,12])
-#    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5])
+    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5,17,18,11,12])
+    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5,17,18,11,12],withoutAggregW=True)
+#    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5,11,12])
 #     VariationStudyPart3(demonet = 'res101_VOC07')
 #    VariationStudyPart1()
 ##    VariationStudyPart2bis()
