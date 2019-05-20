@@ -282,7 +282,7 @@ def VariationStudyPart1_forVOC07():
             print(name_dict,'copied')
     
              
-def VariationStudyPart1(database=None,scenarioSubset=None):
+def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -325,7 +325,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None):
     
         for database in database_tab:
             ## Compte the vectors and bias W
-            exportname,arrayParam = tfR_FRCNN(demonet = 'res152_COCO',database = database,ReDo=ReDo,
+            exportname,arrayParam = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
                                           verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
                                           PlotRegions = False,saved_clf=False,RPN=False,
                                           CompBest=False,Stocha=True,k_per_bag=300,
@@ -343,7 +343,10 @@ def VariationStudyPart1(database=None,scenarioSubset=None):
                                           obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                                           obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse)
             tf.reset_default_graph()
-            name_dict = path_data_output +database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            name_dict = path_data_output 
+            if not(demonet== 'res152_COCO'):
+                name_dict += demonet +'_'
+            name_dict +=  database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
             CV_Mode+'_'+str(loss_type)
             
             if not(WR):
@@ -356,6 +359,8 @@ def VariationStudyPart1(database=None,scenarioSubset=None):
                 name_dict += 'SAdd'+str(lambdas)
             if obj_score_mul_tanh:
                 name_dict += 'SMul'
+            if PCAuse:
+                name_dict +='_PCA09'
             name_dict += '.pkl'
             copyfile(exportname,name_dict)
             print(name_dict,'copied')
@@ -650,13 +655,15 @@ def get_params_fromi_scenario(i_scenario):
     
     return(output)
         
-def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False):
+def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
+                        demonet = 'res152_COCO'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
     The second part compute the score in AP 
     '''
-    demonet = 'res152_COCO'
+    print('========= Part 2 Variation Study ===========')
+    
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     if database is None:
@@ -704,7 +711,10 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False):
         
         for database in database_tab:
             # Name of the vectors pickle
-            name_dict = path_data_output +database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            name_dict = path_data_output 
+            if not(demonet== 'res152_COCO'):
+                name_dict += demonet +'_'
+            name_dict +=  database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
             CV_Mode+'_'+str(loss_type)
             if not(WR):
                 name_dict += '_withRegularisationTermInLoss'
@@ -766,7 +776,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False):
             elif(database=='Wikidata_Paintings'):
                 item_name = 'image'
                 path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-                raise NotImplemented # TODO implementer cela !!! 
+                raise NotImplementedError # TODO implementer cela !!! 
             elif(database=='IconArt_v1'):
                 ext='.csv'
                 item_name='item'
@@ -778,7 +788,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False):
                 path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
                 classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
             else:
-                raise NotImplemented
+                raise NotImplementedError
             
             path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
             if database=='IconArt_v1':
@@ -810,6 +820,13 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False):
             nms_thresh = 0.7
             savedstr = '_all'
             variance_thres = 0.9
+            
+            #    sLength_all = len(df_label[item_name])
+            if demonet in ['vgg16_COCO','vgg16_VOC07','vgg16_VOC12']:
+                num_features = 4096
+            elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
+                num_features = 2048
+            
             if PCAuse:
                 if variance_thres==0.9:
                     if database=='IconArt_v1':
@@ -820,7 +837,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False):
                         print('You have to add the value of  number_composant here !')
                 else:
                     print('If you already have computed the PCA on the data you have to add the number_composant at the beginning of the tfR_FRCNN function')
-    
+                num_features =  number_composant
             
             sets = ['train','val','trainval','test']
             dict_name_file = {}
@@ -847,11 +864,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False):
                     name_pkl_all_features+='_'+set_str+'.tfrecords'
                 dict_name_file[set_str] = name_pkl_all_features
         
-        #    sLength_all = len(df_label[item_name])
-            if demonet in ['vgg16_COCO','vgg16_VOC07','vgg16_VOC12']:
-                num_features = 4096
-            elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
-                num_features = 2048
+
                    
             # Config param for TF session 
             config = tf.ConfigProto()
@@ -910,7 +923,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False):
                     if not(AggregW is None or AggregW==''):
                         name_dictAP += '_'+str(proportionToKeep)+ '_APscore.pkl'
 
-                    ReDo  =False
+                    ReDo  = False
                     if not os.path.isfile(name_dictAP) or ReDo:
     #                    print('name_dictAP',name_dictAP)
     #                    print('Wstored',Wstored.shape)
@@ -934,7 +947,10 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False):
                             print('reboot :',l)
                             all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
                             Wstored_extract = Wstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep,:]
+                            #print('Wstored_extract',Wstored_extract.shape)
+                            #print('num_features',num_features)
                             W_tmp = np.reshape(Wstored_extract,(-1,num_features),order='F')
+                            #print('W_tmp',W_tmp.shape)
                             b_tmp =np.reshape( Bstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep],(-1,1,1),order='F')
                             Lossstoredextract = Lossstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep]
                             loss_value = np.reshape(Lossstoredextract,(-1,),order='F')
@@ -1054,7 +1070,8 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False):
                     
                         with open(name_dictAP, 'wb') as f:
                             pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
-                        
+                    else:
+                        print('The files already exist we will not do it again')
 def VariationStudyPart2_forVOC07():
     '''
     The goal of this function is to study the variation of the performance of our 
@@ -2063,7 +2080,7 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
     
     for database  in database_tab:
         print('--------------------------------')
-        print(database)
+        print(database,demonet)
         for i_scenario in listi:
             output = get_params_fromi_scenario(i_scenario)
             listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeepTab,loss_type,WR,\
@@ -2073,7 +2090,10 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
             if withoutAggregW:
                 listAggregW  = [None]
 
-            name_dict = path_data_output +database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            name_dict = path_data_output 
+            if not(demonet== 'res152_COCO'):
+                name_dict += demonet +'_'
+            name_dict +=  database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
             CV_Mode+'_'+str(loss_type)
             if not(WR):
                 name_dict += '_withRegularisationTermInLoss'
@@ -2101,6 +2121,7 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                     multi = 100
                     try:
                         f= open(name_dictAP, 'rb')
+                        print(name_dictAP)
                         DictAP = pickle.load(f)
                         for Metric in DictAP.keys():
                             string_to_print =  str(Metric) + ' & ' +'Mimax ' + str(loss_type) + ' ' 
@@ -2567,9 +2588,36 @@ if __name__ == '__main__':
     #    VariationStudyPart1_forVOC07()
 #    VariationStudyPart2_forVOC07()
     # Il faudra faire le part3 pour VOC07
-    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5,17,18,11,12])
-    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5,17,18,11,12],withoutAggregW=True)
-#    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5,11,12])
+#    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5,17,18,11,12])
+#    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[17,18,11,12],withoutAggregW=True)
+#    
+#    # For Watercolor2k 
+#    VariationStudyPart1(database='watercolor',scenarioSubset=[0,5,17,18])
+#    VariationStudyPart2(database='watercolor',scenarioSubset=[0,5,17,18],withoutAggregW=True)
+#    
+#    # For PeopleArt
+#    VariationStudyPart1(database='PeopleArt',scenarioSubset=[0,5])
+#    VariationStudyPart2(database='PeopleArt',scenarioSubset=[0,5],withoutAggregW=True)
+#    VariationStudyPart1(database='PeopleArt',scenarioSubset=[0,5],demonet = 'res101_VOC07')
+#    VariationStudyPart2(database='PeopleArt',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'res101_VOC07')
+    
+#    # PASCAL
+#    VariationStudyPart1(database='VOC2007',scenarioSubset=[5])
+#    VariationStudyPart2(database='VOC2007',scenarioSubset=[5],withoutAggregW=True)
+#    VariationStudyPart1(database='VOC2007',scenarioSubset=[5],demonet = 'res101_VOC07')
+#    VariationStudyPart2(database='VOC2007',scenarioSubset=[5],withoutAggregW=True,demonet = 'res101_VOC07')
+    VariationStudyPart3(database='VOC2007',scenarioSubset=[5],withoutAggregW=True,demonet = 'res101_VOC07')
+    
+#    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5,17,18,11,12],withoutAggregW=True)
+#    VariationStudyPart3(database='watercolor',scenarioSubset=[0,5,17,18],withoutAggregW=True)
+#    VariationStudyPart3(database='PeopleArt',scenarioSubset=[0,5],withoutAggregW=True)
+#    VariationStudyPart3(database='PeopleArt',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'res101_VOC07')
+#    VariationStudyPart3(database='VOC2007',scenarioSubset=[0,5],withoutAggregW=True)
+#    VariationStudyPart3(database='VOC2007',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'res101_VOC07')
+#    
+#    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5,17,18,11,12])
+#    VariationStudyPart3(database='watercolor',scenarioSubset=[0,5,17,18,11,12])
+#    VariationStudyPart3(database='watercolor',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'res101_VOC07')
 #     VariationStudyPart3(demonet = 'res101_VOC07')
 #    VariationStudyPart1()
 ##    VariationStudyPart2bis()
