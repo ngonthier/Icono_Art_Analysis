@@ -30,7 +30,7 @@ VGG19_LAYERS = (
 style_layers_size =  {'input':3,'conv1' : 64,'relu1' : 64,'pool1': 64,'conv2' : 128,'relu2' : 128,'pool2':128,'conv3' : 256,'relu3' : 256,'pool3':256,'conv4': 512,'relu4' : 512,'pool4':512,'conv5' : 512,'relu5' : 512,'pool5':512}
 # TODO : check if the N value are right for the poolx
     
-def get_vgg_layers(VGG19_mat='/media/HDD/models/imagenet-vgg-verydeep-19.mat'):
+def get_vgg_layers(VGG19_mat='/media/gonthier/HDD/models/imagenet-vgg-verydeep-19.mat'):
     """
     Load the VGG 19 layers
     """

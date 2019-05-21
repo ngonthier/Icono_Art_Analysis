@@ -32,10 +32,10 @@ def resizeRijkmuseum(bigger_size_tab=[229],data='',cv2bool = True):
     # Define a timeout for my function
     signal.alarm(1200)
     print(data,str(bigger_size_tab))
-    origin_path = '/media/HDD/dataRaw/'
+    origin_path = '/media/gonthier/HDD/dataRaw/'
     folder = 'Rijksmuseum'+data+'/'
     read_path= origin_path + folder
-    target_path = '/media/HDD/data/'
+    target_path = '/media/gonthier/HDD/data/'
     write_data = target_path + folder
     for bigger_size in bigger_size_tab:
         write_data_tmp = write_data + str(bigger_size) + '/'
@@ -128,10 +128,10 @@ def resize(bigger_size_tab=[229],data='Prints',cv2bool = True):
     # Define a timeout for my function
     signal.alarm(1200)
     print(data,str(bigger_size_tab))
-    origin_path = '/media/HDD/dataRaw/'
+    origin_path = '/media/gonthier/HDD/dataRaw/'
     folder = 'Wikidata_'+data+'/'
     read_path= origin_path + folder
-    target_path = '/media/HDD/data/'
+    target_path = '/media/gonthier/HDD/data/'
     write_data = target_path + folder
     for bigger_size in bigger_size_tab:
         write_data_tmp = write_data + str(bigger_size) + '/'

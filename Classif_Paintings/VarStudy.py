@@ -197,8 +197,8 @@ def Etude_Wvectors():
     
     plt.ion()
     
-    name_dict = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/1533740133.283923.pkl'
-    name_dict = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/MImax_PeopletArt_10800W_withScore_classicLoss.pkl'
+    name_dict = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/1533740133.283923.pkl'
+    name_dict = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/MImax_PeopletArt_10800W_withScore_classicLoss.pkl'
     with open(name_dict, 'rb') as f:
         Dict = pickle.load(f)
     
@@ -287,8 +287,8 @@ def plotDecroissanceFct():
     Le but de cette fonction est d afficher la decroissance de la fonction de cout 
     au cours du temps
     """
-    export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss.pkl'
-    export_dir_withoutscore = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss.pkl'
+    export_dir = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss.pkl'
+    export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss.pkl'
 
 
     list_export_dir = [export_dir,export_dir_withoutscore]
@@ -309,8 +309,8 @@ def plotDecroissanceFct():
         plt.ylabel('Loss value')
         plt.show()
         
-    export_dir = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss_CsearchCVmodeTrue.pkl'
-    export_dir_withoutscore = '/media/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss_CsearchCVmodeTrue.pkl'
+    export_dir = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withScore_ValuesLoss_CsearchCVmodeTrue.pkl'
+    export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/MI_max_StoredW/PeopleArt_withoutScore_ValuesLoss_CsearchCVmodeTrue.pkl'
 
     list_export_dir = [export_dir,export_dir_withoutscore]
     list_plots_elt = ['with score','without score']
@@ -334,6 +334,95 @@ def plotDecroissanceFct():
         plt.xlabel('Iterations')
         plt.ylabel('Loss value')
         plt.show()   
+ 
+def plot_AddValues(matrix,titre,loss_value=None):
+    
+    s1,s2 = matrix.shape
+    fig, ax = plt.subplots(figsize=(7,7))
+    
+    if not(loss_value is None):
+        # We want to show all ticks...
+        ax.set_xticks(np.arange(s1))
+        # ... and label them with the respective list entries
+        values = []
+        for l in loss_value:
+            values += ['{0:.2f}'.format(l)]
+        ax.set_xticklabels(values)
+
+    im = ax.imshow(matrix)
+
+    plt.title(titre)
+
+    for i in range(s1):
+        for j in range(s2):
+            textij = ' {0:.1f}'.format(matrix[i, j])
+            text = ax.text(j, i, textij,
+                       ha="center", va="center", color="w")
+    
+    ax.set_title(titre)
+    fig.tight_layout()
+    plt.show()
+    
+def CovarianceOfTheVectors():
+    
+    # Need to create those files if they don't exist look at RunVarStudyAll
+    export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse__.pkl'
+    export_dir ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse___WithScore.pkl'
+    
+    numberofW_to_keep = 12
+    number_of_reboots = 100
+    num_features = 2048
+    num_classes = 7
+    
+    name_dictW = export_dir
+    with open(name_dictW, 'rb') as f:
+        Dict = pickle.load(f)
+        Wstored = Dict['Wstored']
+        Bstored =  Dict['Bstored']
+        Lossstored = Dict['Lossstored']
+        np_pos_value =  Dict['np_pos_value'] 
+        np_neg_value =  Dict['np_neg_value']
+        
+        # First we will compute the covariance matrices of 12 of the W vectors without selection
+        l = 0
+        
+        for j in range(num_classes):
+            Wstored_extract = Wstored[j::num_classes,:,:]
+            Wtmp = Wstored_extract[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep,:]
+            Wtmp = Wtmp.reshape((numberofW_to_keep,num_features))
+            cov_matrix = np.cov(Wtmp)
+            corrcoef_matrix = np.corrcoef(Wtmp)
+            Lossstoredextract = Lossstored[j,:]
+            Lossstoredextract = Lossstoredextract[l*numberofW_to_keep:(l+1)*numberofW_to_keep]
+            loss_value = np.reshape(Lossstoredextract,(-1,),order='F')
+            
+            titre= 'Cov without selection classe : '+str(j)
+            plot_AddValues(cov_matrix,titre,loss_value)
+            titre= 'CorrCoeff without selection classe : '+str(j)
+            plot_AddValues(corrcoef_matrix,titre,loss_value)
+            
+            
+            
+##            print(cov_matrix)
+##            plt.imshow(cov_matrix)
+##            
+##            plt.title(titre)
+##            plt.show()
+##            plt.imshow(corrcoef_matrix)
+##            titre= 'CorrCoeff without selection classe : '+str(j)
+##            plt.title(titre)
+##            plt.show()
+#        
+#        # We will add the biases to the vectors
+#        
+#        for l in range(number_of_reboots):
+#            Wstored_extract = Wstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep,:]
+#            W_tmp = np.reshape(Wstored_extract,(-1,num_features),order='F')
+#            b_tmp =np.reshape( Bstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep],(-1,1,1),order='F')
+#            Lossstoredextract = Lossstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep]
+#            loss_value = np.reshape(Lossstoredextract,(-1,),order='F')
+        
+        
     
 
 

@@ -146,7 +146,7 @@ def test_net_local():
         ANCHORS=[4,8,16,32]
         RATIOS=[0.5,1,2]
     demonet = 'res101' 
-    model_path = '/media/HDD/models/tf-faster-rcnn/'
+    model_path = '/media/gonthier/HDD/models/tf-faster-rcnn/'
     filename= model_path + demonet + '_faster_rcnn_iter_' + str(ITERS) +  '.ckpt'
     imdb_name = TEST_IMDB
     imdb = get_imdb(imdb_name)

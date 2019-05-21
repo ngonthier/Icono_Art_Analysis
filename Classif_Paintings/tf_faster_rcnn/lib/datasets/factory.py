@@ -18,7 +18,7 @@ from ..datasets.WikiTenLabels_db import WikiTenLabels_db
 from ..datasets.IconArt import IconArt_v1
 #from ..datasets.coco import coco # Commented by Nicolas because API COCO Python need python27 : it need to be modified problem with _mask
 
-def get_sets(data_path='/media/HDD/data/'):
+def get_sets(data_path='/media/gonthier/HDD/data/'):
   __sets = {}
   """Get an imdb (image database) by name.
   @param : data_path : localisation of the dataset
@@ -69,7 +69,7 @@ def get_sets(data_path='/media/HDD/data/'):
 
   return(__sets)
 
-def get_imdb(name,data_path='/media/HDD/data/'):
+def get_imdb(name,data_path='/media/gonthier/HDD/data/'):
   """Get an imdb (image database) by name.
   @param : data_path : localisation of the dataset
   """

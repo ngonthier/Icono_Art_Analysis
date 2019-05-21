@@ -41,7 +41,11 @@ __pycache__/*
 Classif_Paintings/*.txt
 Classif_Paintings/tmp/*
 Classif_Paintings/*.npy
-Classif_Paintings/__pycache/* 
+Classif_Paintings/__pycache/*
+Classif_Paintings/__pycache__/*
+Classif_Paintings/graphs 
+Classif_Paintings/graphs/* 
+Classif_Paintings/summary/* 
 #Classif_Paintings/data/* 
 *.html
 

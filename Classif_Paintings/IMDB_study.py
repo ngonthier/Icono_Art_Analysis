@@ -22,6 +22,8 @@ import pandas as pd
 import tensorflow as tf
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+import pathlib
 
 from LatexOuput import arrayToLatex
 
@@ -33,8 +35,17 @@ from tf_faster_rcnn.lib.model.test import get_blobs
 from TL_MIL import parser_w_rois_all_class
 from FasterRCNN import vis_detections
 
+from sklearn import (manifold, datasets, decomposition, ensemble,
+                     discriminant_analysis, random_projection)
+from matplotlib import offsetbox
+
+from time import time
+
+from tensorflow.contrib.tensorboard.plugins import projector
+import os
+
 def getDictFeaturesFasterRCNN(database,k_per_bag = 300):
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
     demonet = 'res152_COCO'
     metamodel = 'FasterRCNN'
@@ -112,7 +123,10 @@ def bb_intersection_over_union(boxA, boxB):
     # return the intersection over union value
     return iou
 
-def plotBoxesWithinImage():
+def plotBoxesWithinImage(number_Im_plot=None):
+    """
+    Number of images we save with the boxes
+    """
     
     database='IconArt_v1'
     if(database=='IconArt_v1'):
@@ -120,10 +134,10 @@ def plotBoxesWithinImage():
         item_name='item'
         classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
         'Mary','nudity', 'ruins','Saint_Sebastien']
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
     
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
-    path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
     databasetxt =path_data_csvfile + database + ext
 
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -166,40 +180,65 @@ def plotBoxesWithinImage():
     sess.close()
     print('End read the boxes proposals')
     
-    print('Please provide the name of the image, to quit right quit and rand for random image')
-    name = input('Name of the image :')
-    while not(name=='quit'):
-        if name=='rand' or name in list_im_with_classes:
-            if name=='rand' :
-                name_im = np.choose(1,list_im_with_classes)
-            else:
-                name_im = name
-            boxes = dict_rois[name_im]
-            plotBoxesIm(name_im,boxes,path_to_img=path_to_img)
-        else:
-            print(name,'is not in the test image with a classes of interest')
-            name = input('Name of the image or rand or quit :')
+    # Plot all the boxes on all the images
+    base_plot = '/media/gonthier/HDD/output_exp/ClassifPaintings/PlotBoxesIconArt_v1_Test'
+    if number_Im_plot is None:
+        list_im_with_classes_loc = list_im_with_classes
+    else:
+        list_im_with_classes_loc = list_im_with_classes[0:number_Im_plot]
+    for name_im in list_im_with_classes_loc:
+        path_tmp = base_plot +'/' + name_im
+        pathlib.Path(path_tmp).mkdir(parents=True, exist_ok=True) 
+        boxes = dict_rois[name_im]
+        complet_name = path_to_img + str(name_im) + '.jpg'
+        im = cv2.imread(complet_name)
+        for i in range(len(boxes)):
+            dets = np.hstack((boxes[i,:],[1.])).reshape(1,-1)
+            class_name ='object'
+            vis_detections(im, class_name, dets, thresh=0.5,with_title=True,draw=False)
+#            plt.show()
+            name_output = path_tmp + '/' +name_im +'_'+str(i)+'jpg'
+            plt.savefig(name_output)
+            plt.close()
+    
+    ## This doesn t work
+#    print('Please provide the name of the image, to quit right quit and rand for random image')
+#    name = input('Name of the image :') 
+#    while not(name=='quit'):
+#        if name=='rand' or name in list_im_with_classes:
+#            if name=='rand' :
+#                name_im = np.random.choice(list_im_with_classes,[1])[0]
+#            else:
+#                name_im = name
+#            boxes = dict_rois[name_im]
+#            plotBoxesIm(name_im,boxes,path_to_img=path_to_img)
+#        else:
+#            print(name,'is not in the test image with a classes of interest')
+#            name = input('Name of the image or rand or quit :')
 
 def plotBoxesIm(name_im,boxes,path_to_img=''):
     complet_name = path_to_img + str(name_im) + '.jpg'
     im = cv2.imread(complet_name)
     for i in range(len(boxes)):
-        dets = np.hstack((boxes[i,:],[1.]))
-        class_name = ['object']
+        dets = np.hstack((boxes[i,:],[1.])).reshape(1,-1)
+        class_name ='object'
         vis_detections(im, class_name, dets, thresh=0.5,with_title=True)
-        input("Press Enter to continue...")
+        plt.show()
+#        plt.savefig(name_output)
+        plt.close()
+#        input("Press Enter to continue...")
         
-def Test_GT_inProposals(database='IconArt_v1'):
+def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300):
     
     if(database=='IconArt_v1'):
         ext='.csv'
         item_name='item'
         classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
         'Mary','nudity', 'ruins','Saint_Sebastien']
-        path_to_img = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
     
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
-    path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
     databasetxt =path_data_csvfile + database + ext
 
     df_label = pd.read_csv(databasetxt,sep=",")
@@ -209,7 +248,7 @@ def Test_GT_inProposals(database='IconArt_v1'):
     
     imdb = get_imdb('IconArt_v1_test')
 
-    k_per_bag = 300
+    
     dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag)
     name_file = dict_name_file['test']
     next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag)
@@ -343,3 +382,279 @@ def Test_GT_inProposals(database='IconArt_v1'):
     print(arrayToLatex(aps,per=True))
     
     tf.reset_default_graph()
+
+def draw_random_bbbox(h,w):
+    x = np.random.randint(0,h-60)
+    y = np.random.randint(0,w-60)
+    x2 = np.random.randint(x,h-30)
+    y2 = np.random.randint(y,w-30)
+    bbox = [x,y,x2,y2]
+    return bbox
+    
+def RandomBoxes_withTrueGT(database='IconArt_v1',withGT=True):
+    """
+    This function will compute the performance with random boxes 
+    @param : withGT : with the Ground truth instance
+    """
+    
+    if(database=='IconArt_v1'):
+#        ext='.csv'
+#        item_name='item'
+        classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+        'Mary','nudity', 'ruins','Saint_Sebastien']
+    
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+#    path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'s
+#    databasetxt =path_data_csvfile + database + ext
+
+#    df_label = pd.read_csv(databasetxt,sep=",")
+    
+#    list_im_withanno = list(df_label[df_label['Anno']==1][item_name].values)
+    # List of images with Bounding boxes GT annotations
+    
+    imdb = get_imdb('IconArt_v1_test')
+#    list_gt_boxes_classes = []
+    all_boxes = [[[] for _ in range(imdb.num_images)] for _ in range(imdb.num_classes+1)]
+    number_gt_boxes = 0
+    for i in range(imdb.num_images):
+        complet_name = imdb.image_path_at(i)
+        complet_name_tab = ('.'.join(complet_name.split('.')[0:-1])).split('/')
+        complet_name_tab[-2] = 'Annotations'
+        complet_name_xml = '/'.join(complet_name_tab) + '.xml'
+        read_file = voc_eval.parse_rec(complet_name_xml)
+        im_path = imdb.image_path_at(i)
+        im = cv2.imread(complet_name)
+        h,w,c = im.shape
+        blobs, im_scales = get_blobs(im)
+        name_im = im_path.split('/')[-1]
+        name_im = name_im.split('.')[0]
+
+        if withGT:
+
+            for element in read_file:
+                # For each instance we will draw a random boxes
+                number_gt_boxes += 1
+                classe_elt_xml = element['name']
+                c = classes.index(classe_elt_xml)
+                bbox = draw_random_bbbox(h,w)
+                all_boxes[c+1][i] += [bbox]
+        else:
+            number_of_class = np.random.poisson(2, 1)[0]
+            cs = np.random.choice(6,number_of_class)
+            for c in cs:
+                bbox = draw_random_bbbox(h,w)
+                all_boxes[c+1][i] += [bbox]
+            
+    for i in range(imdb.num_images):
+        for j in range(imdb.num_classes):
+            all_boxes[j+1][i] = np.array(all_boxes[j+1][i])
+    
+    imdb.set_force_dont_use_07_metric(True)
+    output_dir = path_data +'tmp/' + database+'_mAP.txt'
+    aps =  imdb.evaluate_detections(all_boxes, output_dir)
+    print("Detection score with random boxes prediction but GT (thres = 0.5): ",database)
+    print(arrayToLatex(aps,per=True))
+    
+    ovthresh = 0.1
+    aps = imdb.evaluate_localisation_ovthresh(all_boxes, output_dir,ovthresh)
+    print("Detection score with random boxes prediction but GT  (thres = 0.1): ",database)
+    print(arrayToLatex(aps,per=True))
+
+#----------------------------------------------------------------------
+# Scale and visualize the embedding vectors
+def plot_embedding(X,y, title=None):
+    x_min, x_max = np.min(X, 0), np.max(X, 0)
+    X = (X - x_min) / (x_max - x_min)
+
+    plt.figure()
+    ax = plt.subplot(111)
+    for i in range(X.shape[0]):
+        plt.text(X[i, 0], X[i, 1], str(y[i]),
+                 color=plt.cm.Set1(y[i] / 10.),
+                 fontdict={'weight': 'bold', 'size': 9})
+
+#    if hasattr(offsetbox, 'AnnotationBbox'):
+#        # only print thumbnails with matplotlib > 1.0
+#        shown_images = np.array([[1., 1.]])  # just something big
+#        for i in range(X.shape[0]):
+#            dist = np.sum((X[i] - shown_images) ** 2, 1)
+#            if np.min(dist) < 4e-3:
+#                # don't show points that are too close
+#                continue
+#            shown_images = np.r_[shown_images, [X[i]]]
+#            imagebox = offsetbox.AnnotationBbox(
+#                offsetbox.OffsetImage(digits.images[i], cmap=plt.cm.gray_r),
+#                X[i])
+#            ax.add_artist(imagebox)
+    plt.xticks([]), plt.yticks([])
+    if title is not None:
+        plt.title(title)
+
+def prepareData_to_TSNE(IuOValid=True):
+    """
+    Goal to prepare data for a TSNE tensorboard
+    We assign the label of the class if the IuO is superior to 0.5
+    """
+    database='IconArt_v1'
+    if(database=='IconArt_v1'):
+        ext='.csv'
+        item_name='item'
+        classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+        'Mary','nudity', 'ruins','Saint_Sebastien']
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+        path_to_xml = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/Annotations/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+    databasetxt =path_data_csvfile + database + ext
+
+    df_label = pd.read_csv(databasetxt,sep=",")
+    
+    list_im_withanno = list(df_label[df_label['Anno']==1][item_name].values)
+    # List of images with Bounding boxes GT annotations
+    set = 'test'
+    name_imdb = database + '_' + set
+    imdb = get_imdb(name_imdb)
+
+    k_per_bag = 300
+    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag)
+    name_file = dict_name_file['test']
+    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag)
+
+    # Load the Faster RCNN proposals
+    dict_rois = {}
+#    sess = tf.Session()
+    sum_of_classes = []
+    
+    list_im_with_classes = []
+    num_features = 2048
+    if set=='test':
+#        num_ex = 857
+        num_ex = 1480
+    else:
+        num_ex = 2978
+    num_classes = 7
+    k_per_bag = 300
+    k_per_im = 5
+    X = np.empty(shape=(num_ex*k_per_im,num_features),dtype=np.float32)
+    y = np.empty(shape=(num_ex*k_per_im,num_classes),dtype=np.float32)
+    with tf.Session() as sess:
+        while True:
+            try:
+                fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
+                for k in range(len(labels)): # Loop on the images of the batch
+                    name_im = name_imgs[k].decode("utf-8")
+                    if name_im in list_im_withanno: 
+                        labels_k = np.zeros((k_per_bag,num_classes),dtype=np.float32)
+                        complet_name =path_to_img + name_im + '.jpg'
+                        im = cv2.imread(complet_name)
+                        blobs, im_scales = get_blobs(im)
+                        fc7 = fc7s[k,:].reshape((-1,num_features))
+                        if IuOValid: # We will assign the label to the bbox with a IoU sup 0.5
+                            list_index = list(np.arange(k_per_bag,dtype=np.int))
+                            labels_k = np.zeros((k_per_bag,num_classes),dtype=np.float32)
+                            roi = roiss[k,:]
+                            roi_boxes =  roi[:,1:5] / im_scales[0]
+                            complet_name_xml =path_to_xml + name_im + '.xml'
+                            read_file = voc_eval.parse_rec(complet_name_xml)
+                            list_kb_pos = []
+                            for kb in range(k_per_bag): # Loop on the boxes of the image
+                                for element in read_file:
+                                    classe_elt_xml = element['name']
+                                    c = classes.index(classe_elt_xml)
+                                    bbox = element['bbox']
+                                    iuo = bb_intersection_over_union(roi_boxes[kb,:],bbox)
+                                    if iuo >= 0.5:
+                                        labels_k[kb,c] = 1.
+                                        list_kb_pos += [kb]
+                                        try: 
+                                            list_index.remove(kb)
+                                        except ValueError:
+                                            pass
+                            list_kb_pos = np.unique(np.array(list_kb_pos,dtype=np.int))
+                            if len(list_kb_pos) < k_per_im:   
+                                other_index = np.random.choice(list_index,k_per_im-len(list_kb_pos),replace=False)
+                                index_selected =  np.concatenate((list_kb_pos,other_index))
+                            elif len(list_kb_pos) == k_per_im: 
+                                index_selected = list_kb_pos
+                            else:
+                                index_selected = np.random.choice(list_kb_pos,k_per_im,replace=False)
+                                
+                        else:
+                             labels_k = np.reshape(np.tile(labels[k,:],k_per_bag),(k_per_bag,num_classes))
+                             index_selected = np.random.choice(300,(200,),replace=False)
+                             
+                             
+                        X[k:k+k_per_im,:] = fc7[index_selected,:]
+                        y[k:k+k_per_im,:] =  labels_k[index_selected,:]
+            except tf.errors.OutOfRangeError:
+                break
+    PATH = os.getcwd()
+    # Path to save the embedding and checkpoints generated
+    LOG_DIR = PATH + '/data/'
+    # Write the metadata 
+    if IuOValid:
+        nametsv =  PATH + '/data/metadata_tsneIuo05_'+str(k_per_im)+'.tsv'
+    else:
+        nametsv =  PATH + '/data/metadata_tsneLabelPerIm_'+str(k_per_im)+'.tsv'
+    ypd = pd.DataFrame(y,columns=classes)
+    ypd.to_csv(nametsv,sep='\t',index=False,header=classes)
+    
+    metadata = nametsv
+    tf_data = tf.Variable(X)
+
+    ## Running TensorFlow Session
+    with tf.Session() as sess:
+        saver = tf.train.Saver([tf_data])
+        sess.run(tf_data.initializer)
+        saver.save(sess, os.path.join(LOG_DIR, 'tf_data.ckpt'))
+        config = projector.ProjectorConfig()
+    
+    # One can add multiple embeddings.
+        embedding = config.embeddings.add()
+        embedding.tensor_name = tf_data.name
+    
+        # Link this tensor to its metadata(Labels) file
+        embedding.metadata_path = metadata
+    
+        # Saves a config file that TensorBoard will read during startup.
+        projector.visualize_embeddings(tf.summary.FileWriter(LOG_DIR), config)
+    
+    # After run : tensorboard --logdir=/home/gonthier/Travail_Local/Icono_Art/Icono_Art_Analysis/Classif_Paintings/data/ --port=6006
+        
+#        
+#    from tensorflow.contrib.tensorboard.plugins import projector
+#    embedding_var = tf.Variable(X, name='embedding')
+#    # Create summary writer.
+#    writer = tf.summary.FileWriter('./graphs/embedding_test', sess.graph)
+#    # Initialize embedding_var
+#    sess.run(embedding_var.initializer)
+#    # Create Projector config
+#    config = projector.ProjectorConfig()
+#    # Add embedding visualizer
+#    embedding = config.embeddings.add()
+#    # Attache the name 'embedding'
+#    embedding.tensor_name = embedding_var.name
+#    # Metafile which is described later
+#    embedding.metadata_path = './100_vocab.csv'
+#    # Add writer and config to Projector
+#    projector.visualize_embeddings(writer, config)
+#    # Save the model
+#    saver_embed = tf.train.Saver([embedding_var])
+#    saver_embed.save(sess, './graphs/embedding_test/embedding_test.ckpt', 1)
+#
+#    writer.close()
+        
+#    #----------------------------------------------------------------------
+#    # t-SNE embedding of the digits dataset
+#    print("Computing t-SNE embedding")
+#    tsne = manifold.TSNE(n_components=2, init='pca', random_state=0)
+#    t0 = time()
+#    X_tsne = tsne.fit_transform(X)
+#    
+#    for i in range(num_classes):
+#        y_i = y[:,i]
+#        plot_embedding(X_tsne,y_i,
+#                       "t-SNE embedding of the digits (time %.2fs)" %
+#                       (time() - t0))
+#        
+#        plt.show()

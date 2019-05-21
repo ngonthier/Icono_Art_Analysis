@@ -15,8 +15,8 @@ from pascal_voc_writer import Writer
 from tf_faster_rcnn.lib.datasets import voc_eval
 import numpy as np 
 def StatsOnWikiTenLabels():
-    annotations_folder = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/'
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    annotations_folder = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     name_file = path_data + 'WikiTenLabels.csv'
     classes_a_garder = ['angel','Child_Jesus','crucifixion_of_Jesus','Mary','nudity', 'ruins','Saint_Sebastien']
     df = pd.read_csv(name_file,sep=',')
@@ -42,7 +42,7 @@ def StatsOnWikiTenLabels():
 #    classes = ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
 #                    'Mary','nudity', 'ruins','Saint_Sebastien','turban']
 #    list_elt= os.listdir(annotations_folder)
-#    file_test = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/ImageSets/Main/test.txt'
+#    file_test = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/ImageSets/Main/test.txt'
 #    file = open(file_test,"w") 
 #    for elt in list_elt:
 #        elt_wt_jpg = elt.split('.')[0]
@@ -52,7 +52,7 @@ def StatsOnWikiTenLabels():
 
     size_min = 25*25 # 15*15
 
-    path_b ='/media/HDD/data/Wikidata_Paintings/WikiTenLabels/ImageSets/Main/test.txt'
+    path_b ='/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/ImageSets/Main/test.txt'
     pd_b = pd.read_csv(path_b,sep=r"\s*",names=['item'],dtype=str)
     
     dict_elts_total = {}
@@ -66,7 +66,7 @@ def StatsOnWikiTenLabels():
     for index, row in pd_b.iterrows():
         numberofIm += 1
         i = row['item']
-        path_i = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/%s.xml'%(i)
+        path_i = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/%s.xml'%(i)
         read_file = voc_eval.parse_rec(path_i)
         with_class = False
         for element in read_file:
@@ -107,8 +107,8 @@ def StatsOnWikiTenLabels():
 
 
 def Stats_and_testFile():
-    annotations_folder = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/'
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    annotations_folder = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     name_file = path_data + 'WikiTenLabels.csv'
     df = pd.read_csv(name_file,sep=',')
     df_test = df[df['set']=='test']
@@ -121,7 +121,7 @@ def Stats_and_testFile():
     list_elt= os.listdir(annotations_folder)
     write_test_file = False
     if write_test_file:
-        file_test = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/ImageSets/test.txt'
+        file_test = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/ImageSets/test.txt'
         file = open(file_test,"w") 
         for elt in list_elt:
             elt_wt_jpg = elt.split('.')[0]
@@ -131,7 +131,7 @@ def Stats_and_testFile():
 
     size_min = 25*25 # 15*15
 
-    path_b ='/media/HDD/data/Wikidata_Paintings/WikiTenLabels/ImageSets/Main/test.txt'
+    path_b ='/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/ImageSets/Main/test.txt'
     pd_b = pd.read_csv(path_b,sep=r"\s*",names=['item'],dtype=str)
     
     dict_elts_total = {}
@@ -143,7 +143,7 @@ def Stats_and_testFile():
         
     for index, row in pd_b.iterrows():
         i = row['item']
-        path_i = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/%s.xml'%(i)
+        path_i = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/%s.xml'%(i)
         read_file = voc_eval.parse_rec(path_i)
         for element in read_file:
             classe_elt = element['name']
@@ -178,10 +178,10 @@ def Stats_and_testFile():
 def addColumns_IfAnnotation():
     """ This function add a column to the csv files about the fact that we have annotation or not
     """
-    path_data = '/media/HDD/output_exp/ClassifPaintings/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     name_file = path_data + 'WikiTenLabels.csv'
     df = pd.read_csv(name_file,sep=',')  
-    path_b ='/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/test.txt'
+    path_b ='/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/test.txt'
     pd_b = pd.read_csv(path_b,sep=r"\s*",names=['item'],dtype=str)
     df['Anno'] = 0.0
     for index, row in pd_b.iterrows():
@@ -197,8 +197,8 @@ def WriteDifficultsBoxes():
     This function will mark as difficult all the tiny objects in the xml files 
     """
     size_min = 25*25 # 20*20 Au moins un truc de taille superieur a 17*17
-    path_b ='/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/test.txt'
-    path_to_im = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
+    path_b ='/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/Main/test.txt'
+    path_to_im = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
     pd_b = pd.read_csv(path_b,sep=r"\s*",names=['item'],dtype=str)
     for index, row in pd_b.iterrows():
         Erase = False
@@ -208,7 +208,7 @@ def WriteDifficultsBoxes():
         height = im.shape[0]
         width = im.shape[1]
         writer = Writer(path_i, width, height)
-        pathxml = '/media/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/%s.xml'%(i)
+        pathxml = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/%s.xml'%(i)
         read_file = voc_eval.parse_rec(pathxml)
         for element in read_file:
             classe_elt = element['name']

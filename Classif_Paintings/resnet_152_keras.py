@@ -13,14 +13,23 @@ http://ethereon.github.io/netscope/#/gist/d38f3e6091952b45198b
 import cv2
 import numpy as np
 import yaml
-from keras.layers import Input, Dense, Conv2D, MaxPooling2D, AveragePooling2D, ZeroPadding2D, Dropout, Flatten, add, merge, Reshape, Activation, Lambda, GlobalAveragePooling2D, Merge
-from keras.optimizers import SGD
-from keras.layers.normalization import BatchNormalization
-from keras.models import Model
-from keras import initializers
-from keras.engine import Layer, InputSpec
-from keras import backend as K
-from keras.applications.resnet50 import decode_predictions
+try:
+    from keras.layers import Input, Dense, Conv2D, MaxPooling2D, AveragePooling2D, ZeroPadding2D, Dropout, Flatten, add, merge, Reshape, Activation, Lambda, GlobalAveragePooling2D
+    #from keras.optimizers import SGD
+    from keras.layers.normalization import BatchNormalization
+    from keras.models import Model
+    from keras import initializers
+    from keras.engine import Layer, InputSpec
+    from keras import backend as K
+    #from keras.applications.resnet50 import decode_predictions
+except ModuleNotFoundError:
+    from tensorflow.keras.layers import Layer, InputSpec, BatchNormalization, Input, Dense, Conv2D, MaxPooling2D, AveragePooling2D, ZeroPadding2D, Flatten, add, Activation
+    #from tensorflow.keras.optimizers import SGD
+    from tensorflow.keras.models import Model
+    from tensorflow.keras import initializers
+    import tensorflow as K
+    #from tensorflow.keras import backend as K
+    #from tensorflow.keras.applications.resnet50 import decode_predictions
 
 import sys
 sys.setrecursionlimit(3000)
@@ -312,7 +321,7 @@ if __name__ == '__main__':
     weights_path = 'resnet152_weights_th.h5'
   else:
     # Use pre-trained weights for Tensorflow backend
-    weights_path = '/media/HDD/models/resnet152_weights_tf.h5'
+    weights_path = '/media/gonthier/HDD/models/resnet152_weights_tf.h5'
 
   # Insert a new dimension for the batch_size
   im = np.expand_dims(im, axis=0)

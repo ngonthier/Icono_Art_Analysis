@@ -21,9 +21,9 @@ sets=[('2007', 'train'), ('2007', 'val'), ('2007', 'test')]
 
 classes = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
-path = '/media/HDD/data/'
+path = '/media/gonthier/HDD/data/'
 
-path_output = '/media/HDD/output_exp/ClassifPaintings/'
+path_output = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
 
 
 
@@ -42,8 +42,8 @@ def convert(size, box):
     return (x,y,w,h)
 
 def convert_annotation(year, image_id):
-    in_file = open('/media/HDD/data/VOCdevkit/VOC%s/Annotations/%s.xml'%(year, image_id))
-    out_file = open('/media/HDD/data/VOCdevkit/VOC%s/labels/%s.txt'%(year, image_id), 'w')
+    in_file = open('/media/gonthier/HDD/data/VOCdevkit/VOC%s/Annotations/%s.xml'%(year, image_id))
+    out_file = open('/media/gonthier/HDD/data/VOCdevkit/VOC%s/labels/%s.txt'%(year, image_id), 'w')
     tree=ET.parse(in_file)
     root = tree.getroot()
     size = root.find('size')
@@ -69,11 +69,11 @@ def VOC2007():
     for y in years:
         for year, image_set in sets:
             if year==y:
-                image_ids = open('/media/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s.txt'%(year, image_set)).read().strip().split()
+                image_ids = open('/media/gonthier/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s.txt'%(year, image_set)).read().strip().split()
                 pd_c = None
                 for c in classes: 
                     print(year,image_set,c)
-                    path_c = '/media/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s_%s.txt'%(year,c,image_set)
+                    path_c = '/media/gonthier/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s_%s.txt'%(year,c,image_set)
                     if pd_c is None:
                         pd_c = pd.read_csv(path_c,sep=r"\s*",names=['name_img',c],dtype=str)
                         print(pd_c.head(5))
@@ -104,14 +104,14 @@ def Watercolor():
     classes = ["bicycle", "bird","car", "cat", "dog", "person"]
     sets = [('watercolor','train'),('watercolor','test')]
     for base,image_set in sets:
-        path_b = '/media/HDD/data/cross-domain-detection/datasets/watercolor/ImageSets/Main/%s.txt'%(image_set)
+        path_b = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/ImageSets/Main/%s.txt'%(image_set)
         pd_b = pd.read_csv(path_b,sep=r"\s*",names=['name_img'],dtype=str)
         for c in classes:
             pd_b[c] = -1
         print(pd_b.head(5))
         for index, row in pd_b.iterrows():
             i = row['name_img']
-            path_i = '/media/HDD/data/cross-domain-detection/datasets/watercolor/Annotations/%s.xml'%(i)
+            path_i = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/Annotations/%s.xml'%(i)
             read_file = voc_eval.parse_rec(path_i)
             for element in read_file:
                 classe_elt = element['name']
@@ -142,7 +142,7 @@ def PeopleArt():
     classes = ["person"]
     sets = [('PeopleArt','train'),('PeopleArt','test'),('PeopleArt','val')]
     for base,image_set in sets:
-        path_b = '/media/HDD/data/PeopleArt/ImageSets/Main/person_%s.txt'%(image_set)
+        path_b = '/media/gonthier/HDD/data/PeopleArt/ImageSets/Main/person_%s.txt'%(image_set)
         pd_b = pd.read_csv(path_b,sep=r"\s*",names=['name_img','person'],dtype=str)
         pd_b['set'] = image_set
         if df is None:
@@ -166,14 +166,14 @@ def Clipart():
     classes = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
     sets = [('clipart','train'),('clipart','test')]
     for base,image_set in sets:
-        path_b = '/media/HDD/data/cross-domain-detection/datasets/clipart/ImageSets/Main/%s.txt'%(image_set)
+        path_b = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/ImageSets/Main/%s.txt'%(image_set)
         pd_b = pd.read_csv(path_b,sep=r"\s*",names=['name_img'],dtype=str)
         for c in classes:
             pd_b[c] = -1
         print(pd_b.head(5))
         for index, row in pd_b.iterrows():
             i = row['name_img']
-            path_i = '/media/HDD/data/cross-domain-detection/datasets/clipart/Annotations/%s.xml'%(i)
+            path_i = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/Annotations/%s.xml'%(i)
             read_file = voc_eval.parse_rec(path_i)
             for element in read_file:
                 classe_elt = element['name']
@@ -201,7 +201,7 @@ def Clipart():
         
 if __name__ == '__main__':
     Clipart()
-#        cls_label = open('/media/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s_%s.txt'%(year,c,image_set)).read().strip().split()
+#        cls_label = open('/media/gonthier/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s_%s.txt'%(year,c,image_set)).read().strip().split()
 #        print(cls_label)
 #    list_file = open('%s_%s.txt'%(year, image_set), 'w')
 #    print(image_ids)
@@ -211,12 +211,12 @@ if __name__ == '__main__':
 ##print(wd)
 ##
 #for year, image_set in sets:
-#    if not os.path.exists('/media/HDD/data/VOCdevkit/VOC%s/labels/'%(year)):
-#        os.makedirs('/media/HDD/data/VOCdevkit/VOC%s/labels/'%(year))
-#    image_ids = open('/media/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s.txt'%(year, image_set)).read().strip().split()
+#    if not os.path.exists('/media/gonthier/HDD/data/VOCdevkit/VOC%s/labels/'%(year)):
+#        os.makedirs('/media/gonthier/HDD/data/VOCdevkit/VOC%s/labels/'%(year))
+#    image_ids = open('/media/gonthier/HDD/data/VOCdevkit/VOC%s/ImageSets/Main/%s.txt'%(year, image_set)).read().strip().split()
 #    list_file = open('%s_%s.txt'%(year, image_set), 'w')
 #    for image_id in image_ids:
-#        list_file.write('/media/HDD/data/%s/VOCdevkit/VOC%s/JPEGImages/%s.jpg\n'%(wd, year, image_id))
+#        list_file.write('/media/gonthier/HDD/data/%s/VOCdevkit/VOC%s/JPEGImages/%s.jpg\n'%(wd, year, image_id))
 #        convert_annotation(year, image_id)
 #    list_file.close()
 

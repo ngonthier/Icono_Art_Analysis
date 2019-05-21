@@ -19,13 +19,13 @@ slim = tf.contrib.slim
 
 #================ DATASET INFORMATION ======================
 #State dataset directory where the tfrecord files are located
-dataset_dir = '/media/HDD/data/data_Exp/'
+dataset_dir = '/media/gonthier/HDD/data/data_Exp/'
 
 #State where your log file is at. If it doesn't exist, create it.
 log_dir = './log'
 
 #State where your checkpoint file is
-checkpoint_file = '/media/HDD/models/inception_resnet_v2_2016_08_30.ckpt'
+checkpoint_file = '/media/gonthier/HDD/models/inception_resnet_v2_2016_08_30.ckpt'
 
 #State the image size you're resizing your images to. We will use the default inception size of 299.
 image_size = 299

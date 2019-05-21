@@ -54,8 +54,8 @@ def average_precision(target,output):
     return precision_at_i
 
 def imageLoader(file_name, batch_size):
-    path_csv = '/media/HDD/output_exp/ClassifPaintings/'
-    path_images = '/media/HDD/data/Painting_Dataset/' 
+    path_csv = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_images = '/media/gonthier/HDD/data/Painting_Dataset/' 
     file_csv = path_csv + file_name
     df = pd.read_csv(file_csv,sep=",")
     df['name'] = df['name'].apply(lambda a: path_images + a)

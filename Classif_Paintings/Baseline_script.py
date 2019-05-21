@@ -210,7 +210,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
            print("We are in test mode but jtest>len(classes), we will use jtest =0" )
            jtest =0
 
-        path_data = '/media/HDD/output_exp/ClassifPaintings/'
+        path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
         Not_on_NicolasPC = False
         if not(os.path.exists(path_data)):
             # Modification of the path used
@@ -223,10 +223,10 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             dataImg_path='data/'
             path_data_csvfile = path_data
         else:
-            path_to_img = '/media/HDD/data/' + path_to_img
-            dataImg_path = '/media/HDD/data/'
+            path_to_img = '/media/gonthier/HDD/data/' + path_to_img
+            dataImg_path = '/media/gonthier/HDD/data/'
             if database=='IconArt_v1':
-                path_data_csvfile = '/media/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+                path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
             else:
                 path_data_csvfile = path_data
         

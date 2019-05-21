@@ -486,7 +486,7 @@ if __name__ == '__main__':
   with tf.Graph().as_default():
      # The Inception networks expect the input image to have color channels scaled from [-1, 1]
       
-      checkpoint_file = '/media/HDD/models/inception_resnet_v2_2016_08_30.ckpt'
+      checkpoint_file = '/media/gonthier/HDD/models/inception_resnet_v2_2016_08_30.ckpt'
       #Load the model
       sess = tf.Session()
       arg_scope = inception_resnet_v2_arg_scope()

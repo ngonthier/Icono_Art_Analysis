@@ -39,6 +39,7 @@ import tensorflow as tf
 from trouver_classes_parmi_K import tf_MI_max,ModelHyperplan
 #from trouver_classes_parmi_K_MultiPlan import tf_MI_max,ModelHyperplan
 from trouver_classes_parmi_K_mi import tf_mi_model
+from TL_MIL import get_tensor_by_nameDescendant
 import pickle
 
 
@@ -47,7 +48,7 @@ list_of_ClassicalMI = ['miSVM','SIL','SISVM','LinearSISVM','MIbyOneClassSVM',\
                        'miDLstab','ensDLearlyStop','kerasMultiMIMAX']
 list_of_MIMAXbasedAlgo = ['MIMAX','MIMAXaddLayer','IA_mi_model','MAXMIMAX','MaxOfMax']
 
-path_tmp = '/media/HDD/output_exp/ClassifPaintings/tmp/'
+path_tmp = '/media/gonthier/HDD/output_exp/ClassifPaintings/tmp/'
 if not(os.path.exists(path_tmp)):
     path_tmp = 'tmp'
 # test if the folder need exist :
@@ -1221,8 +1222,8 @@ def get_classicalMILclassifier(method,verbose=False):
         classifier = miDLearlyStop.miDLearlyStop(verbose=verbose,max_iter=10)
     elif method=='miDLstab':
         classifier = miDLstab.miDLstab(verbose=verbose,max_iter=10,epochs_final=20)
-    elif method=='kerasMultiMIMAX':
-        classifier = kerasMultiMIMAX.kerasMultiMIMAX(verbose=verbose,epochs=2)
+  #  elif method=='kerasMultiMIMAX':
+   #     classifier = kerasMultiMIMAX.kerasMultiMIMAX(verbose=verbose,epochs=2)
     elif method=='ensDLearlyStop':
         classifier = ensDLearlyStop.ensDLearlyStop(verbose=verbose,n_models=5)
     else:
@@ -1231,17 +1232,14 @@ def get_classicalMILclassifier(method,verbose=False):
     return(classifier)
 
 def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
-                       method,opts,opts_MIMAX=None,verbose=False,
-                       pointsPrediction=None,
-                       get_bestloss=False,epochsSIDLearlyStop=10):
+                       method,opts,opts_MIMAX=None,verbose=False,pointsPrediction=None,
+                       get_bestloss=False,epochsSIDLearlyStop=10,num_class=1):
+
     """
     pointsPrediction=points : other prediction to do, points size
     
     /!\ For the moment we are only doing the binary case
     """
-
-    # Number of class : 
-    num_class = 1
 
     list_MIMAXbasedMethods = ['MIMAX','MAXMIMAX','IA_mi_model','MIMAXaddLayer',\
                               'MaxOfMax']
@@ -1273,12 +1271,13 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
         if not(pointsPrediction is None):
             _, points_instance_labels = predict_MIMAX(export_dir,\
                     data_path_points,pointsPrediction,size_biggest_bag,
-                    num_features,num_class,mini_batch_size,removeModel=False)
+                    num_features,num_class=num_class,
+                mini_batch_size = mini_batch_size,removeModel=False)
 
         # Testing
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
-                data_path_test,bags_test,size_biggest_bag,num_features,num_class,
-                mini_batch_size,removeModel=True)
+                data_path_test,bags_test,size_biggest_bag,num_features,num_class=num_class,
+                mini_batch_size = mini_batch_size,removeModel=True)
 
     elif method == 'MAXMIMAX':
         AggregW = 'maxOfTanh'
@@ -1295,11 +1294,13 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
         if not(pointsPrediction is None):
             _, points_instance_labels = predict_MIMAX(export_dir,\
                     data_path_points,pointsPrediction,size_biggest_bag,
-                    num_features,num_class,mini_batch_size,AggregW=AggregW,removeModel=False)
+                    num_features,num_class=num_class,
+                    mini_batch_size = mini_batch_size,AggregW=AggregW,removeModel=False)
 
         # Testing
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
-                data_path_test,bags_test,size_biggest_bag,num_features,num_class,mini_batch_size
+                data_path_test,bags_test,size_biggest_bag,num_features,num_class=num_class,
+                mini_batch_size = mini_batch_size
                 ,AggregW=AggregW,removeModel=True)
         
     elif method == 'MaxOfMax':
@@ -1315,12 +1316,14 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
         if not(pointsPrediction is None):
             _, points_instance_labels = predict_MIMAX(export_dir,\
                     data_path_points,pointsPrediction,size_biggest_bag,
-                    num_features,num_class,mini_batch_size,removeModel=False)
+                    num_features,num_class=num_class,
+                    mini_batch_size = mini_batch_size,removeModel=False)
 
         # Testing
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
-                data_path_test,bags_test,size_biggest_bag,num_features,num_class,mini_batch_size
-                ,removeModel=True)
+             data_path_test,pointsPrediction,size_biggest_bag,
+             num_features,num_class=num_class,
+             mini_batch_size = mini_batch_size,removeModel=True)
 
     elif method == 'IA_mi_model':
         #Training
@@ -1334,12 +1337,13 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
         if not(pointsPrediction is None):
             _, points_instance_labels = predict_MIMAX(export_dir,\
                     data_path_points,pointsPrediction,size_biggest_bag,num_features,
-                    num_class,mini_batch_size,removeModel=False)
+                    num_class=num_class,
+                mini_batch_size = mini_batch_size,removeModel=False)
 
         # Testing
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
-                data_path_test,bags_test,size_biggest_bag,num_features,
-                num_class,mini_batch_size,removeModel=True)
+                data_path_test,bags_test,size_biggest_bag,num_features,num_class=num_class,
+                mini_batch_size = mini_batch_size,removeModel=True)
 
 
     elif method == 'MIMAXaddLayer':
@@ -1353,13 +1357,14 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
 
         if not(pointsPrediction is None):
             _, points_instance_labels = predict_MIMAX(export_dir,\
-                    data_path_points,pointsPrediction,size_biggest_bag,num_features,
-                    mini_batch_size,removeModel=False,predict_parall=False)
+                    data_path_points,pointsPrediction,size_biggest_bag,num_features,num_class=num_class,
+                 mini_batch_size = mini_batch_size
+                ,removeModel=False,predict_parall=False)
 
         # Testing
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
-                data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size,
-                predict_parall=False)
+                data_path_test,bags_test,size_biggest_bag,num_features,num_class=num_class,
+                mini_batch_size = mini_batch_size,removeModel=True,predict_parall=False)
 
     elif method in list_of_ClassicalMI:
 
@@ -1444,18 +1449,12 @@ def predict_MIMAX(export_dir,data_path_test,bags_test,size_biggest_bag,num_featu
         new_saver.restore(sess, tf.train.latest_checkpoint(export_dir_path))
         graph= tf.get_default_graph()
 
-        X = graph.get_tensor_by_name("X:0")
-        y = graph.get_tensor_by_name("y:0")
+        X = get_tensor_by_nameDescendant(graph,"X")
+        y = get_tensor_by_nameDescendant(graph,"y")
         if with_tanh_alreadyApplied:
-            try:
-                Prod_best = graph.get_tensor_by_name("Tanh_2:0")
-            except KeyError:
-                try:
-                    Prod_best = graph.get_tensor_by_name("Tanh_1:0")
-                except KeyError:
-                     Prod_best = graph.get_tensor_by_name("Tanh:0")
+            Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
         else:
-            Prod_best = graph.get_tensor_by_name("Prod:0")
+            Prod_best = get_tensor_by_nameDescendant(graph,"Prod")
 
         if with_tanh:
             if verbose: print('use of tanh')
@@ -1751,7 +1750,7 @@ def BenchmarkRunmiDLearlyStop(firstset=0):
 def BenchmarkRun():
 
     datasets = ['SIVAL','Birds','Newsgroups']
-    list_of_algo= ['MIMAX','IA_mi_model','MIMAXaddLayer']
+    list_of_algo= ['MIMAXaddLayer','MIMAX','IA_mi_model']
     # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
 
     for method in list_of_algo:
