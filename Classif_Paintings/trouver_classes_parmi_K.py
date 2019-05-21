@@ -1536,7 +1536,7 @@ class tf_MI_max():
                     # In the case of MaxOfMax : we keep all the vectors
                     W_best=sess.run(W)
                     b_best=sess.run(b)
-                    print(loss_value)
+                    if self.verbose : print("loss",loss_value)
                     self.bestloss = loss_value
                     
             else: # We will store the vectors
