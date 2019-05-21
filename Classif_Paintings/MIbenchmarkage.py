@@ -45,7 +45,7 @@ import pickle
 list_of_ClassicalMI = ['miSVM','SIL','SISVM','LinearSISVM','MIbyOneClassSVM',\
                        'SIXGBoost','MISVM','SIDLearlyStop','miDLearlyStop',\
                        'miDLstab','ensDLearlyStop','kerasMultiMIMAX']
-list_of_MIMAXbasedAlgo = ['MIMAX','MIMAXaddLayer','IA_mi_model','MAXMIMAX']
+list_of_MIMAXbasedAlgo = ['MIMAX','MIMAXaddLayer','IA_mi_model','MAXMIMAX','MaxOfMax']
 
 path_tmp = '/media/HDD/output_exp/ClassifPaintings/tmp/'
 if not(os.path.exists(path_tmp)):
@@ -938,9 +938,11 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,
         point = np.array([xx[i, j], yy[i, j]]).reshape(1, 2)
         points.append(point)
 
-    if method in['MIMAX','IA_mi_model','MIMAXaddLayer']:
-        pred_bag_labels, pred_instance_labels,result,bestloss = train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
-               method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,pointsPrediction=points,get_bestloss=True)
+    if method in list_of_MIMAXbasedAlgo:
+        pred_bag_labels, pred_instance_labels,result,bestloss = train_and_test_MIL(bags_train,\
+               labels_bags_c_train,bags_test,labels_bags_c_test,\
+               method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,pointsPrediction=points,\
+               get_bestloss=True)
     else:
         pred_bag_labels, pred_instance_labels,result = train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_test,\
                method,opts,opts_MIMAX=opts_MIMAX,verbose=verbose,pointsPrediction=points)
@@ -993,7 +995,7 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,
 
 
     add_to_name = ''
-    if method in['MIMAX','IA_mi_model','MIMAXaddLayer'] and not(opts_MIMAX is None):
+    if method in list_of_MIMAXbasedAlgo  and not(opts_MIMAX is None):
         C,C_Searching,CV_Mode,restarts,LR = opts_MIMAX
         if not(restarts==49):
             add_to_name += '_r'+str(restarts)
@@ -1007,7 +1009,7 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,
             add_to_name += '_' + CV_Mode
 
     titlestr = 'Classification for ' +method+' AUC: {0:.2f}, UAR: {1:.2f}, F1 : {2:.2f}'.format(mPerf[2],mPerf[1],mPerf[0])
-    if method in['MIMAX','IA_mi_model','MIMAXaddLayer']:
+    if method in list_of_MIMAXbasedAlgo:
         try:
             bestloss_length = len(bestloss)
             if bestloss_length==1:
@@ -1241,123 +1243,120 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
     # Number of class : 
     num_class = 1
 
-    if method == 'MIMAX':
+    list_MIMAXbasedMethods = ['MIMAX','MAXMIMAX','IA_mi_model','MIMAXaddLayer',\
+                              'MaxOfMax']
+    
+    if method in list_MIMAXbasedMethods:
         dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
         mini_batch_size = min(mini_batch_size_max,len(bags_train))
 
         #Training
         data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
                                            num_features,'train',dataset)
+        if not(pointsPrediction is None):
+            labels_pointsPrediction = [np.array(0.)]*len(pointsPrediction)
+            data_path_points = Create_tfrecords(pointsPrediction, labels_pointsPrediction,\
+                                              size_biggest_bag,num_features,'points',dataset)
+        data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
+                                  size_biggest_bag,num_features,'test',dataset)
+        max_iters=300
+
+    if method == 'MIMAX':
+        
         export_dir= trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
                               size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
-                              verbose=verbose,get_bestloss=get_bestloss)
+                              verbose=verbose,get_bestloss=get_bestloss,max_iters=max_iters)
 
         if get_bestloss:
             export_dir,best_loss = export_dir
 
         if not(pointsPrediction is None):
-            labels_pointsPrediction = [np.array(0.)]*len(pointsPrediction)
-            data_path_points = Create_tfrecords(pointsPrediction, labels_pointsPrediction,\
-                                              size_biggest_bag,num_features,'points',dataset)
             _, points_instance_labels = predict_MIMAX(export_dir,\
                     data_path_points,pointsPrediction,size_biggest_bag,
                     num_features,num_class,mini_batch_size,removeModel=False)
 
         # Testing
-        data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
-                                          size_biggest_bag,num_features,'test',dataset)
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
                 data_path_test,bags_test,size_biggest_bag,num_features,num_class,
                 mini_batch_size,removeModel=True)
 
     elif method == 'MAXMIMAX':
-        dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
-        mini_batch_size = min(mini_batch_size_max,len(bags_train))
         AggregW = 'maxOfTanh'
         proportionToKeep = 1/12
         #Training
-        data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
-                                           num_features,'train',dataset)
         export_dir = trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
                               size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
                               verbose=verbose,get_bestloss=get_bestloss,
-                              AggregW=AggregW,proportionToKeep=proportionToKeep)
+                              AggregW=AggregW,proportionToKeep=proportionToKeep,max_iters=max_iters)
 
         if get_bestloss:
             export_dir,best_loss = export_dir
 
         if not(pointsPrediction is None):
-            labels_pointsPrediction = [np.array(0.)]*len(pointsPrediction)
-            data_path_points = Create_tfrecords(pointsPrediction, labels_pointsPrediction,\
-                                              size_biggest_bag,num_features,'points',dataset)
-            print(data_path_points)
             _, points_instance_labels = predict_MIMAX(export_dir,\
                     data_path_points,pointsPrediction,size_biggest_bag,
                     num_features,num_class,mini_batch_size,AggregW=AggregW,removeModel=False)
 
         # Testing
-        data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
-                                          size_biggest_bag,num_features,'test',dataset)
-        print(data_path_test)
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
                 data_path_test,bags_test,size_biggest_bag,num_features,num_class,mini_batch_size
                 ,AggregW=AggregW,removeModel=True)
-
-    elif method == 'IA_mi_model':
-        dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
-        mini_batch_size = min(mini_batch_size_max,len(bags_train))
-
+        
+    elif method == 'MaxOfMax':
         #Training
-        data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
-                                           num_features,'train',dataset)
-        export_dir = trainIA_mi_model(bags_train, labels_bags_c_train,data_path_train,\
+        export_dir = trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
                               size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
-                              verbose=verbose,get_bestloss=get_bestloss)
+                              verbose=verbose,get_bestloss=get_bestloss,MaxOfMax=True\
+                              ,max_iters=3000)
 
         if get_bestloss:
             export_dir,best_loss = export_dir
 
         if not(pointsPrediction is None):
-            labels_pointsPrediction = [np.array(0.)]*len(pointsPrediction)
-            data_path_points = Create_tfrecords(pointsPrediction, labels_pointsPrediction,\
-                                              size_biggest_bag,num_features,'points',dataset)
+            _, points_instance_labels = predict_MIMAX(export_dir,\
+                    data_path_points,pointsPrediction,size_biggest_bag,
+                    num_features,num_class,mini_batch_size,removeModel=False)
+
+        # Testing
+        pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
+                data_path_test,bags_test,size_biggest_bag,num_features,num_class,mini_batch_size
+                ,removeModel=True)
+
+    elif method == 'IA_mi_model':
+        #Training
+        export_dir = trainIA_mi_model(bags_train, labels_bags_c_train,data_path_train,\
+                              size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
+                              verbose=verbose,get_bestloss=get_bestloss,max_iters=max_iters)
+
+        if get_bestloss:
+            export_dir,best_loss = export_dir
+
+        if not(pointsPrediction is None):
             _, points_instance_labels = predict_MIMAX(export_dir,\
                     data_path_points,pointsPrediction,size_biggest_bag,num_features,
                     num_class,mini_batch_size,removeModel=False)
 
         # Testing
-        data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
-                                          size_biggest_bag,num_features,'test',dataset)
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
                 data_path_test,bags_test,size_biggest_bag,num_features,
                 num_class,mini_batch_size,removeModel=True)
 
 
     elif method == 'MIMAXaddLayer':
-        dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
-        mini_batch_size = min(mini_batch_size_max,len(bags_train))
-
         #Training
-        data_path_train = Create_tfrecords(bags_train, labels_bags_c_train,size_biggest_bag,\
-                                           num_features,'train',dataset)
         export_dir=trainMIMAXaddLayer(bags_train, labels_bags_c_train,data_path_train,\
                               size_biggest_bag,num_features,mini_batch_size,
-                              opts_MIMAX=opts_MIMAX,get_bestloss=get_bestloss)
+                              opts_MIMAX=opts_MIMAX,get_bestloss=get_bestloss,max_iters=max_iters)
 
         if get_bestloss:
             export_dir,best_loss = export_dir
 
         if not(pointsPrediction is None):
-            labels_pointsPrediction = [np.array(0.)]*len(pointsPrediction)
-            data_path_points = Create_tfrecords(pointsPrediction, labels_pointsPrediction,\
-                                              size_biggest_bag,num_features,'points',dataset)
             _, points_instance_labels = predict_MIMAX(export_dir,\
                     data_path_points,pointsPrediction,size_biggest_bag,num_features,
                     mini_batch_size,removeModel=False,predict_parall=False)
 
         # Testing
-        data_path_test = Create_tfrecords(bags_test, labels_bags_c_test,\
-                                          size_biggest_bag,num_features,'test',dataset)
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
                 data_path_test,bags_test,size_biggest_bag,num_features,mini_batch_size,
                 predict_parall=False)
@@ -1572,7 +1571,8 @@ def Create_tfrecords(bags, labels_bags,size_biggest_bag,num_features,nameset,dat
 
 def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
                num_features,mini_batch_size,opts_MIMAX=None,verbose=False,
-               get_bestloss=False,AggregW=None,proportionToKeep=0.):
+               get_bestloss=False,AggregW=None,proportionToKeep=0.,MaxOfMax=False,
+               max_iters=300):
     """
     This function train a tidy MIMAX model
     """
@@ -1598,8 +1598,9 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
     classifierMI_max = tf_MI_max(LR=LR,restarts=restarts,is_betweenMinus1and1=True, \
                                  num_rois=size_biggest_bag,num_classes=M, \
                                  num_features=num_features,mini_batch_size=mini_batch_size, \
-                                 verbose=verbose,C=C,CV_Mode=CV_Mode,max_iters=300,
-                                 debug=False,AggregW=AggregW,proportionToKeep=proportionToKeep)
+                                 verbose=verbose,C=C,CV_Mode=CV_Mode,max_iters=max_iters,
+                                 debug=False,AggregW=AggregW,proportionToKeep=proportionToKeep,
+                                 MaxOfMax=MaxOfMax)
     C_values =  np.logspace(-3,2,6,dtype=np.float32)
     classifierMI_max.set_C_values(C_values)
     export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
