@@ -2046,7 +2046,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   storeLossValues=False,obj_score_add_tanh=False,lambdas=0.5,
                                   obj_score_mul_tanh=False,metamodel='FasterRCNN',
                                   PCAuse=False,variance_thres=0.9,trainOnTest=False,
-                                  AddOneLayer=False,exp=10,debug = False):
+                                  AddOneLayer=False,exp=10,MaxOfMax=False,debug = False):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2147,7 +2147,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
        
    @param trainOnTest : default False, if True, the model is learn on the test set
    @param AddOneLayer : default False, if True, we add one layer on the model
-    
+   @param : MaxOfMax use the max of the max of product and keep all the (W,b) learnt
+            (default False)
     The idea of thi algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -2566,7 +2567,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         str_obj_score_mul_tanh = '_SMulTanh'
     else:
         str_obj_score_mul_tanh = ''
-    
+        
+    if MaxOfMax:
+        str_MaxOfMax = '_MaxOfMax'
+    else:
+        str_MaxOfMax =''
+        
     Number_of_positif_elt = 1 
     number_zone = k_per_bag
     
@@ -2602,7 +2608,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
-                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp]
+                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2612,7 +2618,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                      'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
                      'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
                      'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
-                     'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant','AddOneLayer','exp']
+                     'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant',\
+                     'AddOneLayer','exp','MaxOfMax']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2625,7 +2632,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
         +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
         + AggregW_str + loss_type_str+str_obj_score_add_tanh+str_obj_score_mul_tanh \
-        + PCAusestr
+        + PCAusestr+str_MaxOfMax
     if trainOnTest:
         cachefile_model_base += '_trainOnTest'
     if AddOneLayer:
@@ -2694,7 +2701,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                        Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
                        k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
                        loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                       obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer,exp=exp)
+                       obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer,exp=exp,\
+                       MaxOfMax=MaxOfMax)
                  export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
@@ -2709,6 +2717,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                        k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
                        loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                        obj_score_mul_tanh=obj_score_mul_tanh)
+                 # TODO ajouter MaxOfMax
                  export_dir = classifierMI_max.fit_mi_model_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
