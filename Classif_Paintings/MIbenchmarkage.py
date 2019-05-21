@@ -1309,6 +1309,7 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
                               size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
                               verbose=verbose,get_bestloss=get_bestloss,MaxOfMax=True\
                               ,max_iters=3000)
+        
 
         if get_bestloss:
             export_dir,best_loss = export_dir
@@ -1321,7 +1322,7 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
 
         # Testing
         pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
-             data_path_test,pointsPrediction,size_biggest_bag,
+            data_path_test,bags_test,size_biggest_bag,
              num_features,num_class=num_class,
              mini_batch_size = mini_batch_size,removeModel=True)
 
