@@ -24,6 +24,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import pathlib
+import pickle
 
 from LatexOuput import arrayToLatex
 
@@ -618,43 +619,123 @@ def prepareData_to_TSNE(IuOValid=True):
     
         # Saves a config file that TensorBoard will read during startup.
         projector.visualize_embeddings(tf.summary.FileWriter(LOG_DIR), config)
+        
+        
+def prepareData_to_Pickle(IuOValid=True):
+    """
+    Goal to prepare data for a study of the features vectors
+    We assign the label of the class if the IuO is superior to 0.5
+    """
+    database='IconArt_v1'
+    if(database=='IconArt_v1'):
+        ext='.csv'
+        item_name='item'
+        classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+        'Mary','nudity', 'ruins','Saint_Sebastien']
+        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
+        path_to_xml = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/Annotations/'
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+    databasetxt =path_data_csvfile + database + ext
+
+    df_label = pd.read_csv(databasetxt,sep=",")
     
-    # After run : tensorboard --logdir=/home/gonthier/Travail_Local/Icono_Art/Icono_Art_Analysis/Classif_Paintings/data/ --port=6006
+    list_im_withanno = list(df_label[df_label['Anno']==1][item_name].values)
+    # List of images with Bounding boxes GT annotations
+    set = 'test'
+    name_imdb = database + '_' + set
+    imdb = get_imdb(name_imdb)
+
+    k_per_bag = 300
+    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag)
+    name_file = dict_name_file['test']
+    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag)
+
+    # Load the Faster RCNN proposals
+    dict_rois = {}
+#    sess = tf.Session()
+    sum_of_classes = []
+    
+    list_im_with_classes = []
+    num_features = 2048
+    if set=='test':
+#        num_ex = 857
+        num_ex = 1480
+    else:
+        num_ex = 2978
+    num_classes = 7
+    k_per_bag = 300
+    k_per_im = 300
+    X = np.empty(shape=(num_ex*k_per_im,num_features),dtype=np.float32)
+    y = np.empty(shape=(num_ex*k_per_im,num_classes),dtype=np.float32)
+    with tf.Session() as sess:
+        while True:
+            try:
+                fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
+                for k in range(len(labels)): # Loop on the images of the batch
+                    name_im = name_imgs[k].decode("utf-8")
+                    if name_im in list_im_withanno: 
+                        labels_k = np.zeros((k_per_bag,num_classes),dtype=np.float32)
+                        complet_name =path_to_img + name_im + '.jpg'
+                        im = cv2.imread(complet_name)
+                        blobs, im_scales = get_blobs(im)
+                        fc7 = fc7s[k,:].reshape((-1,num_features))
+                        if IuOValid: # We will assign the label to the bbox with a IoU sup 0.5
+                            list_index = list(np.arange(k_per_bag,dtype=np.int))
+                            labels_k = np.zeros((k_per_bag,num_classes),dtype=np.float32)
+                            roi = roiss[k,:]
+                            roi_boxes =  roi[:,1:5] / im_scales[0]
+                            complet_name_xml =path_to_xml + name_im + '.xml'
+                            read_file = voc_eval.parse_rec(complet_name_xml)
+                            list_kb_pos = []
+                            for kb in range(k_per_bag): # Loop on the boxes of the image
+                                for element in read_file:
+                                    classe_elt_xml = element['name']
+                                    c = classes.index(classe_elt_xml)
+                                    bbox = element['bbox']
+                                    iuo = bb_intersection_over_union(roi_boxes[kb,:],bbox)
+                                    if iuo >= 0.5:
+                                        labels_k[kb,c] = 1.
+                                        list_kb_pos += [kb]
+                                        try: 
+                                            list_index.remove(kb)
+                                        except ValueError:
+                                            pass
+                            list_kb_pos = np.unique(np.array(list_kb_pos,dtype=np.int))
+                            if len(list_kb_pos) < k_per_im:   
+                                other_index = np.random.choice(list_index,k_per_im-len(list_kb_pos),replace=False)
+                                index_selected =  np.concatenate((list_kb_pos,other_index))
+                            elif len(list_kb_pos) == k_per_im: 
+                                index_selected = list_kb_pos
+                            else:
+                                index_selected = np.random.choice(list_kb_pos,k_per_im,replace=False)
+                                
+                        else:
+                             labels_k = np.reshape(np.tile(labels[k,:],k_per_bag),(k_per_bag,num_classes))
+                             index_selected = np.random.choice(300,(200,),replace=False)
+                             
+                             
+                        X[k:k+k_per_im,:] = fc7[index_selected,:]
+                        y[k:k+k_per_im,:] =  labels_k[index_selected,:]
+            except tf.errors.OutOfRangeError:
+                break
+    PATH = os.getcwd()
+    if IuOValid:
+        namepkl =  PATH + '/data/IconArt_v1_test_set_'+str(k_per_im)+'.pkl'
+    else:
+        namepkl =  PATH + '/data/IconArt_v1_test_set_LabelPerIm_'+str(k_per_im)+'.pkl'
+    
+    data = [X,y,classes]
+    
+    with open(namepkl, 'wb') as pkl_file:
+        pickle.dump(data,pkl_file)
+    del data
+    del X,y
         
-#        
-#    from tensorflow.contrib.tensorboard.plugins import projector
-#    embedding_var = tf.Variable(X, name='embedding')
-#    # Create summary writer.
-#    writer = tf.summary.FileWriter('./graphs/embedding_test', sess.graph)
-#    # Initialize embedding_var
-#    sess.run(embedding_var.initializer)
-#    # Create Projector config
-#    config = projector.ProjectorConfig()
-#    # Add embedding visualizer
-#    embedding = config.embeddings.add()
-#    # Attache the name 'embedding'
-#    embedding.tensor_name = embedding_var.name
-#    # Metafile which is described later
-#    embedding.metadata_path = './100_vocab.csv'
-#    # Add writer and config to Projector
-#    projector.visualize_embeddings(writer, config)
-#    # Save the model
-#    saver_embed = tf.train.Saver([embedding_var])
-#    saver_embed.save(sess, './graphs/embedding_test/embedding_test.ckpt', 1)
-#
-#    writer.close()
-        
-#    #----------------------------------------------------------------------
-#    # t-SNE embedding of the digits dataset
-#    print("Computing t-SNE embedding")
-#    tsne = manifold.TSNE(n_components=2, init='pca', random_state=0)
-#    t0 = time()
-#    X_tsne = tsne.fit_transform(X)
-#    
-#    for i in range(num_classes):
-#        y_i = y[:,i]
-#        plot_embedding(X_tsne,y_i,
-#                       "t-SNE embedding of the digits (time %.2fs)" %
-#                       (time() - t0))
-#        
-#        plt.show()
+    # Test :
+    with open(namepkl,'rb') as rfp: 
+        [X,y,classes] = pickle.load(rfp)
+        print('X shape',X.shape)
+        print('y shape',y.shape)
+        print('classes :',classes)
+

@@ -69,6 +69,8 @@ Classif_Paintings/darkflow/requirements*.txt
 Classif_Paintings/darkflow/*.pb
 Classif_Paintings/darkflow/profile
 Classif_Paintings/darkflow/test.py
+Classif_Paintings/graphs/*
+
 
 # Built cython files
 Classif_Paintings/darkflow/darkflow/cython_utils/*.pyd
