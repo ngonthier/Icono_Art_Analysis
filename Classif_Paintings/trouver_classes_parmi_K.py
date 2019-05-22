@@ -1134,6 +1134,7 @@ class tf_MI_max():
                     Max_reshaped = tf.reshape(Max,(self.num_classes,self.paral_number_W,-1))
                     MaxOfMax = tf.reduce_max(Max_reshaped,axis=1) # We take the max on the scalar product of the same class
                     Max = MaxOfMax
+                    
             elif self.Max_version=='maxByPow':
                 # (x^alpha)^(1/alpha) environ egal a max
                 Max = tf.pow(tf.reduce_sum(tf.pow(Prod,self.exp),axis=-1),1./self.exp)
@@ -1197,7 +1198,15 @@ class tf_MI_max():
                 if self.C_Searching:    
                     loss= tf.add(Tan,tf.multiply(C_value_repeat,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
                 else:
-                    loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
+                    if self.MaxOfMax:
+                        #axisW_rReduce = [-2,-1]
+                        W_r_reduce = tf.reshape(tf.reduce_sum(tf.pow(W_r,2),axis=-1),(self.num_classes,self.paral_number_W))
+                        W_r_reduce = tf.reduce_mean(W_r_reduce,axis=-1)
+                        #W_r_reduce = tf.reduce_max(W_r_reduce,axis=-1)
+                    else:
+#                        axisW_rReduce = -1
+                        W_r_reduce = tf.reduce_sum(tf.pow(W_r,2),axis=-1)
+                    loss= tf.add(Tan,tf.multiply(self.C,W_r_reduce))
                         
                 if self.optim_wt_Reg:
                     loss=Tan
