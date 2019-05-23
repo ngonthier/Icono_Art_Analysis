@@ -3121,9 +3121,9 @@ if __name__ == '__main__':
 #    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='VOC2007',
 #                                 augmentation=False,L2 =False,
 #                                 saved='all',verbose=True,filesave='tfrecords')   
-    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
+    Compute_Faster_RCNN_features(demonet='vgg16_COCO',nms_thresh = 0.7,database='IconArt_v1',
                                  augmentation=False,L2 =False,
-                                 saved='all',verbose=True,filesave='tfrecords',k_regions=2000)   
+                                 saved='all',verbose=True,filesave='tfrecords',k_regions=300)   
     
     # Test pour calculer les performances en prenant la moyenne des regions retournees par le réseau
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',nms_thresh = 0.0)

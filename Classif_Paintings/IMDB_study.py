@@ -45,10 +45,10 @@ from time import time
 from tensorflow.contrib.tensorboard.plugins import projector
 import os
 
-def getDictFeaturesFasterRCNN(database,k_per_bag = 300):
+def getDictFeaturesFasterRCNN(database,k_per_bag = 300,demonet='res152_COCO'):
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
-    demonet = 'res152_COCO'
+    #demonet = 'res152_COCO'
     metamodel = 'FasterRCNN'
     N = 1
     extL2 = ''
@@ -77,14 +77,10 @@ def getDictFeaturesFasterRCNN(database,k_per_bag = 300):
         dict_name_file[set_str] = name_pkl_all_features
     return(dict_name_file)
 
-def getTFRecordDataset(name_file,k_per_bag = 300):
-    dim_rois = 5
-    num_features = 2048
+def getTFRecordDataset(name_file,k_per_bag = 300,num_features = 2048,num_classes = 7,dim_rois = 5):
+    
+    
     get_roisScore = True
-    
-    num_classes = 7
-    
-    
     
     mini_batch_size = 256
     train_dataset = tf.data.TFRecordDataset(name_file)
@@ -621,10 +617,11 @@ def prepareData_to_TSNE(IuOValid=True):
         projector.visualize_embeddings(tf.summary.FileWriter(LOG_DIR), config)
         
         
-def prepareData_to_Pickle(IuOValid=True):
+def prepareData_to_Pickle(IuOValid=True,demonet='res152_COCO'):
     """
     Goal to prepare data for a study of the features vectors
     We assign the label of the class if the IuO is superior to 0.5
+    @param demonet : aussi possible vgg16_COCO
     """
     database='IconArt_v1'
     if(database=='IconArt_v1'):
@@ -647,9 +644,10 @@ def prepareData_to_Pickle(IuOValid=True):
     imdb = get_imdb(name_imdb)
 
     k_per_bag = 300
-    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag)
+    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag,demonet=demonet)
     name_file = dict_name_file['test']
-    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag)
+    print(name_file)
+   
 
     # Load the Faster RCNN proposals
     dict_rois = {}
@@ -657,15 +655,32 @@ def prepareData_to_Pickle(IuOValid=True):
     sum_of_classes = []
     
     list_im_with_classes = []
-    num_features = 2048
+    
+    if  'vgg16' in demonet:
+      num_features = 4096
+    elif 'res101' in demonet:
+      num_features = 2048
+    elif 'res152' in demonet:
+      num_features = 2048
+    else:
+      raise NotImplementedError
+    
+    if demonet=='res152_COCO':
+        base = ''
+    else:
+        base=demonet
+    
     if set=='test':
 #        num_ex = 857
         num_ex = 1480
     else:
         num_ex = 2978
+        
     num_classes = 7
     k_per_bag = 300
-    k_per_im = 300
+    k_per_im = 300   
+    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,num_features=num_features)
+    
     X = np.empty(shape=(num_ex*k_per_im,num_features),dtype=np.float32)
     y = np.empty(shape=(num_ex*k_per_im,num_classes),dtype=np.float32)
     with tf.Session() as sess:
@@ -720,15 +735,16 @@ def prepareData_to_Pickle(IuOValid=True):
             except tf.errors.OutOfRangeError:
                 break
     PATH = os.getcwd()
+    
     if IuOValid:
-        namepkl =  PATH + '/data/IconArt_v1_test_set_'+str(k_per_im)+'.pkl'
+        namepkl =  PATH + '/data/'+base+'IconArt_v1_test_set_'+str(k_per_im)+'.pkl'
     else:
-        namepkl =  PATH + '/data/IconArt_v1_test_set_LabelPerIm_'+str(k_per_im)+'.pkl'
+        namepkl =  PATH + '/data/'+base+'IconArt_v1_test_set_LabelPerIm_'+str(k_per_im)+'.pkl'
     
     data = [X,y,classes]
     
     with open(namepkl, 'wb') as pkl_file:
-        pickle.dump(data,pkl_file)
+        pickle.dump(data,pkl_file, protocol=4)
     del data
     del X,y
         
