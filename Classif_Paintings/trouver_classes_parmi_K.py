@@ -317,7 +317,7 @@ class tf_MI_max():
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
                   seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
                   obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False,
-                  AddOneLayer=False,exp=10,MaxOfMax=False):
+                  AddOneLayer=False,exp=10,MaxOfMax=False,usecache=True):
 #                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,AveragingWportion=False,
 #                  votingW=False,proportionToKeep=0.25,votingWmedian=False):
         # TODOD enelver les trucs inutiles ici
@@ -388,6 +388,7 @@ class tf_MI_max():
             /!\ only avaible in the not parallel case, with one class 
         @param : MaxOfMax use the max of the max of product and keep all the (W,b) learnt
             (default False)
+        @param : usecache : use the cache function of the TF dataset (default = True) depend on our CPU RAM memory
         """
         self.LR = LR
         self.C = C
@@ -477,6 +478,9 @@ class tf_MI_max():
         self.C_values =  np.arange(0.5,2.75,0.25,dtype=np.float32) # Case used in VISART2018 ??
         self.AddOneLayer = AddOneLayer
         self.MaxOfMax = MaxOfMax
+        self.usecache = usecache
+        if not(self.Max_version=='max' or self.Max_version=='' or self.Max_version is None) and self.MaxOfMax:
+            raise(NotImplementedError)
         
     def fit_w_CV(self,data_pos,data_neg):
         kf = KFold(n_splits=3) # Define the split - into 2 folds 
@@ -645,8 +649,9 @@ class tf_MI_max():
             train_dataset = train_dataset.map(self.first_parser,
                                           num_parallel_calls=self.cpu_count)
             dataset_batch = train_dataset.batch(self.mini_batch_size)
-        dataset_batch = dataset_batch.cache()
-        dataset_batch = dataset_batch.prefetch(1)
+        if self.usecache:
+            dataset_batch = dataset_batch.cache()
+        dataset_batch = dataset_batch.prefetch(self.mini_batch_size)
         iterator_batch = dataset_batch.make_initializable_iterator()
         return(iterator_batch)
     
@@ -947,18 +952,17 @@ class tf_MI_max():
                 self.first_parser = self.parser_wRoiScore
             else:
                 self.first_parser = self.parser
-                
+          
         iterator_batch = self.tf_dataset_use_per_batch(train_dataset)
         
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
             X_batch,scores_batch, label_batch = iterator_batch.get_next()
         else:
             X_batch, label_batch = iterator_batch.get_next()
-        
         # Calcul preliminaire a la definition de la fonction de cout 
         self.config = tf.ConfigProto()
-        self.config.intra_op_parallelism_threads = 16
-        self.config.inter_op_parallelism_threads = 16
+        self.config.intra_op_parallelism_threads = 4 # 16
+        self.config.inter_op_parallelism_threads = 4 # 16
         self.config.gpu_options.allow_growth = True
         
         minus_1 = tf.constant(-1.)
@@ -978,7 +982,6 @@ class tf_MI_max():
                 add_np_pos = tf.divide(tf.reduce_sum(tf.add(label_vector,tf.constant(1.))),tf.constant(2.))
                 add_np_neg = tf.divide(tf.reduce_sum(tf.add(label_vector,minus_1)),tf.constant(-2.))
             else:
-                label_batch
                 add_np_pos = tf.reduce_sum(label_vector)
                 add_np_neg = -tf.reduce_sum(tf.add(label_vector,minus_1))
             np_pos_value = 0.
@@ -1054,7 +1057,8 @@ class tf_MI_max():
             else:
                 dataset_shuffle = train_dataset2
             dataset_shuffle = dataset_shuffle.batch(self.mini_batch_size)
-            dataset_shuffle = dataset_shuffle.cache() 
+            if self.usecache:
+                dataset_shuffle = dataset_shuffle.cache() 
             dataset_shuffle = dataset_shuffle.repeat() # ? self.max_iters
             dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) # https://stackoverflow.com/questions/46444018/meaning-of-buffer-size-in-dataset-map-dataset-prefetch-and-dataset-shuffle/47025850#47025850
 
@@ -1230,10 +1234,12 @@ class tf_MI_max():
                 Prod_batch= tf.multiply(scores_batch,tf.tanh(Prod_batch))
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
+                
                 if self.MaxOfMax:
                     Max_batch_reshaped = tf.reshape(Max_batch,(self.num_classes,self.paral_number_W,-1))
                     MaxOfMax_batch = tf.reduce_max(Max_batch_reshaped,axis=1) # We take the max on the scalar product of the same class
                     Max_batch = MaxOfMax_batch
+                    
             elif self.Max_version=='maxByPow':
                 # (sum x^alpha)^(1/alpha) environ egal a max
                 Max_batch = tf.pow(tf.reduce_sum(tf.pow(Prod_batch,self.exp),axis=-1),1./self.exp)
@@ -1771,7 +1777,8 @@ class tf_MI_max():
                 else:
                     dataset_shuffle = train_dataset2
                 dataset_shuffle = dataset_shuffle.batch(self.mini_batch_size)
-                dataset_shuffle = dataset_shuffle.cache() 
+                if self.usecache:
+                    dataset_shuffle = dataset_shuffle.cache() 
                 dataset_shuffle = dataset_shuffle.repeat() # ? self.max_iters
                 dataset_shuffle = dataset_shuffle.prefetch(self.mini_batch_size) # https://stackoverflow.com/questions/46444018/meaning-of-buffer-size-in-dataset-map-dataset-prefetch-and-dataset-shuffle/47025850#47025850
     
@@ -2324,7 +2331,8 @@ class tf_MI_max():
         else:
             dataset_sgdc = train_dataset_sgdc
         dataset_sgdc = dataset_sgdc.batch(self.mini_batch_size)
-        dataset_sgdc = dataset_sgdc.cache()
+        if self.usecache:
+            dataset_sgdc = dataset_sgdc.cache()
         dataset_sgdc = dataset_sgdc.repeat()
         dataset_sgdc = dataset_sgdc.prefetch(1)
         shuffle_iterator_sgdc = dataset_sgdc.make_initializable_iterator() 
@@ -2348,7 +2356,8 @@ class tf_MI_max():
                   else:
                       dataset_sgdc = train_dataset_sgdc
                   dataset_sgdc = dataset_sgdc.batch(batch_size)
-                  dataset_sgdc = dataset_sgdc.cache()
+                  if self.usecache:
+                      dataset_sgdc = dataset_sgdc.cache()
                   dataset_sgdc = dataset_sgdc.repeat(num_epochs)
                   dataset_sgdc = dataset_sgdc.prefetch(1)
                   shuffle_iterator_sgdc = dataset_sgdc.make_one_shot_iterator() 

@@ -2398,8 +2398,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         raise(NotImplementedError)
 
     mini_batch_size = min(sizeMax,num_trainval_im)
-#    mini_batch_size = 2 #TODO attention !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    
+    if k_per_bag > 300:
+        usecache = False
+    else:
+        usecache = True
+
     if CV_Mode=='1000max':
         mini_batch_size = min(sizeMax,1000)
     
@@ -2702,7 +2705,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                        k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
                        loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                        obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer,exp=exp,\
-                       MaxOfMax=MaxOfMax)
+                       MaxOfMax=MaxOfMax,usecache=usecache)
                  export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
@@ -5049,16 +5052,15 @@ if __name__ == '__main__':
     tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
               verbose = True,testMode = False,jtest = 'cow',
               PlotRegions = False,saved_clf=False,RPN=False,
-              CompBest=False,Stocha=True,k_per_bag=300,
+              CompBest=False,Stocha=True,k_per_bag=2000,
               parallel_op=True,CV_Mode='',num_split=2,
               WR=True,init_by_mean =None,seuil_estimation='',
-              restarts=11,max_iters_all_base=3000,LR=0.01,
+              restarts=11,max_iters_all_base=300,LR=0.01,
               C=1.0,Optimizer='GradientDescent',norm='',
               transform_output='tanh',with_rois_scores_atEnd=False,
               with_scores=True,epsilon=0.01,restarts_paral='paral',
               predict_with='MI_max',
-              AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False,
-              MaxOfMax=True,storeVectors=False) 
+              AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
 #              verbose = True,testMode = False,jtest = 'cow',
 #              PlotRegions = False,saved_clf=False,RPN=False,
