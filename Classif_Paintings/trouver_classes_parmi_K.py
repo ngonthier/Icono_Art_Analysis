@@ -961,8 +961,8 @@ class tf_MI_max():
             X_batch, label_batch = iterator_batch.get_next()
         # Calcul preliminaire a la definition de la fonction de cout 
         self.config = tf.ConfigProto()
-        self.config.intra_op_parallelism_threads = 4 # 16
-        self.config.inter_op_parallelism_threads = 4 # 16
+       # self.config.intra_op_parallelism_threads = 0 # 16
+       # self.config.inter_op_parallelism_threads = 0 # 16
         self.config.gpu_options.allow_growth = True
         
         minus_1 = tf.constant(-1.)

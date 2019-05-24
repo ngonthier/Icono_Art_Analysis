@@ -2263,13 +2263,25 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
        jtest =0
 
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    
-    if database=='IconArt_v1':
-        path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
-    else:
+    Not_on_NicolasPC = False
+    if not(os.path.exists(path_data)): # Thats means you are not on the Nicolas Computer
+        # Modification of the path used
+        Not_on_NicolasPC = True
+        print('you are not on the Nicolas PC, so I think you have the data in the data folder')
+        path_tmp = 'data/' 
+        path_to_img = path_tmp + path_to_img
+        path_data = path_tmp + 'ClassifPaintings/'
         path_data_csvfile = path_data
+    else:
+#        path_to_img = '/media/gonthier/HDD/data/' + path_to_img
+#        dataImg_path = '/media/gonthier/HDD/data/'
+        if database=='IconArt_v1':
+            path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
+        else:
+            path_data_csvfile = path_data
     
-    databasetxt =path_data_csvfile + database + ext
+    databasetxt = path_data_csvfile + database + ext
+
     if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
         dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
                       'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
@@ -2398,10 +2410,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         raise(NotImplementedError)
 
     mini_batch_size = min(sizeMax,num_trainval_im)
-    if k_per_bag > 300:
+    if k_per_bag > 300 and not(Not_on_NicolasPC): # We do the assumption that you are on a cluster with a big RAM (>50Go)
         usecache = False
     else:
         usecache = True
+
+    print('usecache',usecache,mini_batch_size,buffer_size)
 
     if CV_Mode=='1000max':
         mini_batch_size = min(sizeMax,1000)
@@ -5052,10 +5066,10 @@ if __name__ == '__main__':
     tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
               verbose = True,testMode = False,jtest = 'cow',
               PlotRegions = False,saved_clf=False,RPN=False,
-              CompBest=False,Stocha=True,k_per_bag=2000,
+              CompBest=False,Stocha=True,k_per_bag=300,
               parallel_op=True,CV_Mode='',num_split=2,
               WR=True,init_by_mean =None,seuil_estimation='',
-              restarts=11,max_iters_all_base=300,LR=0.01,
+              restarts=11,max_iters_all_base=2,LR=0.01,
               C=1.0,Optimizer='GradientDescent',norm='',
               transform_output='tanh',with_rois_scores_atEnd=False,
               with_scores=True,epsilon=0.01,restarts_paral='paral',
