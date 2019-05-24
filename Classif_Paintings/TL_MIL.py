@@ -66,6 +66,7 @@ from Transform_Box import py_cpu_modif
 #from hyperopt import tpe
 from random import uniform
 #from shutil import copyfile
+from IMDB import get_database
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -2025,6 +2026,8 @@ def FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Pa
     except KeyboardInterrupt:
         gc.collect()
         tf.reset_default_graph()
+
+
     
 def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                   model='MI_max',
@@ -2192,66 +2195,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     
     print('==========')
     # TODO be able to train on background 
-    ext = '.txt'
-    if database=='Paintings':
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
-        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-    elif database=='VOC12':
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
-    elif database=='VOC2007':
-        ext = '.csv'
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
-        classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
-           'bottle', 'bus', 'car', 'cat', 'chair',
-           'cow', 'diningtable', 'dog', 'horse',
-           'motorbike', 'person', 'pottedplant',
-           'sheep', 'sofa', 'train', 'tvmonitor']
-    elif database=='watercolor':
-        ext = '.csv'
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
-        classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
-    elif database=='PeopleArt':
-        ext = '.csv'
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
-        classes =  ["person"]
-    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
-        ext = '.csv'
-        item_name = 'item'
-        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
-        classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
-                    'Mary','nudity', 'ruins','Saint_Sebastien','turban']
-    elif(database=='IconArt_v1'):
-            ext='.csv'
-            item_name='item'
-            classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
-            'Mary','nudity', 'ruins','Saint_Sebastien']
-            path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
-    elif database=='clipart':
-        ext = '.csv'
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
-        classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
-           'bottle', 'bus', 'car', 'cat', 'chair',
-           'cow', 'diningtable', 'dog', 'horse',
-           'motorbike', 'person', 'pottedplant',
-           'sheep', 'sofa', 'train', 'tvmonitor']
-    elif(database=='Wikidata_Paintings'):
-        item_name = 'image'
-        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-        print(database,' is not implemented yet')
-        raise NotImplemented # TODO implementer cela !!! 
-    elif(database=='Wikidata_Paintings_miniset_verif'):
-        item_name = 'image'
-        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-        classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
-    else:
-        print('This database don t exist :',database)
-        raise NotImplemented
+    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
     
     if testMode and not(type(jtest)==int):
         assert(type(jtest)==str)
@@ -2262,42 +2206,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
        print("We are in test mode but jtest>len(classes), we will use jtest =0" )
        jtest =0
 
-    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    Not_on_NicolasPC = False
-    if not(os.path.exists(path_data)): # Thats means you are not on the Nicolas Computer
-        # Modification of the path used
-        Not_on_NicolasPC = True
-        print('you are not on the Nicolas PC, so I think you have the data in the data folder')
-        path_tmp = 'data/' 
-        path_to_img = path_tmp + path_to_img
-        path_data = path_tmp + 'ClassifPaintings/'
-        path_data_csvfile = path_data
-    else:
-#        path_to_img = '/media/gonthier/HDD/data/' + path_to_img
-#        dataImg_path = '/media/gonthier/HDD/data/'
-        if database=='IconArt_v1':
-            path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
-        else:
-            path_data_csvfile = path_data
-    
-    databasetxt = path_data_csvfile + database + ext
 
-    if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
-        dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
-                      'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
-                      'turban':int,'set':str,'Anno':int}
-        df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)    
-    else:
-        df_label = pd.read_csv(databasetxt,sep=",")
-    str_val = 'val'
-    if database=='Wikidata_Paintings_miniset_verif':
-        df_label = df_label[df_label['BadPhoto'] <= 0.0]
-        str_val = 'validation'
-    elif database=='Paintings':
-        str_val = 'validation'
-    elif database in ['VOC2007','watercolor','clipart','PeopleArt']:
-        str_val = 'val'
-        df_label[classes] = df_label[classes].apply(lambda x:(x + 1.0)/2.0)
     num_trainval_im = len(df_label[df_label['set']=='train'][item_name]) + len(df_label[df_label['set']==str_val][item_name])
     num_classes = len(classes)
     print(database,'with ',num_trainval_im,' images in the trainval set')
@@ -2685,7 +2594,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         imdb = get_imdb('clipart_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         num_images = len(imdb.image_index) 
-    elif database=='IconArt_v1' :
+    elif database=='IconArt_v1' or database=='RMN':
         imdb = get_imdb('IconArt_v1_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
 #        num_images = len(imdb.image_index) 
@@ -2762,6 +2671,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
         parameters=PlotRegions,RPN,Stocha,CompBest
         param_clf = k_per_bag,Number_of_positif_elt,num_features
+
+        if database=='RMN': 
+            database = 'IconArt_v1'
+            item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
+    
+
 
         true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited \
         ,all_boxes = \
@@ -2867,7 +2782,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         pickle.dump(name_milsvm, f)
     
     # Detection evaluation
-    if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
+    if database in ['RMN','VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
         if testMode:
             for j in range(0, imdb.num_classes-1):
                 if not(j==jtest):

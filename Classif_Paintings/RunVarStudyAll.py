@@ -282,7 +282,7 @@ def VariationStudyPart1_forVOC07():
             print(name_dict,'copied')
     
              
-def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO'):
+def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO',k_per_bag=300):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -328,7 +328,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
             exportname,arrayParam = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
                                           verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
                                           PlotRegions = False,saved_clf=False,RPN=False,
-                                          CompBest=False,Stocha=True,k_per_bag=300,
+                                          CompBest=False,Stocha=True,k_per_bag=k_per_bag,
                                           parallel_op=True,CV_Mode=CV_Mode,num_split=2,
                                           WR=WR,init_by_mean =None,seuil_estimation='',
                                           restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
@@ -361,6 +361,8 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict += 'SMul'
             if PCAuse:
                 name_dict +='_PCA09'
+            if not(k_per_bag==300):
+                name_dict +='_k'+str(k_per_bag)
             name_dict += '.pkl'
             copyfile(exportname,name_dict)
             print(name_dict,'copied')
@@ -656,7 +658,7 @@ def get_params_fromi_scenario(i_scenario):
     return(output)
         
 def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
-                        demonet = 'res152_COCO'):
+                        demonet = 'res152_COCO',k_per_bag=300):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -728,6 +730,8 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
                 name_dict += 'SMul'    
             if PCAuse:
                 name_dict +='_PCA09'
+            if not(k_per_bag==300):
+                name_dict +='_k'+str(k_per_bag)
             name_dictW = name_dict + '.pkl'
             
 
@@ -2044,7 +2048,7 @@ def VariationStudyPart2bis():
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
       
 def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO',onlyAP05=False,
-                        withoutAggregW=False):
+                        withoutAggregW=False,k_per_bag=300):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -2107,6 +2111,8 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict += 'SMul'    
             if PCAuse:
                 name_dict +='_PCA09'
+            if not(k_per_bag==300):
+                name_dict +='_k'+str(k_per_bag)
 
             for AggregW in listAggregW:
                 if AggregW is None or AggregW=='':
