@@ -2216,6 +2216,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     savedstr = '_all'
 
     sets = ['train','val','trainval','test']
+    if database=='RMN':
+        sets= ['trainval']
     dict_name_file = {}
     data_precomputeed= True
     if k_per_bag==300:
@@ -2233,7 +2235,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                 name_pkl_all_features+='_PCAc'+str(number_composant)
             name_pkl_all_features+='_'+set_str+'.tfrecords'
         dict_name_file[set_str] = name_pkl_all_features
-        if not(os.path.isfile(name_pkl_all_features)):
+        if set_str in ['test','trainval'] and not(os.path.isfile(name_pkl_all_features)):
             data_precomputeed = False
 
 #    sLength_all = len(df_label[item_name])
