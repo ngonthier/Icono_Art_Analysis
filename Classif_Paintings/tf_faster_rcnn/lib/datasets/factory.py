@@ -73,6 +73,8 @@ def get_imdb(name,data_path='/media/gonthier/HDD/data/'):
   """Get an imdb (image database) by name.
   @param : data_path : localisation of the dataset
   """
+  if not(os.path.exists(data_path)):
+    data_path = 'data/'
   __sets = get_sets(data_path=data_path)
   
   if name not in __sets:
