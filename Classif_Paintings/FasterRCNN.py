@@ -45,6 +45,7 @@ import pathlib
 from tool_on_Regions import reduce_to_k_regions
 from tf_faster_rcnn.lib.datasets.factory import get_imdb
 from LatexOuput import arrayToLatex
+from IMDB import get_database
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -1568,78 +1569,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     """
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
-    if database=='Paintings':
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/' 
-        num_classes = 10
-        ext = '.txt'
-    elif database=='VOC12':
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
-        num_classes = 20
-        ext = '.txt'
-        raise(NotImplementedError)
-    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
-        ext = '.csv'
-        item_name = 'item'
-        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
-        classes = ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
-                    'Mary','nudity', 'ruins','Saint_Sebastien','turban']
-        num_classes = 10
-    elif database=='VOC2007':
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
-        num_classes = 20
-        ext = '.csv'
-    elif database=='PeopleArt':
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
-        num_classes = 1
-        ext = '.csv'
-    elif database=='watercolor':
-        num_classes = 6
-        ext = '.csv'
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
-    elif database=='clipart':
-        num_classes = 20
-        ext = '.csv'
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
-    elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
-        item_name = 'image'
-        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-        num_classes = 5
-        ext = '.txt'
-    elif(database=='IconArt_v1'):
-        num_classes = 7
-        ext='.csv'
-        item_name='item'
-        classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
-        'Mary','nudity', 'ruins','Saint_Sebastien']
-        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
-    else:
-        item_name = 'image'
-        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-        ext = '.txt'
-    
-    if database=='IconArt_v1':
-        path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
-    else:
-        path_data_csvfile = path_data
-        
-    databasetxt = path_data_csvfile + database + ext
-    if database=='VOC2007' or database=='watercolor' or database=='clipart':
-        df_label = pd.read_csv(databasetxt,sep=",",dtype=str)
-    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
-        dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
-                  'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
-                  'turban':int,'set':str,'Anno':int}
-        df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
-    else:
-        df_label = pd.read_csv(databasetxt,sep=",")
-    if database=='Wikidata_Paintings_miniset_verif':
-        df_label = df_label[df_label['BadPhoto'] <= 0.0]
+    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
     
     if augmentation:
         raise NotImplementedError
@@ -1700,8 +1630,8 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     features_resnet_dict= {}
     
     sets = ['train','val','trainval','test']
-    
-    
+    if database=='RMN':
+        sets=['trainval']
     
     if filesave == 'pkl':
         name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
@@ -1715,21 +1645,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         for set_str in sets:
             name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
             dict_writers[set_str] = tf.python_io.TFRecordWriter(name_pkl_all_features)
-        if database=='Paintings':
-            classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-        if database=='VOC2007' or database=='clipart':
-            classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
-               'bottle', 'bus', 'car', 'cat', 'chair',
-               'cow', 'diningtable', 'dog', 'horse',
-               'motorbike', 'person', 'pottedplant',
-               'sheep', 'sofa', 'train', 'tvmonitor']
-        if database=='watercolor':
-            classes = ["bicycle", "bird","car", "cat", "dog", "person"]
-        if database=='PeopleArt':
-            classes = ["person"]
-        if database=='IconArt_v1':
-            classes = ['angel','Child_Jesus', 'crucifixion_of_Jesus',
-            'Mary','nudity', 'ruins','Saint_Sebastien']
+
     
     Itera = 1000
     for i,name_img in  enumerate(df_label[item_name]):
@@ -1762,7 +1678,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         elif filesave=='tfrecords':
             if i%Itera==0:
                 if verbose : print(i,name_img)
-            if database in ['IconArt_v1','VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['RMN','IconArt_v1','VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
             elif database=='PeopleArt':
@@ -1826,7 +1742,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     value = int((int(df_label[classes[j]][i])+1.)/2.)
                     #print(value)
                     classes_vectors[j] = value
-            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
+            if database in ['RMN','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
                 for j in range(num_classes):
                     value = int(df_label[classes[j]][i])
                     classes_vectors[j] = value
@@ -1883,6 +1799,8 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     dict_writers['trainval'].write(example.SerializeToString())
                 elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
                     dict_writers['test'].write(example.SerializeToString())
+            if database=='RMN':
+                dict_writers['trainval'].write(example.SerializeToString())
                     
     if filesave=='pkl':
         pickle.dump(features_resnet_dict,pkl)
@@ -3118,12 +3036,12 @@ if __name__ == '__main__':
 #    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
 #                                 augmentation=False,L2 =False,
 #                                 saved='all',verbose=True,filesave='pkl')   
-#    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='VOC2007',
-#                                 augmentation=False,L2 =False,
-#                                 saved='all',verbose=True,filesave='tfrecords')   
-    Compute_Faster_RCNN_features(demonet='vgg16_COCO',nms_thresh = 0.7,database='IconArt_v1',
+    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='RMN',
                                  augmentation=False,L2 =False,
-                                 saved='all',verbose=True,filesave='tfrecords',k_regions=300)   
+                                 saved='all',verbose=True,filesave='tfrecords')   
+#    Compute_Faster_RCNN_features(demonet='vgg16_COCO',nms_thresh = 0.7,database='IconArt_v1',
+#                                 augmentation=False,L2 =False,
+#                                 saved='all',verbose=True,filesave='tfrecords',k_regions=300)   
     
     # Test pour calculer les performances en prenant la moyenne des regions retournees par le réseau
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',nms_thresh = 0.0)
