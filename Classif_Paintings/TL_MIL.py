@@ -2239,7 +2239,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                 name_pkl_all_features+='_PCAc'+str(number_composant)
             name_pkl_all_features+='_'+set_str+'.tfrecords'
         dict_name_file[set_str] = name_pkl_all_features
-        if set_str in ['trainval','test'] not(os.path.isfile(name_pkl_all_features)):
+        if set_str in ['trainval','test'] and not(os.path.isfile(name_pkl_all_features)):
             data_precomputeed = False
     
     if database=='RMN':
