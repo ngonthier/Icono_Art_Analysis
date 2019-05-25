@@ -752,14 +752,14 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         elif(database=='Wikidata_Paintings'):
             item_name = 'image'
             path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-            raise NotImplemented # TODO implementer cela !!! 
+            raise NotImplementedError # TODO implementer cela !!! 
         elif(database=='Wikidata_Paintings_miniset_verif'):
             item_name = 'image'
             path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
             classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
         else:
             print(database,'is unknown')
-            raise NotImplemented
+            raise NotImplementedError
         
         if(jtest>len(classes)) and testMode:
            print("We are in test mode but jtest>len(classes), we will use jtest =0" )
@@ -1202,7 +1202,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             k_local = 0
             for k in range(len(f_test)): 
                 if Test_on_k_bag: 
-                    raise(NotImplemented)
+                    raise(NotImplementedError)
 #                    decision_function_output = classifier_trained.decision_function(X_test[k,:,:])
                 else:
                     if normalisation:
@@ -1417,7 +1417,7 @@ def FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Pa
         elif(database=='Wikidata_Paintings'):
             item_name = 'image'
             path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-            raise NotImplemented # TODO implementer cela !!! 
+            raise NotImplementedError # TODO implementer cela !!! 
         elif(database=='Wikidata_Paintings_miniset_verif'):
             item_name = 'image'
             path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
@@ -1494,7 +1494,7 @@ def FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Pa
         if database=='Wikidata_Paintings_miniset_verif' or database=='VOC2007' or database=='watercolor' or database=='WikiTenLabels':
             classes_vectors = df_label.as_matrix(columns=classes)
         else:
-            raise(NotImplemented)
+            raise(NotImplementedError)
         f_test = {}
         
         Test_on_k_bag = False
@@ -1669,7 +1669,7 @@ def FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Pa
             
             if Stocha:
                 # TODO Cela ne marche pas encore !
-                raise(NotImplemented)
+                raise(NotImplementedError)
                 bags = np.vstack((neg_ex,pos_ex))
                 y_pos = np.ones((len(neg_ex),1))
                 y_neg = np.zeros((len(pos_ex),1))
@@ -2207,8 +2207,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
        jtest =0
 
 
-    num_trainval_im = len(df_label[df_label['set']=='train'][item_name]) + len(df_label[df_label['set']==str_val][item_name])
-    num_classes = len(classes)
+    if not(database=='RMN'):       
+        num_trainval_im = len(df_label[df_label['set']=='train'][item_name]) + len(df_label[df_label['set']==str_val][item_name])
+    else:
+        num_trainval_im = len(df_label[item_name])
+        output = get_database('IconArt_v1')
+        item_name,path_to_img,_,_,_,_,df_label,_,_ = output
+ 
+        
     print(database,'with ',num_trainval_im,' images in the trainval set')
     N = 1
     extL2 = ''
@@ -2216,8 +2222,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     savedstr = '_all'
 
     sets = ['train','val','trainval','test']
-    if database=='RMN':
-        sets= ['trainval']
     dict_name_file = {}
     data_precomputeed= True
     if k_per_bag==300:
@@ -2235,8 +2239,19 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                 name_pkl_all_features+='_PCAc'+str(number_composant)
             name_pkl_all_features+='_'+set_str+'.tfrecords'
         dict_name_file[set_str] = name_pkl_all_features
-        if set_str in ['test','trainval'] and not(os.path.isfile(name_pkl_all_features)):
+        if not(os.path.isfile(name_pkl_all_features)):
             data_precomputeed = False
+    
+    if database=='RMN':
+        data_precomputeed = True
+        for set_str in sets:
+            if set_str=='train':
+                dict_name_file[set_str] = dict_name_file['trainval']
+            if set_str=='test' or set_str=='val':
+                dict_name_file[set_str] = dict_name_file[set_str].replace('RMN','IconArt_v1')
+            if not(os.path.isfile(dict_name_file[set_str])):
+                data_precomputeed = False
+                print("Warning in the case of RMN database you have to precompute for RM and for IconArt_v1")
 
 #    sLength_all = len(df_label[item_name])
     if demonet in ['vgg16_COCO','vgg16_VOC07','vgg16_VOC12']:
@@ -2321,7 +2336,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         raise(NotImplementedError)
 
     mini_batch_size = min(sizeMax,num_trainval_im)
-    if k_per_bag > 300 and not(Not_on_NicolasPC): # We do the assumption that you are on a cluster with a big RAM (>50Go)
+    if (k_per_bag > 300 or num_trainval_im > 5000) and not(Not_on_NicolasPC): # We do the assumption that you are on a cluster with a big RAM (>50Go)
         usecache = False
     else:
         usecache = True
@@ -2345,7 +2360,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     P20_per_class = []
     AP_per_classbS = []
     final_clf = None
-    class_weight = None
     
     if C == 1.0:
         C_str=''
@@ -2371,7 +2385,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         extNorm = '_STDSaid'
     elif norm=='STD':
         extNorm = '_STD'
-        raise(NotImplemented)
+        raise(NotImplementedError)
     elif norm=='' or norm is None:
         extNorm = ''
     if parallel_op:
@@ -2393,7 +2407,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     elif CV_Mode is None or CV_Mode=='':
         extCV =''
     else:
-        raise(NotImplemented)
+        raise(NotImplementedError)
     if WR: extCV += '_wr'
 
     if Optimizer=='Adam':
@@ -2403,7 +2417,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     elif Optimizer=='lbfgs':
         opti_str='_lbfgs'
     else:
-        raise(NotImplemented)
+        raise(NotImplementedError)
     if init_by_mean is None or init_by_mean=='':
         init_by_mean_str = ''
     elif init_by_mean=='First':
@@ -2485,7 +2499,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     elif loss_type=='log':
         loss_type_str = 'LossLog'
     else:
-        raise(NotImplemented)
+        raise(NotImplementedError)
         
     if obj_score_add_tanh:
         str_obj_score_add_tanh = '_ScoreAdd'+str(lambdas)
@@ -2677,7 +2691,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         if database=='RMN': 
             database = 'IconArt_v1'
             item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
-    
+            
 
 
         true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited \
@@ -3057,7 +3071,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      name_model_meta = export_dir + '.meta'
      
 #     if 'LinearSVC' in predict_with:
-#         raise(NotImplemented)
+#         raise(NotImplementedError)
 #         length_matrix = dict_class_weight[0] + dict_class_weight[1]
 #         if length_matrix>17500*300:
 #             print('Not enough memory on Nicolas Computer ! use an other classifier than LinearSVC')
@@ -3252,7 +3266,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      # Training the differents SVC for each class 
      # Training Time !! 
      if 'LinearSVC' in predict_with:
-        if not(AggregW is None or AggregW==''): raise(NotImplemented)
+        if not(AggregW is None or AggregW==''): raise(NotImplementedError)
         if verbose: print('predict_with',predict_with)
         classifier_trained_dict = {}
         load_model = True
@@ -4179,7 +4193,7 @@ def detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Painting
     elif(database=='Wikidata_Paintings'):
 #        item_name = 'image'
 #        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-        raise NotImplemented # TODO implementer cela !!! 
+        raise NotImplementedError # TODO implementer cela !!! 
     elif(database=='Wikidata_Paintings_miniset_verif'):
 #        item_name = 'image'
 #        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
@@ -4321,7 +4335,7 @@ def FasterRCNN_TL_MISVM(demonet = 'res152_COCO',database = 'Paintings',
     elif(database=='Wikidata_Paintings'):
         item_name = 'image'
         path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-        raise NotImplemented # TODO implementer cela !!! 
+        raise NotImplementedError # TODO implementer cela !!! 
     elif(database=='Wikidata_Paintings_miniset_verif'):
         item_name = 'image'
         path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
@@ -4980,13 +4994,25 @@ if __name__ == '__main__':
 #                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
 #                              predict_with='MI_max',
 #                              AggregW =AggregW ,proportionToKeep=1.0,model=model) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
+              verbose = True,testMode = False,jtest = 'cow',
+              PlotRegions = False,saved_clf=False,RPN=False,
+              CompBest=False,Stocha=True,k_per_bag=2000,
+              parallel_op=True,CV_Mode='',num_split=2,
+              WR=True,init_by_mean =None,seuil_estimation='',
+              restarts=11,max_iters_all_base=300,LR=0.01,
+              C=1.0,Optimizer='GradientDescent',norm='',
+              transform_output='tanh',with_rois_scores_atEnd=False,
+              with_scores=True,epsilon=0.01,restarts_paral='paral',
+              predict_with='MI_max',
+              AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'RMN', ReDo=False,
               verbose = True,testMode = False,jtest = 'cow',
               PlotRegions = False,saved_clf=False,RPN=False,
               CompBest=False,Stocha=True,k_per_bag=300,
               parallel_op=True,CV_Mode='',num_split=2,
               WR=True,init_by_mean =None,seuil_estimation='',
-              restarts=11,max_iters_all_base=2,LR=0.01,
+              restarts=11,max_iters_all_base=300,LR=0.01,
               C=1.0,Optimizer='GradientDescent',norm='',
               transform_output='tanh',with_rois_scores_atEnd=False,
               with_scores=True,epsilon=0.01,restarts_paral='paral',
