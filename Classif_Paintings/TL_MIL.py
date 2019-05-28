@@ -2610,7 +2610,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         imdb = get_imdb('clipart_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         num_images = len(imdb.image_index) 
-    elif database=='IconArt_v1' or database=='RMN':
+    elif database=='IconArt_v1' or database=='RMN' or 'IconArt_v1' in database:
         imdb = get_imdb('IconArt_v1_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
 #        num_images = len(imdb.image_index) 
@@ -2691,8 +2691,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         if database=='RMN': 
             database = 'IconArt_v1'
             item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
-            
-
 
         true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited \
         ,all_boxes = \
@@ -2774,7 +2772,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
                                all_boxes=all_boxes,with_tanh=with_tanh,dim_rois=dim_rois)
                               
             # Regroupement des informations    
-            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
+            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training',\
+                            'IconArt_v1'] \
+                        or 'IconArt_v1' in database:
                 name_all_test = df_label[df_label['set']=='test'].as_matrix([item_name])
                 #print(name_all_test)
                 #print(name_all_test.shape)
@@ -2798,7 +2798,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         pickle.dump(name_milsvm, f)
     
     # Detection evaluation
-    if database in ['RMN','VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
+    if database in ['RMN','VOC2007','watercolor','clipart','WikiTenLabels',\
+                    'PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']\
+                    or 'IconArt_v1' in database:
         if testMode:
             for j in range(0, imdb.num_classes-1):
                 if not(j==jtest):
