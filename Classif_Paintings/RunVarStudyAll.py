@@ -316,6 +316,10 @@ def Study_eval_perf_onSplit_of_IconArt():
         for df1, df2 in zip(df_test_list,df_train_list):
             df1['set'] = 'test'
             df2['set'] = 'train'
+            df_out2 = df2[['item']].astype(str)
+            df_out2.to_csv(path_data_csvfile+'train_'+str(r)+'.csv',index=False)
+            df_out = df1[['item']].astype(str)
+            df_out.to_csv(path_data_csvfile+'test_'+str(r)+'.csv',index=False)
             df = df1.append(df2)
             database = 'IconArt_v1_'+str(itera)
             df =df.astype(str)

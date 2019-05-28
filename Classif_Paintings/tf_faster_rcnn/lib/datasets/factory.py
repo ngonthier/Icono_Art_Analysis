@@ -69,7 +69,7 @@ def get_sets(data_path='/media/gonthier/HDD/data/'):
 
   return(__sets)
 
-def get_imdb(name,data_path='/media/gonthier/HDD/data/'):
+def get_imdb(name,data_path='/media/gonthier/HDD/data/',ext=None):
   """Get an imdb (image database) by name.
   @param : data_path : localisation of the dataset
   """
@@ -78,6 +78,10 @@ def get_imdb(name,data_path='/media/gonthier/HDD/data/'):
   __sets = get_sets(data_path=data_path)
   
   if name not in __sets:
+    if not(ext is None) and 'IconArt_v1' in name:
+      for split in ['test','train']:
+        name = '{}_{}'.format(db,split)
+        __sets[name] = (lambda split=split, db=db: IconArt_v1(db,split,devkit_path=os.path.join(data_path,'Wikidata_Paintings'),test_ext=True,ext=ext))    
     raise KeyError('Unknown dataset: {}'.format(name))
   return __sets[name]()
 

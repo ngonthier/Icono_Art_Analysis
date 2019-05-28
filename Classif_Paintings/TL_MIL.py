@@ -2610,8 +2610,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         imdb = get_imdb('clipart_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         num_images = len(imdb.image_index) 
-    elif database=='IconArt_v1' or database=='RMN' or 'IconArt_v1' in database:
+    elif database=='IconArt_v1' or database=='RMN':
         imdb = get_imdb('IconArt_v1_test')
+        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+    elif 'IconArt_v1' in database and not('IconArt_v1' ==database):
+        imdb = get_imdb('IconArt_v1_test',ext=database.split('_')[-1])
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
 #        num_images = len(imdb.image_index) 
         num_images =  len(df_label[df_label['set']=='test'][item_name])

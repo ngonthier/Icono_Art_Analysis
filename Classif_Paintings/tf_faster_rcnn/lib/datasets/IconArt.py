@@ -25,11 +25,15 @@ import pathlib
 
 class IconArt_v1(imdb):
   def __init__(self, _image_db,image_set, use_diff=False,devkit_path=None,test_ext=False,
-               force_dont_use_07_metric=True):
+               force_dont_use_07_metric=True,ext=None):
+    """
+    @param ext : extension to the dataset it is a subset
+    """
     name = image_set
     if use_diff:
       name += '_diff'
     imdb.__init__(self, name)
+    self.ext = ext
     self._year = None
     self._image_db = _image_db
     self._image_set = image_set
@@ -88,8 +92,12 @@ class IconArt_v1(imdb):
     """
     # Example path to image set file:
     # self._devkit_path + /VOCdevkit2007/VOC2007/ImageSets/Main/val.txt
-    image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
+    if self.ext is None:
+        image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
                                   self._image_set + '.txt')
+    else:
+        image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
+                                  self._image_set + '_' + ext + '.txt')
     assert os.path.exists(image_set_file), \
       'Path does not exist: {}'.format(image_set_file)
 #    print(image_set_file)
