@@ -2880,7 +2880,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     param_name,path_data_file,file_param = \
     create_param_id_file_and_dir(path_data+'/SauvParam/',arrayParam,arrayParamStr)
     
-    if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
+    if database in ['RMN','VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt',\
+                    'MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']\
+                    or 'IconArt_v1' in database:
         write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class),aps,np.mean(aps)],
                       ['classes','AP_per_class','mAP Classif','AP detection','mAP detection'])
         return(apsAt05,apsAt01,AP_per_class)
@@ -3687,10 +3689,12 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     
                 #print(PositiveExScoreAll.shape)
                 for k in range(len(labels)):
-                    if database in ['IconArt_v1','VOC2007','watercolor','Paintings','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training'] :
+                    if database in ['IconArt_v1','VOC2007','watercolor','Paintings','clipart',\
+                                    'WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels',\
+                                    'WikiLabels1000training'] or 'IconArt_v1' in database :
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
                     else:
-                         complet_name = path_to_img + name_imgs[k] + '.jpg'
+                        complet_name = path_to_img + name_imgs[k] + '.jpg'
                     im = cv2.imread(complet_name)
                     blobs, im_scales = get_blobs(im)
                     if predict_with=='MI_max':
@@ -4994,18 +4998,7 @@ if __name__ == '__main__':
 #                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
 #                              predict_with='MI_max',
 #                              AggregW =AggregW ,proportionToKeep=1.0,model=model) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
-              verbose = True,testMode = False,jtest = 'cow',
-              PlotRegions = False,saved_clf=False,RPN=False,
-              CompBest=False,Stocha=True,k_per_bag=2000,
-              parallel_op=True,CV_Mode='',num_split=2,
-              WR=True,init_by_mean =None,seuil_estimation='',
-              restarts=11,max_iters_all_base=300,LR=0.01,
-              C=1.0,Optimizer='GradientDescent',norm='',
-              transform_output='tanh',with_rois_scores_atEnd=False,
-              with_scores=True,epsilon=0.01,restarts_paral='paral',
-              predict_with='MI_max',
-              AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
+
     tfR_FRCNN(demonet = 'res152_COCO',database = 'RMN', ReDo=False,
               verbose = True,testMode = False,jtest = 'cow',
               PlotRegions = False,saved_clf=False,RPN=False,
@@ -5018,6 +5011,19 @@ if __name__ == '__main__':
               with_scores=True,epsilon=0.01,restarts_paral='paral',
               predict_with='MI_max',
               AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
+          verbose = True,testMode = False,jtest = 'cow',
+          PlotRegions = False,saved_clf=False,RPN=False,
+          CompBest=False,Stocha=True,k_per_bag=2000,
+          parallel_op=True,CV_Mode='',num_split=2,
+          WR=True,init_by_mean =None,seuil_estimation='',
+          restarts=11,max_iters_all_base=600,LR=0.01,
+          C=1.0,Optimizer='GradientDescent',norm='',
+          transform_output='tanh',with_rois_scores_atEnd=False,
+          with_scores=True,epsilon=0.01,restarts_paral='paral',
+          predict_with='MI_max',
+          AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
+    
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
 #              verbose = True,testMode = False,jtest = 'cow',
 #              PlotRegions = False,saved_clf=False,RPN=False,

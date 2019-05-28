@@ -61,6 +61,10 @@ from tf_faster_rcnn.lib.datasets.factory import get_imdb
 #from random import uniform
 from shutil import copyfile
 
+from IMDB import get_database
+import numpy as np
+import pickle
+
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
            'bottle', 'bus', 'car', 'cat', 'chair',
@@ -280,6 +284,128 @@ def VariationStudyPart1_forVOC07():
             name_dict += '.pkl'
             copyfile(exportname,name_dict)
             print(name_dict,'copied')
+
+def Study_eval_perf_onSplit_of_IconArt():
+    """
+    The goal of this function is to proposed a splitting of the IconArt dataset
+    to see if we have a lot of performance variation according to the train and 
+    test set 
+    """
+
+    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =\
+        get_database('IconArt_v1')
+    
+    nRep = 3
+    nRestart_at_fixed_train_and_test_set = 10
+
+    
+
+    df_test = df_label[df_label['Anno']==1]
+    df_train = df_label[df_label['Anno']==0]
+
+    itera = 0
+    path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'  
+    
+    multi = 100
+    metric_tab = ['AP@.5','AP@.1','APClassif']
+    for r in range(nRep):
+        df_test = df_test.sample(frac=1,random_state=r) # To shuffle 
+        df_train = df_train.sample(frac=1,random_state=r) # To shuffle 
+        df_test_list =np.array_split(df_test,2)
+        df_train_list =np.array_split(df_train,2)
+        for df1, df2 in zip(df_test_list,df_train_list):
+            df1['set'] = 'test'
+            df2['set'] = 'train'
+            df = df1.append(df2)
+            database = 'IconArt_v1_'+str(itera)
+            df =df.astype(str)
+            df.to_csv(path_data_csvfile+database+'.csv',index=False)
+            for score in [True,False]:
+                print('Iter :',itera,'score :',score)
+                perf05 = []
+                perf01 = []
+                perfC = []
+                DictAP = {}
+                for n in range(nRestart_at_fixed_train_and_test_set):
+                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet = 'res152_COCO',
+                                                             database = database, ReDo=True,
+                      verbose = False,testMode = False,jtest = 'cow',
+                      PlotRegions = False,saved_clf=False,RPN=False,
+                      CompBest=False,Stocha=True,k_per_bag=300,
+                      parallel_op=True,CV_Mode='',num_split=2,
+                      WR=True,init_by_mean =None,seuil_estimation='',
+                      restarts=11,max_iters_all_base=300,LR=0.01,
+                      C=1.0,Optimizer='GradientDescent',norm='',
+                      transform_output='tanh',with_rois_scores_atEnd=False,
+                      with_scores=score,epsilon=0.01,restarts_paral='paral',
+                      predict_with='MI_max',
+                      AggregW =None ,proportionToKeep=1.0,model='MI_max')
+                    perf05 += [apsAt05]
+                    perf01 += [apsAt01]
+                    perfC += [AP_per_class]
+                 
+                DictAP['AP@.5']= perf05
+                DictAP['AP@.1']=perfC
+                DictAP['APClassif']=perfC
+                
+                path_tmp = os.path.join(path_data,'SplitIconArt')    
+                name = 'Perf_Split'+str(itera)
+                if score:
+                    name += '_withScore'
+                name_dictAP = os.path.join(path_tmp,name)
+                with open(name_dictAP, 'wb') as f:
+                    pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+                    
+                for metric in metric_tab:
+                    print(metric)
+                    string_to_print =''
+                    ll_all = DictAP[metric]
+                    mean_over_reboot = np.mean(ll_all,axis=1) # Moyenne par ligne / reboot 
+    #                            print(mean_over_reboot.shape)
+                    std_of_mean_over_reboot = np.std(mean_over_reboot)
+                    mean_of_mean_over_reboot = np.mean(mean_over_reboot)
+                    mean_over_class = np.mean(ll_all,axis=0) # Moyenne par column
+                    std_over_class = np.std(ll_all,axis=0) # Moyenne par column 
+    #                            print('ll_all.shape',ll_all.shape)
+    #                            print(mean_over_class.shape)
+    #                            print(std_over_class.shape)
+    #                            input('wait')
+                    for mean_c,std_c in zip(mean_over_class,std_over_class):
+                        s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
+                        string_to_print += s + ' & '
+                    s =  "{0:.1f}  ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f}  ".format(std_of_mean_over_reboot*multi)
+                    string_to_print += s + ' \\\  '
+                    print(string_to_print)
+#                mean_per_class = np.mean(perf05,axis=0)
+#                mean = np.mean(perf05,axis=1)
+#                meanOfmean = np.mean(mean,axis=0)
+#                stdOfmean = np.std(mean,axis=0)
+#                std_per_class = np.std(perf05,axis=0)
+                itera += 1
+                # a finir
+                
+
+def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1'):
+    """
+    A finir TODO
+    """
+    
+    num_rep = 100
+    
+    for score in [True,False]:
+        for r in range(num_rep):
+            apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
+                  verbose = True,testMode = False,jtest = 'cow',
+                  PlotRegions = False,saved_clf=False,RPN=False,
+                  CompBest=False,Stocha=True,k_per_bag=300,
+                  parallel_op=True,CV_Mode='',num_split=2,
+                  WR=True,init_by_mean =None,seuil_estimation='',
+                  restarts=11,max_iters_all_base=3000,LR=0.01,
+                  C=1.0,Optimizer='GradientDescent',norm='',
+                  transform_output='tanh',with_rois_scores_atEnd=False,
+                  with_scores=score,epsilon=0.01,restarts_paral='paral',
+                  predict_with='MI_max',
+                  AggregW =None ,proportionToKeep=1.0,model='MI_max',MaxOfMax=True)
     
              
 def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO',k_per_bag=300):
@@ -845,7 +971,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
             
             sets = ['train','val','trainval','test']
             dict_name_file = {}
-            data_precomputeed= True
+            data_precomputed= True
             if k_per_bag==300:
                 k_per_bag_str = ''
             else:

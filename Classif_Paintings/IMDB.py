@@ -44,7 +44,7 @@ def get_database(database):
         path_to_img = 'Wikidata_Paintings/WikiTenLabels/JPEGImages/'
         classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
                     'Mary','nudity', 'ruins','Saint_Sebastien','turban']
-    elif(database=='IconArt_v1'):
+    elif 'IconArt_v1' in database:
             ext='.csv'
             item_name='item'
             classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
@@ -87,7 +87,7 @@ def get_database(database):
         path_tmp = 'data/' 
         path_to_img = path_tmp + path_to_img
         path_data = path_tmp + 'ClassifPaintings/'
-        if database=='IconArt_v1':
+        if 'IconArt_v1' in database:
             path_data_csvfile = path_tmp+'Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
         elif database=='RMN':
             path_data_csvfile = path_tmp+'RMN/ImageSets/Main/'
@@ -97,7 +97,7 @@ def get_database(database):
         path_to_img = default_path_imdb + path_to_img
 #        path_to_img = '/media/gonthier/HDD/data/' + path_to_img
 #        dataImg_path = '/media/gonthier/HDD/data/'
-        if database=='IconArt_v1':
+        if 'IconArt_v1' in database:
             path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
         elif database=='RMN':
             path_data_csvfile = '/media/gonthier/HDD/data/RMN/ImageSets/Main/'
@@ -110,6 +110,12 @@ def get_database(database):
         dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
                       'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
                       'turban':int,'set':str,'Anno':int}
+        df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes) 
+    elif 'IconArt_v1' in database:
+        dtypes = {0:str,'item':str,'angel':int,\
+                      'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,\
+                      'ruins':int,'Saint_Sebastien':int,\
+                      'set':str,'Anno':int}
         df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes) 
     elif database=='RMN':
         dtypes = {'item':str,'Saint_Sebastien':int}
