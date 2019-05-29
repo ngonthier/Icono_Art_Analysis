@@ -77,12 +77,13 @@ def get_imdb(name,data_path='/media/gonthier/HDD/data/',ext=None):
     data_path = 'data/'
   __sets = get_sets(data_path=data_path)
   
-  if name not in __sets:
+  if name not in __sets or not(ext is None):
     if not(ext is None) and 'IconArt_v1' in name:
-      for split in ['test','train']:
-        name = '{}_{}'.format(db,split)
-        __sets[name] = (lambda split=split, db=db: IconArt_v1(db,split,devkit_path=os.path.join(data_path,'Wikidata_Paintings'),test_ext=True,ext=ext))    
-    raise KeyError('Unknown dataset: {}'.format(name))
+      for split in ['test']:
+        name = '{}_{}'.format('IconArt_v1',split)
+        __sets[name] = (lambda split=split, db='IconArt_v1': IconArt_v1('IconArt_v1',split,devkit_path=os.path.join(data_path,'Wikidata_Paintings'),test_ext=True,ext=ext))    
+    if name not in __sets:
+        raise KeyError('Unknown dataset: {}'.format(name))
   return __sets[name]()
 
 

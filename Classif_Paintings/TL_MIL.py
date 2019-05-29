@@ -2029,17 +2029,17 @@ def FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Pa
 
 
     
-def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
+def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                                   model='MI_max',
-                                  verbose = True,testMode = True,jtest = 0,
-                                  PlotRegions = True,saved_clf=False,RPN=False,
-                                  CompBest=True,Stocha=True,k_per_bag=300,
+                                  verbose = True,testMode = False,jtest = 0,
+                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                  CompBest=False,Stocha=True,k_per_bag=300,
                                   parallel_op =True,CV_Mode=None,num_split=2,
                                   WR=False,init_by_mean=None,seuil_estimation=None,
-                                  restarts=19,max_iters_all_base=300,LR=0.01,
-                                  with_tanh=False,C=1.0,Optimizer='GradientDescent',norm=None,
+                                  restarts=11,max_iters_all_base=300,LR=0.01,
+                                  with_tanh=True,C=1.0,Optimizer='GradientDescent',norm=None,
                                   transform_output=None,with_rois_scores_atEnd=False,
-                                  with_scores=False,epsilon=0.0,restarts_paral='',
+                                  with_scores=False,epsilon=0.0,restarts_paral='paral',
                                   Max_version=None,w_exp=1.0,seuillage_by_score=False,
                                   seuil=0.5,k_intopk=3,C_Searching=False,gridSearch=False,n_jobs=1,
                                   predict_with='MI_max',thres_FinalClassifier=0.5,
@@ -2613,6 +2613,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
     elif database=='IconArt_v1' or database=='RMN':
         imdb = get_imdb('IconArt_v1_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+        num_images =  len(df_label[df_label['set']=='test'][item_name])
     elif 'IconArt_v1' in database and not('IconArt_v1' ==database):
         imdb = get_imdb('IconArt_v1_test',ext=database.split('_')[-1])
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
@@ -2816,6 +2817,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'Paintings', ReDo = False,
         num_images_detect = len(imdb.image_index)  # We do not have the same number of images in the WikiTenLabels or IconArt_v1 case
         all_boxes_order = [[[] for _ in range(num_images_detect)] for _ in range(imdb.num_classes)]
         number_im = 0
+        name_all_test = name_all_test.astype(str)
         for i in range(num_images_detect):
             name_img = imdb.image_path_at(i)
             if database=='PeopleArt':

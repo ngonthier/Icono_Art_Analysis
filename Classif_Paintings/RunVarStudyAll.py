@@ -304,6 +304,7 @@ def Study_eval_perf_onSplit_of_IconArt():
     df_train = df_label[df_label['Anno']==0]
 
     itera = 0
+    max_iters_all_base = 300
     path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'  
     
     multi = 100
@@ -317,13 +318,13 @@ def Study_eval_perf_onSplit_of_IconArt():
             df1['set'] = 'test'
             df2['set'] = 'train'
             df_out2 = df2[['item']].astype(str)
-            df_out2.to_csv(path_data_csvfile+'train_'+str(r)+'.csv',index=False)
+            df_out2.to_csv(path_data_csvfile+'train_'+str(r)+'.txt',index=False,encoding='UTF_8', header=False)
             df_out = df1[['item']].astype(str)
-            df_out.to_csv(path_data_csvfile+'test_'+str(r)+'.csv',index=False)
+            df_out.to_csv(path_data_csvfile+'test_'+str(r)+'.txt',index=False,encoding='UTF_8', header=False)
             df = df1.append(df2)
             database = 'IconArt_v1_'+str(itera)
             df =df.astype(str)
-            df.to_csv(path_data_csvfile+database+'.csv',index=False)
+            df.to_csv(path_data_csvfile+database+'.csv',index=False,encoding='UTF_8')
             for score in [True,False]:
                 print('Iter :',itera,'score :',score)
                 perf05 = []
@@ -338,7 +339,7 @@ def Study_eval_perf_onSplit_of_IconArt():
                       CompBest=False,Stocha=True,k_per_bag=300,
                       parallel_op=True,CV_Mode='',num_split=2,
                       WR=True,init_by_mean =None,seuil_estimation='',
-                      restarts=11,max_iters_all_base=300,LR=0.01,
+                      restarts=11,max_iters_all_base=max_iters_all_base,LR=0.01,
                       C=1.0,Optimizer='GradientDescent',norm='',
                       transform_output='tanh',with_rois_scores_atEnd=False,
                       with_scores=score,epsilon=0.01,restarts_paral='paral',

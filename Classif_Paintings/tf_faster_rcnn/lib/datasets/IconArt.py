@@ -97,7 +97,8 @@ class IconArt_v1(imdb):
                                   self._image_set + '.txt')
     else:
         image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
-                                  self._image_set + '_' + ext + '.txt')
+                                  self._image_set + '_' + self.ext + '.txt')
+    print('image_set_file',image_set_file)
     assert os.path.exists(image_set_file), \
       'Path does not exist: {}'.format(image_set_file)
 #    print(image_set_file)
