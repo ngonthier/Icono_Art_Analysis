@@ -2049,7 +2049,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                                   storeLossValues=False,obj_score_add_tanh=False,lambdas=0.5,
                                   obj_score_mul_tanh=False,metamodel='FasterRCNN',
                                   PCAuse=False,variance_thres=0.9,trainOnTest=False,
-                                  AddOneLayer=False,exp=10,MaxOfMax=False,debug = False):
+                                  AddOneLayer=False,exp=10,MaxOfMax=False,debug = False,alpha=0.7):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2115,6 +2115,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         'mintopk' : use the min of the top k_intopk regions 
         'maxByPow': use the approximation of the max by the exposant sum
         'LogSumExp' : use the approximation of the max by the LogSumExp formula 
+        'MaxPlusMin' : mean of k top + alpha * mean of k min
     @param : k_intopk
     @param w_exp : default 1.0 : weight in the softmax 
     @param seuillage_by_score : default False : remove the region with a score under seuil
@@ -2152,7 +2153,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
    @param AddOneLayer : default False, if True, we add one layer on the model
    @param : MaxOfMax use the max of the max of product and keep all the (W,b) learnt
             (default False)
-    The idea of thi algo is : 
+   @param : alpha factor for the 'MaxPlusMin' pooling 
+            
+    The idea of this algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
     
@@ -2341,7 +2344,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     else:
         usecache = True
 
-    print('usecache',usecache,mini_batch_size,buffer_size)
+    if verbose : print('usecache',usecache,mini_batch_size,buffer_size)
 
     if CV_Mode=='1000max':
         mini_batch_size = min(sizeMax,1000)
@@ -2438,6 +2441,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         Max_version_str ='_MVSM'
     elif Max_version=='mintopk':
         Max_version_str ='_MVMT'+str(k_intopk)
+    elif Max_version=='MaxPlusMin':
+        Max_version_str ='_MaxPlusMin'+str(k_intopk)+'_'+str(alpha)
     elif Max_version=='LogSumExp':
         Max_version_str ='_MLogSumExp'
     elif Max_version=='maxByPow':
@@ -2550,7 +2555,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
-                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax]
+                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,alpha]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2561,7 +2566,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                      'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
                      'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
                      'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant',\
-                     'AddOneLayer','exp','MaxOfMax']
+                     'AddOneLayer','exp','MaxOfMax','alpha']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2648,7 +2653,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                        k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
                        loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                        obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer,exp=exp,\
-                       MaxOfMax=MaxOfMax,usecache=usecache)
+                       MaxOfMax=MaxOfMax,usecache=usecache,alpha=alpha)
                  export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,

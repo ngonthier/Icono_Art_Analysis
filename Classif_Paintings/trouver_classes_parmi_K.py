@@ -317,7 +317,7 @@ class tf_MI_max():
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
                   seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
                   obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False,
-                  AddOneLayer=False,exp=10,MaxOfMax=False,usecache=True):
+                  AddOneLayer=False,exp=10,MaxOfMax=False,usecache=True,alpha=0.7):
 #                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,AveragingWportion=False,
 #                  votingW=False,proportionToKeep=0.25,votingWmedian=False):
         # TODOD enelver les trucs inutiles ici
@@ -345,7 +345,7 @@ class tf_MI_max():
             '' or None : the original loss function from our work, a kind of hinge loss but with a prediction between -1 and 1
             'MSE' : Mean squared error
             'hinge_tanh' : hinge loss on the tanh output (it seems to be the same as the original loss)
-            'hinge': without the tanh
+            'hinge': hinge loss without the tanh : normal way to use it
             'log' : the classification log loss : kind of crossentropy loss
         @param num_features : pnumbre de features
         @param num_rois : nombre de regions d interet
@@ -365,7 +365,8 @@ class tf_MI_max():
             'sparsemax' : use a sparsemax
             'mintopk' : use the min of the top k regions 
             'maxByPow': use the approximation of the max by the exposant sum
-            'LogSumExp' : use the approximation of the max by the LogSumExp formula            
+            'LogSumExp' : use the approximation of the max by the LogSumExp formula  
+            'MaxPlusMin' : mean of the k top + alpha * mean of the k min 
         @param w_exp : default 1.0 : weight in the softmax 
         @param k_intopk : number of regions used
         @param seuillage_by_score : default False : remove the region with a score under seuil
@@ -389,6 +390,7 @@ class tf_MI_max():
         @param : MaxOfMax use the max of the max of product and keep all the (W,b) learnt
             (default False)
         @param : usecache : use the cache function of the TF dataset (default = True) depend on our CPU RAM memory
+        @param : alpha : in the 'MaxPlusMin' version of the pooling
         """
         self.LR = LR
         self.C = C
@@ -438,8 +440,9 @@ class tf_MI_max():
         self.Max_version=Max_version
         if self.Max_version=='softmax':
             self.w_exp = w_exp # This parameter can increase of not the pente
-        if self.Max_version=='mintopk':
+        if self.Max_version=='mintopk' or self.Max_version=='MaxPlusMin':
             self.k = k_intopk # number of regions
+            self.alpha = alpha
         self.seuillage_by_score = seuillage_by_score
         self.seuil = seuil
         if self.seuillage_by_score:
@@ -447,7 +450,7 @@ class tf_MI_max():
         if self.Max_version=='sparsemax':
             print('This don t work right now') # TODO a faire LOL
             raise(NotImplementedError) 
-        if not(self.Max_version in ['mintopk','sparsemax','max','','softmax','LogSumExp','maxByPow'] or self.Max_version is None):
+        if not(self.Max_version in ['mintopk','sparsemax','max','','softmax','LogSumExp','maxByPow','MaxPlusMin'] or self.Max_version is None):
             raise(NotImplementedError)
         self.optim_wt_Reg= optim_wt_Reg
         self.AggregW = AggregW
@@ -479,7 +482,8 @@ class tf_MI_max():
         self.AddOneLayer = AddOneLayer
         self.MaxOfMax = MaxOfMax
         self.usecache = usecache
-        if not(self.Max_version=='max' or self.Max_version=='' or self.Max_version is None) and self.MaxOfMax:
+        if not(self.Max_version=='max' or self.Max_version=='' or self.Max_version is None)\
+            and self.MaxOfMax:
             raise(NotImplementedError)
         
     def fit_w_CV(self,data_pos,data_neg):
@@ -1131,6 +1135,7 @@ class tf_MI_max():
                 if self.verbose: print('Multiplication of score and tanh')
                 Prod= tf.multiply(scores_,tf.tanh(Prod))
             
+            # Different max version 
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
             
@@ -1155,6 +1160,12 @@ class tf_MI_max():
             elif self.Max_version=='sparsemax':
                 Max=sparsemax(Prod,axis=-1,number_dim=3)
                 if self.verbose: print('sparsemax',Max)
+            elif self.Max_version=='MaxPlusMin': # From WILDCAT
+                # tf.nn.top_k Finds values and indices of the k largest entries 
+                # for the last dimension and return values, indices
+                if self.verbose : print('MaxPlusMin')
+                Max = tf.reduce_mean(tf.nn.top_k(Prod,self.k)[0],axis=-1) + \
+                    self.alpha * tf.reduce_mean(-tf.nn.top_k(-Prod,self.k)[0],axis=-1)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
                 # Need to add 1 to avoid the case 
@@ -1251,6 +1262,9 @@ class tf_MI_max():
                 Max_batch=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod_batch,axis=-1),tf.multiply(Prod_batch,self.w_exp)),axis=-1)
             elif self.Max_version=='sparsemax':
                 Max_batch=sparsemax(Prod_batch,axis=-1,number_dim=3)
+            elif self.Max_version=='MaxPlusMin': # From WILDCAT
+                Max_batch = tf.reduce_mean(tf.nn.top_k(Prod_batch,self.k)[0],axis=-1) + \
+                    self.alpha * tf.reduce_mean(-tf.nn.top_k(-Prod_batch,self.k)[0],axis=-1)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
                 # Need to add 1 to avoid the case 
@@ -1336,6 +1350,9 @@ class tf_MI_max():
             elif self.Max_version=='sparsemax':
                 Max=sparsemax(Prod,axis=-1,number_dim=3)
                 if self.verbose: print('sparsemax',Max)
+            elif self.Max_version=='MaxPlusMin': # From WILDCAT
+                Max = tf.reduce_mean(tf.nn.top_k(Prod,self.k)[0],axis=-1) + \
+                    self.alpha * tf.reduce_mean(-tf.nn.top_k(-Prod,self.k)[0],axis=-1)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
             else:
@@ -1367,6 +1384,9 @@ class tf_MI_max():
                 Max_batch=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod_batch,axis=-1),tf.multiply(Prod_batch,self.w_exp)),axis=-1)
             elif self.Max_version=='sparsemax':
                 Max_batch=sparsemax(Prod_batch,axis=-1,number_dim=3)
+            elif self.Max_version=='MaxPlusMin': # From WILDCAT
+                Max_batch = tf.reduce_mean(tf.nn.top_k(Prod_batch,self.k)[0],axis=-1) + \
+                    self.alpha * tf.reduce_mean(-tf.nn.top_k(-Prod_batch,self.k)[0],axis=-1)
             if self.is_betweenMinus1and1:
                 weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
                 # Need to add 1 to avoid the case 
@@ -1850,6 +1870,7 @@ class tf_MI_max():
                 elif self.obj_score_mul_tanh:
                     if self.verbose: print('Multiply score and tanh')
                     Prod=tf.multiply(scores_,Prod)
+                # Different max version 
                 if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                     Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
                 elif self.Max_version=='maxByPow':
@@ -1868,6 +1889,9 @@ class tf_MI_max():
                 elif self.Max_version=='sparsemax':
                     Max=sparsemax(Prod,axis=-1,number_dim=3)
                     if self.verbose: print('sparsemax',Max)
+                elif self.Max_version=='MaxPlusMin': # From WILDCAT
+                    Max = tf.reduce_mean(tf.nn.top_k(Prod,self.k)[0],axis=-1) + \
+                        self.alpha * tf.reduce_mean(-tf.nn.top_k(-Prod,self.k)[0],axis=-1)
                 if self.is_betweenMinus1and1:
                     weights_bags_ratio = -tf.divide(tf.add(y_,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(y_,-1.),tf.multiply(-2.,np_neg_value))
                     # Need to add 1 to avoid the case 
@@ -1935,6 +1959,9 @@ class tf_MI_max():
                     Max_batch=tf.reduce_mean(tf.multiply(tf.nn.softmax(Prod_batch,axis=-1),tf.multiply(Prod_batch,self.w_exp)),axis=-1)
                 elif self.Max_version=='sparsemax':
                     Max_batch=sparsemax(Prod_batch,axis=-1,number_dim=3)
+                elif self.Max_version=='MaxPlusMin': # From WILDCAT
+                    Max_batch = tf.reduce_mean(tf.nn.top_k(Prod_batch,self.k)[0],axis=-1) + \
+                        self.alpha * tf.reduce_mean(-tf.nn.top_k(-Prod_batch,self.k)[0],axis=-1)
                 if self.is_betweenMinus1and1:
                     weights_bags_ratio_batch = -tf.divide(tf.add(label_batch,1.),tf.multiply(2.,np_pos_value)) + tf.divide(tf.add(label_batch,-1.),tf.multiply(-2.,np_neg_value))
                     # Need to add 1 to avoid the case 
