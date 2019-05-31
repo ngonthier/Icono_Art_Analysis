@@ -285,11 +285,12 @@ def VariationStudyPart1_forVOC07():
             copyfile(exportname,name_dict)
             print(name_dict,'copied')
 
-def Study_eval_perf_onSplit_of_IconArt():
+def Study_eval_perf_onSplit_of_IconArt(computeMode=True):
     """
     The goal of this function is to proposed a splitting of the IconArt dataset
     to see if we have a lot of performance variation according to the train and 
     test set 
+    @param : computeMode : we will compute the performance otherwise we will only show them
     """
 
     item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =\
@@ -298,7 +299,6 @@ def Study_eval_perf_onSplit_of_IconArt():
     nRep = 3
     nRestart_at_fixed_train_and_test_set = 10
 
-    
 
     df_test = df_label[df_label['Anno']==1]
     df_train = df_label[df_label['Anno']==0]
@@ -315,55 +315,60 @@ def Study_eval_perf_onSplit_of_IconArt():
         df_test_list =np.array_split(df_test,2)
         df_train_list =np.array_split(df_train,2)
         for df1, df2 in zip(df_test_list,df_train_list):
-            df1['set'] = 'test'
-            df2['set'] = 'train'
-            df_out2 = df2[['item']].astype(str)
-            df_out2.to_csv(path_data_csvfile+'train_'+str(itera)+'.txt',index=False,encoding='UTF_8', header=False)
-            df_out = df1[['item']].astype(str)
-            df_out.to_csv(path_data_csvfile+'test_'+str(itera)+'.txt',index=False,encoding='UTF_8', header=False)
-            df = df1.append(df2)
-            database = 'IconArt_v1_'+str(itera)
-            df =df.astype(str)
-            df.to_csv(path_data_csvfile+database+'.csv',index=False,encoding='UTF_8')
+            if computeMode:
+                df1['set'] = 'test'
+                df2['set'] = 'train'
+                df_out2 = df2[['item']].astype(str)
+                df_out2.to_csv(path_data_csvfile+'train_'+str(itera)+'.txt',index=False,encoding='UTF_8', header=False)
+                df_out = df1[['item']].astype(str)
+                df_out.to_csv(path_data_csvfile+'test_'+str(itera)+'.txt',index=False,encoding='UTF_8', header=False)
+                df = df1.append(df2)
+                database = 'IconArt_v1_'+str(itera)
+                df =df.astype(str)
+                df.to_csv(path_data_csvfile+database+'.csv',index=False,encoding='UTF_8')
             for score in [True,False]:
                 print('Iter :',itera,'score :',score)
-                perf05 = []
-                perf01 = []
-                perfC = []
-                DictAP = {}
-                for n in range(nRestart_at_fixed_train_and_test_set):
-                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet = 'res152_COCO',
-                                                             database = database, ReDo=True,
-                      verbose = False,testMode = False,jtest = 'cow',
-                      PlotRegions = False,saved_clf=False,RPN=False,
-                      CompBest=False,Stocha=True,k_per_bag=300,
-                      parallel_op=True,CV_Mode='',num_split=2,
-                      WR=True,init_by_mean =None,seuil_estimation='',
-                      restarts=11,max_iters_all_base=max_iters_all_base,LR=0.01,
-                      C=1.0,Optimizer='GradientDescent',norm='',
-                      transform_output='tanh',with_rois_scores_atEnd=False,
-                      with_scores=score,epsilon=0.01,restarts_paral='paral',
-                      predict_with='MI_max',
-                      AggregW =None ,proportionToKeep=1.0,model='MI_max')
-                    perf05 += [apsAt05]
-                    perf01 += [apsAt01]
-                    perfC += [AP_per_class]
-                 
-                DictAP['AP@.5']= perf05
-                DictAP['AP@.1']=perfC
-                DictAP['APClassif']=perfC
-                
                 path_tmp = os.path.join(path_data,'SplitIconArt')    
                 name = 'Perf_Split'+str(itera)
                 if score:
                     name += '_withScore'
                 name_dictAP = os.path.join(path_tmp,name)
-                with open(name_dictAP, 'wb') as f:
-                    pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+                if computeMode:
+                    perf05 = []
+                    perf01 = []
+                    perfC = []
+                    DictAP = {}
+                    for n in range(nRestart_at_fixed_train_and_test_set):
+                        apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet = 'res152_COCO',
+                                                                 database = database, ReDo=True,
+                          verbose = False,testMode = False,jtest = 'cow',
+                          PlotRegions = False,saved_clf=False,RPN=False,
+                          CompBest=False,Stocha=True,k_per_bag=300,
+                          parallel_op=True,CV_Mode='',num_split=2,
+                          WR=True,init_by_mean =None,seuil_estimation='',
+                          restarts=11,max_iters_all_base=max_iters_all_base,LR=0.01,
+                          C=1.0,Optimizer='GradientDescent',norm='',
+                          transform_output='tanh',with_rois_scores_atEnd=False,
+                          with_scores=score,epsilon=0.01,restarts_paral='paral',
+                          predict_with='MI_max',
+                          AggregW =None ,proportionToKeep=1.0,model='MI_max')
+                        perf05 += [apsAt05]
+                        perf01 += [apsAt01]
+                        perfC += [AP_per_class]
+                     
+                    DictAP['AP@.5']= perf05
+                    DictAP['AP@.1']=perf01
+                    DictAP['APClassif']=perfC
+                    with open(name_dictAP, 'wb') as f:
+                        pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+                else:
+                    with open(name_dictAP, 'rb') as f:
+                       DictAP =  pickle.load(f, pickle.HIGHEST_PROTOCOL)
                     
                 for metric in metric_tab:
-                    print(metric)
+                    #print(metric)
                     string_to_print =''
+                    string_to_print += metric +' & '
                     ll_all = DictAP[metric]
                     mean_over_reboot = np.mean(ll_all,axis=1) # Moyenne par ligne / reboot 
     #                            print(mean_over_reboot.shape)
@@ -449,7 +454,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
         output = get_params_fromi_scenario(i_scenario)
         listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,WR,\
         with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-        PCAuse = output   
+        PCAuse,Max_version = output   
             
             
        # TODO rajouter ici un cas ou l on fait normalise les features
@@ -466,7 +471,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                                           C=1.0,Optimizer='GradientDescent',norm='',
                                           transform_output='tanh',with_rois_scores_atEnd=False,
                                           with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-                                          Max_version='',w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                          Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
                                           k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
                                           gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
                                           thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
@@ -494,6 +499,8 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict +='_PCA09'
             if not(k_per_bag==300):
                 name_dict +='_k'+str(k_per_bag)
+            if not(Max_version=='' or Max_version is None) :
+                name_dict +='_'+Max_version
             name_dict += '.pkl'
             copyfile(exportname,name_dict)
             print(name_dict,'copied')
@@ -542,6 +549,7 @@ def ComputationForLossPlot(database= 'PeopleArt'):
 def get_params_fromi_scenario(i_scenario):
     listAggregW = [None]
     PCAuse = False
+    Max_version = None
     if i_scenario==0:
         listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
         C_Searching = False
@@ -781,10 +789,52 @@ def get_params_fromi_scenario(i_scenario):
         lambdas = 0.0
         obj_score_mul_tanh = False
         PCAuse = True
+    elif i_scenario==20:
+        listAggregW = [None]
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = []
+        loss_type = ''
+        WR = True
+        with_scores = True # !!
+        seuillage_by_score=False 
+        obj_score_add_tanh=False
+        lambdas = 0.0
+        obj_score_mul_tanh = False
+        PCAuse = True
+        Max_version = 'MaxPlusMin' # !!
+    elif i_scenario==21:
+        listAggregW = [None]
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = []
+        loss_type = ''
+        WR = True
+        with_scores = False # !!
+        seuillage_by_score=False 
+        obj_score_add_tanh=False
+        lambdas = 0.0
+        obj_score_mul_tanh = False
+        PCAuse = True
+        Max_version = 'MaxPlusMin' # !!
+    elif i_scenario==22:
+        loss_type='hinge'
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = [0.25,1.0]
+        WR = True
+        with_scores = True
+        seuillage_by_score=False
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False   
         
     output = listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,\
     WR,with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-    PCAuse
+    PCAuse,Max_version
     
     return(output)
         
@@ -832,7 +882,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
         output = get_params_fromi_scenario(i_scenario)
         listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeepTab,loss_type,WR,\
         with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-        PCAuse = output
+        PCAuse,Max_version = output
         
         if withoutAggregW:
             listAggregW  = [None]
@@ -863,6 +913,8 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
                 name_dict +='_PCA09'
             if not(k_per_bag==300):
                 name_dict +='_k'+str(k_per_bag)
+            if not(Max_version=='' or Max_version is None) :
+                name_dict +='_'+Max_version
             name_dictW = name_dict + '.pkl'
             
 
@@ -2220,7 +2272,7 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
             output = get_params_fromi_scenario(i_scenario)
             listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeepTab,loss_type,WR,\
             with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-            PCAuse = output
+            PCAuse,Max_version = output
             
             if withoutAggregW:
                 listAggregW  = [None]
@@ -2244,6 +2296,8 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict +='_PCA09'
             if not(k_per_bag==300):
                 name_dict +='_k'+str(k_per_bag)
+            if not(Max_version=='' or Max_version is None) :
+                name_dict +='_'+Max_version
 
             for AggregW in listAggregW:
                 if AggregW is None or AggregW=='':
@@ -2276,6 +2330,8 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                                 string_to_print += 'obj score multi tanh '
                             if obj_score_add_tanh:
                                 string_to_print += 'obj score add to tanh (lambda =' +str(lambdas)+')'
+                            if not(Max_version=='' or Max_version is None) :
+                                string_to_print += ' '+Max_version
                             string_to_print += ' & '
                             string_to_print += str(AggregW)
                             if AggregW is None or AggregW=='':
@@ -2725,8 +2781,8 @@ if __name__ == '__main__':
     #    VariationStudyPart1_forVOC07()
 #    VariationStudyPart2_forVOC07()
     # Il faudra faire le part3 pour VOC07
-#    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5,17,18,11,12])
-#    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[17,18,11,12],withoutAggregW=True)
+    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[3,22,20,21])
+    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[3,22,20,21],withoutAggregW=True)
 #    
 #    # For Watercolor2k 
 #    VariationStudyPart1(database='watercolor',scenarioSubset=[0,5,17,18])
@@ -2743,7 +2799,7 @@ if __name__ == '__main__':
 #    VariationStudyPart2(database='VOC2007',scenarioSubset=[5],withoutAggregW=True)
 #    VariationStudyPart1(database='VOC2007',scenarioSubset=[5],demonet = 'res101_VOC07')
 #    VariationStudyPart2(database='VOC2007',scenarioSubset=[5],withoutAggregW=True,demonet = 'res101_VOC07')
-    VariationStudyPart3(database='VOC2007',scenarioSubset=[5],withoutAggregW=True,demonet = 'res101_VOC07')
+#    VariationStudyPart3(database='VOC2007',scenarioSubset=[5],withoutAggregW=True,demonet = 'res101_VOC07')
     
 #    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5,17,18,11,12],withoutAggregW=True)
 #    VariationStudyPart3(database='watercolor',scenarioSubset=[0,5,17,18],withoutAggregW=True)
