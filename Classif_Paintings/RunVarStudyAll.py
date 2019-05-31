@@ -318,9 +318,9 @@ def Study_eval_perf_onSplit_of_IconArt():
             df1['set'] = 'test'
             df2['set'] = 'train'
             df_out2 = df2[['item']].astype(str)
-            df_out2.to_csv(path_data_csvfile+'train_'+str(r)+'.txt',index=False,encoding='UTF_8', header=False)
+            df_out2.to_csv(path_data_csvfile+'train_'+str(itera)+'.txt',index=False,encoding='UTF_8', header=False)
             df_out = df1[['item']].astype(str)
-            df_out.to_csv(path_data_csvfile+'test_'+str(r)+'.txt',index=False,encoding='UTF_8', header=False)
+            df_out.to_csv(path_data_csvfile+'test_'+str(itera)+'.txt',index=False,encoding='UTF_8', header=False)
             df = df1.append(df2)
             database = 'IconArt_v1_'+str(itera)
             df =df.astype(str)
@@ -386,7 +386,7 @@ def Study_eval_perf_onSplit_of_IconArt():
 #                meanOfmean = np.mean(mean,axis=0)
 #                stdOfmean = np.std(mean,axis=0)
 #                std_per_class = np.std(perf05,axis=0)
-                itera += 1
+            itera += 1
                 # a finir
                 
 
