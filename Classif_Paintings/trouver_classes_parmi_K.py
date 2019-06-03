@@ -900,6 +900,11 @@ class tf_MI_max():
         
         if self.storeVectors:
             self.maximum_numberofparallW_multiClass = 10*12*10 # Independemant du numbre de class 
+            input('wait')
+            if self.Max_version=='MaxPlusMin':
+                self.maximum_numberofparallW_multiClass = 12*10*5
+                print('maximum_numberofparallW_multiClass',self.maximum_numberofparallW_multiClass)
+            input('wait2')
             if not(self.C_Searching):
                 if self.maximum_numberofparallW_multiClass < (self.restarts +1)*self.num_classes:
                     self.paral_number_W = self.maximum_numberofparallW_multiClass//self.num_classes 
@@ -925,7 +930,6 @@ class tf_MI_max():
                     self.paral_number_W = (self.restarts +1)*len(C_values)
                 self.numberOfWVectors = self.num_groups_ofW*self.paral_number_W
                 C_value_repeat = np.repeat(C_values,repeats=(self.paral_number_W_WithC*self.num_classes),axis=0)
-                print(C_value_repeat.shape)
                 if self.verbose:
                     print('Stored Vectors with',self.num_groups_ofW,'groups of',self.paral_number_W,'vectors per class')
         

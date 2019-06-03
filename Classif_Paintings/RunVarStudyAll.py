@@ -440,7 +440,6 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
 #    database_tab = ['VOC2007','PeopleArt']
 #    database_tab = ['PeopleArt']
     number_restarts = 100*12-1
-    max_iters_all_base = 300
     
     Dict = {}
     metric_tab = ['AP@.5','AP@.1','APClassif']
@@ -454,7 +453,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
         output = get_params_fromi_scenario(i_scenario)
         listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,WR,\
         with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-        PCAuse,Max_version = output   
+        PCAuse,Max_version,max_iters_all_base = output   
             
             
        # TODO rajouter ici un cas ou l on fait normalise les features
@@ -501,6 +500,8 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict +='_k'+str(k_per_bag)
             if not(Max_version=='' or Max_version is None) :
                 name_dict +='_'+Max_version
+            if not(max_iters_all_base==300) :
+                name_dict +='_MIAB'+str(max_iters_all_base)
             name_dict += '.pkl'
             copyfile(exportname,name_dict)
             print(name_dict,'copied')
@@ -550,6 +551,7 @@ def get_params_fromi_scenario(i_scenario):
     listAggregW = [None]
     PCAuse = False
     Max_version = None
+    max_iters_all_base = 300
     if i_scenario==0:
         listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
         C_Searching = False
@@ -802,7 +804,6 @@ def get_params_fromi_scenario(i_scenario):
         obj_score_add_tanh=False
         lambdas = 0.0
         obj_score_mul_tanh = False
-        PCAuse = True
         Max_version = 'MaxPlusMin' # !!
     elif i_scenario==21:
         listAggregW = [None]
@@ -817,7 +818,6 @@ def get_params_fromi_scenario(i_scenario):
         obj_score_add_tanh=False
         lambdas = 0.0
         obj_score_mul_tanh = False
-        PCAuse = True
         Max_version = 'MaxPlusMin' # !!
     elif i_scenario==22:
         loss_type='hinge'
@@ -826,15 +826,45 @@ def get_params_fromi_scenario(i_scenario):
         AggregW = None
         proportionToKeep = [0.25,1.0]
         WR = True
-        with_scores = True
+        with_scores = False
         seuillage_by_score=False
         obj_score_add_tanh=False
         lambdas = 0.5
         obj_score_mul_tanh = False   
+    elif i_scenario==23:
+        listAggregW = [None]
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = []
+        loss_type = ''
+        WR = True
+        with_scores = True # !!
+        seuillage_by_score=False 
+        obj_score_add_tanh=False
+        lambdas = 0.0
+        obj_score_mul_tanh = False
+        Max_version = 'MaxPlusMin' # !!
+        max_iters_all_base = 3000
+    elif i_scenario==24:
+        listAggregW = [None]
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = []
+        loss_type = ''
+        WR = True
+        with_scores = False # !!
+        seuillage_by_score=False 
+        obj_score_add_tanh=False
+        lambdas = 0.0
+        obj_score_mul_tanh = False
+        Max_version = 'MaxPlusMin' # !!
+        max_iters_all_base = 3000
         
     output = listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,\
     WR,with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-    PCAuse,Max_version
+    PCAuse,Max_version,max_iters_all_base
     
     return(output)
         
@@ -882,7 +912,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
         output = get_params_fromi_scenario(i_scenario)
         listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeepTab,loss_type,WR,\
         with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-        PCAuse,Max_version = output
+        PCAuse,Max_version,max_iters_all_base = output
         
         if withoutAggregW:
             listAggregW  = [None]
@@ -915,6 +945,8 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
                 name_dict +='_k'+str(k_per_bag)
             if not(Max_version=='' or Max_version is None) :
                 name_dict +='_'+Max_version
+            if not(max_iters_all_base==300) :
+                name_dict +='_MIAB'+str(max_iters_all_base)
             name_dictW = name_dict + '.pkl'
             
 
@@ -2272,7 +2304,7 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
             output = get_params_fromi_scenario(i_scenario)
             listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeepTab,loss_type,WR,\
             with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-            PCAuse,Max_version = output
+            PCAuse,Max_version,max_iters_all_base = output
             
             if withoutAggregW:
                 listAggregW  = [None]
@@ -2298,6 +2330,8 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict +='_k'+str(k_per_bag)
             if not(Max_version=='' or Max_version is None) :
                 name_dict +='_'+Max_version
+            if not(max_iters_all_base==300) :
+                name_dict +='_MIAB'+str(max_iters_all_base)
 
             for AggregW in listAggregW:
                 if AggregW is None or AggregW=='':
@@ -2781,8 +2815,9 @@ if __name__ == '__main__':
     #    VariationStudyPart1_forVOC07()
 #    VariationStudyPart2_forVOC07()
     # Il faudra faire le part3 pour VOC07
-    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[3,22,20,21])
+    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[20,21])
     VariationStudyPart2(database='IconArt_v1',scenarioSubset=[3,22,20,21],withoutAggregW=True)
+    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[3,22,20,21],withoutAggregW=True)
 #    
 #    # For Watercolor2k 
 #    VariationStudyPart1(database='watercolor',scenarioSubset=[0,5,17,18])
