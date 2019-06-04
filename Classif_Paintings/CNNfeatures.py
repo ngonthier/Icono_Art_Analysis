@@ -60,7 +60,8 @@ CLASSES_SET ={'VOC' : CLASSESVOC,
 
 def resize(im,b,demonet,augmentation,list_of_crop,rois):
     x, y, w, h = b # Attention Resize dans le bon sens car dans opencv ce n'est pas dans le même sens !!!
-    bcorrect = y,y+h,x,x+w
+    #bcorrect = y,y+h,x,x+w
+    bcorrect = y,x,y+h,x+w
     crop_img = im[y:y+h,x:x+w,:].astype(np.float32) 
     if not(crop_img.shape[0]==0) and not(crop_img.shape[1]==0):
         if demonet=='res152':
@@ -92,7 +93,8 @@ def get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False):
     edges = edge_detection.edgesNms(edges, orimap)
     edge_boxes = cv2.ximgproc.createEdgeBoxes()
     edge_boxes.setMaxBoxes(k_regions)
-    boxes = edge_boxes.getBoundingBoxes(edges, orimap) # Becareful this fct return boxes not in the same way that Faster RCNN
+    boxes = edge_boxes.getBoundingBoxes(edges, orimap)
+    # Becareful this fct return boxes not in the same way that Faster RCNN
     # if  x, y, w, h = b  then  crop_img = im[y:y+h,x:x+w,:]
     list_of_crop = []
     rois = []
@@ -312,8 +314,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 name_sans_ext = os.path.splitext(name_img)[0]
                 complet_name = path_to_img +name_sans_ext + '.jpg'
-            
-            
+
             if plotProposedBoxes:
                 plot_im_withBoxes(complet_name,edge_detection,k_regions,path_imgs)
                 continue
@@ -351,6 +352,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
                 plot_im_withBoxes(complet_name,edge_detection,k_regions,path_imgs)
                 continue
             list_im, rois = get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False)
+            # Boxes are x, y, w, h
             number_of_regions += [len(list_im)]
             fc7 = model.predict(list_im)
             roi_scores = np.ones((len(list_im,)))

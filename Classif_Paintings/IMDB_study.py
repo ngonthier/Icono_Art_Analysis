@@ -8,6 +8,8 @@ notre dataset IconArt :
     
 1/ Est ce que les boites des GT sont contenues dans les boites proposees par 
 Faster RCNN : Test_GT_inProposals
+ : quel est le score maximal que l'on peut theoriquement obtenir avec ce jeu de boites 
+ issues du Faster RCNN ?
 
 2/ Faire defiler les boites sur une image donnee
 
@@ -25,7 +27,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pathlib
 import pickle
-
+from shutil import copyfile
 from LatexOuput import arrayToLatex
 
 import voc_eval
@@ -33,7 +35,7 @@ import voc_eval
 from tf_faster_rcnn.lib.datasets.factory import get_imdb
 from tf_faster_rcnn.lib.model.test import get_blobs
 
-from TL_MIL import parser_w_rois_all_class
+from TL_MIL import parser_w_rois_all_class,parser_all_elt_all_class
 from FasterRCNN import vis_detections
 
 from sklearn import (manifold, datasets, decomposition, ensemble,
@@ -45,11 +47,14 @@ from time import time
 from tensorflow.contrib.tensorboard.plugins import projector
 import os
 
-def getDictFeaturesFasterRCNN(database,k_per_bag = 300,demonet='res152_COCO'):
+from FasterRCNN import _int64_feature,_bytes_feature,_floats_feature
+from IMDB import get_database
+
+def getDictFeaturesFasterRCNN(database,k_per_bag = 300,demonet='res152_COCO',metamodel = 'FasterRCNN'):
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
     #demonet = 'res152_COCO'
-    metamodel = 'FasterRCNN'
+    #metamodel = 'FasterRCNN'
     N = 1
     extL2 = ''
     nms_thresh = 0.7
@@ -77,16 +82,22 @@ def getDictFeaturesFasterRCNN(database,k_per_bag = 300,demonet='res152_COCO'):
         dict_name_file[set_str] = name_pkl_all_features
     return(dict_name_file)
 
-def getTFRecordDataset(name_file,k_per_bag = 300,num_features = 2048,num_classes = 7,dim_rois = 5):
+def getTFRecordDataset(name_file,k_per_bag = 300,num_features = 2048,num_classes = 7,dim_rois = 5,allelt=False):
     
     
     get_roisScore = True
     
     mini_batch_size = 256
     train_dataset = tf.data.TFRecordDataset(name_file)
-    train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
-        num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,\
-        num_rois=k_per_bag,dim_rois=dim_rois))
+    if not(allelt):
+        train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
+            num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,\
+            num_rois=k_per_bag,dim_rois=dim_rois))
+    else:
+        train_dataset = train_dataset.map(lambda r: parser_all_elt_all_class(r, \
+            num_classes=num_classes,num_features=num_features,\
+            num_rois=k_per_bag,dim_rois=dim_rois,noReshape=False))
+    print(train_dataset)
     dataset_batch = train_dataset.batch(mini_batch_size)
     dataset_batch.cache()
     iterator = dataset_batch.make_one_shot_iterator()
@@ -115,6 +126,7 @@ def bb_intersection_over_union(boxA, boxB):
     # compute the intersection over union by taking the intersection
     # area and dividing it by the sum of prediction + ground-truth
     # areas - the interesection area
+    print(boxAArea,boxBArea,interArea)
     iou = interArea / float(boxAArea + boxBArea - interArea)
 
     # return the intersection over union value
@@ -225,7 +237,57 @@ def plotBoxesIm(name_im,boxes,path_to_img=''):
         plt.close()
 #        input("Press Enter to continue...")
         
-def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300):
+def modify_EdgeBoxesWrongBoxes(database='IconArt_v1',k_per_bag = 300,\
+                               metamodel = 'EdgeBoxes',demonet='res152'):    
+    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag,\
+                                               metamodel=metamodel,demonet=demonet)
+    sess = tf.Session()
+    dim_rois = 4
+    #num_classes = 7
+    num_features = 2048
+    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =get_database(database)
+    for key in dict_name_file.keys():
+        print('=========',key,'==========')
+        name_file = dict_name_file[key]
+        dst = name_file.replace('.tfrecords','_old.tfrecords')
+        name_file_new = name_file.replace('.tfrecords','_new.tfrecords')
+        copyfile(name_file, dst)   
+        next_element = getTFRecordDataset(dst,k_per_bag =k_per_bag,\
+                                          dim_rois = dim_rois,allelt=True,num_classes=num_classes)
+        writer = tf.python_io.TFRecordWriter(name_file_new)
+        while True:
+            try:
+                heights,widths,num_regionss,num_featuress,dim1_roiss,roiss,roi_scoress,\
+                fc7s,classes_vectorss,name_sans_exts = sess.run(next_element)
+                
+                for k in range(len(classes_vectorss)):
+                    height,width,num_regions,num_features,dim1_rois,rois,roi_scores,\
+                    fc7,classes_vectors,name_sans_ext = heights[k],widths[k],num_regionss[k],\
+                    num_featuress[k],dim1_roiss[k],roiss[k,:],roi_scoress[k],\
+                    fc7s[k,:],classes_vectorss[k,:],name_sans_exts[k]
+                    rois = rois[:,[0,2,1,3]] # Modification of the elements
+                    # We change from x,x+w,y,y+h to x,y,x+w,y+h
+                    feature={
+                                'height': _int64_feature(height),
+                                'width': _int64_feature(width),
+                                'num_regions': _int64_feature(num_regions),
+                                'num_features': _int64_feature(num_features),
+                                'dim1_rois': _int64_feature(dim1_rois),
+                                'rois': _floats_feature(rois),
+                                'roi_scores': _floats_feature(roi_scores),
+                                'fc7': _floats_feature(fc7),
+                                'label' : _floats_feature(classes_vectors),
+                                'name_img' : _bytes_feature(name_sans_ext)} # str.encode(
+                    features=tf.train.Features(feature=feature)
+                    example = tf.train.Example(features=features)    
+                    writer.write(example.SerializeToString())
+            except tf.errors.OutOfRangeError:
+                break
+        writer.close()
+    
+
+        
+def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300,metamodel = 'FasterRCNN',demonet='res152_COCO'):
     
     if(database=='IconArt_v1'):
         ext='.csv'
@@ -246,9 +308,14 @@ def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300):
     imdb = get_imdb('IconArt_v1_test')
 
     
-    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag)
+    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag,\
+                                               metamodel=metamodel,demonet=demonet)
     name_file = dict_name_file['test']
-    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag)
+    if metamodel=='EdgeBoxes':
+        dim_rois = 4
+    else:
+        dim_rois = 5
+    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,dim_rois = dim_rois)
 
     # Load the Faster RCNN proposals
     dict_rois = {}
@@ -264,7 +331,10 @@ def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300):
                     im = cv2.imread(complet_name)
                     blobs, im_scales = get_blobs(im)
                     roi = roiss[k,:]
-                    roi_boxes =  roi[:,1:5] / im_scales[0] 
+                    if metamodel=='EdgeBoxes':
+                        roi_boxes =  roi / im_scales[0] 
+                    else:
+                        roi_boxes =  roi[:,1:5] / im_scales[0] 
                     dict_rois[name_im] = roi_boxes
                     sum_of_classes += [np.sum(labels[k,:])]
         except tf.errors.OutOfRangeError:
@@ -295,11 +365,11 @@ def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300):
 #            for j in range(len(gt_boxes)):
 #                best_iou = 0.
 #                for k in range(len(proposals_boxes)):    
-#                    iuo = bb_intersection_over_union(proposals_boxes[k],gt_boxes[j,:])
-#                    assert(iuo>=0.)
-#                    assert(iuo<=1.)
-#                    if iuo > best_iou:
-#                        best_iou = iuo
+#                    IoU = bb_intersection_over_union(proposals_boxes[k],gt_boxes[j,:])
+#                    assert(IoU>=0.)
+#                    assert(IoU<=1.)
+#                    if IoU > best_iou:
+#                        best_iou = IoU
 #                list_gt_boxes_best_iou += [best_iou]
 #                list_gt_boxes_classes += [gt_classes[j]]
 #      
@@ -333,11 +403,14 @@ def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300):
 #            best_boxes = np.hstack((bbox,[1.]))
 
             for k in range(len(proposals_boxes)):    
-                iuo = bb_intersection_over_union(proposals_boxes[k],bbox)
-                assert(iuo>=0.)
-                assert(iuo<=1.)
-                if iuo > best_iou:
-                    best_iou = iuo
+                #print(proposals_boxes[k])
+                #print(bbox) # A retirer
+                IoU = bb_intersection_over_union(proposals_boxes[k],bbox)
+                #print(IoU)
+                assert(IoU>=0.)
+                assert(IoU<=1.)
+                if IoU > best_iou:
+                    best_iou = IoU
                     best_boxes = np.hstack((proposals_boxes[k],[1.]))
                     
 #                        print(best_boxes)
@@ -359,8 +432,8 @@ def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300):
         mean_iou = np.mean(np_gt_boxes_best_iou_c)
         min_iou = np.min(np_gt_boxes_best_iou_c)
         std_iou = np.std(np_gt_boxes_best_iou_c)
-        print('For class ',classes[c],', IuO max : {0:.2f} min : {1:.2f}, mean : {2:.2f}, std : {3:.2f}'.format(max_iou,min_iou,mean_iou,std_iou))
-        print('Number of boxes with IuO with the GT superior to 0.5',number_sup_05,' for ',number_of_regions,' GT boxes, soit {0:.2f} %'.format(number_sup_05*100./number_of_regions))
+        print('For class ',classes[c],', IoU max : {0:.2f} min : {1:.2f}, mean : {2:.2f}, std : {3:.2f}'.format(max_iou,min_iou,mean_iou,std_iou))
+        print('Number of boxes with IoU with the GT superior to 0.5',number_sup_05,' for ',number_of_regions,' GT boxes, soit {0:.2f} %'.format(number_sup_05*100./number_of_regions))
     # Evalution of the best AP scores that we can obtain on this dataset with those boxes
     
     for i in range(imdb.num_images):
@@ -487,10 +560,10 @@ def plot_embedding(X,y, title=None):
     if title is not None:
         plt.title(title)
 
-def prepareData_to_TSNE(IuOValid=True):
+def prepareData_to_TSNE(IoUValid=True):
     """
     Goal to prepare data for a TSNE tensorboard
-    We assign the label of the class if the IuO is superior to 0.5
+    We assign the label of the class if the IoU is superior to 0.5
     """
     database='IconArt_v1'
     if(database=='IconArt_v1'):
@@ -546,7 +619,7 @@ def prepareData_to_TSNE(IuOValid=True):
                         im = cv2.imread(complet_name)
                         blobs, im_scales = get_blobs(im)
                         fc7 = fc7s[k,:].reshape((-1,num_features))
-                        if IuOValid: # We will assign the label to the bbox with a IoU sup 0.5
+                        if IoUValid: # We will assign the label to the bbox with a IoU sup 0.5
                             list_index = list(np.arange(k_per_bag,dtype=np.int))
                             labels_k = np.zeros((k_per_bag,num_classes),dtype=np.float32)
                             roi = roiss[k,:]
@@ -559,8 +632,8 @@ def prepareData_to_TSNE(IuOValid=True):
                                     classe_elt_xml = element['name']
                                     c = classes.index(classe_elt_xml)
                                     bbox = element['bbox']
-                                    iuo = bb_intersection_over_union(roi_boxes[kb,:],bbox)
-                                    if iuo >= 0.5:
+                                    IoU = bb_intersection_over_union(roi_boxes[kb,:],bbox)
+                                    if IoU >= 0.5:
                                         labels_k[kb,c] = 1.
                                         list_kb_pos += [kb]
                                         try: 
@@ -589,8 +662,8 @@ def prepareData_to_TSNE(IuOValid=True):
     # Path to save the embedding and checkpoints generated
     LOG_DIR = PATH + '/data/'
     # Write the metadata 
-    if IuOValid:
-        nametsv =  PATH + '/data/metadata_tsneIuo05_'+str(k_per_im)+'.tsv'
+    if IoUValid:
+        nametsv =  PATH + '/data/metadata_tsneIoU05_'+str(k_per_im)+'.tsv'
     else:
         nametsv =  PATH + '/data/metadata_tsneLabelPerIm_'+str(k_per_im)+'.tsv'
     ypd = pd.DataFrame(y,columns=classes)
@@ -617,10 +690,10 @@ def prepareData_to_TSNE(IuOValid=True):
         projector.visualize_embeddings(tf.summary.FileWriter(LOG_DIR), config)
         
         
-def prepareData_to_Pickle(IuOValid=True,demonet='res152_COCO'):
+def prepareData_to_Pickle(IoUValid=True,demonet='res152_COCO'):
     """
     Goal to prepare data for a study of the features vectors
-    We assign the label of the class if the IuO is superior to 0.5
+    We assign the label of the class if the IoU is superior to 0.5
     @param demonet : aussi possible vgg16_COCO
     """
     database='IconArt_v1'
@@ -695,7 +768,7 @@ def prepareData_to_Pickle(IuOValid=True,demonet='res152_COCO'):
                         im = cv2.imread(complet_name)
                         blobs, im_scales = get_blobs(im)
                         fc7 = fc7s[k,:].reshape((-1,num_features))
-                        if IuOValid: # We will assign the label to the bbox with a IoU sup 0.5
+                        if IoUValid: # We will assign the label to the bbox with a IoU sup 0.5
                             list_index = list(np.arange(k_per_bag,dtype=np.int))
                             labels_k = np.zeros((k_per_bag,num_classes),dtype=np.float32)
                             roi = roiss[k,:]
@@ -708,8 +781,8 @@ def prepareData_to_Pickle(IuOValid=True,demonet='res152_COCO'):
                                     classe_elt_xml = element['name']
                                     c = classes.index(classe_elt_xml)
                                     bbox = element['bbox']
-                                    iuo = bb_intersection_over_union(roi_boxes[kb,:],bbox)
-                                    if iuo >= 0.5:
+                                    IoU = bb_intersection_over_union(roi_boxes[kb,:],bbox)
+                                    if IoU >= 0.5:
                                         labels_k[kb,c] = 1.
                                         list_kb_pos += [kb]
                                         try: 
@@ -736,7 +809,7 @@ def prepareData_to_Pickle(IuOValid=True,demonet='res152_COCO'):
                 break
     PATH = os.getcwd()
     
-    if IuOValid:
+    if IoUValid:
         namepkl =  PATH + '/data/'+base+'IconArt_v1_test_set_'+str(k_per_im)+'.pkl'
     else:
         namepkl =  PATH + '/data/'+base+'IconArt_v1_test_set_LabelPerIm_'+str(k_per_im)+'.pkl'
