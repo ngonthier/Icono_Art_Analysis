@@ -194,6 +194,33 @@ def parser_w_rois_all_class(record,num_classes=10,num_rois=300,num_features=2048
         else:
             roi_scores = parsed['roi_scores'] 
             return fc7,rois,roi_scores,label,name_img
+        
+def parser_all_elt_all_class(record,num_classes=10,num_rois=300,num_features=2048,
+                            dim_rois=5,noReshape=True):
+    keys_to_features={
+                    'height': tf.FixedLenFeature([], tf.int64),
+                    'width': tf.FixedLenFeature([], tf.int64),
+                    'num_regions':  tf.FixedLenFeature([], tf.int64),
+                    'num_features':  tf.FixedLenFeature([], tf.int64),
+                    'dim1_rois':  tf.FixedLenFeature([], tf.int64),
+                    'rois': tf.FixedLenFeature([dim_rois*num_rois],tf.float32),
+                    'roi_scores':tf.FixedLenFeature([num_rois],tf.float32),
+                    'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
+                    'label' : tf.FixedLenFeature([num_classes],tf.float32),
+                    'name_img' : tf.FixedLenFeature([],tf.string)}
+            
+    parsed = tf.parse_single_example(record, keys_to_features)
+      # Cast label data into int32
+    list_elt = []
+    for key in keys_to_features.keys():
+          list_elt += [parsed[key]]
+          print(key,parsed[key])
+    if not(noReshape):
+            list_elt[7] = tf.reshape(list_elt[7], [num_rois,num_features])
+            list_elt[5] = tf.reshape(list_elt[5], [num_rois,dim_rois])  
+        
+    return(list_elt)
+
 
 def rand_convex(n):
     rand = np.matrix([uniform(0.0, 1.0) for i in range(n)])

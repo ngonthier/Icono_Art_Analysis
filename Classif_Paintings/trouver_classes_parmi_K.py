@@ -900,11 +900,9 @@ class tf_MI_max():
         
         if self.storeVectors:
             self.maximum_numberofparallW_multiClass = 10*12*10 # Independemant du numbre de class 
-            input('wait')
             if self.Max_version=='MaxPlusMin':
                 self.maximum_numberofparallW_multiClass = 12*10*5
-                print('maximum_numberofparallW_multiClass',self.maximum_numberofparallW_multiClass)
-            input('wait2')
+                #print('maximum_numberofparallW_multiClass',self.maximum_numberofparallW_multiClass)
             if not(self.C_Searching):
                 if self.maximum_numberofparallW_multiClass < (self.restarts +1)*self.num_classes:
                     self.paral_number_W = self.maximum_numberofparallW_multiClass//self.num_classes 

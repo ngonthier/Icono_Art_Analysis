@@ -831,37 +831,7 @@ def get_params_fromi_scenario(i_scenario):
         obj_score_add_tanh=False
         lambdas = 0.5
         obj_score_mul_tanh = False   
-    elif i_scenario==23:
-        listAggregW = [None]
-        C_Searching = False
-        CV_Mode = ''
-        AggregW = None
-        proportionToKeep = []
-        loss_type = ''
-        WR = True
-        with_scores = True # !!
-        seuillage_by_score=False 
-        obj_score_add_tanh=False
-        lambdas = 0.0
-        obj_score_mul_tanh = False
-        Max_version = 'MaxPlusMin' # !!
-        max_iters_all_base = 3000
-    elif i_scenario==24:
-        listAggregW = [None]
-        C_Searching = False
-        CV_Mode = ''
-        AggregW = None
-        proportionToKeep = []
-        loss_type = ''
-        WR = True
-        with_scores = False # !!
-        seuillage_by_score=False 
-        obj_score_add_tanh=False
-        lambdas = 0.0
-        obj_score_mul_tanh = False
-        Max_version = 'MaxPlusMin' # !!
-        max_iters_all_base = 3000
-        
+            
     output = listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,\
     WR,with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
     PCAuse,Max_version,max_iters_all_base
@@ -2815,7 +2785,7 @@ if __name__ == '__main__':
     #    VariationStudyPart1_forVOC07()
 #    VariationStudyPart2_forVOC07()
     # Il faudra faire le part3 pour VOC07
-    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[20,21])
+    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[21])
     VariationStudyPart2(database='IconArt_v1',scenarioSubset=[3,22,20,21],withoutAggregW=True)
     VariationStudyPart3(database='IconArt_v1',scenarioSubset=[3,22,20,21],withoutAggregW=True)
 #    
