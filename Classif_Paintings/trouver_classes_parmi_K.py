@@ -1602,7 +1602,10 @@ class tf_MI_max():
                     # Evaluation of the loss function
                     if class_indice==-1:
                         if self.restarts_paral_V2:
-                            loss_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
+                            if not(self.MaxOfMax):
+                                loss_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
+                            else:
+                                loss_value = np.zeros((self.num_classes,),dtype=np.float32)
                         elif self.restarts_paral_Dim:
                             loss_value = np.zeros((self.paral_number_W,self.num_classes),dtype=np.float32)
                     else:
