@@ -53,7 +53,8 @@ def get_database(database):
     elif(database=='RMN'):
             ext='.csv'
             item_name='item'
-            classes =  ['Saint_Sebastien']
+            classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+            'Mary','nudity', 'ruins','Saint_Sebastien']
             path_to_img = 'RMN/JPEGImages/'
     elif database=='clipart':
         ext = '.csv'

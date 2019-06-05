@@ -363,7 +363,7 @@ def Study_eval_perf_onSplit_of_IconArt(computeMode=True):
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
                 else:
                     with open(name_dictAP, 'rb') as f:
-                       DictAP =  pickle.load(f, pickle.HIGHEST_PROTOCOL)
+                       DictAP =  pickle.load(f)
                     
                 for metric in metric_tab:
                     #print(metric)
