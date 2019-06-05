@@ -363,18 +363,26 @@ def plot_AddValues(matrix,titre,loss_value=None):
     fig.tight_layout()
     plt.show()
     
-def CovarianceOfTheVectors():
+def CovarianceOfTheVectors(MaxOfMax=False,withscore=True):
     
     # Need to create those files if they don't exist look at RunVarStudyAll
-    export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse__.pkl'
-    export_dir ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse___WithScore.pkl'
-    
+    if not(MaxOfMax):
+        export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse__.pkl'
+        export_dir ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse___WithScore.pkl'
+    else:
+        export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse____MaxOfMax.pkl'
+        export_dir ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse___WithScore_MaxOfMax.pkl'
+   
     numberofW_to_keep = 12
     number_of_reboots = 100
     num_features = 2048
     num_classes = 7
     
-    name_dictW = export_dir
+    if withscore:
+        name_dictW = export_dir
+    else:
+        name_dictW = export_dir_withoutscore
+
     with open(name_dictW, 'rb') as f:
         Dict = pickle.load(f)
         Wstored = Dict['Wstored']
