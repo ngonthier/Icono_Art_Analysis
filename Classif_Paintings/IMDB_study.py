@@ -284,6 +284,57 @@ def modify_EdgeBoxesWrongBoxes(database='IconArt_v1',k_per_bag = 300,\
             except tf.errors.OutOfRangeError:
                 break
         writer.close()
+        
+def modify_RMNAddClasses(database='RMN',k_per_bag = 300,\
+                               metamodel = 'FasterRCNN',demonet='res152_COCO'):    
+    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag,\
+                                               metamodel=metamodel,demonet=demonet)
+    sess = tf.Session()
+    dim_rois = 5
+    num_classes_old = 1
+    num_features = 2048
+    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =get_database(database)
+    name_file = dict_name_file['trainval']
+    dst = name_file.replace('.tfrecords','_old.tfrecords')
+    name_file_new = name_file.replace('.tfrecords','_new.tfrecords')
+    #copyfile(name_file, dst)   
+    next_element = getTFRecordDataset(dst,k_per_bag =k_per_bag,\
+                                          dim_rois = dim_rois,allelt=True,num_classes=num_classes_old)
+    writer = tf.python_io.TFRecordWriter(name_file_new)
+    while True:
+        try:
+            heights,widths,num_regionss,num_featuress,dim1_roiss,roiss,roi_scoress,\
+            fc7s,classes_vectorss,name_sans_exts = sess.run(next_element)
+                
+            for k in range(len(classes_vectorss)):
+                height,width,num_regions,num_features,dim1_rois,rois,roi_scores,\
+                fc7,classes_vectors,name_sans_ext = heights[k],widths[k],num_regionss[k],\
+                num_featuress[k],dim1_roiss[k],roiss[k,:],roi_scoress[k],\
+                fc7s[k,:],classes_vectorss[k,:],name_sans_exts[k]
+                rois = rois[:,[0,2,1,3]] # Modification of the elements
+                classes_vectors = np.zeros((num_classes,1))
+                for j in range(num_classes):
+                    value = df_label[df_label['item']==str(name_sans_ext.decode("utf-8"))][classes[j]]
+                    value = int(value)
+                    classes_vectors[j] = value
+                
+                feature={
+                        'height': _int64_feature(height),
+                        'width': _int64_feature(width),
+                        'num_regions': _int64_feature(num_regions),
+                        'num_features': _int64_feature(num_features),
+                        'dim1_rois': _int64_feature(dim1_rois),
+                        'rois': _floats_feature(rois),
+                        'roi_scores': _floats_feature(roi_scores),
+                        'fc7': _floats_feature(fc7),
+                        'label' : _floats_feature(classes_vectors),
+                        'name_img' : _bytes_feature(name_sans_ext)} # str.encode(
+                features=tf.train.Features(feature=feature)
+                example = tf.train.Example(features=features)    
+                writer.write(example.SerializeToString())
+        except tf.errors.OutOfRangeError:
+            break
+    writer.close()
     
 
         
