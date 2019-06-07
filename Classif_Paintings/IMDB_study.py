@@ -250,7 +250,7 @@ def modify_EdgeBoxesWrongBoxes(database='IconArt_v1',k_per_bag = 300,\
         print('=========',key,'==========')
         name_file = dict_name_file[key]
         dst = name_file.replace('.tfrecords','_old.tfrecords')
-        name_file_new = name_file.replace('.tfrecords','_new.tfrecords')
+        name_file_new = name_file.replace('.tfrecords','.tfrecords')
         copyfile(name_file, dst)   
         next_element = getTFRecordDataset(dst,k_per_bag =k_per_bag,\
                                           dim_rois = dim_rois,allelt=True,num_classes=num_classes)

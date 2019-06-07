@@ -120,12 +120,12 @@ def plot_im_withBoxes(complet_name,edge_detection,k_regions,path_to_save):
     edge_boxes.setMaxBoxes(k_regions)
     boxes = edge_boxes.getBoundingBoxes(edges, orimap)
     for b in boxes:
-        x, y, w, h = b
-        cv2.rectangle(im, (x, y), (x+w, y+h), (0, 255, 0), 1, cv2.LINE_AA)
+        x, y, xx, yy = b
+        cv2.rectangle(im, (x, y), (xx -x, yy- y), (0, 255, 0), 1, cv2.LINE_AA)
 
     if len(boxes)==0:
         x, y, w, h  = [0,0,im.shape[0],im.shape[1]]
-        cv2.rectangle(im, (x, y), (x+w, y+h), (0, 255, 0), 1, cv2.LINE_AA)
+        cv2.rectangle(im, (x, y), (xx- x, yy -y), (0, 255, 0), 1, cv2.LINE_AA)
         
     head,tail = os.path.split(complet_name)
     name_img = '.'.join(tail.split('.')[0:-1])
@@ -260,7 +260,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
     if demonet=='res152':
         weights_path = '/media/gonthier/HDD/models/resnet152_weights_tf.h5'
         model = resnet_152_keras.resnet152_model_2048output(weights_path)
-        size_output = 2048
+        num_features = 2048
     else:
         raise(NotImplemented)
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
@@ -288,7 +288,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             dict_writers[set_str] = tf.python_io.TFRecordWriter(name_pkl_all_features)
      
     model_edgeboxes = 'model/model.yml'
-    # Need of  pip install opencv-contrib-python
+    print('Need of  pip install opencv-contrib-python')
     edge_detection = cv2.ximgproc.createStructuredEdgeDetection(model_edgeboxes)
     
     number_of_regions = []
@@ -300,7 +300,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             break
         if filesave=='pkl':
             if not(k_regions==300):
-                raise(NotImplemented)
+                raise(NotImplementedError)
             if i%Itera==0:
                 if verbose : print(i,name_img)
                 if not(i==0):
@@ -469,8 +469,8 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             train_dataset = tf.data.TFRecordDataset(name_pkl_all_features)
             sess = tf.Session()
             train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
-                num_classes=num_classes,with_rois_scores=True,num_features=num_features,num_rois=k_regions,
-                dim_rois=dim_rois))
+                num_classes=num_classes,with_rois_scores=True,num_features=num_features,
+                num_rois=k_regions,dim_rois=dim_rois))
             mini_batch_size = 1
             dataset_batch = train_dataset.batch(mini_batch_size)
             dataset_batch.cache()
