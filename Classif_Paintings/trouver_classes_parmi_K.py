@@ -1181,6 +1181,7 @@ class tf_MI_max():
                 y_long_pm1 = tf.tile(tf.transpose(tf.add(tf.multiply(y_,2),-1),[1,0]), [self.paral_number_W,1])
             else:
                 weights_bags_ratio = tf.transpose(weights_bags_ratio,[1,0])
+                y_long_pm1 = tf.transpose(tf.add(tf.multiply(y_,2),-1),[1,0])
             
             if not(self.obj_score_add_tanh) and not(self.obj_score_mul_tanh):
                 y_tilde_i = tf.tanh(Max)
@@ -1278,6 +1279,8 @@ class tf_MI_max():
                 y_long_pm1_batch =  tf.tile(tf.transpose(tf.add(tf.multiply(label_batch,2),-1),[1,0]), [self.paral_number_W,1])
             else:
                 weights_bags_ratio_batch = tf.transpose(weights_bags_ratio_batch,[1,0])
+                y_long_pm1_batch =  tf.transpose(tf.add(tf.multiply(label_batch,2),-1),[1,0])
+
             
             if not(self.obj_score_add_tanh) and not(self.obj_score_mul_tanh):
                 y_tilde_i_batch = tf.tanh(Max_batch)
