@@ -1560,12 +1560,15 @@ def FasterRCNN_TransferLearning_misvm():
         
 def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='Paintings',
                                  augmentation=False,L2 =False,
-                                 saved='all',verbose=True,filesave='pkl',k_regions=300):
+                                 saved='all',verbose=True,filesave='pkl',k_regions=300,
+                                 layer='fc7'):
     """
     @param : demonet : teh kind of inside network used it can be 'vgg16_VOC07',
         'vgg16_VOC12','vgg16_COCO','res101_VOC12','res101_COCO','res152_COCO'
     @param : nms_thresh : the nms threshold on the Region Proposal Network
-    
+    @param : layer that we get in the pretrained net for ResNet only fc7 possible for 
+        vgg16 : fc6 or fc7 but in both case it will be saved in the fc7 name
+        in the tfrecords dataset !
     """
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
@@ -1583,10 +1586,17 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         extL2 = ''
     if saved=='all':
         savedstr = '_all'
-    elif saved=='fc7':
-        savedstr = ''
-    elif saved=='pool5':
-        savedstr = '_pool5'
+    else:
+        raise(NotImplementedError)
+#    elif saved=='fc7':
+#        savedstr = ''
+#    elif saved=='pool5':
+#        savedstr = '_pool5'
+    if layer=='fc6':
+        if not('vgg16' in demonet):
+            print(demonet,'does not have a fc6 layer')
+            raise(NotImplementedError)
+        savedstr += '_fc6'
     
     tf.reset_default_graph() # Needed to use different nets one after the other
     if verbose: print(demonet)
@@ -1668,7 +1678,12 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 name_sans_ext = os.path.splitext(name_img)[0]
                 complet_name = path_to_img +name_sans_ext + '.jpg'
             im = cv2.imread(complet_name)
-            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+            if layer=='fc6':
+                cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5,fc6 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+                # but we erased fc7 by fc6
+                fc7 = fc6 # !!!!!!!
+            else:
+                cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
             #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
             if saved=='fc7':
                 features_resnet_dict[name_img] = fc7
@@ -1755,6 +1770,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     classes_vectors[j] = value
             #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
             if saved=='fc7':
+                raise(NotImplementedError)
                 print('It is possible that you need to replace _bytes_feature by _floats_feature in this function')
                 print('!!!!!!!!!!!!!!!!!!!!!')
                 # TODO : modifier cela !
@@ -1821,7 +1837,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
 def Save_TFRecords_PCA_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
                                  augmentation=False,L2 =False,
                                  saved='all',verbose=True,k_regions=300,
-                                 variance_thres=0.9):
+                                 variance_thres=0.9,layer='fc7'):
     """
     This function will save a PCA projected version of the features extracted from a 
     Faster-RCNN
@@ -1889,6 +1905,8 @@ def Save_TFRecords_PCA_features(demonet='res152_COCO',nms_thresh = 0.7,database=
         savedstr = ''
     elif saved=='pool5':
         savedstr = '_pool5'
+    if not(layer=='fc7'):
+        savedstr+='_'+layer
 
     name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+ \
             '_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'

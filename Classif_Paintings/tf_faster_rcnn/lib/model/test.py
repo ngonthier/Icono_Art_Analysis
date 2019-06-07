@@ -160,8 +160,10 @@ def TL_im_detect(sess, net, im,max_per_image=100):
 #  print(im_scales.shape)
 #  print(blobs['im_info'].shape)
 #  print(blobs['data'].shape)
-  cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = net.TL_image(sess, blobs['data'], blobs['im_info'])    
-  return  cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5
+  output = net.TL_image(sess, blobs['data'], blobs['im_info'])    
+  # cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 if fc7
+  # cls_score, cls_prob, bbox_pred, rois,roi_scores, fc6, fc7, pool5 if get_fc6
+  return  output
   
 def TL_im_detect_end(scores, bbox_pred, rois,im): 
   """

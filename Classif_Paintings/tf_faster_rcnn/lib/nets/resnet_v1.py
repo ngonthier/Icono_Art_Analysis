@@ -51,6 +51,7 @@ class resnetv1(Network):
     self._num_layers = num_layers
     self._scope = 'resnet_v1_%d' % num_layers
     self._decide_blocks()
+    self.get_fc6 = False
 
   def _crop_pool_layer(self, bottom, rois, name):
     with tf.variable_scope(name) as scope:

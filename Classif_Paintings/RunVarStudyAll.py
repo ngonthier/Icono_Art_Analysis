@@ -397,28 +397,102 @@ def Study_eval_perf_onSplit_of_IconArt(computeMode=True):
 
 def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1'):
     """
-    A finir TODO
+    Compute the performance for the MaxOfMax model on 100 runs
     """
-    
     num_rep = 100
+    seuillage_by_score = False
+    obj_score_add_tanh = False
+    loss_type = ''
+    seuil = 0
+    C_Searching = False
+    demonet = 'res152_COCO'
+    layer = 'fc7'
+    number_restarts = 11
+    CV_Mode = ''
+    AggregW = None
+    proportionToKeep = [0.25,1.0]
+    loss_type = ''
+    WR = True
+    with_scores = True
+    seuillage_by_score=False
+    obj_score_add_tanh=False
+    lambdas = 0.5
+    obj_score_mul_tanh = False
+    PCAuse = False
+    Max_version = None
+    max_iters_all_base = 3000
+    k_per_bag = 300
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_output = path_data +'VarStudy/'
+    ReDo = True
+    for loss_type in ['','hinge']:
+        for with_scores in [True,False]:
+            name_dict = path_data_output 
+            if not(demonet== 'res152_COCO'):
+                name_dict += demonet +'_'
+            if not(layer== 'fc7'):
+                name_dict += '_'+demonet
+            name_dict +=  database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            CV_Mode+'_'+str(loss_type)
+            if not(WR):
+                name_dict += '_withRegularisationTermInLoss'
+            if with_scores:
+                 name_dict += '_WithScore'
+            if seuillage_by_score:
+                name_dict += 'SC'+str(seuil)
+            if obj_score_add_tanh:
+                name_dict += 'SAdd'+str(lambdas)
+            if obj_score_mul_tanh:
+                name_dict += 'SMul'    
+            if PCAuse:
+                name_dict +='_PCA09'
+            if not(k_per_bag==300):
+                name_dict +='_k'+str(k_per_bag)
+            if not(Max_version=='' or Max_version is None) :
+                name_dict +='_'+Max_version
+            if not(max_iters_all_base==300) :
+                name_dict +='_MIAB'+str(max_iters_all_base)
+            name_dictAP = name_dict + '_MaxOfMax' + '_APscore.pkl'
+            DictAP = {}
+            ll = []
+            l01 = []
+            lclassif = []
+            for r in range(num_rep):
+                apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                                              verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                              PlotRegions = False,saved_clf=False,RPN=False,
+                                              CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+                                              parallel_op=True,CV_Mode=CV_Mode,num_split=2,
+                                              WR=WR,init_by_mean =None,seuil_estimation='',
+                                              restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+                                              C=1.0,Optimizer='GradientDescent',norm='',
+                                              transform_output='tanh',with_rois_scores_atEnd=False,
+                                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+                                              Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                              k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
+                                              ,proportionToKeep=proportionToKeep,storeVectors=False,
+                                              obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                                              obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
+                                              layer=layer,MaxOfMax=True)
+                ll += [apsAt05]
+                l01 += [apsAt01]
+                lclassif += [AP_per_class]
+            # End of the 100 experiment for a specific AggreW
+            ll_all = np.vstack(ll)
+            l01_all = np.vstack(l01)
+            apsClassif_all = np.vstack(lclassif)
     
-    for score in [True,False]:
-        for r in range(num_rep):
-            apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
-                  verbose = True,testMode = False,jtest = 'cow',
-                  PlotRegions = False,saved_clf=False,RPN=False,
-                  CompBest=False,Stocha=True,k_per_bag=300,
-                  parallel_op=True,CV_Mode='',num_split=2,
-                  WR=True,init_by_mean =None,seuil_estimation='',
-                  restarts=11,max_iters_all_base=3000,LR=0.01,
-                  C=1.0,Optimizer='GradientDescent',norm='',
-                  transform_output='tanh',with_rois_scores_atEnd=False,
-                  with_scores=score,epsilon=0.01,restarts_paral='paral',
-                  predict_with='MI_max',
-                  AggregW =None ,proportionToKeep=1.0,model='MI_max',MaxOfMax=True)
+            DictAP['AP@.5'] =  ll_all
+            DictAP['AP@.1'] =  l01_all
+            DictAP['APClassif'] =  apsClassif_all
+        
+            with open(name_dictAP, 'wb') as f:
+                pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
     
              
-def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO',k_per_bag=300):
+def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO',k_per_bag=300,layer='fc7'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -476,11 +550,14 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                                           thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
                                           ,proportionToKeep=proportionToKeep,storeVectors=True,
                                           obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                                          obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse)
+                                          obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
+                                          layer=layer)
             tf.reset_default_graph()
             name_dict = path_data_output 
             if not(demonet== 'res152_COCO'):
                 name_dict += demonet +'_'
+            if not(layer== 'fc7'):
+                name_dict += '_'+demonet
             name_dict +=  database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
             CV_Mode+'_'+str(loss_type)
             
@@ -552,7 +629,7 @@ def get_params_fromi_scenario(i_scenario):
     PCAuse = False
     Max_version = None
     max_iters_all_base = 300
-    if i_scenario==0:
+    if i_scenario==0: # MIMAX-S : MILS
         listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
         C_Searching = False
         CV_Mode = ''
@@ -614,7 +691,7 @@ def get_params_fromi_scenario(i_scenario):
         WR = False
         with_scores = True
         seuillage_by_score=False
-    if i_scenario==5:
+    if i_scenario==5:  # MIMAX : MIL
         listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
         C_Searching = False
         CV_Mode = ''
@@ -839,7 +916,7 @@ def get_params_fromi_scenario(i_scenario):
     return(output)
         
 def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
-                        demonet = 'res152_COCO',k_per_bag=300):
+                        demonet = 'res152_COCO',k_per_bag=300,layer='fc7'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -897,6 +974,8 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
             name_dict = path_data_output 
             if not(demonet== 'res152_COCO'):
                 name_dict += demonet +'_'
+            if not(layer== 'fc7'):
+                name_dict += '_'+demonet
             name_dict +=  database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
             CV_Mode+'_'+str(loss_type)
             if not(WR):
@@ -2233,7 +2312,7 @@ def VariationStudyPart2bis():
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
       
 def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO',onlyAP05=False,
-                        withoutAggregW=False,k_per_bag=300):
+                        withoutAggregW=False,k_per_bag=300,layer='fc7'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -2282,6 +2361,8 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
             name_dict = path_data_output 
             if not(demonet== 'res152_COCO'):
                 name_dict += demonet +'_'
+            if not(layer== 'fc7'):
+                name_dict += '_'+demonet
             name_dict +=  database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
             CV_Mode+'_'+str(loss_type)
             if not(WR):

@@ -17,11 +17,12 @@ from ..nets.network import Network
 from ..model.config import cfg
 
 class vgg16(Network):
-  def __init__(self):
+  def __init__(self,get_fc6=False):
     Network.__init__(self)
     self._feat_stride = [16, ]
     self._feat_compress = [1. / float(self._feat_stride[0]), ]
     self._scope = 'vgg_16'
+    self.get_fc6 = get_fc6
 
   def _image_to_head(self, is_training, reuse=None):
     with tf.variable_scope(self._scope, self._scope, reuse=reuse):
@@ -57,7 +58,10 @@ class vgg16(Network):
         fc7 = slim.dropout(fc7, keep_prob=0.5, is_training=True, 
                             scope='dropout7')
 
-    return fc7
+    if self.get_fc6:
+      return fc7,fc6
+    else:
+      return fc7
 
   def get_variables_to_restore(self, variables, var_keep_dic):
     variables_to_restore = []

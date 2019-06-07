@@ -2076,7 +2076,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                                   storeLossValues=False,obj_score_add_tanh=False,lambdas=0.5,
                                   obj_score_mul_tanh=False,metamodel='FasterRCNN',
                                   PCAuse=False,variance_thres=0.9,trainOnTest=False,
-                                  AddOneLayer=False,exp=10,MaxOfMax=False,debug = False,alpha=0.7):
+                                  AddOneLayer=False,exp=10,MaxOfMax=False,debug = False,alpha=0.7,
+                                  layer='fc7'):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2181,7 +2182,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
    @param : MaxOfMax use the max of the max of product and keep all the (W,b) learnt
             (default False)
    @param : alpha factor for the 'MaxPlusMin' pooling 
-            
+   @param : layer that we get in the pretrained net for ResNet only fc7 possible for 
+        vgg16 : fc6 or fc7 but in both case it will be saved in the fc7 name
+        in the tfrecords dataset !
+         
     The idea of this algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -2250,6 +2254,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     extL2 = ''
     nms_thresh = 0.7
     savedstr = '_all'
+    if layer=='fc6':
+        savedstr+='_fc6'
 
     sets = ['train','val','trainval','test']
     dict_name_file = {}
@@ -2297,12 +2303,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                 Compute_Faster_RCNN_features(demonet=demonet,nms_thresh =nms_thresh,
                                              database=database,augmentation=False,L2 =False,
                                              saved='all',verbose=verbose,filesave='tfrecords',
-                                             k_regions=k_per_bag)
+                                             k_regions=k_per_bag,layer=layer)
             else:
                 number_composant = Save_TFRecords_PCA_features(demonet=demonet,nms_thresh =nms_thresh,database=database,
                                  augmentation=False,L2 =False,
                                  saved='all',verbose=verbose,k_regions=k_per_bag,
-                                 variance_thres=variance_thres)
+                                 variance_thres=variance_thres,layer=layer)
         elif metamodel=='EdgeBoxes':
             Compute_EdgeBoxesAndCNN_features(demonet=demonet,nms_thresh =nms_thresh,database=database,
                                  augmentation=False,L2 =False,
@@ -2582,7 +2588,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
-                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,alpha]
+                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,alpha,layer]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2593,7 +2599,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                      'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
                      'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
                      'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant',\
-                     'AddOneLayer','exp','MaxOfMax','alpha']
+                     'AddOneLayer','exp','MaxOfMax','alpha','layer']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2601,7 +2607,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
 #          'Optimizer',Optimizer,'init_by_mean',init_by_mean,'with_tanh',with_tanh)
     
     cachefilefolder = os.path.join(path_data,'cachefile')
-    cachefile_model_base='WLS_'+ database+metamodelstr+ '_'+demonet+'_r'+str(restarts)+'_s' \
+    if not(layer=='fc7'):
+        layerStr = '_'+layer
+    else:
+        layerStr = ''
+    cachefile_model_base='WLS_'+ database+metamodelstr+ '_'+demonet+layerStr+'_r'+str(restarts)+'_s' \
         +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
         +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
@@ -3764,7 +3774,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         if(not(modif_box=='') and not(modif_box is None)):
                             # Modification of the bounding box 
                             cls_dets = py_cpu_modif(cls_dets,kind=modif_box)
-                        
+#                        print(cls_dets)
                         keep = nms(cls_dets, TEST_NMS)
                         cls_dets = cls_dets[keep, :]
                         
