@@ -2876,7 +2876,7 @@ if __name__ == '__main__':
     VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'vgg16_COCO',layer='fc6')
     VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'vgg16_COCO')
     VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'vgg16_COCO',layer='fc6')
-    unefficient_way_MaxOfMax_evaluation()
+    #unefficient_way_MaxOfMax_evaluation()
 #    # For Watercolor2k 
 #    VariationStudyPart1(database='watercolor',scenarioSubset=[0,5,17,18])
 #    VariationStudyPart2(database='watercolor',scenarioSubset=[0,5,17,18],withoutAggregW=True)
