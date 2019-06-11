@@ -20,8 +20,9 @@ import pandas as pd
 import os.path
 from tool_on_Regions import reduce_to_k_regions
 import numpy as np
-from FasterRCNN import _int64_feature,_bytes_feature,_floats_feature
-
+from FasterRCNN import _int64_feature,_bytes_feature,_floats_feature,vis_detections_list
+from tf_faster_rcnn.lib.model.test import get_blobs
+from IMDB import get_database
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -61,8 +62,23 @@ CLASSES_SET ={'VOC' : CLASSESVOC,
 def resize(im,b,demonet,augmentation,list_of_crop,rois):
     x, y, w, h = b # Attention Resize dans le bon sens car dans opencv ce n'est pas dans le même sens !!!
     #bcorrect = y,y+h,x,x+w
-    bcorrect = y,x,y+h,x+w
+    bcorrect = x,y,x+w,y+h
+    #bcorrect = y,x,y+h,x+w
     crop_img = im[y:y+h,x:x+w,:].astype(np.float32) 
+    
+#    import matplotlib.pyplot as plt
+#    plt.ion()
+#    fig, ax = plt.subplots()
+#    print(crop_img)
+#    ax.imshow(crop_img.astype(np.uint8), aspect='equal')
+#    plt.axis('off')
+#    plt.tight_layout()
+#    import time
+#    nn = str(time.time()) + '.png'
+#    plt.savefig(nn)
+
+    if crop_img.shape[0]==0 or crop_img.shape[1]==0:
+        print('That s strange',im.shape,crop_img.shape,x, y,x+w,y+h)
     if not(crop_img.shape[0]==0) and not(crop_img.shape[1]==0):
         if demonet=='res152':
             if augmentation:
@@ -77,6 +93,7 @@ def resize(im,b,demonet,augmentation,list_of_crop,rois):
 #                dim = (int(crop_img.shape[0] * sizeIm / crop_img.shape[1]),sizeIm,3)
         dim = (sizeIm,sizeIm)
         resized_img = cv2.resize(crop_img, dim, interpolation = cv2.INTER_AREA)
+        # Here we have the right crop but the crop is in BGR and between 0 and 255 !!! 
         resized_img[:,:,0] -= 103.939
         resized_img[:,:,1] -= 116.779
         resized_img[:,:,2] -= 123.68
@@ -95,7 +112,7 @@ def get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False):
     edge_boxes.setMaxBoxes(k_regions)
     boxes = edge_boxes.getBoundingBoxes(edges, orimap)
     # Becareful this fct return boxes not in the same way that Faster RCNN
-    # if  x, y, w, h = b  then  crop_img = im[y:y+h,x:x+w,:]
+    # if  x, y, w, h = b in cv style then  crop_img = im[y:y+h,x:x+w,:]
     list_of_crop = []
     rois = []
     for b in boxes:
@@ -119,13 +136,14 @@ def plot_im_withBoxes(complet_name,edge_detection,k_regions,path_to_save):
     edge_boxes = cv2.ximgproc.createEdgeBoxes()
     edge_boxes.setMaxBoxes(k_regions)
     boxes = edge_boxes.getBoundingBoxes(edges, orimap)
+    # Here we have  x, y, w, h = b
     for b in boxes:
-        x, y, xx, yy = b
-        cv2.rectangle(im, (x, y), (xx -x, yy- y), (0, 255, 0), 1, cv2.LINE_AA)
+        x, y, w, h = b
+        cv2.rectangle(im, (x, y), (x+w, y+h), (0, 255, 0), 1, cv2.LINE_AA)
 
     if len(boxes)==0:
         x, y, w, h  = [0,0,im.shape[0],im.shape[1]]
-        cv2.rectangle(im, (x, y), (xx- x, yy -y), (0, 255, 0), 1, cv2.LINE_AA)
+        cv2.rectangle(im, (x, y), (x+w, y+h), (0, 255, 0), 1, cv2.LINE_AA)
         
     head,tail = os.path.split(complet_name)
     name_img = '.'.join(tail.split('.')[0:-1])
@@ -153,89 +171,11 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
     path_imgs = path_data + 'EdgeBoxesIllust/'+database +'/'
     
     if plotProposedBoxes:
-        print("We will only plot the regions of the EdgeBoxes with k_regions = ",k_regions)
+        print("We will only plot the regions of the EdgeBoxes with k_regions = ",k_regions,path_imgs)
         pathlib.Path(path_imgs).mkdir(parents=True, exist_ok=True) 
     
-    if database=='Paintings':
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/' 
-        num_classes = 10
-        ext = '.txt'
-        classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-    elif database=='VOC12':
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
-        num_classes = 20
-        ext = '.txt'
-        raise(NotImplementedError)
-    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
-        ext = '.csv'
-        item_name = 'item'
-        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
-        classes = ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
-                    'Mary','nudity', 'ruins','Saint_Sebastien','turban']
-        num_classes = 10
-    elif database=='VOC2007':
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
-        num_classes = 20
-        ext = '.csv'
-        classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
-           'bottle', 'bus', 'car', 'cat', 'chair',
-           'cow', 'diningtable', 'dog', 'horse',
-           'motorbike', 'person', 'pottedplant',
-           'sheep', 'sofa', 'train', 'tvmonitor']
-    elif(database=='IconArt_v1'):
-        ext='.csv'
-        item_name='item'
-        classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
-        'Mary','nudity', 'ruins','Saint_Sebastien']
-        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
-        num_classes = 7
-    elif database=='PeopleArt':
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
-        num_classes = 1
-        ext = '.csv'
-    elif database=='watercolor':
-        num_classes = 6
-        ext = '.csv'
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
-        classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
-    elif database=='clipart':
-        num_classes = 20
-        ext = '.csv'
-        item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
-        raise(NotImplementedError)
-    elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
-        item_name = 'image'
-        path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-        num_classes = 5
-        ext = '.txt'
-        classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
-    else:
-        print(database,'is unknown')
-        raise(NotImplemented)
-        
-    if database=='IconArt_v1':
-        path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
-    else:
-        path_data_csvfile = path_data
-    
-    databasetxt = path_data_csvfile + database + ext 
-    if database=='VOC2007' or database=='watercolor' or database=='clipart':
-        df_label = pd.read_csv(databasetxt,sep=",",dtype=str)
-    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
-        dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
-                  'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
-                  'turban':int,'set':str,'Anno':int}
-        df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
-    else:
-        df_label = pd.read_csv(databasetxt,sep=",")
-    if database=='Wikidata_Paintings_miniset_verif':
-        df_label = df_label[df_label['BadPhoto'] <= 0.0]
+    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = \
+        get_database(database)
     
     if augmentation:
         raise NotImplementedError
@@ -317,10 +257,11 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
 
             if plotProposedBoxes:
                 plot_im_withBoxes(complet_name,edge_detection,k_regions,path_imgs)
-                continue
             list_im, rois = get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False)
             number_of_regions += [len(list_im)]
             fc7 = model.predict(list_im)
+            # Need a BGR and between 0 and 255 minus the mean per color 
+            
             roi_scores = np.ones((len(list_im,)))
 #            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
             #features_resnet_dict[name_img] = fc7[np.concatenate(([0],np.random.randint(1,len(fc7),29))),:]
@@ -348,15 +289,20 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             
             height = im.shape[0]
             width = im.shape[1]
+
             if plotProposedBoxes:
                 plot_im_withBoxes(complet_name,edge_detection,k_regions,path_imgs)
-                continue
             list_im, rois = get_crops(complet_name,edge_detection,k_regions,demonet,augmentation=False)
             # Boxes are x, y, w, h
             number_of_regions += [len(list_im)]
             fc7 = model.predict(list_im)
             roi_scores = np.ones((len(list_im,)))
 #            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+            
+            if testMode:
+                print('Image :',height,width)
+                print('Normally ROI (x1,x2,y1,y2) :')
+                print(rois)
             
             if(len(fc7) >= k_regions):
                 rois = rois[0:k_regions,:]
@@ -466,24 +412,48 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             if testMode: name_pkl_all_features+= 'TestMode_'
             name_pkl_all_features += 'EdgeBoxes_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
             print(name_pkl_all_features)
-            train_dataset = tf.data.TFRecordDataset(name_pkl_all_features)
-            sess = tf.Session()
-            train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
-                num_classes=num_classes,with_rois_scores=True,num_features=num_features,
-                num_rois=k_regions,dim_rois=dim_rois))
-            mini_batch_size = 1
-            dataset_batch = train_dataset.batch(mini_batch_size)
-            dataset_batch.cache()
-            iterator = dataset_batch.make_one_shot_iterator()
-            next_element = iterator.get_next()
-            print(next_element)
-            nx = sess.run(next_element)
-            print(nx)
+            if set_str=='train':
+                train_dataset = tf.data.TFRecordDataset(name_pkl_all_features)
+                sess = tf.Session()
+                train_dataset = train_dataset.map(lambda r: parser_w_rois_all_class(r, \
+                    num_classes=num_classes,with_rois_scores=True,num_features=num_features,
+                    num_rois=k_regions,dim_rois=dim_rois))
+                mini_batch_size = 1
+                dataset_batch = train_dataset.batch(mini_batch_size)
+                dataset_batch.cache()
+                iterator = dataset_batch.make_one_shot_iterator()
+                next_element = iterator.get_next()
+                print(next_element)
+                nx = sess.run(next_element)
+                print(nx)
+                name_img = nx[-1][0].decode('utf8')
+                if database in ['IconArt_v1','VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+                    complet_name = path_to_img + name_img + '.jpg'
+                    name_sans_ext = name_img
+                elif database=='PeopleArt':
+                    complet_name = path_to_img + name_img
+                    name_sans_ext = os.path.splitext(name_img)[0]
+                elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
+                    name_sans_ext = os.path.splitext(name_img)[0]
+                    complet_name = path_to_img +name_sans_ext + '.jpg'
+    
+                im = cv2.imread(complet_name)
+                
+                blobs, im_scales = get_blobs(im)
+                dd = nx[1]/ im_scales[0] 
+                score = nx[2]
+                roi = np.hstack((dd[0],score[0].reshape((-1,1))))
+                
+               
+                class_name = ['']
+                vis_detections_list(im, class_name, [roi])
+  
             os.remove(name_pkl_all_features)
             
 if __name__ == '__main__':
-#    Compute_EdgeBoxesAndCNN_features(k_regions=300)
+    Compute_EdgeBoxesAndCNN_features(k_regions=300,plotProposedBoxes=True)
+    Compute_EdgeBoxesAndCNN_features(database='watercolor',k_regions=300)
     Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=300)
-    Compute_EdgeBoxesAndCNN_features(database='watercolor',k_regions=2000)
     Compute_EdgeBoxesAndCNN_features(k_regions=2000)
-#    Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=2000)
+    Compute_EdgeBoxesAndCNN_features(database='watercolor',k_regions=2000)
+    Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=2000)
