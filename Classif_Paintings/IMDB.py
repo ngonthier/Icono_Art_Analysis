@@ -117,11 +117,21 @@ def get_database(database):
                       'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,\
                       'ruins':int,'Saint_Sebastien':int,\
                       'set':str,'Anno':int}
+    elif database=='VOC2007':
+        dtypes = {0:str,'name_img':str,'aeroplane':int, 'bicycle':int, 'bird':int, 'boat':int,\
+                  'bottle':int, 'bus':int, 'car':int, 'cat':int, 'chair':int,\
+                  'cow':int, 'diningtable':int, 'dog':int, 'horse':int,\
+                  'motorbike':int, 'person':int, 'pottedplant':int,\
+                  'sheep':int, 'sofa':int, 'train':int, 'tvmonitor':int}
         df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes) 
     elif database=='RMN':
         dtypes = {'item':str,'Saint_Sebastien':int}
         df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
     else:
+        dtypes = {}
+        dtypes[item_name] =  str
+        for c in classes:
+            dtypes[c] = int
         df_label = pd.read_csv(databasetxt,sep=",")
     str_val = 'val'
     if database=='Wikidata_Paintings_miniset_verif':
