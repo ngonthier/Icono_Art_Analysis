@@ -111,8 +111,7 @@ def get_database(database):
         dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
                       'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
                       'turban':int,'set':str,'Anno':int}
-        df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes) 
-    elif 'IconArt_v1' in database:
+    elif 'IconArt_v1' in database or 'IconArt_v1'==database:
         dtypes = {0:str,'item':str,'angel':int,\
                       'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,\
                       'ruins':int,'Saint_Sebastien':int,\
@@ -123,16 +122,15 @@ def get_database(database):
                   'cow':int, 'diningtable':int, 'dog':int, 'horse':int,\
                   'motorbike':int, 'person':int, 'pottedplant':int,\
                   'sheep':int, 'sofa':int, 'train':int, 'tvmonitor':int}
-        df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes) 
+         
     elif database=='RMN':
         dtypes = {'item':str,'Saint_Sebastien':int}
-        df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
     else:
         dtypes = {}
         dtypes[item_name] =  str
         for c in classes:
             dtypes[c] = int
-        df_label = pd.read_csv(databasetxt,sep=",")
+    df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
     str_val = 'val'
     if database=='Wikidata_Paintings_miniset_verif':
         df_label = df_label[df_label['BadPhoto'] <= 0.0]

@@ -5072,30 +5072,30 @@ if __name__ == '__main__':
 #              with_scores=False,epsilon=0.01,restarts_paral='paral',
 #              predict_with='MI_max',
 #              AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
-          verbose = True,testMode = False,jtest = 'cow',
-          PlotRegions = False,saved_clf=False,RPN=False,
-          CompBest=False,Stocha=True,k_per_bag=2000,
-          parallel_op=True,CV_Mode='',num_split=2,
-          WR=True,init_by_mean =None,seuil_estimation='',
-          restarts=49,max_iters_all_base=3000,LR=0.01,
-          C=1.0,Optimizer='GradientDescent',norm='',
-          transform_output='tan',with_rois_scores_atEnd=False,
-          with_scores=True,epsilon=0.01,restarts_paral='paral',
-          predict_with='MI_max',
-          AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
-          verbose = True,testMode = False,jtest = 'cow',
-          PlotRegions = False,saved_clf=False,RPN=False,
-          CompBest=False,Stocha=True,k_per_bag=2000,
-          parallel_op=True,CV_Mode='',num_split=2,
-          WR=True,init_by_mean =None,seuil_estimation='',
-          restarts=49,max_iters_all_base=3000,LR=0.01,
-          C=1.0,Optimizer='GradientDescent',norm='',
-          transform_output='tan',with_rois_scores_atEnd=False,
-          with_scores=False,epsilon=0.01,restarts_paral='paral',
-          predict_with='MI_max',
-          AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
+#          verbose = True,testMode = False,jtest = 'cow',
+#          PlotRegions = False,saved_clf=False,RPN=False,
+#          CompBest=False,Stocha=True,k_per_bag=2000,
+#          parallel_op=True,CV_Mode='',num_split=2,
+#          WR=True,init_by_mean =None,seuil_estimation='',
+#          restarts=49,max_iters_all_base=3000,LR=0.01,
+#          C=1.0,Optimizer='GradientDescent',norm='',
+#          transform_output='tan',with_rois_scores_atEnd=False,
+#          with_scores=True,epsilon=0.01,restarts_paral='paral',
+#          predict_with='MI_max',
+#          AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
+#    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
+#          verbose = True,testMode = False,jtest = 'cow',
+#          PlotRegions = False,saved_clf=False,RPN=False,
+#          CompBest=False,Stocha=True,k_per_bag=2000,
+#          parallel_op=True,CV_Mode='',num_split=2,
+#          WR=True,init_by_mean =None,seuil_estimation='',
+#          restarts=49,max_iters_all_base=3000,LR=0.01,
+#          C=1.0,Optimizer='GradientDescent',norm='',
+#          transform_output='tan',with_rois_scores_atEnd=False,
+#          with_scores=False,epsilon=0.01,restarts_paral='paral',
+#          predict_with='MI_max',
+#          AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=False) 
     
 #    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=True,
 #              verbose = True,testMode = False,jtest = 'cow',
@@ -5111,26 +5111,26 @@ if __name__ == '__main__':
 #              AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=True) 
 
 # Test EdgeBoxes 
-#    for k_per_bag in [300]:
-##        for database in ['watercolor','IconArt_v1','VOC2007']:
-#        for database in ['IconArt_v1','VOC2007']:
-#            for model in ['MI_max','mi_model']:
-#                tfR_FRCNN(demonet = 'res152',database = database, ReDo=True,
-#                                          verbose = True,testMode = False,jtest = 'cow',
-#                                          PlotRegions = False,saved_clf=False,RPN=False,
-#                                          CompBest=False,Stocha=True,k_per_bag=k_per_bag,
-#                                          parallel_op=True,CV_Mode='',num_split=2,
-#                                          WR=True,init_by_mean =None,seuil_estimation='',
-#                                          restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-#                                          C=1.0,Optimizer='GradientDescent',norm='',
-#                                          transform_output='tanh',with_rois_scores_atEnd=False,
-#                                          with_scores=False,epsilon=0.01,restarts_paral='paral',
-#                                          Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-#                                          k_intopk=1,C_Searching=False,predict_with='',
-#                                          gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-#                                          thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
-#                                          loss_type='',storeVectors=False,storeLossValues=False,
-#                                          metamodel='EdgeBoxes',model=model)
+    for k_per_bag in [300]:
+#        for database in ['watercolor','IconArt_v1','VOC2007']:
+        for database in ['IconArt_v1','VOC2007']:
+            for model in ['MI_max','mi_model']:
+                tfR_FRCNN(demonet = 'res152',database = database, ReDo=True,
+                                          verbose = True,testMode = False,jtest = 'cow',
+                                          PlotRegions = False,saved_clf=False,RPN=False,
+                                          CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+                                          parallel_op=True,CV_Mode='',num_split=2,
+                                          WR=True,init_by_mean =None,seuil_estimation='',
+                                          restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+                                          C=1.0,Optimizer='GradientDescent',norm='',
+                                          transform_output='tanh',with_rois_scores_atEnd=False,
+                                          with_scores=False,epsilon=0.01,restarts_paral='paral',
+                                          Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+                                          k_intopk=1,C_Searching=False,predict_with='',
+                                          gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                          thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
+                                          loss_type='',storeVectors=False,storeLossValues=False,
+                                          metamodel='EdgeBoxes',model=model)
 #    tfR_FRCNN(demonet = 'res152',database = 'VOC2007', ReDo=True,
 #                              verbose = True,testMode = False,jtest = 'cow',
 #                              PlotRegions = False,saved_clf=False,RPN=False,

@@ -625,6 +625,12 @@ def ComputationForLossPlot(database= 'PeopleArt'):
         print(name_dict,'copied')
      
 def get_params_fromi_scenario(i_scenario):
+    """
+    Number 0 : MIMAX-score
+    Number 3 : hinge loss with score
+    Number 5 : MIMAX without score
+    Number 22 : hinge loss without score
+    """
     listAggregW = [None]
     PCAuse = False
     Max_version = None
