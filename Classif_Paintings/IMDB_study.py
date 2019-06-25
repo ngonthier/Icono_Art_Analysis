@@ -97,7 +97,6 @@ def getTFRecordDataset(name_file,k_per_bag = 300,num_features = 2048,num_classes
         train_dataset = train_dataset.map(lambda r: parser_all_elt_all_class(r, \
             num_classes=num_classes,num_features=num_features,\
             num_rois=k_per_bag,dim_rois=dim_rois,noReshape=False))
-    print(train_dataset)
     dataset_batch = train_dataset.batch(mini_batch_size)
     dataset_batch.cache()
     iterator = dataset_batch.make_one_shot_iterator()

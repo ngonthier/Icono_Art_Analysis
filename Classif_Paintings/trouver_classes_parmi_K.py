@@ -317,7 +317,7 @@ class tf_MI_max():
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
                   seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
                   obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False,
-                  AddOneLayer=False,exp=10,MaxOfMax=False,usecache=True,alpha=0.7):
+                  AddOneLayer=False,exp=10,MaxOfMax=False,usecache=True,alpha=0.7,MaxMMeanOfMax=False):
 #                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,AveragingWportion=False,
 #                  votingW=False,proportionToKeep=0.25,votingWmedian=False):
         # TODOD enelver les trucs inutiles ici
@@ -389,6 +389,8 @@ class tf_MI_max():
             /!\ only avaible in the not parallel case, with one class 
         @param : MaxOfMax use the max of the max of product and keep all the (W,b) learnt
             (default False)
+        @param : MaxMMeanOfMax use the max minues the mean of the max of product
+            and keep all the (W,b) learnt (default False)
         @param : usecache : use the cache function of the TF dataset (default = True) depend on our CPU RAM memory
         @param : alpha : in the 'MaxPlusMin' version of the pooling
         """
@@ -481,9 +483,10 @@ class tf_MI_max():
         self.C_values =  np.arange(0.5,2.75,0.25,dtype=np.float32) # Case used in VISART2018 ??
         self.AddOneLayer = AddOneLayer
         self.MaxOfMax = MaxOfMax
+        self.MaxMMeanOfMax = MaxMMeanOfMax
         self.usecache = usecache
         if not(self.Max_version=='max' or self.Max_version=='' or self.Max_version is None)\
-            and self.MaxOfMax:
+            and (self.MaxOfMax or self.MaxMMeanOfMax):
             raise(NotImplementedError)
         
     def fit_w_CV(self,data_pos,data_neg):
@@ -880,9 +883,9 @@ class tf_MI_max():
         if self.restarts_paral_V2 and (self.restarts==0) and self.C_Searching: 
             print('This don t work at all, bug not solved about the argmin')
             raise(NotImplementedError)
-        if self.MaxOfMax and not(self.restarts_paral_V2):
+        if (self.MaxOfMax or self.MaxMMeanOfMax) and not(self.restarts_paral_V2):
             raise(NotImplementedError)
-        if self.MaxOfMax and (self.C_Searching or self.CV_Mode=='CVforCsearch' or self.class_indice>-1):
+        if (self.MaxOfMax or self.MaxMMeanOfMax) and (self.C_Searching or self.CV_Mode=='CVforCsearch' or self.class_indice>-1):
             raise(NotImplementedError)
             
         if self.C_Searching or self.CV_Mode == 'CVforCsearch':
@@ -1145,6 +1148,11 @@ class tf_MI_max():
                     Max_reshaped = tf.reshape(Max,(self.num_classes,self.paral_number_W,-1))
                     MaxOfMax = tf.reduce_max(Max_reshaped,axis=1) # We take the max on the scalar product of the same class
                     Max = MaxOfMax
+                if self.MaxMMeanOfMax:
+                    Max_reshaped = tf.reshape(Max,(self.num_classes,self.paral_number_W,-1))
+                    MaxOfMax = tf.reduce_max(Max_reshaped,axis=1) - tf.reduce_mean(Max_reshaped,axis=1)
+                    # We take the max minues the mean on the scalar product of the same class
+                    Max = MaxOfMax
                     
             elif self.Max_version=='maxByPow':
                 # (x^alpha)^(1/alpha) environ egal a max
@@ -1174,7 +1182,7 @@ class tf_MI_max():
                 # The wieght are negative for the positive exemple and positive for the negative ones !!!
             else:
                 weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value)
-            if self.restarts_paral_V2 and not(self.MaxOfMax): # In the parallel case with the different classes at the same time
+            if self.restarts_paral_V2 and not(self.MaxOfMax or self.MaxMMeanOfMax): # In the parallel case with the different classes at the same time
                 # we need to tile the vectors of size : 
                 # For example, tiling [a b c d] by [2] produces [a b c d a b c d]
                 weights_bags_ratio = tf.tile(tf.transpose(weights_bags_ratio,[1,0]),[self.paral_number_W,1])
@@ -1216,7 +1224,7 @@ class tf_MI_max():
                 if self.C_Searching:    
                     loss= tf.add(Tan,tf.multiply(C_value_repeat,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
                 else:
-                    if self.MaxOfMax:
+                    if self.MaxOfMax or self.MaxMMeanOfMax:
                         #axisW_rReduce = [-2,-1]
                         W_r_reduce = tf.reshape(tf.reduce_sum(tf.pow(W_r,2),axis=-1),(self.num_classes,self.paral_number_W))
                         W_r_reduce = tf.reduce_mean(W_r_reduce,axis=-1)
@@ -1253,6 +1261,11 @@ class tf_MI_max():
                     Max_batch_reshaped = tf.reshape(Max_batch,(self.num_classes,self.paral_number_W,-1))
                     MaxOfMax_batch = tf.reduce_max(Max_batch_reshaped,axis=1) # We take the max on the scalar product of the same class
                     Max_batch = MaxOfMax_batch
+                elif self.MaxMMeanOfMax:
+                    Max_batch_reshaped = tf.reshape(Max_batch,(self.num_classes,self.paral_number_W,-1))
+                    MaxOfMax_batch = tf.reduce_max(Max_batch_reshaped,axis=1) \
+                        - tf.reduce_mean(Max_batch_reshaped,axis=1)# We take the max on the scalar product of the same class
+                    Max_batch = MaxOfMax_batch
                     
             elif self.Max_version=='maxByPow':
                 # (sum x^alpha)^(1/alpha) environ egal a max
@@ -1274,7 +1287,7 @@ class tf_MI_max():
                 # The wieght are negative for the positive exemple and positive for the negative ones !!!
             else:
                 weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
-            if self.restarts_paral_V2 and not(self.MaxOfMax):
+            if self.restarts_paral_V2 and not(self.MaxOfMax or self.MaxMMeanOfMax):
                 weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
                 y_long_pm1_batch =  tf.tile(tf.transpose(tf.add(tf.multiply(label_batch,2),-1),[1,0]), [self.paral_number_W,1])
             else:
@@ -1496,7 +1509,7 @@ class tf_MI_max():
                         
                 if class_indice==-1:
                     if self.restarts_paral_V2:
-                        if not(self.MaxOfMax):
+                        if not(self.MaxOfMax or self.MaxMMeanOfMax):
                             loss_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
                         else:
                             loss_value = np.zeros((self.num_classes,),dtype=np.float32)
@@ -1513,7 +1526,7 @@ class tf_MI_max():
                     except tf.errors.OutOfRangeError:
                         break
                 
-                if not(self.MaxOfMax):
+                if not(self.MaxOfMax or self.MaxMMeanOfMax):
                     W_tmp=sess.run(W)
                     b_tmp=sess.run(b)
                     if self.restarts_paral_Dim:
@@ -1605,7 +1618,7 @@ class tf_MI_max():
                     # Evaluation of the loss function
                     if class_indice==-1:
                         if self.restarts_paral_V2:
-                            if not(self.MaxOfMax):
+                            if not(self.MaxOfMax or self.MaxMMeanOfMax):
                                 loss_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
                             else:
                                 loss_value = np.zeros((self.num_classes,),dtype=np.float32)
@@ -2258,7 +2271,7 @@ class tf_MI_max():
         else:
             if self.class_indice==-1:
                 if self.restarts_paral_V2:
-                    if self.MaxOfMax:
+                    if self.MaxOfMax or self.MaxMMeanOfMax:
                         Product = tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
                                              ,b_best)
                         Product = tf.reshape(Product,(self.num_classes,self.paral_number_W,-1,self.num_rois))

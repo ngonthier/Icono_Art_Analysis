@@ -425,8 +425,9 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1'):
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     ReDo = True
-    for loss_type in ['','hinge']:
-        for with_scores in [True,False]:
+    
+    for with_scores in [False,True]:
+        for loss_type in ['','hinge']:
             name_dict = path_data_output 
             if not(demonet== 'res152_COCO'):
                 name_dict += demonet +'_'
