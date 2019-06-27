@@ -130,7 +130,21 @@ new_df_full = new_df_train.append(df_test)
 new_df_full.to_csv(path+'OIV5_small_'+str(number_elts)+'.csv',index=False) 
 
 path_source = '/media/gonthier/Lacie Grey Gonthier/OIv5/'
-path_source_bis = '/media/gonthier/HDD/data/OIV5/validationV5/validation/'
+path_source_bis = '/media/gonthier/Lacie Grey Gonthier/OIv5/validationV5/validation/'
+import glob
+list_im_val = glob.glob(path_source_bis+'*.jpg')
+new_index = len(new_df_full) +1
+for elt in list_im_val:
+    et = elt.split('/')[-1]
+    e = et.split('.')[0]
+    a  = new_df_full['item']==e
+    if not(a.any()):
+        num_labels = np.zeros((len(LabelNameunique),))
+        new_row = [nameIm] + list(num_labels) + ['test']
+    new_df_full.loc[new_index] = new_row
+    new_index += 1
+new_df_full.to_csv(path+'OIV5_small_'+str(number_elts)+'.csv',index=False) 
+    
 path_target = '/media/gonthier/HDD/data/OIV5/Images/'
 list_FileNotFoundError = []
 for row in new_df_full.iterrows():
@@ -143,7 +157,7 @@ for row in new_df_full.iterrows():
     else:
         str_set_ = 'validation'
         src = path_source_bis + iteme +'.jpg'
-        continue
+
     
     dst = path_target + iteme +'.jpg'
     try:
