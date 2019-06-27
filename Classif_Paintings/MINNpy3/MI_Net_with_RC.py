@@ -205,7 +205,7 @@ def MI_Net_with_RC_WSOD(dataset,weight_decay=0.005,pooling_mode='max',init_lr=0.
     out = Dense(1, activation='sigmoid', W_regularizer=l2(weight_decay))(mg_sum)
 
     model = Model(inputs=[data_input], outputs=[out])
-    sgd = SGD(lr=args.init_lr, decay=1e-4, momentum=momentum, nesterov=True)
+    sgd = SGD(lr=init_lr, decay=1e-4, momentum=momentum, nesterov=True)
     model.compile(loss=bag_loss, optimizer=sgd, metrics=[bag_accuracy])
 
     # train model
@@ -214,7 +214,7 @@ def MI_Net_with_RC_WSOD(dataset,weight_decay=0.005,pooling_mode='max',init_lr=0.
     for epoch in range(max_epoch):
         train_loss, train_acc = train_eval(model, train_set)
         #test_loss, test_acc = test_eval(model, test_set)
-        print('epoch=', epoch, '  train_loss= {:.3f}'.format(train_loss), '  train_acc= {:.3f}'.format(train_acc), '  test_loss= {:.3f}'.format(test_loss))#, '  test_acc= {:.3f}'.format(test_acc))
+        print('epoch=', epoch, '  train_loss= {:.3f}'.format(train_loss), '  train_acc= {:.3f}'.format(train_acc))#, '  test_loss= {:.3f}'.format(test_loss))#, '  test_acc= {:.3f}'.format(test_acc))
     t2 = time.time()
     print('run time:', (t2-t1) / 60, 'min')
     #print('test_acc={:.3f}'.format(test_acc))

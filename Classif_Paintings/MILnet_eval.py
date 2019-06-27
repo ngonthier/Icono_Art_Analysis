@@ -32,15 +32,17 @@ from sklearn.metrics import average_precision_score
 MILmodel_tab = ['MI_Net','mi_Net','MI_Net_with_DS','MI_Net_with_RC']
 
 def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'FasterRCNN',\
-             demonet='res152_COCO',test=False,MILmodel='MI_Net'):
+             demonet='res152_COCO',test=False,MILmodel='MI_Net',max_epoch=20):
     
-    dataset_nm='IconArt_v1'
-    classe=1
-    k_per_bag = 300
-    metamodel = 'FasterRCNN'
-    demonet='res152_COCO'
-    test=False
-    MILmodel='MI_Net'
+#    dataset_nm='IconArt_v1'
+#    classe=1
+#    k_per_bag = 300
+#    metamodel = 'FasterRCNN'
+#    demonet='res152_COCO'
+#    test=False
+#    MILmodel='MI_Net'
+#    max_epoch = 20
+    
     if test:
         classe = 0
     
@@ -55,14 +57,14 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
     else:
         print(MILmodel,'is unkwon')
         return(0)
-        
+    print('MILmodel',MILmodel,max_epoch)    
     item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(dataset_nm)
     
     dataset,bags_full_label,mean_fea,std_fea = load_dataset(dataset_nm,classe=0,k_per_bag = k_per_bag,metamodel = metamodel,demonet=demonet)
     model_dict = {}
     
     for j in range(num_classes):
-        if test: 
+        if test and not(j==classe): 
             continue
         else:
             for k in range(len(dataset['train'])):
@@ -72,7 +74,7 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
                 dataset['train'][k] = a
                 
         print('start training for class',j)
-        model = MILmodel_fct(dataset,max_epoch=1)
+        model = MILmodel_fct(dataset,max_epoch=max_epoch)
         model_dict[j] = model
     
     dict_name_file = getDictFeaturesFasterRCNN(dataset_nm,k_per_bag=k_per_bag,\
@@ -204,7 +206,7 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
     number_im = 0
     name_all_test = name_all_test.astype(str)
     for i in range(num_images_detect):
-        print(i)
+#        print(i)
         name_img = imdb.image_path_at(i)
         if dataset_nm=='PeopleArt':
             name_img_wt_ext = name_img.split('/')[-2] +'/' +name_img.split('/')[-1]
@@ -254,4 +256,5 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
     return(apsAt05,apsAt01,AP_per_class)
 
 if __name__ == '__main__':
-    mainEval()
+    for MILmodel in MILmodel_tab[::-1]:
+        mainEval(MILmodel=MILmodel,max_epoch=20,test=False)

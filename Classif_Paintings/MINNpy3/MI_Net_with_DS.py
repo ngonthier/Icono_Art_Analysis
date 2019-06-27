@@ -206,7 +206,7 @@ def MI_Net_with_DS_WSOD(dataset,weight_decay=0.005,pooling_mode='max',init_lr=0.
     mg_ave =average([fp1,fp2,fp3], name='ave')
 
     model = Model(inputs=[data_input], outputs=[fp1, fp2, fp3, mg_ave])
-    sgd = SGD(lr=args.init_lr, decay=1e-4, momentum=momentum, nesterov=True)
+    sgd = SGD(lr=init_lr, decay=1e-4, momentum=momentum, nesterov=True)
     model.compile(loss={'fp1':bag_loss, 'fp2':bag_loss, 'fp3':bag_loss, 'ave':bag_loss}, loss_weights={'fp1':weight[0], 'fp2':weight[1], 'fp3':weight[2], 'ave':weight[3]}, optimizer=sgd, metrics=[bag_accuracy])
 
     # train model
