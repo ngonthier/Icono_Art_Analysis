@@ -317,7 +317,8 @@ class tf_MI_max():
                   epsilon=0.0,Max_version=None,seuillage_by_score=False,w_exp=1.0,
                   seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
                   obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False,
-                  AddOneLayer=False,exp=10,MaxOfMax=False,usecache=True,alpha=0.7,MaxMMeanOfMax=False):
+                  AddOneLayer=False,exp=10,MaxOfMax=False,usecache=True,alpha=0.7,
+                  MaxMMeanOfMax=False,Cosine_ofW_inLoss=False,Coeff_cosine=1.): #predictMMM_withMean  @param : predictMMM_withMean :  (default False)
 #                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,AveragingWportion=False,
 #                  votingW=False,proportionToKeep=0.25,votingWmedian=False):
         # TODOD enelver les trucs inutiles ici
@@ -339,6 +340,7 @@ class tf_MI_max():
         @param final_clf : final classifier used after the determination of the 
             element [choice : defaultSGD, linearSVC] [default : linearSVC]
         @param verbose : print optimization status messages [default: True]
+        @param Optimizer : possible : 'GradientDescent','Momentum','Adam','Adagrad','lbfgs'
         @param mini_batch_size : taille des mini_batch_size
         @param buffer_size : taille du buffer
         @param loss_type : Type of the loss :
@@ -393,6 +395,9 @@ class tf_MI_max():
             and keep all the (W,b) learnt (default False)
         @param : usecache : use the cache function of the TF dataset (default = True) depend on our CPU RAM memory
         @param : alpha : in the 'MaxPlusMin' version of the pooling
+        @param : Cosine_ofW_inLoss : We the mean of the cosine of the vectors in the loss function 
+            Have to be used with MaxOfMax of MaxMMeanOfMax (default = False)
+        @param : Coeff_cosine : weight in front the cosine loss (default = 1.)
         """
         self.LR = LR
         self.C = C
@@ -487,14 +492,14 @@ class tf_MI_max():
         self.usecache = usecache
         if not(self.Max_version=='max' or self.Max_version=='' or self.Max_version is None)\
             and (self.MaxOfMax or self.MaxMMeanOfMax):
+            print(self.Max_version,'is not supported with MaxOfMax or MaxMMeanOfMax')
             raise(NotImplementedError)
-        
-    def fit_w_CV(self,data_pos,data_neg):
-        kf = KFold(n_splits=3) # Define the split - into 2 folds 
-        # KFold From sklearn.model_selection 
-        kf.get_n_splits(data_pos) # returns the number of splitting iterations in the cross-validator
-        return(0)
-        
+        self.Cosine_ofW_inLoss = Cosine_ofW_inLoss
+        self.Coeff_cosine = Coeff_cosine
+        if self.Cosine_ofW_inLoss and not (self.MaxOfMax or self.MaxMMeanOfMax):
+            print('Cosine_ofW_inLoss have to be used with MaxOfMax or MaxMMeanOfMax')
+            raise(NotImplementedError)
+                    
     # From http://www.machinelearninguru.com/deep_learning/tensorflow/basics/tfrecord/tfrecord.html
     def parser(self,record):
         # Perform additional preprocessing on the parsed data.
@@ -680,6 +685,61 @@ class tf_MI_max():
                 break
         return(loss_value)
     
+    def cosine_distance_loss(self,W):
+        """
+        this function return the sum of the cosine distance between the each of the 
+        vectors of the tensor W with 
+        W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.)
+        """
+
+        W_reshape = tf.reshape(W,(self.num_classes,self.paral_number_W,-1))
+        W_normalized = tf.nn.l2_normalize(W_reshape,axis=-1)
+        for c in range(self.num_classes):
+            cos_c = tf.abs(tf.einsum('jk,mn->jm',W_normalized[c,:,:],W_normalized[c,:,:]))
+            #cos_c = tf.linalg.LinearOperatorLowerTriangular(cos_c)
+            cos_c_withDiag = tf.matrix_set_diag(cos_c,tf.zeros(self.paral_number_W), name=None)
+            loss_cos = tf.divide(tf.reduce_mean(cos_c_withDiag,axis=[0,1]),2.)
+            if c==0:
+                loss_all_c = loss_cos
+            elif c==1:
+                loss_all_c = tf.stack([loss_all_c,loss_cos],axis=0)
+            else:
+                loss_all_c = tf.concat([loss_all_c,[loss_cos]],axis=0)
+
+        return(loss_all_c)
+        
+    def MoveAway_Hyperplan_loss(self,W,b):
+        """
+        this function return the sum of the cosine distance between the each of the 
+        vectors of the tensor W with 
+        W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.)
+        
+        
+        You have to maximize this function the difference between the bias when the cosine of the vector 
+        is near to 0 
+        """
+
+        W_reshape = tf.reshape(W,(self.num_classes,self.paral_number_W,-1))
+        b_reshape = tf.reshape(b,(self.num_classes,self.paral_number_W))
+        W_normalized = tf.nn.l2_normalize(W_reshape,axis=-1)
+        for c in range(self.num_classes):
+            cos_c =  tf.abs(tf.einsum('jk,mn->jm',W_normalized[c,:,:],W_normalized[c,:,:]))
+            cos_c_withDiag = tf.matrix_set_diag(cos_c,tf.zeros(self.paral_number_W), name=None)
+            print(b_reshape[c,:])
+            diff_bias_2_by_2 = tf.abs(tf.transpose(b_reshape[c,:]) - b_reshape[c,:])
+            print(diff_bias_2_by_2)
+            constraint_on_bias = tf.multiply(tf.add(1.,-cos_c_withDiag),diff_bias_2_by_2)
+            all_constraint = tf.add(cos_c_withDiag,constraint_on_bias) 
+            loss_cos = tf.divide(tf.reduce_mean(all_constraint,axis=[0,1]),2.)
+            if c==0:
+                loss_all_c = loss_cos
+            elif c==1:
+                loss_all_c = tf.stack([loss_all_c,loss_cos],axis=0)
+            else:
+                loss_all_c = tf.concat([loss_all_c,[loss_cos]],axis=0)
+
+        return(loss_all_c)
+            
     def def_SVM_onMean(self,X_, y_):
         X_mean = tf.reduce_mean(X_,axis=1) 
         # Definition of the graph 
@@ -1236,6 +1296,11 @@ class tf_MI_max():
                         
                 if self.optim_wt_Reg:
                     loss=Tan
+                    
+                if self.Cosine_ofW_inLoss and (self.MaxOfMax or self.MaxMMeanOfMax): 
+#                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.MoveAway_Hyperplan_loss(W,b)))
+                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.cosine_distance_loss(W)))
+                    
             else:
                 loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
             # Shape 20 and if self.restarts_paral_Dim shape (number_W) x 20

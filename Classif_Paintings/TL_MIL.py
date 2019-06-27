@@ -2077,7 +2077,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                                   obj_score_mul_tanh=False,metamodel='FasterRCNN',
                                   PCAuse=False,variance_thres=0.9,trainOnTest=False,
                                   AddOneLayer=False,exp=10,MaxOfMax=False,debug = False,alpha=0.7,
-                                  layer='fc7',MaxMMeanOfMax=False):
+                                  layer='fc7',MaxMMeanOfMax=False,Cosine_ofW_inLoss=False,Coeff_cosine=1.):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2128,7 +2128,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     @param : Optimizer  : Optimizer for the MI_max GradientDescent or Adam
     @param : norm : normalisation of the data or not : possible : None or ''
             'L2' : normalisation L2 or 'STDall' : Standardisation on all data 
-            'STD' standardisation by feature maps
+            'STD' standardisation by feature maps : not implemented
     @param : restarts_paral : run several W vecteur optimisation in parallel 
             two versions exist 'Dim','paral'
     @param : transform_output : Transformation for the final estimation can be 
@@ -2187,6 +2187,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
    @param : layer that we get in the pretrained net for ResNet only fc7 possible for 
         vgg16 : fc6 or fc7 but in both case it will be saved in the fc7 name
         in the tfrecords dataset !
+   @param : Cosine_ofW_inLoss : We the mean of the cosine of the vectors in the loss function 
+            Have to be used with MaxOfMax of MaxMMeanOfMax (default = False)
+   @param : Coeff_cosine : weight in front the cosine loss (default = 1.)
          
     The idea of this algo is : 
         1/ Compute CNN features
@@ -2556,6 +2559,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         str_MaxOfMax = '_MaxMMeanOfMax'
     else:
         str_MaxOfMax =''
+    if Cosine_ofW_inLoss:
+        str_Cosine_ofW_inLoss = '_Cosine_ofW_inLoss'+str(Coeff_cosine)
+    else:
+        str_Cosine_ofW_inLoss = ''
         
     Number_of_positif_elt = 1 
     number_zone = k_per_bag
@@ -2592,7 +2599,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
-                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,alpha,layer]
+                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,
+                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2603,7 +2611,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                      'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
                      'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
                      'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant',\
-                     'AddOneLayer','exp','MaxOfMax','MaxMMeanOfMax','alpha','layer']
+                     'AddOneLayer','exp','MaxOfMax','MaxMMeanOfMax','alpha','layer',\
+                     'Cosine_ofW_inLoss','Coeff_cosine']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2620,7 +2629,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
         +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
         + AggregW_str + loss_type_str+str_obj_score_add_tanh+str_obj_score_mul_tanh \
-        + PCAusestr+str_MaxOfMax
+        + PCAusestr+str_MaxOfMax+str_Cosine_ofW_inLoss
     if trainOnTest:
         cachefile_model_base += '_trainOnTest'
     if AddOneLayer:
@@ -2695,7 +2704,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                        loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                        obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer,exp=exp,\
                        MaxOfMax=MaxOfMax,MaxMMeanOfMax=MaxMMeanOfMax,usecache=usecache,\
-                       alpha=alpha)
+                       alpha=alpha,Cosine_ofW_inLoss=Cosine_ofW_inLoss,Coeff_cosine=Coeff_cosine)
                  export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
@@ -2832,9 +2841,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         
             AP = average_precision_score(true_label_all_test,predict_label_all_test,average=None)
             if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
-                print("MIL-SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
+                print("MIL-model version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
             else:
-                print("MIL-SVM version Average Precision for",classes[j]," = ",AP)
+                print("MIL-model version Average Precision for",classes[j]," = ",AP)
             test_precision = precision_score(true_label_all_test,labels_test_predited)
             test_recall = recall_score(true_label_all_test,labels_test_predited)
             F1 = f1_score(true_label_all_test,labels_test_predited)
