@@ -46,7 +46,8 @@ import pickle
 list_of_ClassicalMI = ['miSVM','SIL','SISVM','LinearSISVM','MIbyOneClassSVM',\
                        'SIXGBoost','MISVM','SIDLearlyStop','miDLearlyStop',\
                        'miDLstab','ensDLearlyStop','kerasMultiMIMAX']
-list_of_MIMAXbasedAlgo = ['MIMAX','MIMAXaddLayer','IA_mi_model','MAXMIMAX','MaxOfMax']
+list_of_MIMAXbasedAlgo = ['MIMAX','MIMAXaddLayer','IA_mi_model','MAXMIMAX','MaxOfMax',\
+                          'MaxMMeanOfMax','MaxMMeanOfMaxHinge']
 
 path_tmp = '/media/gonthier/HDD/output_exp/ClassifPaintings/tmp/'
 if not(os.path.exists(path_tmp)):
@@ -1241,10 +1242,10 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
     /!\ For the moment we are only doing the binary case
     """
 
-    list_MIMAXbasedMethods = ['MIMAX','MAXMIMAX','IA_mi_model','MIMAXaddLayer',\
-                              'MaxOfMax']
+#    list_MIMAXbasedMethods = ['MIMAX','MAXMIMAX','IA_mi_model','MIMAXaddLayer',\
+#                              'MaxOfMax']
     
-    if method in list_MIMAXbasedMethods:
+    if method in list_of_MIMAXbasedAlgo:
         dataset,mini_batch_size_max,num_features,size_biggest_bag = opts
         mini_batch_size = min(mini_batch_size_max,len(bags_train))
 
@@ -1309,6 +1310,52 @@ def train_and_test_MIL(bags_train,labels_bags_c_train,bags_test,labels_bags_c_te
                               size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
                               verbose=verbose,get_bestloss=get_bestloss,MaxOfMax=True\
                               ,max_iters=3000)
+        
+
+        if get_bestloss:
+            export_dir,best_loss = export_dir
+
+        if not(pointsPrediction is None):
+            _, points_instance_labels = predict_MIMAX(export_dir,\
+                    data_path_points,pointsPrediction,size_biggest_bag,
+                    num_features,num_class=num_class,
+                    mini_batch_size = mini_batch_size,removeModel=False)
+
+        # Testing
+        pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
+            data_path_test,bags_test,size_biggest_bag,
+             num_features,num_class=num_class,
+             mini_batch_size = mini_batch_size,removeModel=True)
+        
+    elif method == 'MaxMMeanOfMax':
+        #Training
+        export_dir = trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
+                              size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
+                              verbose=verbose,get_bestloss=get_bestloss,MaxMMeanOfMax=True\
+                              ,max_iters=3000)
+        
+
+        if get_bestloss:
+            export_dir,best_loss = export_dir
+
+        if not(pointsPrediction is None):
+            _, points_instance_labels = predict_MIMAX(export_dir,\
+                    data_path_points,pointsPrediction,size_biggest_bag,
+                    num_features,num_class=num_class,
+                    mini_batch_size = mini_batch_size,removeModel=False)
+
+        # Testing
+        pred_bag_labels, pred_instance_labels = predict_MIMAX(export_dir,\
+            data_path_test,bags_test,size_biggest_bag,
+             num_features,num_class=num_class,
+             mini_batch_size = mini_batch_size,removeModel=True)
+        
+    elif method == 'MaxMMeanOfMaxHinge':
+        #Training
+        export_dir = trainMIMAX(bags_train, labels_bags_c_train,data_path_train,\
+                              size_biggest_bag,num_features,mini_batch_size,opts_MIMAX=opts_MIMAX,
+                              verbose=verbose,get_bestloss=get_bestloss,MaxMMeanOfMax=True\
+                              ,max_iters=3000,loss_type='hinge')
         
 
         if get_bestloss:
@@ -1572,7 +1619,7 @@ def Create_tfrecords(bags, labels_bags,size_biggest_bag,num_features,nameset,dat
 def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
                num_features,mini_batch_size,opts_MIMAX=None,verbose=False,
                get_bestloss=False,AggregW=None,proportionToKeep=0.,MaxOfMax=False,
-               max_iters=300):
+               MaxMMeanOfMax=False,max_iters=300,loss_type=''):
     """
     This function train a tidy MIMAX model
     """
@@ -1600,7 +1647,8 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
                                  num_features=num_features,mini_batch_size=mini_batch_size, \
                                  verbose=verbose,C=C,CV_Mode=CV_Mode,max_iters=max_iters,
                                  debug=False,AggregW=AggregW,proportionToKeep=proportionToKeep,
-                                 MaxOfMax=MaxOfMax)
+                                 MaxOfMax=MaxOfMax,MaxMMeanOfMax=MaxMMeanOfMax,
+                                 loss_type=loss_type)
     C_values =  np.logspace(-3,2,6,dtype=np.float32)
     classifierMI_max.set_C_values(C_values)
     export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
