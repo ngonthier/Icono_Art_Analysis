@@ -34,14 +34,14 @@ MILmodel_tab = ['MI_Net','mi_Net','MI_Net_with_DS','MI_Net_with_RC']
 def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'FasterRCNN',\
              demonet='res152_COCO',test=False,MILmodel='MI_Net',max_epoch=20):
     
-#    dataset_nm='IconArt_v1'
-#    classe=1
-#    k_per_bag = 300
-#    metamodel = 'FasterRCNN'
-#    demonet='res152_COCO'
-#    test=False
-#    MILmodel='MI_Net'
-#    max_epoch = 20
+    dataset_nm='IconArt_v1'
+    classe=1
+    k_per_bag = 300
+    metamodel = 'FasterRCNN'
+    demonet='res152_COCO'
+    test=True
+    MILmodel='MI_Net_with_DS'
+    max_epoch = 1
     
     if test:
         classe = 0
@@ -145,11 +145,16 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
                 if not(test):
                     model= model_dict[j]
                     predictions = model.predict(fc7s.reshape((-1,num_features)),batch_size=1)
+                    if MILmodel=='MI_Net_with_DS':
+                        predictions = predictions[3]
                     scores_all_j_k = predictions.reshape((fc7s.shape[0],1,fc7s.shape[1]))
                 else:
                     if j==classe:
                         model= model_dict[j]
-                        scores_all_j_k = model.predict(fc7s.reshape((-1,num_features))).reshape((fc7s.shape[0],1,fc7s.shape[1]))
+                        predictions = model.predict(fc7s.reshape((-1,num_features)),batch_size=1)
+                        if MILmodel=='MI_Net_with_DS':
+                            predictions = predictions[3]
+                        scores_all_j_k = predictions.reshape((fc7s.shape[0],1,fc7s.shape[1]))
                 if score_all is None:
                     score_all = scores_all_j_k
                 else:
@@ -256,5 +261,5 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
     return(apsAt05,apsAt01,AP_per_class)
 
 if __name__ == '__main__':
-    for MILmodel in MILmodel_tab[::-1]:
+    for MILmodel in MILmodel_tab:
         mainEval(MILmodel=MILmodel,max_epoch=20,test=False)
