@@ -141,12 +141,13 @@ for elt in list_im_val:
     if not(a.any()):
         num_labels = np.zeros((len(LabelNameunique),))
         new_row = [nameIm] + list(num_labels) + ['test']
-    new_df_full.loc[new_index] = new_row
-    new_index += 1
+        new_df_full.loc[new_index] = new_row
+        new_index += 1
 new_df_full.to_csv(path+'OIV5_small_'+str(number_elts)+'.csv',index=False) 
     
 path_target = '/media/gonthier/HDD/data/OIV5/Images/'
 list_FileNotFoundError = []
+import os
 for row in new_df_full.iterrows():
     iteme = row[1]['item']
     set_ = row[1]['set']
@@ -161,7 +162,8 @@ for row in new_df_full.iterrows():
     
     dst = path_target + iteme +'.jpg'
     try:
-        copyfile(src, dst)
+        if  not(os.path.isfile(dst)):
+            copyfile(src, dst)
     except FileNotFoundError:
         list_FileNotFoundError += [iteme]
         print(set_,iteme)

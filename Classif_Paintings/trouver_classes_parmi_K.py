@@ -739,6 +739,35 @@ class tf_MI_max():
                 loss_all_c = tf.concat([loss_all_c,[loss_cos]],axis=0)
 
         return(loss_all_c)
+        
+    def NormDistance_Hyperplan_loss(self,W,b):
+        """
+        this function return the sum of the norm 2 of the difference between 
+        the normalized version of the vectors W concatenated with the bias b
+
+        W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.)
+        
+        You have to maximize this function to have different vectors 
+        """
+
+        W_reshape = tf.reshape(W,(self.num_classes,self.paral_number_W,-1))
+        b_reshape = tf.reshape(b,(self.num_classes,self.paral_number_W,1))
+        W_normalized = tf.nn.l2_normalize(W_reshape,axis=-1)
+        W_and_b = tf.concat((W_normalized,b_reshape),axis=-1)       
+        for c in range(self.num_classes):
+            loss_cos = tf.constant(0.)
+            for channel1 in range(self.paral_number_W):
+                for channel2 in range(1,self.paral_number_W):
+                    loss_cos += tf.nn.l2_loss(tf.subtract(W_and_b[c,channel1,:],W_and_b[c,channel2,:]))
+            if c==0:
+                loss_all_c = loss_cos
+            elif c==1:
+                loss_all_c = tf.stack([loss_all_c,loss_cos],axis=0)
+            else:
+                loss_all_c = tf.concat([loss_all_c,[loss_cos]],axis=0)
+
+        return(loss_all_c)
+
             
     def def_SVM_onMean(self,X_, y_):
         X_mean = tf.reduce_mean(X_,axis=1) 
@@ -1298,6 +1327,7 @@ class tf_MI_max():
                     loss=Tan
                     
                 if self.Cosine_ofW_inLoss and (self.MaxOfMax or self.MaxMMeanOfMax): 
+#                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.NormDistance_Hyperplan_loss(W,b)))
 #                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.MoveAway_Hyperplan_loss(W,b)))
                     loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.cosine_distance_loss(W)))
                     
@@ -1505,7 +1535,7 @@ class tf_MI_max():
             print("The optimizer is unknown",self.Optimizer)
             raise(NotImplementedError)
             
-        if self.Optimizer in ['GradientDescent','Momentum','Adam']:
+        if self.Optimizer in ['GradientDescent','Momentum','Adam','Adagrad']:
             train = optimizer.minimize(loss)  
         
         if not(self.init_by_mean is None) and not(self.init_by_mean ==''):

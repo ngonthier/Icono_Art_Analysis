@@ -19,6 +19,7 @@ import time
 import pickle
 import gc
 import tensorflow as tf
+import csv
 #from tensorflow.python.saved_model import tag_constants
 #from sklearn import svm
 #from sklearn.model_selection import GridSearchCV
@@ -2093,6 +2094,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     @param : demonet : the kind of inside network used it can be 'vgg16_VOC07',
         'vgg16_VOC12','vgg16_COCO','res101_VOC12','res101_COCO','res152_COCO'
     @param : database : the database used for the classification task
+        For OIV5 : OIV5_small_3135 and  OIV5_small_30001
     @param : verbose : Verbose option classical
     @param : ReDo = False : Erase the former computation
     @param : model : kind of model use for the optimization a instance based one (mi_model) 
@@ -2292,9 +2294,21 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                 dict_name_file[set_str] = dict_name_file[set_str].replace('RMN','IconArt_v1')
             if not(os.path.isfile(dict_name_file[set_str])):
                 data_precomputeed = False
-                print("Warning in the case of RMN database you have to precompute for RM and for IconArt_v1")
-
-#    sLength_all = len(df_label[item_name])
+                print("Warning in the case of RMN database you have to precompute for RMN and for IconArt_v1")
+    
+    if 'OIV5' in database:
+        data_precomputeed = True
+        for set_str in sets:
+            if set_str=='train' or set_str=='val':
+                dict_name_file[set_str] = dict_name_file['trainval']
+            if set_str=='test':
+                dict_name_file[set_str] = dict_name_file[set_str].replace(database,'OIV5')
+            if not(os.path.isfile(dict_name_file[set_str])):
+                data_precomputeed = False
+    
+    print('data_precomputeed',data_precomputeed)
+    input('wait')
+    
     if demonet in ['vgg16_COCO','vgg16_VOC07','vgg16_VOC12']:
         num_features = 4096
     elif demonet in ['res101_COCO','res152_COCO','res101_VOC07','res152']:
@@ -2649,6 +2663,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             name_milsvm = pickle.load(f)
             if verbose: print("The cachefile exists")
     
+    usecache_eval = True
+    boxCoord01 =False
     if database=='VOC2007':
         imdb = get_imdb('voc_2007_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
@@ -2679,6 +2695,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         #num_images = len(imdb.image_index) 
         num_images =  len(df_label[df_label['set']=='test'][item_name])
+    elif 'OIV5' in database: # For OIV5 for instance !
+        num_images =  len(df_label[df_label['set']=='test'][item_name])
+        usecache_eval  = False
+        boxCoord01 = True
     else:
         num_images =  len(df_label[df_label['set']=='test'][item_name])
     all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
@@ -2763,7 +2783,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                gridSearch=gridSearch,n_jobs=n_jobs,thres_FinalClassifier=thres_FinalClassifier,
                k_per_bag=k_per_bag,eval_onk300=eval_onk300,plot_onSubSet=plot_onSubSet,AggregW=AggregW,
                obj_score_add_tanh=obj_score_add_tanh,obj_score_mul_tanh=obj_score_mul_tanh,dim_rois=dim_rois,
-               trainOnTest=trainOnTest)
+               trainOnTest=trainOnTest,usecache=usecache_eval,boxCoord01=boxCoord01)
    
         for j,classe in enumerate(classes):
             AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
@@ -2926,9 +2946,22 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         print("Detection score with the difficult elementwith ",model)
         print(arrayToLatex(aps,per=True))
         imdb.set_use_diff(False)
-        
-#    with open('Prediction.pkl', 'wb') as f:
-#        pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)   
+    
+    elif 'OIV5' in database:
+        OIV5_csv_file = cachefile_model_base  + '_boxes_predited.csv'
+        with open(OIV5_csv_file, 'wb') as csvfile:
+            filewriter = csv.writer(csvfile, delimiter=',',quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            first_line = ['ImageID','LabelName','XMin','XMax','YMin','YMax','IsGroupOf','Score']
+            filewriter.writerow(first_line)
+            for i_name, name in enumerate(name_all_test):
+                for j in range(num_classes):
+                    list_boxes = all_boxes[j][i_name]
+                    classe_str = classes[j]
+                    for box in list_boxes:
+                        line = [name,classe_str,box[0],box[1],box[2],box[3],0,box[5]]
+                        filewriter.writerow(line)
+    
+    
         
     print('~~~~~~~~')        
     print("mean Average Precision Classification for all the data = {0:.3f}".format(np.mean(AP_per_class)))    
@@ -3054,12 +3087,14 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                with_rois_scores_atEnd=False,scoreInMI_max=False,seuillage_by_score=False,
                gridSearch=False,n_jobs=1,thres_FinalClassifier=0.5,k_per_bag=300,
                eval_onk300=False,plot_onSubSet=None,AggregW=None,obj_score_add_tanh=False,
-               obj_score_mul_tanh=False,dim_rois=5,trainOnTest=False):
+               obj_score_mul_tanh=False,dim_rois=5,trainOnTest=False,usecache=True,
+               boxCoord01=False):
      """
      @param : seuil_estimation : ByHist or MaxDesNeg
      @param : number_im : number of image plot at maximum
      @param : transform_output : use of a softmax or a 
      @ use the with_rois_scores_atEnd to pondare the final results
+     @param : boxCoord01 : convert the box coordinates between 0 and 1
      """
 
      # TODO : predict_with LinearSVC_Extremboth : use the most discriminative regions for each images
@@ -3169,7 +3204,8 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,\
             num_rois=k_per_bag,dim_rois=dim_rois))
         dataset_batch = train_dataset.batch(mini_batch_size)
-        dataset_batch.cache()
+        if usecache:
+            dataset_batch.cache()
         iterator = dataset_batch.make_one_shot_iterator()
         next_element = iterator.get_next()
         
@@ -3340,7 +3376,8 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,
             num_rois=k_per_bag,dim_rois=dim_rois))
         dataset_batch = train_dataset.batch(mini_batch_size)
-        dataset_batch.cache()
+        if usecache:
+            dataset_batch.cache()
         dataset_batch = dataset_batch.prefetch(1)
         iterator = dataset_batch.make_initializable_iterator()
         next_element = iterator.get_next()
@@ -3652,7 +3689,8 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             num_classes=num_classes,with_rois_scores=get_roisScore,num_features=num_features,
             num_rois=k_per_bag,dim_rois=dim_rois))
      dataset_batch = train_dataset.batch(mini_batch_size)
-     dataset_batch.cache()
+     if usecache:
+         dataset_batch.cache()
      iterator = dataset_batch.make_one_shot_iterator()
      next_element = iterator.get_next()
      true_label_all_test =  []
@@ -3769,7 +3807,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     if dim_rois==5:
                         roi_boxes =  roi[:,1:5] / im_scales[0] 
                     else:
-                        roi_boxes =  roi / im_scales[0] 
+                        roi_boxes =  roi / im_scales[0]
+                    if boxCoord01:
+                        roi_boxes[:,0:2] =  roi_boxes[:,0:2] / im.shape[0]
+                        roi_boxes[:,2:4] =  roi_boxes[:,2:4] / im.shape[1]
                     
                     for j in range(num_classes):
                         scores = scores_all[j,:]

@@ -1642,6 +1642,10 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     sets = ['train','val','trainval','test']
     if database=='RMN':
         sets=['trainval']
+    if 'OIV5' in database:
+        sets = ['trainval','test']
+    
+    
     
     if filesave == 'pkl':
         name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
@@ -1654,14 +1658,19 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
         dict_writers = {}
         for set_str in sets:
             name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str+'_'+set_str+'.tfrecords'
+            if 'OIV5' in database and set_str=='test':
+                name_pkl_all_features = name_pkl_all_features.replace(database,'OIV5')
+                if not(os.path.isfile(name_pkl_all_features)):
+                    notOIV5test = True
+                else:
+                    notOIV5test = False
             dict_writers[set_str] = tf.python_io.TFRecordWriter(name_pkl_all_features)
-
-    
+   
     Itera = 1000
     for i,name_img in  enumerate(df_label[item_name]):
         if filesave=='pkl':
             if not(k_regions==300):
-                raise(NotImplemented)
+                raise(NotImplementedError)
             if i%Itera==0:
                 if verbose : print(i,name_img)
                 if not(i==0):
@@ -1669,7 +1678,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     features_resnet_dict= {}
             if database in ['IconArt_v1','VOC2007','clipart','Paintings','watercolor',\
                             'WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']\
-                            or 'IconArt_v1' in database:
+                            or 'IconArt_v1' in database or 'OIV5' in database:
                 complet_name = path_to_img + name_img + '.jpg'
             elif database=='PeopleArt':
                 complet_name = path_to_img + name_img
@@ -1698,7 +1707,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             if database in ['RMN','IconArt_v1','VOC2007','clipart','Paintings',\
                             'watercolor','WikiTenLabels','MiniTrain_WikiTenLabels',\
                             'WikiLabels1000training']\
-                        or 'IconArt_v1' in database:
+                        or 'IconArt_v1' in database or 'OIV5' in database:
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
             elif database=='PeopleArt':
@@ -1710,6 +1719,9 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             im = cv2.imread(complet_name)
             height = im.shape[0]
             width = im.shape[1]
+            if 'OIV5' in database and not(notOIV5test):
+                if (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
+                    continue
             cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
             
             if k_regions==300:
@@ -1764,7 +1776,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     classes_vectors[j] = value
             if database in ['RMN','WikiTenLabels','MiniTrain_WikiTenLabels',\
                             'WikiLabels1000training','IconArt_v1']\
-                        or 'IconArt_v1' in database:
+                        or 'IconArt_v1' in database or 'OIV5' in database:
                 for j in range(num_classes):
                     value = int(df_label[classes[j]][i])
                     classes_vectors[j] = value
@@ -1826,6 +1838,12 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     dict_writers['test'].write(example.SerializeToString())
             if database=='RMN':
                 dict_writers['trainval'].write(example.SerializeToString())
+            if 'OIV5' in database:
+                if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
+                    dict_writers['trainval'].write(example.SerializeToString())
+                if notOIV5test:
+                    if (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
+                        dict_writers['test'].write(example.SerializeToString())
                     
     if filesave=='pkl':
         pickle.dump(features_resnet_dict,pkl)
@@ -3063,9 +3081,12 @@ if __name__ == '__main__':
 #    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
 #                                 augmentation=False,L2 =False,
 #                                 saved='all',verbose=True,filesave='pkl')   
-    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='RMN',
+    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='OIV5_small_3135',
                                  augmentation=False,L2 =False,
                                  saved='all',verbose=True,filesave='tfrecords')   
+#    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='OIV5_small_30001',
+#                                 augmentation=False,L2 =False,
+#                                 saved='all',verbose=True,filesave='tfrecords')   
 #    Compute_Faster_RCNN_features(demonet='vgg16_COCO',nms_thresh = 0.7,database='IconArt_v1',
 #                                 augmentation=False,L2 =False,
 #                                 saved='all',verbose=True,filesave='tfrecords',k_regions=300)   
