@@ -34,14 +34,14 @@ MILmodel_tab = ['MI_Net','mi_Net','MI_Net_with_DS','MI_Net_with_RC']
 def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'FasterRCNN',\
              demonet='res152_COCO',test=False,MILmodel='MI_Net',max_epoch=20):
     
-    dataset_nm='IconArt_v1'
-    classe=1
-    k_per_bag = 300
-    metamodel = 'FasterRCNN'
-    demonet='res152_COCO'
-    test=True
-    MILmodel='MI_Net_with_DS'
-    max_epoch = 1
+#    dataset_nm='IconArt_v1'
+#    classe=1
+#    k_per_bag = 300
+#    metamodel = 'FasterRCNN'
+#    demonet='res152_COCO'
+#    test=True
+#    MILmodel='MI_Net_with_DS'
+#    max_epoch = 1
     
     if test:
         classe = 0
@@ -261,5 +261,7 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
     return(apsAt05,apsAt01,AP_per_class)
 
 if __name__ == '__main__':
+    MILmodel_tab = ['MI_Net','MI_Net_with_DS','MI_Net_with_RC','mi_Net']
+
     for MILmodel in MILmodel_tab:
         mainEval(MILmodel=MILmodel,max_epoch=20,test=False)
