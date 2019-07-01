@@ -199,6 +199,8 @@ def get_database(database):
             path_data_csvfile = path_tmp+'Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
         elif database=='RMN':
             path_data_csvfile = path_tmp+'RMN/ImageSets/Main/'
+        elif 'OIV5' in database:
+            path_data_csvfile = path_tmp+'OIV5/'           
         else:
             path_data_csvfile = path_data
     else:
