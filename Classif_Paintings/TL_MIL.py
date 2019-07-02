@@ -2868,8 +2868,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             test_recall = recall_score(true_label_all_test,labels_test_predited)
             F1 = f1_score(true_label_all_test,labels_test_predited)
             print("Test on all the data precision = {0:.2f}, recall = {1:.2f},F1 = {2:.2f}".format(test_precision,test_recall,F1))
-            precision_at_k = ranking_precision_score(np.array(true_label_all_test), predict_label_all_test,20)
-            P20_per_class += [precision_at_k]
+            #precision_at_k = ranking_precision_score(np.array(true_label_all_test), predict_label_all_test,20)
+            #P20_per_class += [precision_at_k]
             AP_per_class += [AP]
             R_per_class += [test_recall]
             P_per_class += [test_precision]
@@ -2948,6 +2948,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         imdb.set_use_diff(False)
     
     elif 'OIV5' in database:
+        print('Save the predicted boxes')
         OIV5_csv_file = cachefile_model_base  + '_boxes_predited.csv'
         with open(OIV5_csv_file, 'wb') as csvfile:
             filewriter = csv.writer(csvfile, delimiter=',',quotechar='|', quoting=csv.QUOTE_MINIMAL)
@@ -2968,7 +2969,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     if CompBest: print("mean Average Precision for BEst Score = {0:.3f}".format(np.mean(AP_per_classbS))) 
     print("mean Precision Classification for all the data = {0:.3f}".format(np.mean(P_per_class)))  
     print("mean Recall Classification for all the data = {0:.3f}".format(np.mean(R_per_class)))  
-    print("mean Precision Classification @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
+    #print("mean Precision Classification @ 20 for all the data = {0:.3f}".format(np.mean(P20_per_class)))  
     print('Mean Average Precision Classification with ',model,'with score =',with_scores,' : ')
     print(AP_per_class)
     print(arrayToLatex(AP_per_class,per=True))
