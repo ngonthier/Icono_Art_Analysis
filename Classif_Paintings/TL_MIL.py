@@ -2795,8 +2795,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             test_recall = recall_score(true_label_all_test[:,j],labels_test_predited[:,j],)
             F1 = f1_score(true_label_all_test[:,j],labels_test_predited[:,j],)
             print("Test on all the data precision = {0:.2f}, recall = {1:.2f},F1 = {2:.2f}".format(test_precision,test_recall,F1))
-            precision_at_k = ranking_precision_score(np.array(true_label_all_test[:,j]), predict_label_all_test[:,j],20)
-            P20_per_class += [precision_at_k]
+            #precision_at_k = ranking_precision_score(np.array(true_label_all_test[:,j]), predict_label_all_test[:,j],20)
+            #P20_per_class += [precision_at_k]
             AP_per_class += [AP]
             R_per_class += [test_recall]
             P_per_class += [test_precision] 
