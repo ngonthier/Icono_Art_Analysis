@@ -2950,7 +2950,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     elif 'OIV5' in database:
         print('Save the predicted boxes')
         OIV5_csv_file = cachefile_model_base  + '_boxes_predited.csv'
-        with open(OIV5_csv_file, 'wb') as csvfile:
+        with open(OIV5_csv_file, 'w') as csvfile:
             filewriter = csv.writer(csvfile, delimiter=',',quotechar='|', quoting=csv.QUOTE_MINIMAL)
             first_line = ['ImageID','LabelName','XMin','XMax','YMin','YMax','IsGroupOf','Score']
             filewriter.writerow(first_line)
