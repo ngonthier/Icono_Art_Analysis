@@ -503,7 +503,7 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
     
              
 def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO',\
-                        k_per_bag=300,layer='fc7',num_rep = 10,Optimizer='GradientDescent'):
+                        k_per_bag=300,layer='fc7',num_rep = 100,Optimizer='GradientDescent'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -933,7 +933,7 @@ def get_params_fromi_scenario(i_scenario):
     return(output)
         
 def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
-                        demonet = 'res152_COCO',k_per_bag=300,layer='fc7',num_rep = 10,Optimizer='GradientDescent'):
+                        demonet = 'res152_COCO',k_per_bag=300,layer='fc7',num_rep = 100,Optimizer='GradientDescent'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -2332,7 +2332,7 @@ def VariationStudyPart2bis():
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
       
 def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO',onlyAP05=False,
-                        withoutAggregW=False,k_per_bag=300,layer='fc7',num_rep = 10,Optimizer='GradientDescent'):
+                        withoutAggregW=False,k_per_bag=300,layer='fc7',num_rep = 100,Optimizer='GradientDescent'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -2890,12 +2890,12 @@ if __name__ == '__main__':
 #    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[3,22,20,21],withoutAggregW=True)
 #    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[3,22,20,21],withoutAggregW=True)
 ##    
-    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5],demonet = 'vgg16_COCO')
-    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'vgg16_COCO')
-    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5],demonet = 'vgg16_COCO',layer='fc6')
-    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'vgg16_COCO',layer='fc6')
-    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'vgg16_COCO')
-    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'vgg16_COCO',layer='fc6')
+    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5],demonet = 'vgg16_COCO',num_rep = 10)
+    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'vgg16_COCO',num_rep = 10)
+    VariationStudyPart1(database='IconArt_v1',scenarioSubset=[0,5],demonet = 'vgg16_COCO',layer='fc6',num_rep = 10)
+    VariationStudyPart2(database='IconArt_v1',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'vgg16_COCO',layer='fc6',num_rep = 10)
+    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'vgg16_COCO',num_rep = 10)
+    VariationStudyPart3(database='IconArt_v1',scenarioSubset=[0,5],withoutAggregW=True,demonet = 'vgg16_COCO',layer='fc6',num_rep = 10)
     #unefficient_way_MaxOfMax_evaluation()
 #    # For Watercolor2k 
 #    VariationStudyPart1(database='watercolor',scenarioSubset=[0,5,17,18])
