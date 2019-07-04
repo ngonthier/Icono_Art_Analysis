@@ -2959,7 +2959,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                     list_boxes = all_boxes[j][i_name]
                     classe_str = classes[j]
                     for box in list_boxes:
-                        line = [name,classe_str,box[0],box[1],box[2],box[3],0,box[5]]
+                        line = [name,classe_str,box[0],box[1],box[2],box[3],0,box[4]]
                         filewriter.writerow(line)
     
     
