@@ -395,11 +395,12 @@ def Study_eval_perf_onSplit_of_IconArt(computeMode=True):
                 # a finir
                 
 
-def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1'):
+def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
+                                        Optimizer='GradientDescent',MaxOfMax=True,MaxMMeanOfMax=False):
     """
-    Compute the performance for the MaxOfMax model on 100 runs
+    Compute the performance for the MaxOfMax model on num_rep runs
     """
-    num_rep = 100
+    
     seuillage_by_score = False
     obj_score_add_tanh = False
     loss_type = ''
@@ -453,7 +454,15 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1'):
                 name_dict +='_'+Max_version
             if not(max_iters_all_base==300) :
                 name_dict +='_MIAB'+str(max_iters_all_base)
-            name_dictAP = name_dict + '_MaxOfMax' + '_APscore.pkl'
+            if not(num_rep==100):
+                name_dict += '_numRep'+ str(num_rep)
+            if not(Optimizer=='GradientDescent'):
+                name_dict += '_'+Optimizer
+            if MaxOfMax:
+                name_dict += '_MaxOfMax'
+            elif MaxMMeanOfMax:
+                name_dict += '_MaxMMeanOfMax'
+            name_dictAP = name_dict + '_APscore.pkl'
             DictAP = {}
             ll = []
             l01 = []
@@ -466,7 +475,7 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1'):
                                               parallel_op=True,CV_Mode=CV_Mode,num_split=2,
                                               WR=WR,init_by_mean =None,seuil_estimation='',
                                               restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
-                                              C=1.0,Optimizer='GradientDescent',norm='',
+                                              C=1.0,Optimizer=Optimizer,norm='',
                                               transform_output='tanh',with_rois_scores_atEnd=False,
                                               with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
                                               Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
@@ -476,7 +485,7 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1'):
                                               ,proportionToKeep=proportionToKeep,storeVectors=False,
                                               obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                                               obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
-                                              layer=layer,MaxOfMax=True)
+                                              layer=layer,MaxOfMax=MaxOfMax,MaxMMeanOfMax=MaxMMeanOfMax)
                 ll += [apsAt05]
                 l01 += [apsAt01]
                 lclassif += [AP_per_class]
@@ -493,7 +502,8 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1'):
                 pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
     
              
-def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO',k_per_bag=300,layer='fc7'):
+def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO',\
+                        k_per_bag=300,layer='fc7',num_rep = 10,Optimizer='GradientDescent'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -512,12 +522,8 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
     # Just to have with and without score : scenario 0 and 5 
     else:
         listi = scenarioSubset
-#    database_tab = ['VOC2007','PeopleArt']
-#    database_tab = ['PeopleArt']
-    number_restarts = 100*12-1
-    
-    Dict = {}
-    metric_tab = ['AP@.5','AP@.1','APClassif']
+
+    number_restarts = num_rep*12-1
 
     seuil = 0.9 
     ReDo = False
@@ -542,7 +548,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                                           parallel_op=True,CV_Mode=CV_Mode,num_split=2,
                                           WR=WR,init_by_mean =None,seuil_estimation='',
                                           restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
-                                          C=1.0,Optimizer='GradientDescent',norm='',
+                                          C=1.0,Optimizer=Optimizer,norm='',
                                           transform_output='tanh',with_rois_scores_atEnd=False,
                                           with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
                                           Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
@@ -580,6 +586,10 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict +='_'+Max_version
             if not(max_iters_all_base==300) :
                 name_dict +='_MIAB'+str(max_iters_all_base)
+            if not(num_rep==100):
+                name_dict += '_numRep'+ str(num_rep)
+            if not(Optimizer=='GradientDescent'):
+                name_dict += '_'+Optimizer
             name_dict += '.pkl'
             copyfile(exportname,name_dict)
             print(name_dict,'copied')
@@ -923,7 +933,7 @@ def get_params_fromi_scenario(i_scenario):
     return(output)
         
 def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
-                        demonet = 'res152_COCO',k_per_bag=300,layer='fc7'):
+                        demonet = 'res152_COCO',k_per_bag=300,layer='fc7',num_rep = 10,Optimizer='GradientDescent'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -947,8 +957,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
 #    database_tab = ['watercolor']
 ##    database_tab = ['VOC2007','PeopleArt']
 #    database_tab = ['PeopleArt','watercolor']
-    number_of_reboots = 100
-    number_restarts = 100*12-1
+    number_of_reboots = num_rep
     max_iters_all_base = 300
     k_per_bag = 300
     numberofW_to_keep_base = 12
@@ -956,7 +965,6 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
     eval_onk300 = True
     dont_use_07_metric  =True
     Dict = {}
-    metric_tab = ['AP@.5','AP@.1','APClassif']
     seuil = 0.9 
     
     data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
@@ -1003,6 +1011,10 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
                 name_dict +='_'+Max_version
             if not(max_iters_all_base==300) :
                 name_dict +='_MIAB'+str(max_iters_all_base)
+            if not(num_rep==100):
+                name_dict += '_numRep'+ str(num_rep)
+            if not(Optimizer=='GradientDescent'):
+                name_dict += '_'+Optimizer
             name_dictW = name_dict + '.pkl'
             
 
@@ -1347,6 +1359,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
                             pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
                     else:
                         print('The files already exist we will not do it again')
+                        
 def VariationStudyPart2_forVOC07():
     '''
     The goal of this function is to study the variation of the performance of our 
@@ -2319,7 +2332,7 @@ def VariationStudyPart2bis():
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
       
 def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO',onlyAP05=False,
-                        withoutAggregW=False,k_per_bag=300,layer='fc7'):
+                        withoutAggregW=False,k_per_bag=300,layer='fc7',num_rep = 10,Optimizer='GradientDescent'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -2341,14 +2354,10 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
         listi = scenarioSubset
 #    database_tab = ['VOC2007','PeopleArt']
 #    database_tab = ['PeopleArt']
-    number_restarts = 100*12-1
+
     max_iters_all_base = 300
     k_per_bag = 300
-    numberofW_to_keep = 12
-    
-    dont_use_07_metric  =True
-    Dict = {}
-    metric_tab = ['AP@.5','AP@.1','APClassif']
+
     seuil = 0.9 
     listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
     data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
@@ -2390,6 +2399,10 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict +='_'+Max_version
             if not(max_iters_all_base==300) :
                 name_dict +='_MIAB'+str(max_iters_all_base)
+            if not(num_rep==100):
+                name_dict += '_numRep'+ str(num_rep)
+            if not(Optimizer=='GradientDescent'):
+                name_dict += '_'+Optimizer
 
             for AggregW in listAggregW:
                 if AggregW is None or AggregW=='':

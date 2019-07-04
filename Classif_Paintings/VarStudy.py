@@ -16,6 +16,17 @@ import numpy as np
 import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn import preprocessing
+import pathlib
+
+from IMDB_study import getDictFeaturesFasterRCNN,getTFRecordDataset
+from IMDB import get_database
+from MINNpy3.mil_nets.WSOD_datasets import load_dataset
+
+import itertools
+import tensorflow as tf
+from tf_faster_rcnn.lib.model.nms_wrapper import nms
+import os
+import cv2
 
 def drawCircles(X,n,p,pca):
     print('Plot vectors in the cercle')
@@ -362,19 +373,19 @@ def plot_AddValues(matrix,titre,loss_value=None):
     ax.set_title(titre)
     fig.tight_layout()
     plt.show()
-    
-def CovarianceOfTheVectors(MaxOfMax=False,withscore=True):
-    
-    # Need to create those files if they don't exist look at RunVarStudyAll
-    if not(MaxOfMax):
-        export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse__.pkl'
-        export_dir ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse___WithScore.pkl'
-    else:
+
+def Estimate_Contrib_Vectors(MaxOfMax=False,MaxMMeanOfMax=False,withscore=False):
+    if MaxOfMax:
         export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse____MaxOfMax.pkl'
         export_dir ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse___WithScore_MaxOfMax.pkl'
-   
+    elif MaxMMeanOfMax:
+        export_dir_withoutscore ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse____MaxMMeanOfMax.pkl'
+        export_dir ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse___WithScore_MaxMMeanOfMax.pkl'
+    else:
+        export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse__.pkl'
+        export_dir ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse___WithScore.pkl'
+    
     numberofW_to_keep = 12
-    number_of_reboots = 100
     num_features = 2048
     num_classes = 7
     
@@ -382,7 +393,306 @@ def CovarianceOfTheVectors(MaxOfMax=False,withscore=True):
         name_dictW = export_dir
     else:
         name_dictW = export_dir_withoutscore
+    
+    all_possible_cases = itertools.product([-1,1],repeat=numberofW_to_keep)
+    
+    # TODO faire en sorte que l'on puisse afficher les contributions par vecteurs.... 
+    
+    with open(name_dictW, 'rb') as f:
+        Dict = pickle.load(f)
+        Wstored = Dict['Wstored']
+        Bstored =  Dict['Bstored']
+        Lossstored = Dict['Lossstored']
+        np_pos_value =  Dict['np_pos_value'] 
+        np_neg_value =  Dict['np_neg_value']
+        
+        dataset_nm = 'IconArt_v1'
+        item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =\
+            get_database(dataset_nm)
+        
+        k_per_bag = 300
+        metamodel = 'FasterRCNN'
+        demonet='res152_COCO'
+        dict_name_file = getDictFeaturesFasterRCNN(dataset_nm,k_per_bag=k_per_bag,\
+                                               metamodel=metamodel,demonet=demonet)
+    
+        
+        # Evaluation contribution on train set
+        dict_vectors = {}
+        dict_bias = {}
+        dict_results = {}
+        right_classif = {}
+        for j in range(num_classes):
+            dict_vectors[j] = Wstored[j::num_classes,:,:]
+            dict_bias[j] = Bstored[j::num_classes]
+            dict_results[j] = np.zeros(shape=(len(all_possible_cases),))
+            right_classif[j] = np.zeros(shape=(numberofW_to_keep+1,))
+        
+        name_file = dict_name_file['trainval']
+        if metamodel=='EdgeBoxes':
+            dim_rois = 4
+        else:
+            dim_rois = 5
+        next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,dim_rois = dim_rois)
+        config = tf.ConfigProto()
+        config.intra_op_parallelism_threads = 16
+        config.inter_op_parallelism_threads = 16
+        config.gpu_options.allow_growth = True
+        sess = tf.Session(config=config)
+        i = 0
+        num_features = 2048
+        while True:
+            try:
+                fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
+                # fc7s size batchsize,300,2048
+                for j in range(num_classes):
+                    # Avec normalement W de taille [12,1,2048]
+                    product = np.einsum('ijk,bck->ibc',fc7s,dict_vectors[j])[:,:,0] +dict_bias[j]
+                    max_product_along_boxes = np.max(product,axis=-1)
+                    max_product_along_im = np.int((np.sign(np.max(max_product_along_boxes,axis=-1)) + 1)/2)
+                    sgn = np.sign(max_product_along_boxes,dtype=np.int,casting='unsafe')
+                    label_predicted =np.int((sgn + 1)/2)
+                    for k in range(len(sgn)):
+                        index_in_poss_case = np.where(all_possible_cases==sgn[k])[0]
+                        dict_results[j][index_in_poss_case] += 1
+                    for wi in range(numberofW_to_keep):
+                        right_classif[j][wi] += len(np.where(label_predicted[:,wi]==labels[j,:])[0])
+                    # Dans le cas collaboratif 
+                    right_classif[j][numberofW_to_keep] += len(np.where(max_product_along_im==labels[j,:])[0])
+                    
+            except tf.errors.OutOfRangeError:
+                break
+    
+        sess.close()
+                
+        # Evaluation test
+        name_file = dict_name_file['test']
+        next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,dim_rois = dim_rois)
+        
+        dont_use_07_metric = False
+        if dataset_nm=='VOC2007':
+            imdb = get_imdb('voc_2007_test')
+            imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+            num_images = len(imdb.image_index)
+        elif dataset_nm=='watercolor':
+            imdb = get_imdb('watercolor_test')
+            imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+            num_images = len(imdb.image_index)
+        elif dataset_nm=='PeopleArt':
+            imdb = get_imdb('PeopleArt_test')
+            imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+            num_images = len(imdb.image_index)
+        elif dataset_nm=='clipart':
+            imdb = get_imdb('clipart_test')
+            imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+            num_images = len(imdb.image_index) 
+        elif dataset_nm=='IconArt_v1' or dataset_nm=='RMN':
+            imdb = get_imdb('IconArt_v1_test')
+            imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+            num_images =  len(df_label[df_label['set']=='test'][item_name])
+        elif 'IconArt_v1' in dataset_nm and not('IconArt_v1' ==dataset_nm):
+            imdb = get_imdb('IconArt_v1_test',ext=dataset_nm.split('_')[-1])
+            imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+    #        num_images = len(imdb.image_index) 
+            num_images =  len(df_label[df_label['set']=='test'][item_name])
+        elif dataset_nm in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            imdb = get_imdb('WikiTenLabels_test')
+            imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+            #num_images = len(imdb.image_index) 
+            num_images =  len(df_label[df_label['set']=='test'][item_name])
+        else:
+            num_images =  len(df_label[df_label['set']=='test'][item_name])
+        
+        dict_all_boxes = {}
+        for wi in range(numberofW_to_keep+1):
+            dict_all_boxes[wi] = [[[] for _ in range(num_images)] for _ in range(num_classes)]
+        
+        
+        TEST_NMS = 0.3
+        thresh = 0.0
+        true_label_all_test = []
+        predict_label_all_test = []
+        name_all_test = []
+        config = tf.ConfigProto()
+        config.intra_op_parallelism_threads = 16
+        config.inter_op_parallelism_threads = 16
+        config.gpu_options.allow_growth = True
+        sess = tf.Session(config=config)
+        i = 0
+        num_features = 2048
+        while True:
+            try:
+                fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
+                for j in range(num_classes):
+                    # Avec normalement W de taille [12,1,2048]
+                    product = np.einsum('ijk,bck->ibc',fc7s,dict_vectors[j])[:,:,0] +dict_bias[j]
+                    max_product_along_vectors = np.max(product,axis=1)
+                dict_scores = {}
+                for wi in range(numberofW_to_keep):
+                    dict_scores[wi] = product[:,wi,:]
+                dict_scores[numberofW_to_keep] = max_product_along_vectors
+                
+                for wi in range(numberofW_to_keep):
+                    score_all = dict_scores[wi]
+                    for k in range(len(labels)):
+                        name_im = name_imgs[k].decode("utf-8")
+                        complet_name = path_to_img + str(name_im) + '.jpg'
+                        im = cv2.imread(complet_name)
+                        blobs, im_scales = get_blobs(im)
+                        roi = roiss[k,:]
+                        if metamodel=='EdgeBoxes':
+                            roi_boxes =  roi / im_scales[0] 
+                        else:
+                            roi_boxes =  roi[:,1:5] / im_scales[0]
+                        
+                        for j in range(num_classes):
+                            scores = score_all[k,j,:]
+                            #print(j,'scores',scores.shape)
+                            inds = np.where(scores > thresh)[0]
+                            cls_scores = scores[inds]
+                            cls_boxes = roi_boxes[inds,:]
+                            cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])).astype(np.float32, copy=False)
+                            keep = nms(cls_dets, TEST_NMS)
+                            cls_dets = cls_dets[keep, :]
+                            dict_all_boxes[wi][j][i] = cls_dets
+#                    i += 1
+                wi =   numberofW_to_keep
+                score_all = dict_scores[wi]
+                for k in range(len(labels)):
+                    name_im = name_imgs[k].decode("utf-8")
+                    complet_name = path_to_img + str(name_im) + '.jpg'
+                    im = cv2.imread(complet_name)
+                    blobs, im_scales = get_blobs(im)
+                    roi = roiss[k,:]
+                    if metamodel=='EdgeBoxes':
+                        roi_boxes =  roi / im_scales[0] 
+                    else:
+                        roi_boxes =  roi[:,1:5] / im_scales[0]
+                    
+                    for j in range(num_classes):
+                        scores = score_all[k,j,:]
+                        #print(j,'scores',scores.shape)
+                        inds = np.where(scores > thresh)[0]
+                        cls_scores = scores[inds]
+                        cls_boxes = roi_boxes[inds,:]
+                        cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])).astype(np.float32, copy=False)
+                        keep = nms(cls_dets, TEST_NMS)
+                        cls_dets = cls_dets[keep, :]
+                        dict_all_boxes[wi][j][i] = cls_dets
+                    i += 1
+                for l in range(len(name_imgs)): 
+                    if dataset_nm in ['IconArt_v1','VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+                        name_all_test += [[str(name_imgs[l].decode("utf-8"))]]
+                    else:
+                        name_all_test += [[name_imgs[l]]]
+                        
+            except tf.errors.OutOfRangeError:
+                break
+    
+        sess.close()
+        
+        true_label_all_test = np.concatenate(true_label_all_test)
+        predict_label_all_test = np.concatenate(predict_label_all_test,axis=0)
+        name_all_test = np.concatenate(name_all_test)
+        
+#            name_all_test = np.concatenate(name_all_test)
+#    
+#    AP_per_class = []
+#    for j,classe in enumerate(classes):
+#            AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
+#            AP_per_class += [AP]
+#    print('Average Precision classification task :')
+#    print(arrayToLatex(AP_per_class,per=True))        
+    for wi in range(numberofW_to_keep+1):
+        all_boxes =  dict_all_boxes[wi]
+        max_per_image = 100
+        num_images_detect = len(imdb.image_index)  # We do not have the same number of images in the WikiTenLabels or IconArt_v1 case
+        all_boxes_order = [[[] for _ in range(num_images_detect)] for _ in range(imdb.num_classes)]
+        number_im = 0
+        name_all_test = name_all_test.astype(str)
+        for i in range(num_images_detect):
+    #        print(i)
+            name_img = imdb.image_path_at(i)
+            if dataset_nm=='PeopleArt':
+                name_img_wt_ext = name_img.split('/')[-2] +'/' +name_img.split('/')[-1]
+                name_img_wt_ext_tab =name_img_wt_ext.split('.')
+                name_img_wt_ext = '.'.join(name_img_wt_ext_tab[0:-1])
+            else:
+                name_img_wt_ext = name_img.split('/')[-1]
+                name_img_wt_ext =name_img_wt_ext.split('.')[0]
+            name_img_ind = np.where(np.array(name_all_test)==name_img_wt_ext)[0]
+            #print(name_img_ind)
+            if len(name_img_ind)==0:
+                print('len(name_img_ind), images not found in the all_boxes')
+                print(name_img_wt_ext)
+                raise(Exception)
+            else:
+                number_im += 1 
+    #        print(name_img_ind[0])
+            for j in range(1, imdb.num_classes):
+                j_minus_1 = j-1
+                if len(all_boxes[j_minus_1][name_img_ind[0]]) >0:
+                    all_boxes_order[j][i]  = all_boxes[j_minus_1][name_img_ind[0]]
+            if max_per_image > 0 and len(all_boxes_order[j][i]) >0: 
+                image_scores = np.hstack([all_boxes_order[j][i][:, -1]
+                            for j in range(1, imdb.num_classes)])
+                if len(image_scores) > max_per_image:
+                    image_thresh = np.sort(image_scores)[-max_per_image]
+                    for j in range(1, imdb.num_classes):
+                        keep = np.where(all_boxes_order[j][i][:, -1] >= image_thresh)[0]
+                        all_boxes_order[j][i] = all_boxes_order[j][i][keep, :]
+        assert (number_im==num_images_detect) # To check that we have the all the images in the detection prediction
+        det_file = os.path.join(path_data, 'detections.pkl')
+        with open(det_file, 'wb') as f:
+            pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
+        output_dir = path_data +'tmp/' + dataset_nm+'_mAP.txt'
+        aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
+        apsAt05 = aps
+        if wi < numberofW_to_keep:
+            print('For vector number :',wi)
+        else:
+            print('For the max Of max')
+        print("Detection score (thres = 0.5): ",dataset_nm)
+        print(arrayToLatex(aps,per=True))
+        ovthresh_tab = [0.3,0.1,0.]
+        for ovthresh in ovthresh_tab:
+            aps = imdb.evaluate_localisation_ovthresh(all_boxes_order, output_dir,ovthresh)
+            if ovthresh == 0.1:
+                apsAt01 = aps
+            print("Detection score with thres at ",ovthresh,'with ',model)
+            print(arrayToLatex(aps,per=True))
+        
+def CovarianceOfTheVectors(MaxOfMax=False,MaxMMeanOfMax=False,withscore=False):
+    
+    # Need to create those files if they don't exist look at RunVarStudyAll
+    path_to_fig = 'fig/Cov/'
+    if MaxOfMax:
+        path_to_fig += 'MaxOfMax'
+        export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse____MaxOfMax.pkl'
+        export_dir ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse___WithScore_MaxOfMax.pkl'
+    elif MaxMMeanOfMax:
+        path_to_fig += 'MaxMMeanOfMax'
+        export_dir_withoutscore ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse____MaxMMeanOfMax.pkl'
+        export_dir ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse___WithScore_MaxMMeanOfMax.pkl'
+    else:
+        path_to_fig += 'MI_max'
+        export_dir_withoutscore = '/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse__.pkl'
+        export_dir ='/media/gonthier/HDD/output_exp/ClassifPaintings/VarStudy/IconArt_v1_Wvectors_C_SearchingFalse___WithScore.pkl'
+    
+    numberofW_to_keep = 12
+#    number_of_reboots = 100
+    num_features = 2048
+    num_classes = 7
+    
+    if withscore:
+        path_to_fig += 'S/'
+        name_dictW = export_dir
+    else:
+        name_dictW = export_dir_withoutscore
+        path_to_fig += '/'
 
+    pathlib.Path(path_to_fig).mkdir(parents=True, exist_ok=True) 
+        
     with open(name_dictW, 'rb') as f:
         Dict = pickle.load(f)
         Wstored = Dict['Wstored']
@@ -406,9 +716,12 @@ def CovarianceOfTheVectors(MaxOfMax=False,withscore=True):
             
             titre= 'Cov without selection classe : '+str(j)
             plot_AddValues(cov_matrix,titre,loss_value)
+            namefig =  path_to_fig +'Cov'+str(j)+'.png'
+            plt.savefig(namefig)
             titre= 'CorrCoeff without selection classe : '+str(j)
             plot_AddValues(corrcoef_matrix,titre,loss_value)
-            
+            namefig =  path_to_fig +'Corr'+str(j)+'.png'
+            plt.savefig(namefig)
             
             
 ##            print(cov_matrix)

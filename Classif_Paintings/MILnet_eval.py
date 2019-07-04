@@ -260,6 +260,46 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
     
     return(apsAt05,apsAt01,AP_per_class)
 
+def runSeveralMInet(dataset_nm='IconArt_v1',MILmodel='MI_Net',demonet = 'res152_COCO',\
+                        k_per_bag=300,layer='fc7',num_rep = 10,metamodel = 'FasterRCNN'):
+
+    max_epoch=20    
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_output = path_data +'VarStudy/'
+    name_dict = path_data_output 
+    if not(demonet== 'res152_COCO'):
+        name_dict += demonet +'_'
+    if not(layer== 'fc7'):
+        name_dict += '_'+demonet
+    name_dict +=  dataset_nm
+    if not(num_rep==100):
+        name_dict += '_numRep'+ str(num_rep)
+    name_dict += '_'+MILmodel +'_'+str(max_epoch)
+    name_dictAP = name_dict + '_APscore.pkl'
+    DictAP = {}
+    ll = []
+    l01 = []
+    lclassif = []
+    for r in range(num_rep):
+        apsAt05,apsAt01,AP_per_class = mainEval(dataset_nm=dataset_nm,\
+                             k_per_bag = k_per_bag,metamodel =metamodel,\
+                             demonet=demonet,test=False,\
+                             MILmodel=MILmodel,max_epoch=max_epoch)
+        ll += [apsAt05]
+        l01 += [apsAt01]
+        lclassif += [AP_per_class]
+    # End of the 100 experiment for a specific AggreW
+    ll_all = np.vstack(ll)
+    l01_all = np.vstack(l01)
+    apsClassif_all = np.vstack(lclassif)
+
+    DictAP['AP@.5'] =  ll_all
+    DictAP['AP@.1'] =  l01_all
+    DictAP['APClassif'] =  apsClassif_all
+
+    with open(name_dictAP, 'wb') as f:
+        pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+
 if __name__ == '__main__':
     MILmodel_tab = ['MI_Net','MI_Net_with_DS','MI_Net_with_RC','mi_Net']
 

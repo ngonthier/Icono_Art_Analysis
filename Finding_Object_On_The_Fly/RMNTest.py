@@ -131,8 +131,157 @@ def generateJSON_for_StSeb():
         wr = csv.writer(resultFile,delimiter=',',\
                             quotechar='\n', quoting=csv.QUOTE_MINIMAL)
         wr.writerows(list_im_StSebu)
+  
+
+
+def copyForTri(name='StSeb',Trier=False):
+    
+      list_c = ['ange','crucifixion','enfant jésus','nue','ruines','Vierge Marie','StSeb']
+      object_categories = ['angel','Child_Jesus', 'crucifixion_of_Jesus',
+                    'Mary','nudity', 'ruins','Saint_Sebastien']
+      
+      # ange Done
+      # cruxification Done
+      # ruins Done
+      # Nue Done
+      # StSeb 
+      # Mary
+      # Jesus Child
+      if not(Trier): 
+      
+          for name in list_c:
+              namecsv = path_data +'/'+ name + '_im.csv'
+              namecsv_new = path_data +'/' + name + '_im_new.csv'
+              f=open(namecsv, "r")
+              contents =f.read()
+              lines = contents.split('\n')
+              new_folder = path_data + '/' + name 
+              pathlib.Path(new_folder).mkdir(parents=True, exist_ok=True) 
+              for im in lines:
+                  im_correct = im.replace(',','') 
+                  im = path_data + '/JPEGImages/' + im_correct + '.jpg'
+                  new_im = new_folder + '/' +im_correct+ '.jpg'
+                  try:
+                      copyfile(im,new_im)
+                  except FileNotFoundError:
+                      print('FileNotFoundError',im_correct)
+                      pass
+      else:
+          csv = path_data + '/ImageSets/Main/RMN.csv'
+          name_csv = path_data + '/ImageSets/Main/RMN_new.csv'
+          df  = pd.read_csv(csv)
+          
+          for name_c,classe in zip(list_c,object_categories):
+              df[classe]= 0 
+              new_folder = path_data + '/' + name +'/*.jpg'
+              list_im_in_c = glob.glob(new_folder)
+              for im in list_im_in_c:
+                  name_short = im.split('/')[-1]
+                  name_short = name_short.split('.')[0]
+                  df[df['item']==name_short][classe] = 1
+          df.to_csv(name_csv,index=False)
+
+def generateJSON_from_KeywordQuery(queryString,JSONpref):
+    #https://api.art.rmngp.fr:443/v1/thesaurus/keywords?q=Saint%20Sebastien&&&&
+
+    number_elt_per_page = 250
+    
+    url_with_key = "https://api.art.rmngp.fr/v1/works?api_key=e511996f5894226e9fa1eb9593c650f0d49de7ba605f2cc60a928af49f30c0fd"
+    technique_huile_sur_toile = "&facets[techniques]=huile+sur+toile"
+    technique_huile_sur_bois = "&facets[techniques]=huile+sur+bois"
+    url_page = "&page="
+    per_page = "&per_page="+str(number_elt_per_page)
+    StSeb = "&facets[keywords]="+queryString
+    list_technique = [technique_huile_sur_toile,technique_huile_sur_bois]
+    
+    list_im_StSeb = []
+    number_of_atworks_seen = 0
+    json_counter = 0
+    for technique in list_technique:
+        first_hit_url = url_with_key + technique+StSeb+per_page
+        print(first_hit_url)
+        values = get_json(first_hit_url)
+        total_number_of_item = values['hits']['total']
+        print(technique,'Number of total hits',total_number_of_item)
+        p = 1
+        number_of_atworks_seen_local = 0
+        while number_of_atworks_seen_local < total_number_of_item:
+            print('Page :',p,'number_of_atworks_seen',number_of_atworks_seen)
+            if not(p==1):
+                url = url_with_key + technique+ url_page+ str(p)+per_page 
+                #print(url)
+                values = get_json(url)
+                #print(values)
+                gc.collect()
+            json_name = os.path.join(path_data,'JSON',JSONpref+str(json_counter)+'.json')
+            json_counter += 1
+            with open(json_name, 'w') as json_file:  
+                json.dump(values, json_file)
+            hits = values['hits']['hits']  
         
-def generateJSON_for_Query(queryString,JSONpref):
+            for hit in hits:
+                number_of_atworks_seen += 1
+                number_of_atworks_seen_local += 1
+                #id_oeuvre = hit['_id']
+                source = hit['_source']
+             #   slug = source['slug']
+                
+              #  techniques = source['techniques']
+                #name_tech = techniques[0]['name']['fr']
+                
+                try:
+                    main_image = source['image']
+                    main_image_id = main_image['id']
+                except KeyError:  
+                    main_image_id = None
+                    pass
+                images = source['images']
+#                print(number_of_atworks_seen,' : ',id_oeuvre,main_image_id,slug)
+#                list_keywords = []
+                for image in images:
+                    image_id = image['id']
+                    #print('image :',image_id)
+                    if main_image_id is None: # Si il n y a pas d images principales associées on prend la premiere
+                        main_image_id = image_id
+                        
+                list_im_StSeb += [main_image_id]
+            p += 1
+    list_im_StSeb= np.unique(list_im_StSeb).astype(str)
+    print('Number of unique', queryString, 'images',len(list_im_StSeb))
+    im_StSeb = os.path.join(path_data,queryString.replace('+','_')+"_im.csv")
+    with open(im_StSeb,'w') as resultFile:
+        wr = csv.writer(resultFile,delimiter=',',\
+                            quotechar='\n', quoting=csv.QUOTE_MINIMAL)
+        wr.writerows(list_im_StSeb)
+        
+    im_path = os.path.join(path_data,'JPEGImages','*.jpg')
+    all_available_im = glob.glob(im_path) 
+    all_available_im2 = []
+    for elt in all_available_im:
+        e = elt.split('/')[-1]
+        ee = e.split('.')[0]
+        all_available_im2 += [ee]
+    class_stseb = np.zeros(shape=(len(all_available_im),)).astype(int)
+    
+    count_stseb = 0
+    with open(im_StSeb,'r') as resultFile:
+        r = csv.reader(resultFile)
+        for row in r:
+            strrow = str(''.join(row))
+            if strrow in all_available_im2:
+                ind = np.where(np.array(all_available_im2)==strrow)[0][0]
+                class_stseb[ind] = 1
+                count_stseb += 1
+     
+    print("Number of images of ",queryString," in the availables images :",count_stseb,'confirm :',np.sum(class_stseb))
+    c = {'item':all_available_im2,queryString:class_stseb}
+    df = pd.DataFrame(c)
+    path_csv = os.path.join(path_data,'ImageSets','Main')
+    pathlib.Path(path_csv).mkdir(parents=True, exist_ok=True)
+    name_csv = os.path.join(path_csv,queryString+'Only.csv')
+    df.to_csv(name_csv,index=False)
+
+def generateJSON_from_Query(queryString,JSONpref):
     """
     @param : queryString : the query you wanna try under the format a+b+c...
     @param : JSONpref
@@ -497,7 +646,41 @@ def createFilesStSeb():
     name_csv = os.path.join(path_csv,'StSebOnly.csv')
     df.to_csv(name_csv,index=False)
     
-    
+ 
+import numpy as np
+import glob
+import pandas as pd
+path_im = '/media/gonthier/HDD/owncloud/These Gonthier Nicolas Partage/Images_En_plus/'
+p = '/media/gonthier/HDD/data/RMN/ImageSets/Main/'
+df = pd.read_csv(p+'RMN.old.csv')
+classes = df.columns
+classes = classes.values
+classes = classes[1:]
+for c in classes:
+    df[c] = 0
+new_index = len(df)
+for c in classes:
+    list_im = glob.glob(path_im+c+'_AdditionalData/*.jpg')
+    for name in list_im:
+        nn = name.split('/')[-1]
+        nnn = nn.split('.')[0]
+        where = df['item']==nnn
+        #print(c,nnn,where.any())
+        if where.any():
+            df.loc[nnn,c] = 1
+#            df.loc[np.where(where==True)[0],np.where(c==classes)[0]+1] = 1
+#            print(df[where].values)
+        else:
+            num_labels = np.zeros((7,))
+            num_labels[np.where(c==classes)[0]] = 1
+            #print(nnn,num_labels)
+            new_row = [nnn] + list(num_labels)
+            df.loc[new_index] = new_row
+            new_index += 1
+        print(nnn,df[df['item']==nnn])
+print(df[pd.isna(df)])
+df.to_csv(p+'RMN.csv',index=False) 
+print(df.sum())
     
 
     
