@@ -1716,9 +1716,13 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 name_sans_ext = os.path.splitext(name_img)[0]
                 complet_name = path_to_img +name_sans_ext + '.jpg'
-            im = cv2.imread(complet_name)
-            height = im.shape[0]
-            width = im.shape[1]
+            try:    
+                im = cv2.imread(complet_name)
+                height = im.shape[0]
+                width = im.shape[1]
+            except AttributeError:
+                print(complet_name,'is missing')
+                continue
             if 'OIV5' in database and not(notOIV5test):
                 if (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
                     continue
@@ -3081,15 +3085,15 @@ if __name__ == '__main__':
 #    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='IconArt_v1',
 #                                 augmentation=False,L2 =False,
 #                                 saved='all',verbose=True,filesave='pkl')   
-    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='OIV5_small_3135',
-                                 augmentation=False,L2 =False,
-                                 saved='all',verbose=True,filesave='tfrecords')   
+#    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='OIV5_small_3135',
+#                                 augmentation=False,L2 =False,
+#                                 saved='all',verbose=True,filesave='tfrecords')   
 #    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='OIV5_small_30001',
 #                                 augmentation=False,L2 =False,
 #                                 saved='all',verbose=True,filesave='tfrecords')   
-#    Compute_Faster_RCNN_features(demonet='vgg16_COCO',nms_thresh = 0.7,database='IconArt_v1',
-#                                 augmentation=False,L2 =False,
-#                                 saved='all',verbose=True,filesave='tfrecords',k_regions=300)   
+    Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database='RMN',
+                                 augmentation=False,L2 =False,
+                                 saved='all',verbose=True,filesave='tfrecords',k_regions=300)   
     
     # Test pour calculer les performances en prenant la moyenne des regions retournees par le réseau
 #    run_FasterRCNN_Perf_Paintings(TL = True,reDo=False,feature_selection = 'meanObject',nms_thresh = 0.0)
