@@ -17,7 +17,8 @@ def main():
         for with_score in  [False,True]:
             try: 
                 tfR_FRCNN(database=database,verbose=True,restarts=restarts,ReDo=False,with_score=with_score)
-            except Exception:
+            except Exception e:
+                print(e)
                 pass   
 
 if __name__ == '__main__':
