@@ -16,7 +16,7 @@ def main():
         print(database,restarts)
         for with_score in  [False,True]:
             try: 
-                tfR_FRCNN(database=database,verbose=True,restarts=restarts,ReDo=False,with_score=with_score)
+                tfR_FRCNN(database=database,verbose=True,restarts=restarts,ReDo=False,with_scores=with_score)
             except Exception as e:
                 print(e)
                 pass   
