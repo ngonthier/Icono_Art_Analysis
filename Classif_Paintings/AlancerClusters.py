@@ -12,7 +12,7 @@ def main():
     
     # Liste des choses que tu as a faire tourner :
     
-    for database,restarts in zip(['OIV5_small_3135','OIV5_small_30001','RMN'],[2,2,11]):
+    for database,restarts in zip(['RMN','OIV5_small_30001'],[11,2]):
         print(database,restarts)
         for with_score in  [False,True]:
             try: 
