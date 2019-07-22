@@ -17,7 +17,7 @@ from sklearn.svm import LinearSVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import KFold
-#from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score
+from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score
 import multiprocessing
 from sparsemax import sparsemax
 import pickle
@@ -725,9 +725,7 @@ class tf_MI_max():
         for c in range(self.num_classes):
             cos_c =  tf.abs(tf.einsum('jk,mn->jm',W_normalized[c,:,:],W_normalized[c,:,:]))
             cos_c_withDiag = tf.matrix_set_diag(cos_c,tf.zeros(self.paral_number_W), name=None)
-            print(b_reshape[c,:])
             diff_bias_2_by_2 = tf.abs(tf.transpose(b_reshape[c,:]) - b_reshape[c,:])
-            print(diff_bias_2_by_2)
             constraint_on_bias = tf.multiply(tf.add(1.,-cos_c_withDiag),diff_bias_2_by_2)
             all_constraint = tf.add(cos_c_withDiag,constraint_on_bias) 
             loss_cos = tf.divide(tf.reduce_mean(all_constraint,axis=[0,1]),2.)
@@ -737,6 +735,41 @@ class tf_MI_max():
                 loss_all_c = tf.stack([loss_all_c,loss_cos],axis=0)
             else:
                 loss_all_c = tf.concat([loss_all_c,[loss_cos]],axis=0)
+
+        return(loss_all_c)
+        
+        
+    def ProjCons_Hyperplan_loss(self,W,b,X_):
+        """
+        this function return the sum of the norm between the projection of the 
+        points of the batches on each of the Hyperplanes 
+        W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.)
+        
+        
+        You have to maximize this function to force hyperplanes to be far away 
+        two by two
+        """
+
+        W_reshape = tf.reshape(W,(self.num_classes,self.paral_number_W,-1))
+        X_reshape = tf.reshape(X_,(-1,self.num_features))
+        b_reshape = tf.reshape(b,(self.num_classes,self.paral_number_W))
+        W_norm = tf.pow(tf.norm(W_reshape,ord='euclidean',axis=-1,keepdims=True),2)
+        W_div_by_norm_squared = tf.divide(W_reshape,W_norm)
+        for c in range(self.num_classes):
+            loss_c = 0.
+            for i in range(self.paral_number_W):
+                proj_i = tf.add(tf.multiply(W_reshape[c,i,:],X_reshape),b_reshape[c,i])
+                proj_i = tf.multiply(proj_i,W_div_by_norm_squared[c,i,:])
+                for j in range(self.paral_number_W):
+                    #proj_j = tf.multiply(tf.add(tf.einsum('ak,ijk->aij',W_reshape[c,j,:],X_reshape),b_reshape[c,j]),W_div_by_norm_squared[c,j,:])
+                    proj_j = tf.multiply(tf.add(tf.multiply(W_reshape[c,j,:],X_reshape),b_reshape[c,j]),W_div_by_norm_squared[c,j,:])
+                    loss_c += tf.divide(tf.losses.mean_squared_error(proj_i,proj_j),self.paral_number_W*(self.paral_number_W+1)/2.)
+            if c==0:
+                loss_all_c = loss_c
+            elif c==1:
+                loss_all_c = tf.stack([loss_all_c,loss_c],axis=0)
+            else:
+                loss_all_c = tf.concat([loss_all_c,[loss_c]],axis=0)
 
         return(loss_all_c)
         
@@ -1328,8 +1361,9 @@ class tf_MI_max():
                     
                 if self.Cosine_ofW_inLoss and (self.MaxOfMax or self.MaxMMeanOfMax): 
 #                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.NormDistance_Hyperplan_loss(W,b)))
-#                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.MoveAway_Hyperplan_loss(W,b)))
-                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.cosine_distance_loss(W)))
+                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,-self.MoveAway_Hyperplan_loss(W,b)))
+#                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.cosine_distance_loss(W)))
+#                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,-self.ProjCons_Hyperplan_loss(W,b,X_)))
                     
             else:
                 loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
