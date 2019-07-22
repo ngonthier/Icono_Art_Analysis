@@ -396,7 +396,9 @@ def Study_eval_perf_onSplit_of_IconArt(computeMode=True):
                 
 
 def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
-                                        Optimizer='GradientDescent',MaxOfMax=True,MaxMMeanOfMax=False):
+                                        Optimizer='GradientDescent',
+                                        MaxOfMax=True,MaxMMeanOfMax=False,
+                                        max_iters_all_base=3000):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
     """
@@ -421,7 +423,6 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
     obj_score_mul_tanh = False
     PCAuse = False
     Max_version = None
-    max_iters_all_base = 3000
     k_per_bag = 300
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
@@ -486,6 +487,238 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
                                               obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                                               obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
                                               layer=layer,MaxOfMax=MaxOfMax,MaxMMeanOfMax=MaxMMeanOfMax)
+                ll += [apsAt05]
+                l01 += [apsAt01]
+                lclassif += [AP_per_class]
+            # End of the 100 experiment for a specific AggreW
+            ll_all = np.vstack(ll)
+            l01_all = np.vstack(l01)
+            apsClassif_all = np.vstack(lclassif)
+    
+            DictAP['AP@.5'] =  ll_all
+            DictAP['AP@.1'] =  l01_all
+            DictAP['APClassif'] =  apsClassif_all
+        
+            with open(name_dictAP, 'wb') as f:
+                pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+                
+def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
+                                        Optimizer='GradientDescent',
+                                        MaxOfMax=True,MaxMMeanOfMax=False,
+                                        max_iters_all_base=3000,AddOneLayer=False):
+    seuillage_by_score = False
+    obj_score_add_tanh = False
+    loss_type = ''
+    seuil = 0
+    C_Searching = False
+    demonet = 'res152_COCO'
+    layer = 'fc7'
+    CV_Mode = ''
+    AggregW = None
+    proportionToKeep = [0.25,1.0]
+    loss_type = ''
+    WR = True
+    with_scores = True
+    seuillage_by_score=False
+    obj_score_add_tanh=False
+    lambdas = 0.5
+    obj_score_mul_tanh = False
+    PCAuse = False
+    Max_version = None
+    k_per_bag = 300
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_output = path_data +'VarStudy/'
+    onlyAP05 = False
+    for with_scores in [False,True]:
+        for loss_type in ['','hinge']:
+            name_dict = path_data_output 
+            if not(demonet== 'res152_COCO'):
+                name_dict += demonet +'_'
+            if not(layer== 'fc7'):
+                name_dict += '_'+demonet
+            name_dict +=  database+'_Wvectors'+ '_C_Searching'+str(C_Searching) + '_' +\
+            CV_Mode+'_'+str(loss_type)
+            if not(WR):
+                name_dict += '_withRegularisationTermInLoss'
+            if with_scores:
+                 name_dict += '_WithScore'
+            if seuillage_by_score:
+                name_dict += 'SC'+str(seuil)
+            if obj_score_add_tanh:
+                name_dict += 'SAdd'+str(lambdas)
+            if obj_score_mul_tanh:
+                name_dict += 'SMul'    
+            if PCAuse:
+                name_dict +='_PCA09'
+            if not(k_per_bag==300):
+                name_dict +='_k'+str(k_per_bag)
+            if not(Max_version=='' or Max_version is None) :
+                name_dict +='_'+Max_version
+            if not(max_iters_all_base==300) :
+                name_dict +='_MIAB'+str(max_iters_all_base)
+            if not(num_rep==100):
+                name_dict += '_numRep'+ str(num_rep)
+            if not(Optimizer=='GradientDescent'):
+                name_dict += '_'+Optimizer
+            if MaxOfMax:
+                name_dict += '_MaxOfMax'
+            elif MaxMMeanOfMax:
+                name_dict += '_MaxMMeanOfMax'
+            if AddOneLayer:
+                name_dict += 'AddOneLayer'
+            
+            name_dictAP = name_dict + '_APscore.pkl'   
+                
+            multi = 100
+            try:
+                f= open(name_dictAP, 'rb')
+                print(name_dictAP)
+                DictAP = pickle.load(f)
+                for Metric in DictAP.keys():
+                    string_to_print =  str(Metric) + ' & ' +'Mimax ' + str(loss_type) + ' ' 
+                    if C_Searching:
+                        string_to_print += 'C_Searching '
+                    if CV_Mode=='CV':
+                        string_to_print += 'CV '
+                    if with_scores:
+                        string_to_print += 'with_scores '
+                    if not(WR):
+                        string_to_print += 'with regularisation'
+                    if seuillage_by_score:
+                        string_to_print += 'seuillage score at ' +str(seuil)
+                    if obj_score_mul_tanh :
+                        string_to_print += 'obj score multi tanh '
+                    if obj_score_add_tanh:
+                        string_to_print += 'obj score add to tanh (lambda =' +str(lambdas)+')'
+                    if not(Max_version=='' or Max_version is None) :
+                        string_to_print += ' '+Max_version
+                    string_to_print += ' & '
+                    string_to_print += str(AggregW)
+                    if AggregW is None or AggregW=='':
+                        string_to_print += ' & '  
+                    else:
+                         string_to_print +=  ' '+str(proportionToKeep)  +' & ' 
+                    ll_all = DictAP[Metric] 
+                    if database=='WikiTenLabels':
+                        ll_all = np.delete(ll_all, [1,2,9], axis=1)         
+                    if not(database=='PeopleArt'):
+                        mean_over_reboot = np.mean(ll_all,axis=1) # Moyenne par ligne / reboot 
+#                            print(mean_over_reboot.shape)
+                        std_of_mean_over_reboot = np.std(mean_over_reboot)
+                        mean_of_mean_over_reboot = np.mean(mean_over_reboot)
+                        mean_over_class = np.mean(ll_all,axis=0) # Moyenne par column
+                        std_over_class = np.std(ll_all,axis=0) # Moyenne par column 
+#                            print('ll_all.shape',ll_all.shape)
+#                            print(mean_over_class.shape)
+#                            print(std_over_class.shape)
+#                            input('wait')
+                        for mean_c,std_c in zip(mean_over_class,std_over_class):
+                            s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
+                            string_to_print += s + ' & '
+                        s =  "{0:.1f}  ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f}  ".format(std_of_mean_over_reboot*multi)
+                        string_to_print += s + ' \\\  '
+                    else:
+                        std_of_mean_over_reboot = np.std(ll_all)
+                        mean_of_mean_over_reboot = np.mean(ll_all)
+                        s =  "{0:.1f} ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f} ".format(std_of_mean_over_reboot*multi)
+                        string_to_print += s + ' \\\ '
+                    string_to_print = string_to_print.replace('_','\_')
+                    if not(onlyAP05):
+                        print(string_to_print)
+                    elif Metric=='AP@.5':
+                        print(string_to_print)
+            except FileNotFoundError:
+                print(name_dictAP,'don t exist')
+            pass
+                
+def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10,
+                                        Optimizer='GradientDescent',max_iters_all_base = 3000):
+    """
+    Compute the performance for the MaxOfMax model on num_rep runs
+    """
+    AddOneLayer=True
+    seuillage_by_score = False
+    obj_score_add_tanh = False
+    loss_type = ''
+    seuil = 0
+    C_Searching = False
+    demonet = 'res152_COCO'
+    layer = 'fc7'
+    number_restarts = 11
+    CV_Mode = ''
+    AggregW = None
+    proportionToKeep = [0.25,1.0]
+    loss_type = ''
+    WR = True
+    with_scores = True
+    seuillage_by_score=False
+    obj_score_add_tanh=False
+    lambdas = 0.5
+    obj_score_mul_tanh = False
+    PCAuse = False
+    Max_version = None
+    
+    k_per_bag = 300
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_output = path_data +'VarStudy/'
+    ReDo = True
+    
+    for with_scores in [False,True]:
+        for loss_type in ['','hinge']:
+            name_dict = path_data_output 
+            if not(demonet== 'res152_COCO'):
+                name_dict += demonet +'_'
+            if not(layer== 'fc7'):
+                name_dict += '_'+demonet
+            name_dict +=  database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            CV_Mode+'_'+str(loss_type)
+            if not(WR):
+                name_dict += '_withRegularisationTermInLoss'
+            if with_scores:
+                 name_dict += '_WithScore'
+            if seuillage_by_score:
+                name_dict += 'SC'+str(seuil)
+            if obj_score_add_tanh:
+                name_dict += 'SAdd'+str(lambdas)
+            if obj_score_mul_tanh:
+                name_dict += 'SMul'    
+            if PCAuse:
+                name_dict +='_PCA09'
+            if not(k_per_bag==300):
+                name_dict +='_k'+str(k_per_bag)
+            if not(Max_version=='' or Max_version is None) :
+                name_dict +='_'+Max_version
+            if not(max_iters_all_base==300) :
+                name_dict +='_MIAB'+str(max_iters_all_base)
+            if not(num_rep==100):
+                name_dict += '_numRep'+ str(num_rep)
+            if not(Optimizer=='GradientDescent'):
+                name_dict += '_'+Optimizer
+            name_dict += 'AddOneLayer'
+            name_dictAP = name_dict + '_APscore.pkl'
+            DictAP = {}
+            ll = []
+            l01 = []
+            lclassif = []
+            for r in range(num_rep):
+                apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                                              verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                              PlotRegions = False,saved_clf=False,RPN=False,
+                                              CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+                                              parallel_op=True,CV_Mode=CV_Mode,num_split=2,
+                                              WR=WR,init_by_mean =None,seuil_estimation='',
+                                              restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+                                              C=1.0,Optimizer=Optimizer,norm='',
+                                              transform_output='tanh',with_rois_scores_atEnd=False,
+                                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+                                              Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                              k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
+                                              ,proportionToKeep=proportionToKeep,storeVectors=False,
+                                              obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                                              obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
+                                              layer=layer,AddOneLayer=AddOneLayer)
                 ll += [apsAt05]
                 l01 += [apsAt01]
                 lclassif += [AP_per_class]

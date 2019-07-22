@@ -2391,6 +2391,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         raise(NotImplementedError)
 
     mini_batch_size = min(sizeMax,num_trainval_im)
+    # TODO faire un mini_batch_size que l on peut fixer en parametre d entree 
     if (k_per_bag > 300 or num_trainval_im > 5000) and not(Not_on_NicolasPC): # We do the assumption that you are on a cluster with a big RAM (>50Go)
         usecache = False
     else:
