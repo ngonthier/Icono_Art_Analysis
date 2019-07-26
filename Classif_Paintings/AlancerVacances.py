@@ -54,7 +54,7 @@ def main():
 #                    pass 
             try: 
                 if Optimizer=='GradientDescent':
-                    max_iters_all_base = 3000
+                    max_iters_all_base = 300
                 elif Optimizer=='lbfgs':
                     max_iters_all_base = 300
                 unefficient_way_OneHiddenLayer_evaluation(database=database,num_rep = 10,Optimizer=Optimizer,
@@ -118,5 +118,5 @@ def PrintResults():
             except Exception:
                 pass         
 if __name__ == '__main__':
-    #main()
-    PrintResults()
+    main()
+    #PrintResults()

@@ -2078,7 +2078,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                                   obj_score_mul_tanh=False,metamodel='FasterRCNN',
                                   PCAuse=False,variance_thres=0.9,trainOnTest=False,
                                   AddOneLayer=False,exp=10,MaxOfMax=False,debug = False,alpha=0.7,
-                                  layer='fc7',MaxMMeanOfMax=False,Cosine_ofW_inLoss=False,Coeff_cosine=1.):
+                                  layer='fc7',MaxMMeanOfMax=False,Cosine_ofW_inLoss=False,Coeff_cosine=1.,
+                                  mini_batch_size=None):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2192,6 +2193,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
    @param : Cosine_ofW_inLoss : We the mean of the cosine of the vectors in the loss function 
             Have to be used with MaxOfMax of MaxMMeanOfMax (default = False)
    @param : Coeff_cosine : weight in front the cosine loss (default = 1.)
+   @param : mini_batch_size if None or 0 an automatic adhoc mini batch size is set
          
     The idea of this algo is : 
         1/ Compute CNN features
@@ -2390,8 +2392,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         print(model,' is unknown')
         raise(NotImplementedError)
 
-    mini_batch_size = min(sizeMax,num_trainval_im)
-    # TODO faire un mini_batch_size que l on peut fixer en parametre d entree 
     if (k_per_bag > 300 or num_trainval_im > 5000) and not(Not_on_NicolasPC): # We do the assumption that you are on a cluster with a big RAM (>50Go)
         usecache = False
     else:
@@ -2400,7 +2400,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     if verbose : print('usecache',usecache,mini_batch_size,buffer_size)
 
     if CV_Mode=='1000max':
-        mini_batch_size = min(sizeMax,1000)
+        sizeMax = min(sizeMax,1000)
+        
+    if mini_batch_size is None or mini_batch_size==0:
+        mini_batch_size = min(sizeMax,num_trainval_im)
     
     if testMode:
         ext_test = '_Test_Mode'

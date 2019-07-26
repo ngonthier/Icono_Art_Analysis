@@ -750,26 +750,50 @@ class tf_MI_max():
         two by two
         """
 
-        W_reshape = tf.reshape(W,(self.num_classes,self.paral_number_W,-1))
-        X_reshape = tf.reshape(X_,(-1,self.num_features))
-        b_reshape = tf.reshape(b,(self.num_classes,self.paral_number_W))
-        W_norm = tf.pow(tf.norm(W_reshape,ord='euclidean',axis=-1,keepdims=True),2)
-        W_div_by_norm_squared = tf.divide(W_reshape,W_norm)
+        X_reshape = tf.transpose(tf.reshape(X_,(-1,self.num_features)))
+        proj = tf.add(tf.einsum('ij,jk->ik',W,X_reshape),tf.reshape(b,(-1,1)))
+        W_div_norm_squared = tf.divide(W,tf.pow(tf.norm(W,ord='euclidean',axis=-1,keepdims=True),2))
+        proj = tf.einsum('ij,ik->ijk',proj,W_div_norm_squared)
         for c in range(self.num_classes):
+            proj_c = proj[c::self.num_classes,:,:]
             loss_c = 0.
             for i in range(self.paral_number_W):
-                proj_i = tf.add(tf.multiply(W_reshape[c,i,:],X_reshape),b_reshape[c,i])
-                proj_i = tf.multiply(proj_i,W_div_by_norm_squared[c,i,:])
-                for j in range(self.paral_number_W):
-                    #proj_j = tf.multiply(tf.add(tf.einsum('ak,ijk->aij',W_reshape[c,j,:],X_reshape),b_reshape[c,j]),W_div_by_norm_squared[c,j,:])
-                    proj_j = tf.multiply(tf.add(tf.multiply(W_reshape[c,j,:],X_reshape),b_reshape[c,j]),W_div_by_norm_squared[c,j,:])
-                    loss_c += tf.divide(tf.losses.mean_squared_error(proj_i,proj_j),self.paral_number_W*(self.paral_number_W+1)/2.)
+                for j in range(i+1,self.paral_number_W):
+                    loss_c += tf.divide(tf.losses.mean_squared_error(proj_c[i,:,:],proj_c[j,:,:]),self.paral_number_W*(self.paral_number_W+1)/2.)
             if c==0:
                 loss_all_c = loss_c
             elif c==1:
                 loss_all_c = tf.stack([loss_all_c,loss_c],axis=0)
             else:
                 loss_all_c = tf.concat([loss_all_c,[loss_c]],axis=0)
+#        W_reshape = tf.reshape(W,(self.num_classes,self.paral_number_W,-1))
+#        X_reshape = tf.reshape(X_,(-1,self.num_features))
+#        #b_reshape = tf.reshape(b,(self.num_classes,self.paral_number_W,1))
+#        b_reshape = tf.reshape(b,(self.num_classes,self.paral_number_W,1))
+#        W_norm = tf.pow(tf.norm(W_reshape,ord='euclidean',axis=-1,keepdims=True),2)
+#        W_div_by_norm_squared = tf.divide(W_reshape,W_norm)
+#        for c in range(self.num_classes):
+#            loss_c = 0.
+#            tab_proj = []
+#            proj = tf.add(tf.multiply(W_reshape[c,:,:],X_reshape),b_reshape[c,:,:])
+#            proj = tf.multiply(proj,W_div_by_norm_squared[c,:,:])
+#            print(proj)
+#            for i in range(self.paral_number_W):
+#                proj_i = tf.add(tf.multiply(W_reshape[c,i,:],X_reshape),b_reshape[c,i])
+#                proj_i = tf.multiply(proj_i,W_div_by_norm_squared[c,i,:])
+#                tab_proj += [proj_i]
+#            for i in range(self.paral_number_W):
+#                for j in range(i+1,self.paral_number_W):
+#                    loss_c += tf.divide(tf.losses.mean_squared_error(tab_proj[i],tab_proj[j]),self.paral_number_W*(self.paral_number_W+1)/2.)
+#                    #proj_j = tf.multiply(tf.add(tf.einsum('ak,ijk->aij',W_reshape[c,j,:],X_reshape),b_reshape[c,j]),W_div_by_norm_squared[c,j,:])
+#                    #proj_j = tf.multiply(tf.add(tf.multiply(W_reshape[c,j,:],X_reshape),b_reshape[c,j]),W_div_by_norm_squared[c,j,:])
+#                    #loss_c += tf.divide(tf.losses.mean_squared_error(proj_i,proj_j),self.paral_number_W*(self.paral_number_W+1)/2.)
+#            if c==0:
+#                loss_all_c = loss_c
+#            elif c==1:
+#                loss_all_c = tf.stack([loss_all_c,loss_c],axis=0)
+#            else:
+#                loss_all_c = tf.concat([loss_all_c,[loss_c]],axis=0)
 
         return(loss_all_c)
         
@@ -1361,9 +1385,9 @@ class tf_MI_max():
                     
                 if self.Cosine_ofW_inLoss and (self.MaxOfMax or self.MaxMMeanOfMax): 
 #                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.NormDistance_Hyperplan_loss(W,b)))
-                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,-self.MoveAway_Hyperplan_loss(W,b)))
+#                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,-self.MoveAway_Hyperplan_loss(W,b)))
 #                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.cosine_distance_loss(W)))
-#                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,-self.ProjCons_Hyperplan_loss(W,b,X_)))
+                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,-self.ProjCons_Hyperplan_loss(W,b,X_)))
                     
             else:
                 loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
