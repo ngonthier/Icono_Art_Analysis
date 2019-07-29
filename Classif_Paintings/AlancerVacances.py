@@ -73,10 +73,20 @@ def main():
                 runSeveralMInet(dataset_nm=database,MILmodel=MILmodel)
             except Exception as e:
                 print(e)
-                pass         
+                pass      
+            
+    for database,restarts in zip(['RMN'],[11]):
+        print(database,restarts)
+        for with_score in  [False,True]:
+            try: 
+                tfR_FRCNN(database=database,verbose=True,restarts=restarts,ReDo=False,with_scores=with_score)
+            except Exception as e:
+                print(e)
+                pass  
 
 def PrintResults():
-    for Optimizer in ['GradientDescent','lbfgs']:
+    #for Optimizer in ['GradientDescent','lbfgs']:
+    for Optimizer in ['GradientDescent']:
         for database in ['IconArt_v1','watercolor','PeopleArt']:
             try: 
     #            Number 0 : MIMAX-score
@@ -105,7 +115,8 @@ def PrintResults():
                 elif Optimizer=='lbfgs':
                     max_iters_all_base = 300
                 unefficient_evaluation_PrintResults(database=database,num_rep = 10,Optimizer=Optimizer,
-                                                      max_iters_all_base=max_iters_all_base,AddOneLayer=True)
+                                                      max_iters_all_base=max_iters_all_base,AddOneLayer=True,
+                                                      MaxOfMax=False,MaxMMeanOfMax=False)
             except Exception:
                 pass 
 

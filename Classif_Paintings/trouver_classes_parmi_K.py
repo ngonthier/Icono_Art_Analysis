@@ -755,11 +755,12 @@ class tf_MI_max():
         W_div_norm_squared = tf.divide(W,tf.pow(tf.norm(W,ord='euclidean',axis=-1,keepdims=True),2))
         proj = tf.einsum('ij,ik->ijk',proj,W_div_norm_squared)
         for c in range(self.num_classes):
-            proj_c = proj[c::self.num_classes,:,:]
+            proj_c = proj[c*self.paral_number_W:(c+1)*self.paral_number_W,:,:] # In the case of MaxOfMax
+            # The vectors are organized consecutively 
             loss_c = 0.
             for i in range(self.paral_number_W):
                 for j in range(i+1,self.paral_number_W):
-                    loss_c += tf.divide(tf.losses.mean_squared_error(proj_c[i,:,:],proj_c[j,:,:]),self.paral_number_W*(self.paral_number_W+1)/2.)
+                    loss_c += tf.divide(tf.losses.mean_squared_error(proj_c[i,:,:],proj_c[j,:,:]),self.paral_number_W*(self.paral_number_W-1)/2.)
             if c==0:
                 loss_all_c = loss_c
             elif c==1:
