@@ -2078,8 +2078,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                                   obj_score_mul_tanh=False,metamodel='FasterRCNN',
                                   PCAuse=False,variance_thres=0.9,trainOnTest=False,
                                   AddOneLayer=False,exp=10,MaxOfMax=False,debug = False,alpha=0.7,
-                                  layer='fc7',MaxMMeanOfMax=False,Cosine_ofW_inLoss=False,Coeff_cosine=1.,
-                                  mini_batch_size=None):
+                                  layer='fc7',MaxMMeanOfMax=False,MaxTopMinOfMax=False,
+                                  Cosine_ofW_inLoss=False,Coeff_cosine=1.,
+                                  mini_batch_size=None,num_features_hidden=256):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2186,6 +2187,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             (default False)
    @param : MaxMMeanOfMax use the max minues the mean of the max of product
             and keep all the (W,b) learnt (default False)
+   @param MaxTopMinOfMax : compute the max of the top min of the max over the region of a bag
    @param : alpha factor for the 'MaxPlusMin' pooling 
    @param : layer that we get in the pretrained net for ResNet only fc7 possible for 
         vgg16 : fc6 or fc7 but in both case it will be saved in the fc7 name
@@ -2194,7 +2196,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             Have to be used with MaxOfMax of MaxMMeanOfMax (default = False)
    @param : Coeff_cosine : weight in front the cosine loss (default = 1.)
    @param : mini_batch_size if None or 0 an automatic adhoc mini batch size is set
-         
+   @param : num_features_hidden features size of the hidden layer of the AddOneLayer model
     The idea of this algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -2575,6 +2577,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         str_MaxOfMax = '_MaxOfMax'
     elif MaxMMeanOfMax :
         str_MaxOfMax = '_MaxMMeanOfMax'
+    elif MaxTopMinOfMax:
+        str_MaxOfMax = '_MaxTopMinOfMax'+str(proportionToKeep)
     else:
         str_MaxOfMax =''
     if Cosine_ofW_inLoss:
@@ -2618,7 +2622,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
                   model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,
-                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine]
+                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2630,7 +2634,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                      'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
                      'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant',\
                      'AddOneLayer','exp','MaxOfMax','MaxMMeanOfMax','alpha','layer',\
-                     'Cosine_ofW_inLoss','Coeff_cosine']
+                     'Cosine_ofW_inLoss','Coeff_cosine','num_features_hidden']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
 #    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
@@ -2651,7 +2655,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     if trainOnTest:
         cachefile_model_base += '_trainOnTest'
     if AddOneLayer:
-        cachefile_model_base += '_AddOneLayer'
+        cachefile_model_base += '_AddOneLayer' + str(num_features_hidden)
     pathlib.Path(cachefilefolder).mkdir(parents=True, exist_ok=True)
     cachefile_model = os.path.join(cachefilefolder,cachefile_model_base+'_'+model_str+'.pkl')
 #    if os.path.isfile(cachefile_model_old):
@@ -2727,8 +2731,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                        k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
                        loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                        obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer,exp=exp,\
-                       MaxOfMax=MaxOfMax,MaxMMeanOfMax=MaxMMeanOfMax,usecache=usecache,\
-                       alpha=alpha,Cosine_ofW_inLoss=Cosine_ofW_inLoss,Coeff_cosine=Coeff_cosine)
+                       MaxOfMax=MaxOfMax,MaxMMeanOfMax=MaxMMeanOfMax,MaxTopMinOfMax=MaxTopMinOfMax,usecache=usecache,\
+                       alpha=alpha,Cosine_ofW_inLoss=Cosine_ofW_inLoss,Coeff_cosine=Coeff_cosine,num_features_hidden=num_features_hidden)
                  export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
@@ -2789,6 +2793,21 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                obj_score_add_tanh=obj_score_add_tanh,obj_score_mul_tanh=obj_score_mul_tanh,dim_rois=dim_rois,
                trainOnTest=trainOnTest,usecache=usecache_eval,boxCoord01=boxCoord01)
    
+        if 'OIV5' in database:
+            print('Save the predicted boxes')
+            OIV5_csv_file = cachefile_model_base  + '_boxes_predited.csv'
+            with open(OIV5_csv_file, 'w') as csvfile:
+                filewriter = csv.writer(csvfile, delimiter=',',quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                first_line = ['ImageID','LabelName','XMin','XMax','YMin','YMax','IsGroupOf','Score']
+                filewriter.writerow(first_line)
+                for i_name, name in enumerate(name_all_test):
+                    for j in range(num_classes):
+                        list_boxes = all_boxes[j][i_name]
+                        classe_str = classes[j]
+                        for box in list_boxes:
+                            line = [name,classe_str,box[0],box[1],box[2],box[3],0,box[4]]
+                            filewriter.writerow(line)
+    
         for j,classe in enumerate(classes):
             AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
             if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -2951,7 +2970,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         print(arrayToLatex(aps,per=True))
         imdb.set_use_diff(False)
     
-    elif 'OIV5' in database:
+    elif not(parallel_op) and 'OIV5' in database :
         print('Save the predicted boxes')
         OIV5_csv_file = cachefile_model_base  + '_boxes_predited.csv'
         with open(OIV5_csv_file, 'w') as csvfile:

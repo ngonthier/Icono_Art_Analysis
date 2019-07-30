@@ -318,7 +318,8 @@ class tf_MI_max():
                   seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
                   obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False,
                   AddOneLayer=False,exp=10,MaxOfMax=False,usecache=True,alpha=0.7,
-                  MaxMMeanOfMax=False,Cosine_ofW_inLoss=False,Coeff_cosine=1.): #predictMMM_withMean  @param : predictMMM_withMean :  (default False)
+                  MaxMMeanOfMax=False,MaxTopMinOfMax=False,Cosine_ofW_inLoss=False,Coeff_cosine=1.,
+                  num_features_hidden = 256): #predictMMM_withMean  @param : predictMMM_withMean :  (default False)
 #                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,AveragingWportion=False,
 #                  votingW=False,proportionToKeep=0.25,votingWmedian=False):
         # TODOD enelver les trucs inutiles ici
@@ -393,11 +394,13 @@ class tf_MI_max():
             (default False)
         @param : MaxMMeanOfMax use the max minues the mean of the max of product
             and keep all the (W,b) learnt (default False)
+        @param MaxTopMinOfMax : compute the max of the top min of the max over the region of a bag
         @param : usecache : use the cache function of the TF dataset (default = True) depend on our CPU RAM memory
         @param : alpha : in the 'MaxPlusMin' version of the pooling
         @param : Cosine_ofW_inLoss : We the mean of the cosine of the vectors in the loss function 
             Have to be used with MaxOfMax of MaxMMeanOfMax (default = False)
         @param : Coeff_cosine : weight in front the cosine loss (default = 1.)
+        @param : num_features_hidden = 256 inside the net
         """
         self.LR = LR
         self.C = C
@@ -447,7 +450,7 @@ class tf_MI_max():
         self.Max_version=Max_version
         if self.Max_version=='softmax':
             self.w_exp = w_exp # This parameter can increase of not the pente
-        if self.Max_version=='mintopk' or self.Max_version=='MaxPlusMin':
+        if self.Max_version=='mintopk' or self.Max_version=='MaxPlusMin' or MaxTopMinOfMax:
             self.k = k_intopk # number of regions
             self.alpha = alpha
         self.seuillage_by_score = seuillage_by_score
@@ -489,16 +492,21 @@ class tf_MI_max():
         self.AddOneLayer = AddOneLayer
         self.MaxOfMax = MaxOfMax
         self.MaxMMeanOfMax = MaxMMeanOfMax
+        self.MaxTopMinOfMax = MaxTopMinOfMax
         self.usecache = usecache
         if not(self.Max_version=='max' or self.Max_version=='' or self.Max_version is None)\
-            and (self.MaxOfMax or self.MaxMMeanOfMax):
+            and (self.MaxOfMax or self.MaxMMeanOfMax or self.MaxTopMinOfMax):
             print(self.Max_version,'is not supported with MaxOfMax or MaxMMeanOfMax')
             raise(NotImplementedError)
         self.Cosine_ofW_inLoss = Cosine_ofW_inLoss
         self.Coeff_cosine = Coeff_cosine
-        if self.Cosine_ofW_inLoss and not (self.MaxOfMax or self.MaxMMeanOfMax):
+        if self.Cosine_ofW_inLoss and not (self.MaxOfMax or self.MaxMMeanOfMax or self.MaxTopMinOfMax):
             print('Cosine_ofW_inLoss have to be used with MaxOfMax or MaxMMeanOfMax')
             raise(NotImplementedError)
+        if num_features_hidden is None or num_features_hidden==0 or num_features_hidden=='':
+            self.num_features_hidden = self.num_features
+        else:
+            self.num_features_hidden = num_features_hidden
                     
     # From http://www.machinelearninguru.com/deep_learning/tensorflow/basics/tfrecord/tfrecord.html
     def parser(self,record):
@@ -671,6 +679,8 @@ class tf_MI_max():
         if self.class_indice==-1:
             if self.restarts_paral_V2:
                 loss_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
+                if self.MaxOfMax or self.MaxMMeanOfMax or self.MaxTopMinOfMax:
+                    loss_value = np.zeros((self.num_classes,),dtype=np.float32)
             elif self.restarts_paral_Dim:
                 loss_value = np.zeros((self.paral_number_W,self.num_classes),dtype=np.float32)
         else:
@@ -752,7 +762,7 @@ class tf_MI_max():
 
         X_reshape = tf.transpose(tf.reshape(X_,(-1,self.num_features)))
         proj = tf.add(tf.einsum('ij,jk->ik',W,X_reshape),tf.reshape(b,(-1,1)))
-        W_div_norm_squared = tf.divide(W,tf.pow(tf.norm(W,ord='euclidean',axis=-1,keepdims=True),2))
+        W_div_norm_squared = tf.divide(W,tf.pow(tf.norm(W,ord=2,axis=-1,keepdims=True),2))
         proj = tf.einsum('ij,ik->ijk',proj,W_div_norm_squared)
         for c in range(self.num_classes):
             proj_c = proj[c*self.paral_number_W:(c+1)*self.paral_number_W,:,:] # In the case of MaxOfMax
@@ -795,6 +805,36 @@ class tf_MI_max():
 #                loss_all_c = tf.stack([loss_all_c,loss_c],axis=0)
 #            else:
 #                loss_all_c = tf.concat([loss_all_c,[loss_c]],axis=0)
+
+        return(loss_all_c)
+        
+    def ProjConsWithMean_Hyperplan_loss(self,W,b,X_):
+        """
+        this function return the sum of the norm between the projection of the 
+        centroids of each bags of the batches on each of the Hyperplanes 
+        W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.)
+        
+        You have to maximize this function to force hyperplanes to be far away 
+        two by two
+        """
+
+        X_reshape = tf.transpose(tf.reduce_mean(X_,axis=1))
+        proj = tf.add(tf.einsum('ij,jk->ik',W,X_reshape),tf.reshape(b,(-1,1)))
+        W_div_norm_squared = tf.divide(W,tf.pow(tf.norm(W,ord=2,axis=-1,keepdims=True),2))
+        proj = tf.einsum('ij,ik->ijk',proj,W_div_norm_squared)
+        for c in range(self.num_classes):
+            proj_c = proj[c*self.paral_number_W:(c+1)*self.paral_number_W,:,:] # In the case of MaxOfMax
+            # The vectors are organized consecutively 
+            loss_c = 0.
+            for i in range(self.paral_number_W):
+                for j in range(i+1,self.paral_number_W):
+                    loss_c += tf.divide(tf.losses.mean_squared_error(proj_c[i,:,:],proj_c[j,:,:]),self.paral_number_W*(self.paral_number_W-1.)/2.)
+            if c==0:
+                loss_all_c = loss_c
+            elif c==1:
+                loss_all_c = tf.stack([loss_all_c,loss_c],axis=0)
+            else:
+                loss_all_c = tf.concat([loss_all_c,[loss_c]],axis=0)
 
         return(loss_all_c)
         
@@ -1003,7 +1043,7 @@ class tf_MI_max():
             if self.verbose: print("This will save the loss function and vectors values.")
             self.storeVectors  = True
         if self.AddOneLayer:
-            if self.restarts_paral=='Dim' or self.restarts_paral=='paral' or self.class_indice==-1:
+            if self.restarts_paral=='Dim' or (self.restarts_paral=='paral' and not(self.class_indice==-1)):
                 raise(NotImplementedError)
         if self.restarts_paral=='Dim':
             self.restarts_paral_Dim = True
@@ -1030,9 +1070,9 @@ class tf_MI_max():
         if self.restarts_paral_V2 and (self.restarts==0) and self.C_Searching: 
             print('This don t work at all, bug not solved about the argmin')
             raise(NotImplementedError)
-        if (self.MaxOfMax or self.MaxMMeanOfMax) and not(self.restarts_paral_V2):
+        if (self.MaxOfMax or self.MaxMMeanOfMax or self.MaxTopMinOfMax) and not(self.restarts_paral_V2):
             raise(NotImplementedError)
-        if (self.MaxOfMax or self.MaxMMeanOfMax) and (self.C_Searching or self.CV_Mode=='CVforCsearch' or self.class_indice>-1):
+        if (self.MaxOfMax or self.MaxMMeanOfMax or self.MaxTopMinOfMax) and (self.C_Searching or self.CV_Mode=='CVforCsearch' or self.class_indice>-1):
             raise(NotImplementedError)
             
         if self.C_Searching or self.CV_Mode == 'CVforCsearch':
@@ -1241,13 +1281,23 @@ class tf_MI_max():
         # Definition of the graph 
         if class_indice==-1: # Here we train the different class at the same time
             if self.restarts_paral_V2: # Best way to do a parallel computation of the restarts
-                W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.),name="weights")
-                b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.), name="bias")
+                if self.AddOneLayer:
+                    W0 = tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features_hidden,self.num_features], stddev=1.),name="W0")
+                    b0=tf.Variable(tf.random_normal([1,self.paral_number_W*self.num_classes,self.num_features_hidden], stddev=1.), name="b0")
+                    W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features_hidden], stddev=1.),name="weights")
+                    b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.), name="bias")
+                else:
+                    W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.),name="weights")
+                    b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.), name="bias")
                 if test_version_sup('1.8'):
                     normalize_W = W.assign(tf.nn.l2_normalize(W,axis=0)) 
                 else:
-                    normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
-#                W_r=tf.reshape(W,(self.paral_number_W*self.num_classes,1,1,self.num_features))
+                    normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0)) 
+#                W=tf.reshape(W,(1,1,self.num_features))
+                if self.AddOneLayer:
+                    embed = tf.reshape(X_, [-1, self.num_features])
+                    h = tf.einsum('lk,ijk->lij',embed,W0)
+                    denselayer = tf.tanh(tf.add(h,b0))
                 W_r=W
             elif self.restarts_paral_Dim:
                 W=tf.Variable(tf.random_normal([self.paral_number_W,self.num_classes,self.num_features], stddev=1.),name="weights")
@@ -1269,7 +1319,12 @@ class tf_MI_max():
             if self.restarts_paral_V2:
                 # Batch matrix multiplication
 #                >>> einsum('aij,ajk->aik', s, t)  # out[a,i,k] = sum_j s[a,i,j] * t[a, j, k]
-                Prod = tf.einsum('ak,ijk->aij',W_r,X_)
+                if self.AddOneLayer:
+                    Prod = tf.einsum('ikl,kl->ik',denselayer,W_r)
+                    Prod = tf.reshape(Prod, [-1, self.num_rois,self.paral_number_W*self.num_classes])
+                    Prod = tf.transpose(Prod,perm=[2,0,1])
+                else:
+                    Prod = tf.einsum('ak,ijk->aij',W_r,X_)
                 Prod=tf.add(Prod,b)
             else:
                 Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_),axis=-1),b)
@@ -1300,6 +1355,12 @@ class tf_MI_max():
                     MaxOfMax = tf.reduce_max(Max_reshaped,axis=1) - tf.reduce_mean(Max_reshaped,axis=1)
                     # We take the max minues the mean on the scalar product of the same class
                     Max = MaxOfMax
+                elif self.MaxTopMinOfMax:
+                    Max_reshaped = tf.reshape(Max,(self.num_classes,self.paral_number_W,-1))
+                    Max_reshaped = tf.transpose(Max_reshaped,perm=[0,2,1])
+                    top_min_k_ = tf.negative(tf.nn.top_k(tf.negative(Max_reshaped),self.k)[0])
+                    MaxOfMax = tf.reduce_max(top_min_k_,axis=-1)
+                    Max =  MaxOfMax
                     
             elif self.Max_version=='maxByPow':
                 # (x^alpha)^(1/alpha) environ egal a max
@@ -1329,7 +1390,7 @@ class tf_MI_max():
                 # The wieght are negative for the positive exemple and positive for the negative ones !!!
             else:
                 weights_bags_ratio = -tf.divide(y_,np_pos_value) + tf.divide(-tf.add(y_,-1),np_neg_value)
-            if self.restarts_paral_V2 and not(self.MaxOfMax or self.MaxMMeanOfMax): # In the parallel case with the different classes at the same time
+            if self.restarts_paral_V2 and not(self.MaxOfMax or self.MaxMMeanOfMax or self.MaxTopMinOfMax): # In the parallel case with the different classes at the same time
                 # we need to tile the vectors of size : 
                 # For example, tiling [a b c d] by [2] produces [a b c d a b c d]
                 weights_bags_ratio = tf.tile(tf.transpose(weights_bags_ratio,[1,0]),[self.paral_number_W,1])
@@ -1371,7 +1432,7 @@ class tf_MI_max():
                 if self.C_Searching:    
                     loss= tf.add(Tan,tf.multiply(C_value_repeat,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
                 else:
-                    if self.MaxOfMax or self.MaxMMeanOfMax:
+                    if self.MaxOfMax or self.MaxMMeanOfMax or self.MaxTopMinOfMax:
                         #axisW_rReduce = [-2,-1]
                         W_r_reduce = tf.reshape(tf.reduce_sum(tf.pow(W_r,2),axis=-1),(self.num_classes,self.paral_number_W))
                         W_r_reduce = tf.reduce_mean(W_r_reduce,axis=-1)
@@ -1384,11 +1445,12 @@ class tf_MI_max():
                 if self.optim_wt_Reg:
                     loss=Tan
                     
-                if self.Cosine_ofW_inLoss and (self.MaxOfMax or self.MaxMMeanOfMax): 
+                if self.Cosine_ofW_inLoss and (self.MaxOfMax or self.MaxMMeanOfMax or self.MaxTopMinOfMax): 
 #                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.NormDistance_Hyperplan_loss(W,b)))
 #                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,-self.MoveAway_Hyperplan_loss(W,b)))
 #                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.cosine_distance_loss(W)))
-                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,-self.ProjCons_Hyperplan_loss(W,b,X_)))
+#                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,-self.ProjCons_Hyperplan_loss(W,b,X_)))
+                    loss = tf.add(loss,tf.multiply(self.Coeff_cosine,self.ProjConsWithMean_Hyperplan_loss(W,b,X_)))
                     
             else:
                 loss= tf.add(Tan,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
@@ -1396,7 +1458,15 @@ class tf_MI_max():
             
             # Definiton du graphe pour la partie evaluation de la loss
             if self.restarts_paral_V2:
-                Prod_batch = tf.einsum('ak,ijk->aij',W_r,X_batch)
+                if self.AddOneLayer:
+                    embed_batch = tf.reshape(X_batch, [-1, self.num_features])
+                    h_batch = tf.einsum('lk,ijk->lij',embed_batch,W0)
+                    denselayer_batch = tf.tanh(tf.add(h_batch,b0))
+                    Prod_batch = tf.einsum('ikl,kl->ik',denselayer_batch,W_r)
+                    Prod_batch = tf.reshape(Prod_batch, [-1, self.num_rois,self.paral_number_W*self.num_classes])
+                    Prod_batch = tf.transpose(Prod_batch,perm=[2,0,1])
+                else:
+                    Prod_batch = tf.einsum('ak,ijk->aij',W_r,X_batch)
                 Prod_batch=tf.add(Prod_batch,b)
             else:
                 Prod_batch=tf.add(tf.reduce_sum(tf.multiply(W_r,X_batch),axis=-1),b)
@@ -1410,7 +1480,7 @@ class tf_MI_max():
                 Prod_batch= tf.multiply(scores_batch,tf.tanh(Prod_batch))
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
-                
+
                 if self.MaxOfMax:
                     Max_batch_reshaped = tf.reshape(Max_batch,(self.num_classes,self.paral_number_W,-1))
                     MaxOfMax_batch = tf.reduce_max(Max_batch_reshaped,axis=1) # We take the max on the scalar product of the same class
@@ -1420,6 +1490,12 @@ class tf_MI_max():
                     MaxOfMax_batch = tf.reduce_max(Max_batch_reshaped,axis=1) \
                         - tf.reduce_mean(Max_batch_reshaped,axis=1)# We take the max on the scalar product of the same class
                     Max_batch = MaxOfMax_batch
+                elif self.MaxTopMinOfMax:
+                    Max_batch_reshaped = tf.reshape(Max_batch,(self.num_classes,self.paral_number_W,-1))
+                    Max_batch_reshaped = tf.transpose(Max_batch_reshaped,perm=[0,2,1])
+                    top_min_k = tf.negative(tf.nn.top_k(tf.negative(Max_batch_reshaped),self.k)[0])
+                    MaxOfMax_batch = tf.reduce_max(top_min_k,axis=-1)
+                    Max_batch =  MaxOfMax_batch
                     
             elif self.Max_version=='maxByPow':
                 # (sum x^alpha)^(1/alpha) environ egal a max
@@ -1441,7 +1517,7 @@ class tf_MI_max():
                 # The wieght are negative for the positive exemple and positive for the negative ones !!!
             else:
                 weights_bags_ratio_batch = -tf.divide(label_batch,np_pos_value) + tf.divide(-tf.add(label_batch,-1),np_neg_value) # Need to add 1 to avoid the case 
-            if self.restarts_paral_V2 and not(self.MaxOfMax or self.MaxMMeanOfMax):
+            if self.restarts_paral_V2 and not(self.MaxOfMax or self.MaxMMeanOfMax or self.MaxTopMinOfMax):
                 weights_bags_ratio_batch = tf.tile(tf.transpose(weights_bags_ratio_batch,[1,0]),[self.paral_number_W,1])
                 y_long_pm1_batch =  tf.tile(tf.transpose(tf.add(tf.multiply(label_batch,2),-1),[1,0]), [self.paral_number_W,1])
             else:
@@ -1480,9 +1556,10 @@ class tf_MI_max():
             else:
                 if self.restarts_paral_V2:
                     loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=-1)))
+                    
                 else:
                     loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
-            
+
         else:
             if self.AddOneLayer:
                 W0 = tf.Variable(tf.random_normal([self.num_features,self.num_features], stddev=1.),name="W0")
@@ -1645,10 +1722,11 @@ class tf_MI_max():
                             print(step,"duration :",str(t3-t2))
                             t4 = time.time()
                             list_elt = self.eval_loss(sess,iterator_batch,loss_batch)
-                            if self.WR: 
+                            if self.WR:
                                 assert(np.max(list_elt)<= 2.0)
                                 assert(np.min(list_elt)>= -2.0)
                             t5 = time.time()
+                            print('Loss value on batch :',list_elt)
                             print("duration loss eval :",str(t5-t4))
                             
                 elif self.Optimizer=='lbfgs':
@@ -1663,7 +1741,7 @@ class tf_MI_max():
                         
                 if class_indice==-1:
                     if self.restarts_paral_V2:
-                        if not(self.MaxOfMax or self.MaxMMeanOfMax):
+                        if not(self.MaxOfMax or self.MaxMMeanOfMax or self.MaxTopMinOfMax):
                             loss_value = np.zeros((self.paral_number_W*self.num_classes,),dtype=np.float32)
                         else:
                             loss_value = np.zeros((self.num_classes,),dtype=np.float32)
@@ -1680,9 +1758,12 @@ class tf_MI_max():
                     except tf.errors.OutOfRangeError:
                         break
                 
-                if not(self.MaxOfMax or self.MaxMMeanOfMax):
+                if not(self.MaxOfMax or self.MaxMMeanOfMax or self.MaxTopMinOfMax):
                     W_tmp=sess.run(W)
                     b_tmp=sess.run(b)
+                    if self.AddOneLayer:
+                        W0_tmp=sess.run(W0)
+                        b0_tmp=sess.run(b0)
                     if self.restarts_paral_Dim:
                         argmin = np.argmin(loss_value,axis=0)
                         loss_value_min = np.min(loss_value,axis=0)
@@ -1699,8 +1780,14 @@ class tf_MI_max():
                     elif self.restarts_paral_V2:
                         if (self.AggregW is None) or (self.AggregW==''):
                             loss_value_min = []
-                            W_best = np.zeros((self.num_classes,self.num_features),dtype=np.float32)
-                            b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
+                            if self.AddOneLayer:
+                                W_best = np.zeros((self.num_classes,self.num_features_hidden),dtype=np.float32)
+                                b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
+                                W0_best = np.zeros((self.num_classes,self.num_features_hidden,self.num_features),dtype=np.float32)
+                                b0_best = np.zeros((1,self.num_classes,self.num_features_hidden),dtype=np.float32)
+                            else:
+                                W_best = np.zeros((self.num_classes,self.num_features),dtype=np.float32)
+                                b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
                             if self.restarts>0:
                                 for j in range(self.num_classes):
                                     loss_value_j = loss_value[j::self.num_classes]
@@ -1709,6 +1796,9 @@ class tf_MI_max():
                                     loss_value_j_min = np.min(loss_value_j,axis=0)
                                     W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
                                     b_best[j,:,:] = b_tmp[j+argmin*self.num_classes]
+                                    if self.AddOneLayer:
+                                        W0_best[j,:] = W0_tmp[j+argmin*self.num_classes,:,:]
+                                        b0_best[:,j,:] = b0_tmp[:,j+argmin*self.num_classes,:]
                                     loss_value_min+=[loss_value_j_min]
                                     if (self.C_Searching or  self.CV_Mode=='CVforCsearch') and self.verbose:
                                         print('Best C values : ',C_value_repeat[j+argmin*self.num_classes],'class ',j)
@@ -2267,6 +2357,9 @@ class tf_MI_max():
                     
                     W_tmp=sess.run(W)
                     b_tmp=sess.run(b)
+                    if self.AddOneLayer:
+                        W0_tmp=sess.run(W0)
+                        b0_tmp=sess.run(b0)
                     if self.restarts_paral_Dim:
                         argmin = np.argmin(loss_value,axis=0)
                         loss_value_min = np.min(loss_value,axis=0)
@@ -2285,6 +2378,9 @@ class tf_MI_max():
                             loss_value_min = []
                             W_best = np.zeros((self.num_classes,self.num_features),dtype=np.float32)
                             b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
+                            if self.AddOneLayer:
+                                W0_best = np.zeros((self.num_classes,self.num_features_hidden,self.num_features),dtype=np.float32)
+                                b0_best = np.zeros((self.num_classes,self.num_features_hidden),dtype=np.float32)
                             if self.restarts>0:
                                 for j in range(self.num_classes):
                                     loss_value_j = loss_value[j::self.num_classes]
@@ -2292,6 +2388,9 @@ class tf_MI_max():
                                     loss_value_j_min = np.min(loss_value_j,axis=0)
                                     W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
                                     b_best[j,:,:] = b_tmp[j+argmin*self.num_classes]
+                                    if self.AddOneLayer:
+                                        W0_best[j,:] = W0_tmp[j+argmin*self.num_classes,:,:]
+                                        b0_best[j,:,:] = b0_tmp[j+argmin*self.num_classes,:]
                                     if self.verbose: loss_value_min+=[loss_value_j_min]
                                     if (self.C_Searching or  self.CV_Mode=='CVforCsearch') and self.verbose:
                                         print('Best C values : ',C_value_repeat[j+argmin*self.num_classes],'class ',j)
@@ -2430,8 +2529,24 @@ class tf_MI_max():
                                              ,b_best)
                         Product = tf.reshape(Product,(self.num_classes,self.paral_number_W,-1,self.num_rois))
                         Prod_best=tf.reduce_max(Product,axis=1,name='Prod')
+                    elif self.MaxTopMinOfMax:
+                        Product = tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
+                                             ,b_best)
+                        Product = tf.reshape(Product,(self.num_classes,self.paral_number_W,-1,self.num_rois))
+                        Max_reshaped = tf.transpose(Product,perm=[0,2,3,1])
+                        top_min_k_ = tf.negative(tf.nn.top_k(tf.negative(Max_reshaped),self.k)[0])
+                        Prod_best=tf.reduce_max(top_min_k_,axis=-1,name='Prod')
                     else:
-                        Prod_best=tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
+                        if self.AddOneLayer:
+                            embed_2 = tf.reshape(X_, [-1, self.num_features])
+                            h_2 = tf.einsum('lk,ijk->lij',embed_2,tf.convert_to_tensor(W0_best))
+                            denselayer_2 = tf.tanh(tf.add(h_2,b0_best))
+                            Prod_2 = tf.einsum('ikl,kl->ik',denselayer_2,tf.convert_to_tensor(W_best))
+                            Prod_2= tf.reshape(Prod_2, [-1, self.num_rois,self.num_classes])
+                            Prod_2 = tf.transpose(Prod_2,perm=[2,0,1])
+                            Prod_best = tf.add(Prod_2,b_best,name='Prod')
+                        else:
+                            Prod_best=tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
                                          ,b_best,name='Prod')
                 # TODO rajouter les autres cas : comme parallel dim
                     
