@@ -10,7 +10,7 @@ WSOD
 """
 
 from MINNpy3.mil_nets.WSOD_datasets import load_dataset
-from MINNpy3.MI_Net import MI_Net_WSOD
+from MINNpy3.MI_Net import MI_Net_WSOD,MI_Max_AddOneLayer_Keras
 from MINNpy3.MI_Net_with_DS import MI_Net_with_DS_WSOD
 from MINNpy3.MI_Net_with_RC import MI_Net_with_RC_WSOD
 from MINNpy3.mi_Net import mi_Net_WSOD
@@ -29,7 +29,7 @@ import os
 from LatexOuput import arrayToLatex
 from sklearn.metrics import average_precision_score
 
-MILmodel_tab = ['MI_Net','mi_Net','MI_Net_with_DS','MI_Net_with_RC']
+MILmodel_tab = ['MI_Net','mi_Net','MI_Net_with_DS','MI_Net_with_RC','MI_Max_AddOneLayer_Keras']
 
 def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'FasterRCNN',\
              demonet='res152_COCO',test=False,MILmodel='MI_Net',max_epoch=20):
@@ -48,6 +48,8 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
     
     if MILmodel=='MI_Net':
         MILmodel_fct = MI_Net_WSOD
+    elif MILmodel=='MI_Max_AddOneLayer_Keras':
+        MILmodel_fct = MI_Max_AddOneLayer_Keras
     elif MILmodel=='mi_Net':
         MILmodel_fct = mi_Net_WSOD
     elif MILmodel=='MI_Net_with_DS':

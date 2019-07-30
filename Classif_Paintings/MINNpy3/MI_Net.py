@@ -207,6 +207,57 @@ def MI_Net_WSOD(dataset,weight_decay=0.005,pooling_mode='max',init_lr=0.001,mome
 
     return model
 
+def MI_Max_AddOneLayer_Keras(dataset,weight_decay=0.005,pooling_mode='max',init_lr=0.01,momentum=0.9,
+                max_epoch=20):
+    """Train and evaluate on MI-Net.
+    Parameters
+    -----------------
+    dataset : dict
+        A dictionary contains all dataset information. We split train/test by keys.
+    Returns
+    -----------------
+    test_acc : float
+        Testing accuracy of MI-Net.
+    """
+    # load data and convert type
+    train_bags = dataset['train']
+    #test_bags = dataset['test']
+
+    # convert bag to batch
+    train_set = convertToBatch(train_bags)
+    #test_set = convertToBatch(test_bags)
+#    print(train_set[0][0].shape)
+    dimension = train_set[0][0].shape[1]
+
+    # data: instance feature, n*d, n = number of training instance
+    data_input = Input(shape=(dimension,), dtype='float32', name='input')
+
+    # fully-connected
+    fc1 = Dense(256, activation='relu', kernel_regularizer=l2(weight_decay))(data_input)
+    fc2 = Dense(1, activation='relu', kernel_regularizer=l2(weight_decay))(fc1)
+
+    # features pooling
+    fp = Feature_pooling(output_dim=1, kernel_regularizer=l2(weight_decay), \
+                         pooling_mode=pooling_mode, name='fp')(fc2)
+
+    model = Model(inputs=[data_input], outputs=[fp])
+    sgd = SGD(lr=init_lr, decay=1e-4, momentum=momentum, nesterov=True)
+    model.compile(loss=bag_loss, optimizer=sgd, metrics=[bag_accuracy])
+
+    # train model
+    t1 = time.time()
+    num_batch = len(train_set)
+    for epoch in range(max_epoch):
+        train_loss, train_acc = train_eval(model, train_set)
+        #test_loss, test_acc = test_eval(model, test_set)
+        #print('epoch=', epoch, '  train_loss= {:.3f}'.format(train_loss), '  train_acc= {:.3f}'.format(train_acc), '  test_loss={:.3f}'.format(test_loss), '  test_acc= {:.3f}'.format(test_acc))
+        print('epoch=', epoch, '  train_loss= {:.3f}'.format(train_loss), '  train_acc= {:.3f}'.format(train_acc))
+    t2 = time.time()
+    print('run time:', (t2-t1) / 60, 'min')
+    #print('test_acc={:.3f}'.format(test_acc))
+
+    return model
+
 if __name__ == '__main__':
 
     args = parse_args()
