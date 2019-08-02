@@ -12,17 +12,15 @@ def main():
     
     # Liste des choses que tu as a faire tourner :
     
-    for database,restarts in zip(['IconArt_v1'],[11]):
-        for layer in ['fc7','fc6']:
-        
-            for with_score in  [False,True]:
-                print(database,restarts,layer,with_score)
-                try: 
-                    tfR_FRCNN(database=database,verbose=True,restarts=restarts,ReDo=False,\
-                              with_scores=with_score,layer=layer,demonet='vgg16_COCO')
-                except Exception as e:
-                    print(e)
-                    pass   
+    for database,restarts in zip(['RMN'],[3]):
+        for with_score in  [False,True]:
+            print(database,restarts,with_score)
+            try: 
+                tfR_FRCNN(database=database,verbose=True,restarts=restarts,ReDo=False,\
+                          with_scores=with_score,AddOneLayer=True)
+            except Exception as e:
+                print(e)
+                pass   
 
 if __name__ == '__main__':
     main()
