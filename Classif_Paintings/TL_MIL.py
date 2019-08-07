@@ -215,10 +215,29 @@ def parser_all_elt_all_class(record,num_classes=10,num_rois=300,num_features=204
     list_elt = []
     for key in keys_to_features.keys():
           list_elt += [parsed[key]]
-          print(key,parsed[key])
     if not(noReshape):
             list_elt[7] = tf.reshape(list_elt[7], [num_rois,num_features])
             list_elt[5] = tf.reshape(list_elt[5], [num_rois,dim_rois])  
+        
+    return(list_elt)
+    
+def parser_minimal_elt_all_class(record,num_classes=10,num_rois=300,num_features=2048,
+                            dim_rois=5,noReshape=True):
+    keys_to_features={
+                    'rois': tf.FixedLenFeature([dim_rois*num_rois],tf.float32),
+                    'roi_scores':tf.FixedLenFeature([num_rois],tf.float32),
+                    'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
+                    'label' : tf.FixedLenFeature([num_classes],tf.float32),
+                    'name_img' : tf.FixedLenFeature([],tf.string)}
+            
+    parsed = tf.parse_single_example(record, keys_to_features)
+      # Cast label data into int32
+    list_elt = []
+    for key in keys_to_features.keys():
+          list_elt += [parsed[key]]
+    if not(noReshape):
+            list_elt[7] = tf.reshape(list_elt[2], [num_rois,num_features])
+            list_elt[5] = tf.reshape(list_elt[0], [num_rois,dim_rois])  
         
     return(list_elt)
 
@@ -2080,7 +2099,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                                   AddOneLayer=False,exp=10,MaxOfMax=False,debug = False,alpha=0.7,
                                   layer='fc7',MaxMMeanOfMax=False,MaxTopMinOfMax=False,
                                   Cosine_ofW_inLoss=False,Coeff_cosine=1.,
-                                  mini_batch_size=None,num_features_hidden=256):
+                                  mini_batch_size=None,num_features_hidden=256,dtype=None):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2113,7 +2132,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     !!!!! for the moment it is not possible to use something else than 300 if the dataset is not 
     records with the selection of the regions already !!!! TODO change that
     @param : parallel_op : use of the parallelisation version of the MI_max 
-        for the all classes same time
+        for the all classes same time that means class_indice=-1 in trouver_classes_parmi_K
     @param : CV_Mode : cross validation mode in the MI_max : possibility ; 
         None, CV in k split or LA for Leave apart one of the split
     @param : num_split  : Number of split for the CV or LA
@@ -2196,7 +2215,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             Have to be used with MaxOfMax of MaxMMeanOfMax (default = False)
    @param : Coeff_cosine : weight in front the cosine loss (default = 1.)
    @param : mini_batch_size if None or 0 an automatic adhoc mini batch size is set
-   @param : num_features_hidden features size of the hidden layer of the AddOneLayer model
+   @param : num_features_hidden features size of the hidden layer of the AddOneLayer model 
+       if is None or 0 then equal to num_features
     The idea of this algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -2214,6 +2234,17 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     
     
     """
+    if not(dtype is None or dtype=='float32'):
+        if dtype=='float16':
+            dtype = tf.float16
+        elif dtype=='bfloat16':
+            dtype = tf.bfloat16
+        else:
+            print(dtype,' dtype unkown')
+            raise(NotImplementedError)
+    else:
+        dtype = tf.float32
+    
     if trainOnTest:
         print('/!\ you will train the model on the test data be careful with the conclusion')
     
@@ -2318,6 +2349,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     elif demonet in ['res101_COCO','res152_COCO','res101_VOC07','res152']:
         num_features = 2048
     
+    if num_features_hidden is None or num_features_hidden==0:
+        num_features_hidden = num_features
+    
     if not(data_precomputeed):
         # Compute the features
         if verbose: print("We will computer the CNN features")
@@ -2393,7 +2427,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     else:
         print(model,' is unknown')
         raise(NotImplementedError)
-
+            
     if (k_per_bag > 300 or num_trainval_im > 5000) and not(Not_on_NicolasPC): # We do the assumption that you are on a cluster with a big RAM (>50Go)
         usecache = False
     else:
@@ -2406,7 +2440,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         
     if mini_batch_size is None or mini_batch_size==0:
         mini_batch_size = min(sizeMax,num_trainval_im)
-    
+
     if testMode:
         ext_test = '_Test_Mode'
     else:
@@ -2732,7 +2766,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                        loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                        obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer,exp=exp,\
                        MaxOfMax=MaxOfMax,MaxMMeanOfMax=MaxMMeanOfMax,MaxTopMinOfMax=MaxTopMinOfMax,usecache=usecache,\
-                       alpha=alpha,Cosine_ofW_inLoss=Cosine_ofW_inLoss,Coeff_cosine=Coeff_cosine,num_features_hidden=num_features_hidden)
+                       alpha=alpha,Cosine_ofW_inLoss=Cosine_ofW_inLoss,Coeff_cosine=Coeff_cosine,\
+                       num_features_hidden=num_features_hidden,dtype=dtype)
                  export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
@@ -2849,7 +2884,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                        Max_version=Max_version,seuillage_by_score=seuillage_by_score,w_exp=w_exp,seuil=seuil,
                        k_intopk=k_intopk,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
                        loss_type=loss_type,obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                       obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer) 
+                       obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer,dtype=dtype) 
                 export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                        class_indice=j,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,
