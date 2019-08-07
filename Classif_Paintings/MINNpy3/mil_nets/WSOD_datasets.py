@@ -23,7 +23,6 @@ def load_dataset(dataset_nm='IconArt_v1',set_='train',classe=0,k_per_bag = 300,m
     datasets = {}
     
     item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(dataset_nm)
-    print()
     dict_name_file = getDictFeaturesFasterRCNN(dataset_nm,k_per_bag=k_per_bag,\
                                                metamodel=metamodel,demonet=demonet)
     
@@ -42,7 +41,9 @@ def load_dataset(dataset_nm='IconArt_v1',set_='train',classe=0,k_per_bag = 300,m
             dim_rois = 4
         else:
             dim_rois = 5
-        next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,dim_rois = dim_rois,num_classes =num_classes )
+        print('num_classes',num_classes)
+        next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,\
+                                          dim_rois = dim_rois,num_classes =num_classes )
         
 
         sess = tf.Session(config=config)

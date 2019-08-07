@@ -233,7 +233,7 @@ def MI_Max_AddOneLayer_Keras(dataset,weight_decay=0.005,pooling_mode='max',init_
     data_input = Input(shape=(dimension,), dtype='float32', name='input')
 
     # fully-connected
-    fc1 = Dense(256, activation='relu', kernel_regularizer=l2(weight_decay))(data_input)
+    fc1 = Dense(dimension, activation='relu', kernel_regularizer=l2(weight_decay))(data_input)
     fc2 = Dense(1, activation='relu', kernel_regularizer=l2(weight_decay))(fc1)
 
     # features pooling

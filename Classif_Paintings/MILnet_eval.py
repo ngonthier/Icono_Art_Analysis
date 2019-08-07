@@ -87,7 +87,8 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
         dim_rois = 4
     else:
         dim_rois = 5
-    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,dim_rois = dim_rois)
+    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,dim_rois = dim_rois,
+                                      num_classes = num_classes)
     
     dont_use_07_metric = False
     if dataset_nm=='VOC2007':
