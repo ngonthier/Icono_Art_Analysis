@@ -736,7 +736,8 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
     
              
 def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO',\
-                        k_per_bag=300,layer='fc7',num_rep = 100,Optimizer='GradientDescent'):
+                        k_per_bag=300,layer='fc7',num_rep = 100,Optimizer='GradientDescent',
+                        r=11,bs=0,C=1.0):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -756,7 +757,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
     else:
         listi = scenarioSubset
 
-    number_restarts = num_rep*12-1
+    number_restarts = num_rep*(r+1)-1
 
     seuil = 0.9 
     ReDo = False
@@ -781,7 +782,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                                           parallel_op=True,CV_Mode=CV_Mode,num_split=2,
                                           WR=WR,init_by_mean =None,seuil_estimation='',
                                           restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
-                                          C=1.0,Optimizer=Optimizer,norm='',
+                                          C=C,Optimizer=Optimizer,norm='',
                                           transform_output='tanh',with_rois_scores_atEnd=False,
                                           with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
                                           Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
@@ -791,7 +792,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                                           ,proportionToKeep=proportionToKeep,storeVectors=True,
                                           obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                                           obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
-                                          layer=layer)
+                                          layer=layer,mini_batch_size=bs)
             tf.reset_default_graph()
             name_dict = path_data_output 
             if not(demonet== 'res152_COCO'):
@@ -823,6 +824,12 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict += '_numRep'+ str(num_rep)
             if not(Optimizer=='GradientDescent'):
                 name_dict += '_'+Optimizer
+            if not(r==11):
+                name_dict += '_r'+str(r)
+            if not(C==11):
+                name_dict += '_C'+str(C)
+            if not(bs==0) or bs==1000:
+                name_dict += '_bs'+str(bs)
             name_dict += '.pkl'
             copyfile(exportname,name_dict)
             print(name_dict,'copied')
@@ -1166,7 +1173,9 @@ def get_params_fromi_scenario(i_scenario):
     return(output)
         
 def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
-                        demonet = 'res152_COCO',k_per_bag=300,layer='fc7',num_rep = 100,Optimizer='GradientDescent'):
+                        demonet = 'res152_COCO',k_per_bag=300,layer='fc7',
+                        num_rep = 100,Optimizer='GradientDescent',
+                        r=11,bs=0,C=1.0)):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -1248,6 +1257,12 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
                 name_dict += '_numRep'+ str(num_rep)
             if not(Optimizer=='GradientDescent'):
                 name_dict += '_'+Optimizer
+            if not(r==11):
+                name_dict += '_r'+str(r)
+            if not(C==11):
+                name_dict += '_C'+str(C)
+            if not(bs==0) or bs==1000:
+                name_dict += '_bs'+str(bs)
             name_dictW = name_dict + '.pkl'
             
 
@@ -2565,7 +2580,8 @@ def VariationStudyPart2bis():
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
       
 def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO',onlyAP05=False,
-                        withoutAggregW=False,k_per_bag=300,layer='fc7',num_rep = 100,Optimizer='GradientDescent'):
+                        withoutAggregW=False,k_per_bag=300,layer='fc7',num_rep = 100,
+                        Optimizer='GradientDescent',r=11,bs=0,C=1.0)):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -2636,6 +2652,12 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict += '_numRep'+ str(num_rep)
             if not(Optimizer=='GradientDescent'):
                 name_dict += '_'+Optimizer
+            if not(r==11):
+                name_dict += '_r'+str(r)
+            if not(C==11):
+                name_dict += '_C'+str(C)
+            if not(bs==0) or bs==1000:
+                name_dict += '_bs'+str(bs)
 
             for AggregW in listAggregW:
                 if AggregW is None or AggregW=='':

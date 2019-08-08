@@ -35,7 +35,7 @@ import voc_eval
 from tf_faster_rcnn.lib.datasets.factory import get_imdb
 from tf_faster_rcnn.lib.model.test import get_blobs
 
-from TL_MIL import parser_w_rois_all_class,parser_all_elt_all_class
+from TL_MIL import parser_w_rois_all_class,parser_all_elt_all_class,parser_minimal_elt_all_class
 from FasterRCNN import vis_detections
 
 from sklearn import (manifold, datasets, decomposition, ensemble,
