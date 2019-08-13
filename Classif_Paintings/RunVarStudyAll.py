@@ -505,7 +505,8 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
 def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
                                         MaxOfMax=True,MaxMMeanOfMax=False,
-                                        max_iters_all_base=3000,AddOneLayer=False):
+                                        max_iters_all_base=3000,AddOneLayer=False,
+                                        num_features_hidden=256):
     seuillage_by_score = False
     obj_score_add_tanh = False
     loss_type = ''
@@ -566,6 +567,8 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                 name_dict += '_MaxMMeanOfMax'
             if AddOneLayer:
                 name_dict += 'AddOneLayer'
+                if not(num_features_hidden==256):
+                    name_dict += '_'+str(num_features_hidden)
             
             name_dictAP = name_dict + '_APscore.pkl'   
                 
@@ -632,7 +635,8 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
             pass
                 
 def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10,
-                                        Optimizer='GradientDescent',max_iters_all_base = 3000):
+                                        Optimizer='GradientDescent',
+                                        max_iters_all_base = 300,num_features_hidden=256):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
     """
@@ -663,8 +667,8 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
     path_data_output = path_data +'VarStudy/'
     ReDo = True
     
-    for with_scores in [False,True]:
-        for loss_type in ['','hinge']:
+    for loss_type in ['','hinge']:
+        for with_scores in [False,True]:
             name_dict = path_data_output 
             if not(demonet== 'res152_COCO'):
                 name_dict += demonet +'_'
@@ -695,6 +699,8 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
             if not(Optimizer=='GradientDescent'):
                 name_dict += '_'+Optimizer
             name_dict += 'AddOneLayer'
+            if not(num_features_hidden==256):
+                name_dict += '_'+str(num_features_hidden)
             name_dictAP = name_dict + '_APscore.pkl'
             DictAP = {}
             ll = []
@@ -718,7 +724,7 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
                                               ,proportionToKeep=proportionToKeep,storeVectors=False,
                                               obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                                               obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
-                                              layer=layer,AddOneLayer=AddOneLayer)
+                                              layer=layer,AddOneLayer=AddOneLayer,num_features_hidden=num_features_hidden)
                 ll += [apsAt05]
                 l01 += [apsAt01]
                 lclassif += [AP_per_class]
@@ -737,7 +743,8 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
              
 def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO',\
                         k_per_bag=300,layer='fc7',num_rep = 100,Optimizer='GradientDescent',
-                        r=11,bs=0,C=1.0):
+                        r=11,bs=0,C=1.0,metamodel='FasterRCNN',
+                        mode='MI_max'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -792,9 +799,11 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                                           ,proportionToKeep=proportionToKeep,storeVectors=True,
                                           obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                                           obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
-                                          layer=layer,mini_batch_size=bs)
+                                          layer=layer,mini_batch_size=bs,metamodel=metamodel,model=model)
             tf.reset_default_graph()
             name_dict = path_data_output 
+            if not(model=='MI_max'):
+                name_dict += model+'_'
             if not(demonet== 'res152_COCO'):
                 name_dict += demonet +'_'
             if not(layer== 'fc7'):
@@ -826,10 +835,12 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict += '_'+Optimizer
             if not(r==11):
                 name_dict += '_r'+str(r)
-            if not(C==11):
+            if not(C==1.0):
                 name_dict += '_C'+str(C)
-            if not(bs==0) or bs==1000:
+            if not(bs==0 or bs==1000):
                 name_dict += '_bs'+str(bs)
+            if not(metamodel=='FasterRCNN'):
+                name_dict += '_'+metamodel
             name_dict += '.pkl'
             copyfile(exportname,name_dict)
             print(name_dict,'copied')
@@ -1172,10 +1183,11 @@ def get_params_fromi_scenario(i_scenario):
     
     return(output)
         
-def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
+def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
                         demonet = 'res152_COCO',k_per_bag=300,layer='fc7',
                         num_rep = 100,Optimizer='GradientDescent',
-                        r=11,bs=0,C=1.0)):
+                        r=11,bs=0,C=1.0,metamodel='FasterRCNN',
+                        mode='MI_max'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -1202,7 +1214,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
     number_of_reboots = num_rep
     max_iters_all_base = 300
     k_per_bag = 300
-    numberofW_to_keep_base = 12
+    numberofW_to_keep_base = r+1
 #    numberofW_to_keep = 12
     eval_onk300 = True
     dont_use_07_metric  =True
@@ -1229,6 +1241,8 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
         for database in database_tab:
             # Name of the vectors pickle
             name_dict = path_data_output 
+            if not(model=='MI_max'):
+                name_dict += model+'_'
             if not(demonet== 'res152_COCO'):
                 name_dict += demonet +'_'
             if not(layer== 'fc7'):
@@ -1259,10 +1273,12 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
                 name_dict += '_'+Optimizer
             if not(r==11):
                 name_dict += '_r'+str(r)
-            if not(C==11):
+            if not(C==1.0):
                 name_dict += '_C'+str(C)
-            if not(bs==0) or bs==1000:
+            if not(bs==0 or bs==1000):
                 name_dict += '_bs'+str(bs)
+            if not(metamodel=='FasterRCNN'):
+                name_dict += '_'+metamodel
             name_dictW = name_dict + '.pkl'
             
 
@@ -1386,7 +1402,6 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
 #                if not(k_per_bag==300) and eval_onk300 and set_str=='test': # We will evaluate on all the 300 regions and not only the k_per_bag ones
 #                    name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
 #                dict_name_file[set_str] = name_pkl_all_features
-            metamodel = 'FasterRCNN'
             for set_str in sets:
                 name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str
                 if PCAuse:
@@ -1398,9 +1413,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=False,
                         name_pkl_all_features+='_PCAc'+str(number_composant)
                     name_pkl_all_features+='_'+set_str+'.tfrecords'
                 dict_name_file[set_str] = name_pkl_all_features
-        
-
-                   
+     
             # Config param for TF session 
             config = tf.ConfigProto()
             config.gpu_options.allow_growth = True  
@@ -2581,7 +2594,8 @@ def VariationStudyPart2bis():
       
 def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO',onlyAP05=False,
                         withoutAggregW=False,k_per_bag=300,layer='fc7',num_rep = 100,
-                        Optimizer='GradientDescent',r=11,bs=0,C=1.0)):
+                        Optimizer='GradientDescent',r=11,bs=0,C=1.0,metamodel='FasterRCNN',
+                        mode='MI_max'):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -2611,6 +2625,8 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
     listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
     data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
+    liste = []
+    
     for database  in database_tab:
         print('--------------------------------')
         print(database,demonet)
@@ -2624,6 +2640,8 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 listAggregW  = [None]
 
             name_dict = path_data_output 
+            if not(model=='MI_max'):
+                name_dict += model+'_'
             if not(demonet== 'res152_COCO'):
                 name_dict += demonet +'_'
             if not(layer== 'fc7'):
@@ -2654,10 +2672,12 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                 name_dict += '_'+Optimizer
             if not(r==11):
                 name_dict += '_r'+str(r)
-            if not(C==11):
+            if not(C==1.0):
                 name_dict += '_C'+str(C)
-            if not(bs==0) or bs==1000:
+            if not(bs==0 or bs==1000):
                 name_dict += '_bs'+str(bs)
+            if not(metamodel=='FasterRCNN'):
+                name_dict += '_'+metamodel
 
             for AggregW in listAggregW:
                 if AggregW is None or AggregW=='':
@@ -2727,9 +2747,13 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
                                 print(string_to_print)
                             elif Metric=='AP@.5':
                                 print(string_to_print)
+                            if Metric=='AP@.5':
+                                liste += [ll_all]
                     except FileNotFoundError:
                         print(name_dictAP,'don t exist')
                     pass
+                
+    return(liste)
     
 def VariationStudyPart3bis():
     '''
