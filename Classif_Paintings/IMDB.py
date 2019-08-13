@@ -79,6 +79,7 @@ def get_database(database):
         ext = '.csv'
         item_name = 'item'
         path_to_img = 'OIV5/Images/'
+        default_path_imdb = '/media/gonthier/HDD2/data/'
         classes = ['/m/011k07', '/m/0120dh', '/m/01226z', '/m/012n7d', '/m/012w5l',
            '/m/0130jx', '/m/0138tl', '/m/013y1f', '/m/014j1m', '/m/014sv8',
            '/m/014y4n', '/m/0152hh', '/m/01599', '/m/015h_t', '/m/015p6',
@@ -212,7 +213,7 @@ def get_database(database):
         elif database=='RMN':
             path_data_csvfile = '/media/gonthier/HDD/data/RMN/ImageSets/Main/'
         elif 'OIV5' in database:
-            path_data_csvfile = '/media/gonthier/HDD/data/OIV5/'
+            path_data_csvfile = '/media/gonthier/HDD2/data/OIV5/'
         else:
             path_data_csvfile = path_data
     

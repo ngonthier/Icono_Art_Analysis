@@ -1365,7 +1365,7 @@ class tf_MI_max():
                     embed = tf.reshape(X_, [-1, self.num_features])
                     h = tf.einsum('lk,ijk->lij',embed,W0)
                     denselayer = tf.tanh(tf.add(h,b0))
-                    Prod = tf.einsum('ikl,kl->ik',denselayer,W)
+                    Prod = tf.einsum('ikl,kl->ik',denselayer,W) # a verifier
                     Prod = tf.reshape(Prod, [-1, self.num_rois,self.paral_number_W*self.num_classes])
                     Prod = tf.transpose(Prod,perm=[2,0,1])
                 else:
@@ -1378,7 +1378,7 @@ class tf_MI_max():
                     denselayer = tf.tanh(tf.add(h,b0))
                     Prod = tf.einsum('ikl,kl->ik',denselayer,W)
                     Prod = tf.reshape(Prod, [-1, self.num_rois,self.num_classes])
-                    Prod = tf.transpose(Prod,perm=[2,0,1])
+                    Prod = tf.transpose(Prod,perm=[2,0,1]) # Ralenti beaucoup 
                     Prod=tf.add(Prod,b)
                 else:
                     Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_),axis=-1),b)

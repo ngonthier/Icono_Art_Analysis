@@ -2272,7 +2272,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     print('==========')
     # TODO be able to train on background 
     item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
-    
+    print('!!!!!!!!!!',path_data)
     if testMode and not(type(jtest)==int):
         assert(type(jtest)==str)
         jtest = int(np.where(np.array(classes)==jtest)[0][0])# Conversion of the jtest string to the value number
@@ -2805,6 +2805,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                  pickle.dump(name_milsvm, f)
         else:
             export_dir,np_pos_value,np_neg_value= name_milsvm
+        export_dir = export_dir.replace('data/','/media/gonthier/HDD/output_exp/')
+        print('new export_dir',export_dir) # A retirer
+        usecache_eval = False # A retirer
 #        plot_onSubSet =  ['angel','Child_Jesus', 'crucifixion_of_Jesus','Mary','nudity', 'ruins','Saint_Sebastien'] 
 #        
         dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
@@ -2905,7 +2908,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited,all_boxes = \
                 tfR_evaluation(database=database,j=j,dict_class_weight=dict_class_weight,num_classes=num_classes,predict_with=predict_with,
                                export_dir=export_dir,dict_name_file=dict_name_file,mini_batch_size=mini_batch_size,config=config,
-                               PlotRegions=PlotRegions,path_to_img=path_to_img,path_data=path_data,param_clf=param_clf,classes=classes,parameters=parameters,verbose=verbose,
+                               PlotRegions=PlotRegions,path_to_img=path_to_img,path_data=path_data,param_clf=param_clf,
+                               classes=classes,parameters=parameters,verbose=verbose,\
                                seuil_estimation=seuil_estimation,thresh_evaluation=thresh_evaluation,TEST_NMS=TEST_NMS,
                                all_boxes=all_boxes,with_tanh=with_tanh,dim_rois=dim_rois)
                               
@@ -3804,7 +3808,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
 
-        # Evaluation Test : Probleme ici souvent 
+        # Evaluation Test
         while True:
             try:
                 if not(with_rois_scores_atEnd) and not(scoreInMI_max):
@@ -3848,7 +3852,6 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
 #                    print('predict_label_all_test',predict_label_all_test[-1].shape)
                     # predict_label_all_test is used only for the classification score !
 #                if predict_with=='LinearSVC':
-                    
                 #print(PositiveExScoreAll.shape)
                 for k in range(len(labels)):
                     if database in ['IconArt_v1','VOC2007','watercolor','Paintings','clipart',\
@@ -3863,7 +3866,6 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         scores_all = PositiveExScoreAll[:,k,:]
                     elif 'LinearSVC' in predict_with:
                         scores_all = predict_label_all_test_batch[:,k,:]
-
                     roi = roiss[k,:]
                     if dim_rois==5:
                         roi_boxes =  roi[:,1:5] / im_scales[0] 
@@ -3872,7 +3874,6 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     if boxCoord01:
                         roi_boxes[:,0:2] =  roi_boxes[:,0:2] / im.shape[0]
                         roi_boxes[:,2:4] =  roi_boxes[:,2:4] / im.shape[1]
-                    
                     for j in range(num_classes):
                         scores = scores_all[j,:]
                         #print(scores.shape)
