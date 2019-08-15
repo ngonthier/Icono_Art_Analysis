@@ -50,7 +50,8 @@ import os
 from FasterRCNN import _int64_feature,_bytes_feature,_floats_feature
 from IMDB import get_database
 
-def getDictFeaturesFasterRCNN(database,k_per_bag = 300,demonet='res152_COCO',metamodel = 'FasterRCNN'):
+def getDictFeaturesPrecomputed(database,k_per_bag = 300,demonet='res152_COCO',\
+                               metamodel = 'FasterRCNN'):
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
     #demonet = 'res152_COCO'
@@ -82,7 +83,8 @@ def getDictFeaturesFasterRCNN(database,k_per_bag = 300,demonet='res152_COCO',met
         dict_name_file[set_str] = name_pkl_all_features
     return(dict_name_file)
 
-def getTFRecordDataset(name_file,k_per_bag = 300,num_features = 2048,num_classes = 7,dim_rois = 5,allelt=False):
+def getTFRecordDataset(name_file,k_per_bag = 300,num_features = 2048,\
+                       num_classes = 7,dim_rois = 5,allelt=False):
     
     
     get_roisScore = True
@@ -156,7 +158,7 @@ def plotBoxesWithinImage(number_Im_plot=None):
     imdb = get_imdb('IconArt_v1_test')
 
     k_per_bag = 300
-    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag)
+    dict_name_file = getDictFeaturesPrecomputed(database,k_per_bag=k_per_bag)
     name_file = dict_name_file['test']
     next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag)
 
@@ -238,7 +240,7 @@ def plotBoxesIm(name_im,boxes,path_to_img=''):
         
 def modify_EdgeBoxesWrongBoxes(database='IconArt_v1',k_per_bag = 300,\
                                metamodel = 'EdgeBoxes',demonet='res152'):    
-    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag,\
+    dict_name_file = getDictFeaturesPrecomputed(database,k_per_bag=k_per_bag,\
                                                metamodel=metamodel,demonet=demonet)
     sess = tf.Session()
     dim_rois = 4
@@ -286,7 +288,7 @@ def modify_EdgeBoxesWrongBoxes(database='IconArt_v1',k_per_bag = 300,\
         
 def modify_RMNAddClasses(database='RMN',k_per_bag = 300,\
                                metamodel = 'FasterRCNN',demonet='res152_COCO'):    
-    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag,\
+    dict_name_file = getDictFeaturesPrecomputed(database,k_per_bag=k_per_bag,\
                                                metamodel=metamodel,demonet=demonet)
     sess = tf.Session()
     dim_rois = 5
@@ -358,7 +360,7 @@ def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300,metamodel = 'Faste
     imdb = get_imdb('IconArt_v1_test')
 
     
-    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag,\
+    dict_name_file = getDictFeaturesPrecomputed(database,k_per_bag=k_per_bag,\
                                                metamodel=metamodel,demonet=demonet)
     name_file = dict_name_file['test']
     if metamodel=='EdgeBoxes':
@@ -511,8 +513,9 @@ def draw_random_bbbox(h,w):
     bbox = [x,y,x2,y2]
     return bbox
 
-def Recall_all_database():
-    for database in ['IconArt_v1','watercolor','PeopleArt']:
+def Recall_all_databases():
+    #for database in ['IconArt_v1','watercolor','PeopleArt']:
+    for database in ['PeopleArt','watercolor']:
         for metamodel,demonet in zip(['FasterRCNN','EdgeBoxes'],['res152_COCO','res152']):
             eval_Recall_Boxes(database,metamodel,demonet)
 
@@ -521,7 +524,7 @@ def eval_Recall_Boxes(database='IconArt_v1',metamodel='FasterRCNN',demonet='res1
     """
     The goal of this function is to compute the recall of the 
     """
-    
+    tf.reset_default_graph()
     item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
    
     if database=='IconArt_v1':
@@ -535,38 +538,42 @@ def eval_Recall_Boxes(database='IconArt_v1',metamodel='FasterRCNN',demonet='res1
         list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
         
         
-    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag,\
+    dict_name_file = getDictFeaturesPrecomputed(database,k_per_bag=k_per_bag,\
                                                metamodel=metamodel,demonet=demonet)
     name_file = dict_name_file['test']
     if metamodel=='EdgeBoxes':
         dim_rois = 4
     else:
         dim_rois = 5
-    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,dim_rois = dim_rois)
+    print(name_file)
+    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,dim_rois = dim_rois,
+                                      num_classes = num_classes)
 
     # Load the Faster RCNN proposals
     dict_rois = {}
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    tf.reset_default_graph()
+   
     sess = tf.Session(config=config)
-    sum_of_classes = []
+   # sum_of_classes = []
     while True:
         try:
             fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
             for k in range(len(labels)):
                 name_im = name_imgs[k].decode("utf-8")
-                if name_im in list_im_withanno: 
-                    complet_name = path_to_img + str(name_im) + '.jpg'
-                    im = cv2.imread(complet_name)
-                    blobs, im_scales = get_blobs(im)
-                    roi = roiss[k,:]
-                    if metamodel=='EdgeBoxes':
-                        roi_boxes =  roi / im_scales[0] 
-                    else:
-                        roi_boxes =  roi[:,1:5] / im_scales[0] 
-                    dict_rois[name_im] = roi_boxes
-                    sum_of_classes += [np.sum(labels[k,:])]
+                if database=='IconArt_v1' and not(name_im in list_im_withanno): 
+                    continue
+                
+                complet_name = path_to_img + str(name_im) + '.jpg'
+                im = cv2.imread(complet_name)
+                blobs, im_scales = get_blobs(im)
+                roi = roiss[k,:]
+                if metamodel=='EdgeBoxes':
+                    roi_boxes =  roi / im_scales[0] 
+                else:
+                    roi_boxes =  roi[:,1:5] / im_scales[0] 
+                dict_rois[name_im] = roi_boxes
+                    #sum_of_classes += [np.sum(labels[k,:])]
         except tf.errors.OutOfRangeError:
             break
 
@@ -581,7 +588,12 @@ def eval_Recall_Boxes(database='IconArt_v1',metamodel='FasterRCNN',demonet='res1
 #        complet_name_tab = ('.'.join(complet_name.split('.')[0:-1])).split('/')
         im_path = imdb.image_path_at(i)
         name_im = im_path.split('/')[-1]
-        name_im = name_im.split('.')[0]
+        if database=='PeopleArt':
+            name_im =  '/'.join(im_path.split('/')[-2:])
+        if database=='PeopleArt':
+            name_im= '.'.join(name_im.split('.')[0:-1])
+        else:
+            name_im = name_im.split('.')[0]
         proposals_boxes = dict_rois[name_im]
 
         for k in range(len(proposals_boxes)): 
@@ -596,7 +608,7 @@ def eval_Recall_Boxes(database='IconArt_v1',metamodel='FasterRCNN',demonet='res1
     recalls = rec['recalls']
     rec_at_05 = recalls[0]*100
     str_rec = "{0:.3f}".format(rec_at_05)
-    print("Recall (thres = 0.5): ",database,'with k_per_bag =',k_per_bag,'for ',metamodel,' : ',str_rec)
+    print("==> Recall (thres = 0.5): ",database,'with k_per_bag =',k_per_bag,'for ',metamodel,' : ',str_rec)
     
 
     
@@ -726,7 +738,7 @@ def prepareData_to_TSNE(IoUValid=True):
     imdb = get_imdb(name_imdb)
 
     k_per_bag = 300
-    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag)
+    dict_name_file = getDictFeaturesPrecomputed(database,k_per_bag=k_per_bag)
     name_file = dict_name_file['test']
     next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag)
 
@@ -857,7 +869,7 @@ def prepareData_to_Pickle(IoUValid=True,demonet='res152_COCO'):
     imdb = get_imdb(name_imdb)
 
     k_per_bag = 300
-    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag,demonet=demonet)
+    dict_name_file = getDictFeaturesPrecomputed(database,k_per_bag=k_per_bag,demonet=demonet)
     name_file = dict_name_file['test']
     print(name_file)
    
