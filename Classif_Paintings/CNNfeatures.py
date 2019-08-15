@@ -16,13 +16,14 @@ import os
 import pathlib
 import cv2 # Need the contrib :  pip install opencv-contrib-python
 # Echec de la Tentative de build avec tes modifications !!! https://gist.github.com/jarle/8336eb9cd140ad95f26a54f1572fc2fd
-import pandas as pd
+#import pandas as pd
 import os.path
-from tool_on_Regions import reduce_to_k_regions
+#from tool_on_Regions import reduce_to_k_regions
 import numpy as np
 from FasterRCNN import _int64_feature,_bytes_feature,_floats_feature,vis_detections_list
 from tf_faster_rcnn.lib.model.test import get_blobs
 from IMDB import get_database
+
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -58,6 +59,37 @@ NETS_Pretrained = {'vgg16_VOC07' :'vgg16_faster_rcnn_iter_70000.ckpt',
                    }
 CLASSES_SET ={'VOC' : CLASSESVOC,
               'COCO' : CLASSESCOCO }
+
+def parser_w_rois_all_class(record,num_classes=10,num_rois=300,num_features=2048,
+                            with_rois_scores=False,dim_rois=5):
+        # Perform additional preprocessing on the parsed data.
+        if not(with_rois_scores):
+            keys_to_features={
+                        'rois': tf.FixedLenFeature([num_rois*dim_rois],tf.float32),
+                        'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
+                        'label' : tf.FixedLenFeature([num_classes],tf.float32),
+                        'name_img' : tf.FixedLenFeature([],tf.string)}
+        else:
+            keys_to_features={
+                        'roi_scores':tf.FixedLenFeature([num_rois],tf.float32),
+                        'rois': tf.FixedLenFeature([num_rois*dim_rois],tf.float32),
+                        'fc7': tf.FixedLenFeature([num_rois*num_features],tf.float32),
+                        'label' : tf.FixedLenFeature([num_classes],tf.float32),
+                        'name_img' : tf.FixedLenFeature([],tf.string)}
+            
+        parsed = tf.parse_single_example(record, keys_to_features)
+        # Cast label data into int32
+        label = parsed['label']
+        name_img = parsed['name_img']
+        fc7 = parsed['fc7']
+        fc7 = tf.reshape(fc7, [num_rois,num_features])
+        rois = parsed['rois']
+        rois = tf.reshape(rois, [num_rois,dim_rois])    
+        if not(with_rois_scores):
+            return fc7,rois, label,name_img
+        else:
+            roi_scores = parsed['roi_scores'] 
+            return fc7,rois,roi_scores,label,name_img
 
 def resize(im,b,demonet,augmentation,list_of_crop,rois):
     x, y, w, h = b # Attention Resize dans le bon sens car dans opencv ce n'est pas dans le même sens !!!
@@ -202,7 +234,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
         model = resnet_152_keras.resnet152_model_2048output(weights_path)
         num_features = 2048
     else:
-        raise(NotImplemented)
+        raise(NotImplementedError)
     tfconfig = tf.ConfigProto(allow_soft_placement=True)
     tfconfig.gpu_options.allow_growth=True
     # init session
@@ -403,8 +435,6 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
     tf.reset_default_graph()
     
     if testMode:
-        from TL_MIL import parser_w_rois_all_class
-        import os
         sets = ['train','test','trainval','val']
         dim_rois = 4
         for set_str in sets:
@@ -453,7 +483,7 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
 if __name__ == '__main__':
     #Compute_EdgeBoxesAndCNN_features(k_regions=300,plotProposedBoxes=True)
 #    Compute_EdgeBoxesAndCNN_features(database='watercolor',k_regions=300)
-    Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=300)
+    Compute_EdgeBoxesAndCNN_features(database='watercolor',k_regions=300)
 #    Compute_EdgeBoxesAndCNN_features(k_regions=2000)
 #    Compute_EdgeBoxesAndCNN_features(database='watercolor',k_regions=2000)
 #    Compute_EdgeBoxesAndCNN_features(database='VOC2007',k_regions=2000)
