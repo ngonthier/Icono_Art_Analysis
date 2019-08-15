@@ -41,6 +41,7 @@ from tf_faster_rcnn.lib.datasets.factory import get_imdb
 #from hyperopt import tpe
 from random import uniform
 from sklearn.metrics import hinge_loss
+from IMDB import get_database
 
 # For optimal performance, use C-ordered numpy.ndarray (dense) or scipy.sparse.csr_matrix (sparse) with dtype=float64
 
@@ -160,108 +161,22 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             num_features = 4096
         elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
             num_features = 2048
-        ext = '.txt'
-        dtypes = str
-        if database=='Paintings':
-            item_name = 'name_img'
-            path_to_img = 'Painting_Dataset/'
-            classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-        elif database=='VOC12':
-            item_name = 'name_img'
-            path_to_img = 'VOCdevkit/VOC2012/JPEGImages/'
-        elif database=='VOC2007':
-            ext = '.csv'
-            item_name = 'name_img'
-            path_to_img = 'VOCdevkit/VOC2007/JPEGImages/'
-            classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
-               'bottle', 'bus', 'car', 'cat', 'chair',
-               'cow', 'diningtable', 'dog', 'horse',
-               'motorbike', 'person', 'pottedplant',
-               'sheep', 'sofa', 'train', 'tvmonitor']
-        elif(database=='WikiTenLabels'):
-            ext='.csv'
-            item_name='item'
-            classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
-            'Mary','nudity', 'ruins','Saint_Sebastien','turban']
-        elif(database=='IconArt_v1'):
-            ext='.csv'
-            item_name='item'
-            classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
-            'Mary','nudity', 'ruins','Saint_Sebastien']
-            path_to_img = 'Wikidata_Paintings/IconArt_v1/JPEGImages/'
-        elif database=='watercolor':
-            ext = '.csv'
-            item_name = 'name_img'
-            path_to_img = 'cross-domain-detection/datasets/watercolor/JPEGImages/'
-            classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
-        elif(database=='Wikidata_Paintings'):
-            item_name = 'image'
-            path_to_img = 'Wikidata_Paintings/600/'
-            raise NotImplemented # TODO implementer cela !!! 
-        elif(database=='Wikidata_Paintings_miniset_verif'):
-            item_name = 'image'
-            path_to_img = 'Wikidata_Paintings/600/'
-            classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
-        else:
-            print(database,' unknown')
-            raise NotImplemented
-        
+        item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC \
+            = get_database(database)
+
         if(jtest>len(classes)) and testMode:
            print("We are in test mode but jtest>len(classes), we will use jtest =0" )
            jtest =0
-
-        path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-        Not_on_NicolasPC = False
-        if not(os.path.exists(path_data)):
-            # Modification of the path used
-            Not_on_NicolasPC = True
-            print('you are not on the Nicolas PC, so I think you have the data in the data folder')
-            path_tmp = 'data/' 
-            path_to_img = path_tmp + path_to_img
-            path_data = path_tmp + 'ClassifPaintings/'
-            path_data_csvfile = path_data
-            dataImg_path='data/'
-            path_data_csvfile = path_data
-        else:
-            path_to_img = '/media/gonthier/HDD/data/' + path_to_img
-            dataImg_path = '/media/gonthier/HDD/data/'
-            if database=='IconArt_v1':
-                path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
-            else:
-                path_data_csvfile = path_data
-        
-        databasetxt = path_data_csvfile + database + ext    
-        if database=='VOC2007' or database=='watercolor':
-            dtypes = {0:str,'name_img':str,'aeroplane':int,'bicycle':int,'bird':int, \
-                      'boat':int,'bottle':int,'bus':int,'car':int,'cat':int,'cow':int,\
-                      'dinningtable':int,'dog':int,'horse':int,'motorbike':int,'person':int,\
-                      'pottedplant':int,'sheep':int,'sofa':int,'train':int,'tvmonitor':int,'set':str}
-            df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
-            df_label[classes] = df_label[classes].apply(lambda x: np.floor((x + 1.0) /2.0))
-        else:
-            df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)
-            if database=='Wikidata_Paintings_miniset_verif':
-                df_label = df_label[df_label['BadPhoto'] <= 0.0]
-    
-        num_classes = len(classes)
         N = 1
         extL2 = ''
         nms_thresh = 0.7
         savedstr = '_all'
-        # TODO improve that
-#        if not('IconArt' in database):
-#            database_local = database
-#        else:
-#            database_local = 'IconArt'
         name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+ \
             '_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
            
         features_resnet_dict = {}
         sLength_all = len(df_label[item_name])
-        if demonet == 'vgg16_COCO':
-            size_output = 4096
-        elif demonet == 'res101_COCO' or demonet == 'res152_COCO' :
-            size_output = 2048
+
 
         if not(os.path.isfile(name_pkl)):
             # Compute the features
@@ -287,18 +202,13 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         minimal_surface = 36*36
         # In the case of Wikidata
         if database=='Wikidata_Paintings_miniset_verif':
-            raise(NotImplemented)
-#            random_state = 0
-#            index = np.arange(0,len(features_resnet_dict))
-#            index_trainval, index_test = train_test_split(index, test_size=0.6, random_state=random_state)
-#            index_trainval = np.sort(index_trainval)
-#            index_test = np.sort(index_test)
+            raise(NotImplementedError)
     
         if database in['VOC2007','watercolor','clipart','IconArt_v1']:
-            if database=='VOC2007' : imdb = get_imdb('voc_2007_test',data_path=dataImg_path)
-            if database=='watercolor' : imdb = get_imdb('watercolor_test',data_path=dataImg_path)
-            if database=='clipart' : imdb = get_imdb('clipart_test',data_path=dataImg_path)
-            if database=='IconArt_v1' : imdb = get_imdb('IconArt_v1_test',data_path=dataImg_path)
+            if database=='VOC2007' : imdb = get_imdb('voc_2007_test',data_path=path_data)
+            if database=='watercolor' : imdb = get_imdb('watercolor_test',data_path=path_data)
+            if database=='clipart' : imdb = get_imdb('clipart_test',data_path=path_data)
+            if database=='IconArt_v1' : imdb = get_imdb('IconArt_v1_test',data_path=path_data)
             imdb.set_force_dont_use_07_metric(True)
             if database in ['IconArt_v1']:
                 num_images =  len(df_label[df_label['set']=='test'][item_name])
@@ -364,7 +274,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             if verbose: print("Data loaded",len(features_resnet_dict))
         else:
             print(baseline_kind,' unknown')
-            raise(NotImplemented)
+            raise(NotImplementedError)
         
         
         # Then we run on the different classes
@@ -546,7 +456,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 y_trainval_select = np.array(y_trainval_select,dtype=np.float32)
             else:
                 print(baseline_kind,' unknown method')
-                raise(NotImplemented)
+                raise(NotImplementedError)
             if verbose: 
                 try:
                     print("Shape X and y",X_trainval_select.shape,y_trainval_select.shape)
@@ -825,7 +735,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             # Test Time
             for k in range(len(f_test)): 
                 if Test_on_k_bag: 
-                    raise(NotImplemented)
+                    raise(NotImplementedError)
 #                    decision_function_output = classifier_trained.decision_function(X_test[k,:,:])
                 else:
                     elt_k = f_test[k]
@@ -857,7 +767,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                     labels_test_predited[k] =  0 # Label of the class 0 or 1
             AP = average_precision_score(y_test[:,j],y_predict_confidence_score_classifier,average=None)
             if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
-                raise(NotImplemented)
+                raise(NotImplementedError)
 #                print("Baseline SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
             else:
                 print("Baseline ",baseline_kind," version Average Precision classification for",classes[j]," = ",AP)
