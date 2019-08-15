@@ -138,9 +138,13 @@ def main():
         #            Number 3 : hinge loss with score
         #            Number 5 : MIMAX without score
         #            Number 22 : hinge loss without score
-                    VariationStudyPart1(database,scenario_tab,num_rep = 10,Optimizer=Optimizer,metamodel=metamodel,demonet=demonet)
-                    VariationStudyPart2(database,scenario_tab,num_rep = 10,Optimizer=Optimizer,metamodel=metamodel,demonet=demonet)
-                except Exception:
+                    if database=='watercolor':
+                        VariationStudyPart1(database,scenario_tab,num_rep = 10,Optimizer=Optimizer,
+                                        metamodel=metamodel,demonet=demonet)
+                    VariationStudyPart2(database,scenario_tab,num_rep = 10,Optimizer=Optimizer,
+                                        metamodel=metamodel,demonet=demonet)
+                except Exception as e:
+                    print(e)
                     pass    
 #
 #            # MaxOfMax 
@@ -167,9 +171,14 @@ def main():
     #            Number 3 : hinge loss with score
     #            Number 5 : MIMAX without score
     #            Number 22 : hinge loss without score
-                VariationStudyPart1(database,scenario_tab,num_rep = 10,Optimizer=Optimizer,model='mi_model',max_iters_all_base=max_iters_all_base)
-                VariationStudyPart2(database,scenario_tab,num_rep = 10,Optimizer=Optimizer,model='mi_model',max_iters_all_base=max_iters_all_base)
-            except Exception:
+                VariationStudyPart1(database,scenario_tab,num_rep = 10,
+                                    Optimizer=Optimizer,model='mi_model',
+                                    max_iters_all_base=max_iters_all_base)
+                VariationStudyPart2(database,scenario_tab,num_rep = 10,
+                                    Optimizer=Optimizer,model='mi_model',
+                                    max_iters_all_base=max_iters_all_base)
+            except Exception as e:
+                print(e)
                 pass
             
     # One hidden layer model !
@@ -206,7 +215,14 @@ def PrintResults():
                 VariationStudyPart3(database,[0,5,3,22],num_rep = 10,Optimizer=Optimizer)
             except Exception:
                 pass    
-
+            
+            print('=== EdgeBoxes MImax ===')
+            for metamodel,demonet,scenario_tab in zip(['EdgeBoxes'],['res152'],[[5,22]]):
+                try: 
+                    VariationStudyPart3(database,scenario_tab,num_rep = 10,
+                                        Optimizer=Optimizer,metamodel=metamodel,demonet=demonet)
+                except Exception:
+                    pass 
             # MaxOfMax 
             print('=== MaxOfMax ===')
             for MaxOfMax,MaxMMeanOfMax in [[True,False],[False,True]]:
@@ -217,20 +233,37 @@ def PrintResults():
                         max_iters_all_base = 300
                     unefficient_evaluation_PrintResults(database=database,num_rep = 10,
                                                 Optimizer=Optimizer,MaxOfMax=MaxOfMax,\
-                                                MaxMMeanOfMax=MaxMMeanOfMax,max_iters_all_base = max_iters_all_base)
+                                                MaxMMeanOfMax=MaxMMeanOfMax,
+                                                max_iters_all_base = max_iters_all_base)
                 except Exception:
                     pass 
-            
+                
+            print('=== MiModel ===')
+            scenario_tab = [0,5,3,22]
+            max_iters_all_base = 3000
+            try: 
+    #            Number 0 : MIMAX-score
+    #            Number 3 : hinge loss with score
+    #            Number 5 : MIMAX without score
+    #            Number 22 : hinge loss without score
+                VariationStudyPart3(database,scenario_tab,num_rep = 10,
+                                    Optimizer=Optimizer,model='mi_model',
+                                    max_iters_all_base=max_iters_all_base)
+            except Exception as e:
+                print(e)
+                pass 
+                
             print('=== Add One Layer ===')
             try: 
                 if Optimizer=='GradientDescent':
-                    max_iters_all_base = 300
+                    max_iters_all_base = 3000
                 elif Optimizer=='lbfgs':
                     max_iters_all_base = 300
                 unefficient_evaluation_PrintResults(database=database,num_rep = 10,Optimizer=Optimizer,
                                                       max_iters_all_base=max_iters_all_base,
                                                       AddOneLayer=True,
-                                                      MaxOfMax=False,MaxMMeanOfMax=False)
+                                                      MaxOfMax=False,MaxMMeanOfMax=False,
+                                                      num_features_hidden=2048)
             except Exception:
                 pass 
 
@@ -243,6 +276,6 @@ def PrintResults():
             except Exception:
                 pass         
 if __name__ == '__main__':
-    ExperienceRuns()
+#    ExperienceRuns()
     main()
 #    PrintResults()
