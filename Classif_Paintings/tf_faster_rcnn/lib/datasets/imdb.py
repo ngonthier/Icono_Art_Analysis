@@ -162,6 +162,7 @@ class imdb(object):
     for i in range(self.num_images):
       # Checking for max_overlaps == 1 avoids including crowd annotations
       # (...pretty hacking :/)
+#      print('self.roidb[i]',i,self.roidb[i])
       max_gt_overlaps = self.roidb[i]['gt_overlaps'].toarray().max(axis=1)
       gt_inds = np.where((self.roidb[i]['gt_classes'] > 0) &
                          (max_gt_overlaps == 1))[0]

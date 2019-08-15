@@ -29,7 +29,7 @@ class IconArt_v1(imdb):
     """
     @param ext : extension to the dataset it is a subset
     """
-    name = image_set
+    name = _image_db + '_' + image_set
     if use_diff:
       name += '_diff'
     imdb.__init__(self, name)
@@ -48,7 +48,7 @@ class IconArt_v1(imdb):
                          'crucifixion_of_Jesus',
                     'Mary','nudity', 'ruins','Saint_Sebastien')
     else:
-        raise(NotImplemented)
+        raise(NotImplementedError)
     self._class_to_ind = dict(list(zip(self.classes, list(range(self.num_classes)))))
     self._image_ext = '.jpg'
     self._image_index = self._load_image_set_index()
@@ -66,7 +66,7 @@ class IconArt_v1(imdb):
                    'rpn_file': None}
 
     assert os.path.exists(self._devkit_path), \
-      'CrossDomain path does not exist: {}'.format(self._devkit_path)
+      'IconArt  path does not exist: {}'.format(self._devkit_path)
     assert os.path.exists(self._data_path), \
       'Path does not exist: {}'.format(self._data_path)
 

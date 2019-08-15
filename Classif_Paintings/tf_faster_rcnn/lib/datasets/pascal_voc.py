@@ -357,6 +357,33 @@ class pascal_voc(imdb):
 #    print('--------------------------------------------------------------')
     return(aps)
     
+  def evaluate_recall_voc(self,all_boxes):
+    annopath = os.path.join(
+      self._devkit_path,
+      'VOC' + self._year,
+      'Annotations',
+      '{:s}.xml')
+    imagesetfile = os.path.join(
+      self._devkit_path,
+      'VOC' + self._year,
+      'ImageSets',
+      'Main',
+      self._image_set + '.txt')
+    cachedir = os.path.join(self._devkit_path, 'annotations_cache')
+    recalls = []
+    # The PASCAL VOC metric changed in 2010
+    use_07_metric = True if int(self._year) < 2010 else False
+    if self.force_dont_use_07_metric == True: use_07_metric = False
+    for i, cls in enumerate(self._classes):
+      if cls == '__background__':
+        continue
+      filename = self._get_voc_results_file_template().format(cls)
+      rec, prec, ap = voc_eval(
+        filename, annopath, imagesetfile, cls, cachedir, ovthresh=0.5,
+        use_07_metric=use_07_metric, use_diff=self.config['use_diff'])
+      recalls += [rec]
+    return(recalls)
+    
     
   def evaluate_localisation_ovthresh(self,all_boxes, output_dir,ovthresh):
     """

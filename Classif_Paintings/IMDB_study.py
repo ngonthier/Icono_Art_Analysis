@@ -430,7 +430,7 @@ def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300,metamodel = 'Faste
 
     list_gt_boxes_best_iou = []
     list_gt_boxes_classes = []
-    all_boxes = [[[] for _ in range(imdb.num_images)] for _ in range(imdb.num_classes+1)]
+    all_boxes = [[[] for _ in range(imdb.num_images)] for _ in range(imdb.num_classes)]
     number_gt_boxes = 0
     for i in range(imdb.num_images):
         complet_name = imdb.image_path_at(i)
@@ -488,7 +488,7 @@ def Test_GT_inProposals(database='IconArt_v1',k_per_bag = 300,metamodel = 'Faste
     
     for i in range(imdb.num_images):
         for j in range(imdb.num_classes):
-            all_boxes[j+1][i] = np.array(all_boxes[j+1][i])
+            all_boxes[j][i] = np.array(all_boxes[j][i])
     
     imdb.set_force_dont_use_07_metric(True)
     output_dir = path_data +'tmp/' + database+'_mAP.txt'
@@ -510,6 +510,96 @@ def draw_random_bbbox(h,w):
     y2 = np.random.randint(y,w-30)
     bbox = [x,y,x2,y2]
     return bbox
+
+def Recall_all_database():
+    for database in ['IconArt_v1','watercolor','PeopleArt']:
+        for metamodel,demonet in zip(['FasterRCNN','EdgeBoxes'],['res152_COCO','res152']):
+            eval_Recall_Boxes(database,metamodel,demonet)
+
+def eval_Recall_Boxes(database='IconArt_v1',metamodel='FasterRCNN',demonet='res152_COCO',
+                      k_per_bag=300):
+    """
+    The goal of this function is to compute the recall of the 
+    """
+    
+    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
+   
+    if database=='IconArt_v1':
+        imdb = get_imdb('IconArt_v1_test')
+        list_im_withanno = list(df_label[df_label['Anno']==1][item_name].values)
+    elif database=='watercolor':
+        imdb = get_imdb('watercolor_test')
+        list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
+    elif database=='PeopleArt':
+        imdb = get_imdb('PeopleArt_test')
+        list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
+        
+        
+    dict_name_file = getDictFeaturesFasterRCNN(database,k_per_bag=k_per_bag,\
+                                               metamodel=metamodel,demonet=demonet)
+    name_file = dict_name_file['test']
+    if metamodel=='EdgeBoxes':
+        dim_rois = 4
+    else:
+        dim_rois = 5
+    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,dim_rois = dim_rois)
+
+    # Load the Faster RCNN proposals
+    dict_rois = {}
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    tf.reset_default_graph()
+    sess = tf.Session(config=config)
+    sum_of_classes = []
+    while True:
+        try:
+            fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
+            for k in range(len(labels)):
+                name_im = name_imgs[k].decode("utf-8")
+                if name_im in list_im_withanno: 
+                    complet_name = path_to_img + str(name_im) + '.jpg'
+                    im = cv2.imread(complet_name)
+                    blobs, im_scales = get_blobs(im)
+                    roi = roiss[k,:]
+                    if metamodel=='EdgeBoxes':
+                        roi_boxes =  roi / im_scales[0] 
+                    else:
+                        roi_boxes =  roi[:,1:5] / im_scales[0] 
+                    dict_rois[name_im] = roi_boxes
+                    sum_of_classes += [np.sum(labels[k,:])]
+        except tf.errors.OutOfRangeError:
+            break
+
+    sess.close()
+    print('End read the boxes proposals')
+    
+#    list_gt_boxes_classes = []
+    candidate_boxes = [[] for _ in range(imdb.num_images)]
+#    number_gt_boxes = 0
+    for i in range(imdb.num_images):
+        complet_name = imdb.image_path_at(i)
+#        complet_name_tab = ('.'.join(complet_name.split('.')[0:-1])).split('/')
+        im_path = imdb.image_path_at(i)
+        name_im = im_path.split('/')[-1]
+        name_im = name_im.split('.')[0]
+        proposals_boxes = dict_rois[name_im]
+
+        for k in range(len(proposals_boxes)): 
+            candidate_boxes[i] += [proposals_boxes[k]]
+            
+    for i in range(imdb.num_images):     
+        candidate_boxes[i] = np.array(candidate_boxes[i])
+    
+    imdb.set_force_dont_use_07_metric(True)
+    
+    rec = imdb.evaluate_recall(candidate_boxes)
+    recalls = rec['recalls']
+    rec_at_05 = recalls[0]*100
+    str_rec = "{0:.3f}".format(rec_at_05)
+    print("Recall (thres = 0.5): ",database,'with k_per_bag =',k_per_bag,'for ',metamodel,' : ',str_rec)
+    
+
+    
     
 def RandomBoxes_withTrueGT(database='IconArt_v1',withGT=True):
     """

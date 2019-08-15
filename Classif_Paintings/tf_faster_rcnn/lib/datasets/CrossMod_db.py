@@ -26,7 +26,7 @@ import pathlib
 class CrossMod_db(imdb):
   def __init__(self, _image_db,image_set, use_diff=False,devkit_path=None,test_ext=False,
                force_dont_use_07_metric=False):
-    name = image_set
+    name = _image_db + '_' + image_set
     if use_diff:
       name += '_diff'
     imdb.__init__(self, name)
