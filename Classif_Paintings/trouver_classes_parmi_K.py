@@ -1310,7 +1310,8 @@ class tf_MI_max():
                     W0 = tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features_hidden,self.num_features], stddev=1.,dtype=self.dtype),name="W0",dtype=self.dtype)
                     b0=tf.Variable(tf.random_normal([1,self.paral_number_W*self.num_classes,self.num_features_hidden], stddev=1.,dtype=self.dtype), name="b0",dtype=self.dtype)
                     W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features_hidden], stddev=1.,dtype=self.dtype),name="weights",dtype=self.dtype)
-                    b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.,dtype=self.dtype), name="bias",dtype=self.dtype)
+                    #b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.,dtype=self.dtype), name="bias",dtype=self.dtype)
+                    b=tf.Variable(tf.random_normal([1,1,self.paral_number_W*self.num_classes], stddev=1.,dtype=self.dtype), name="bias",dtype=self.dtype)
                 else:
                     W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.,dtype=self.dtype),name="weights",dtype=self.dtype)
                     b=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,1,1], stddev=1.,dtype=self.dtype), name="bias",dtype=self.dtype)
@@ -1338,6 +1339,7 @@ class tf_MI_max():
                 W_r=tf.reshape(W,(self.paral_number_W,self.num_classes,1,1,self.num_features))
             else:
                 if self.AddOneLayer: # ICI
+#                    W0 = tf.Variable(tf.random_normal([self.num_classes,self.num_features_hidden,self.num_features], stddev=1.,dtype=self.dtype),name="W0",dtype=self.dtype)
                     W0 = tf.Variable(tf.random_normal([self.num_classes,self.num_features_hidden,self.num_features], stddev=1.,dtype=self.dtype),name="W0",dtype=self.dtype)
                     b0=tf.Variable(tf.random_normal([1,self.num_classes,self.num_features_hidden], stddev=1.,dtype=self.dtype), name="b0",dtype=self.dtype)
                     W=tf.Variable(tf.random_normal([self.num_classes,self.num_features_hidden], stddev=1.,dtype=self.dtype),name="weights",dtype=self.dtype)
@@ -1367,18 +1369,18 @@ class tf_MI_max():
                     denselayer = tf.tanh(tf.add(h,b0))
                     Prod = tf.einsum('ikl,kl->ik',denselayer,W) # a verifier
                     Prod = tf.reshape(Prod, [-1, self.num_rois,self.paral_number_W*self.num_classes])
-                    Prod = tf.transpose(Prod,perm=[2,0,1])
+#                    Prod = tf.transpose(Prod,perm=[2,0,1])
                 else:
                     Prod = tf.einsum('ak,ijk->aij',W_r,X_)
-                Prod=tf.add(Prod,b)
+                    Prod=tf.add(Prod,b)
             else:
-                if self.AddOneLayer:
+                if self.AddOneLayer: # A finir ici
                     embed = tf.reshape(X_, [-1, self.num_features])
                     h = tf.einsum('lk,ijk->lij',embed,W0)
                     denselayer = tf.tanh(tf.add(h,b0))
-                    Prod = tf.einsum('ikl,kl->ik',denselayer,W)
+                    Prod = tf.einsum('lij,ij->li',denselayer,W)
                     Prod = tf.reshape(Prod, [-1, self.num_rois,self.num_classes])
-                    Prod = tf.transpose(Prod,perm=[2,0,1]) # Ralenti beaucoup 
+                    Prod = tf.transpose(Prod,perm=[2,0,1]) # Ralenti beaucoup ?
                     Prod=tf.add(Prod,b)
                 else:
                     Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_),axis=-1),b)
@@ -1398,7 +1400,12 @@ class tf_MI_max():
             
             # Different max version 
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
-                Max=tf.reduce_max(Prod,axis=-1) # We could try with a softmax or a relaxation version of the max !
+                
+                if self.AddOneLayer:
+                    Max=tf.reduce_max(Prod,axis=1) 
+                    Max = tf.transpose(Max,perm=[1,0])
+                else:
+                    Max=tf.reduce_max(Prod,axis=-1) 
             
                 if self.MaxOfMax:
                     Max_reshaped = tf.reshape(Max,(self.num_classes,self.paral_number_W,-1))
@@ -1524,10 +1531,11 @@ class tf_MI_max():
                     denselayer_batch = tf.tanh(tf.add(h_batch,b0))
                     Prod_batch = tf.einsum('ikl,kl->ik',denselayer_batch,W_r)
                     Prod_batch = tf.reshape(Prod_batch, [-1,self.num_rois,self.paral_number_W*self.num_classes])
-                    Prod_batch = tf.transpose(Prod_batch,perm=[2,0,1])
+                    #Prod_batch = tf.transpose(Prod_batch,perm=[2,0,1])
+                    Prod_batch=tf.add(Prod_batch,b)
                 else:
                     Prod_batch = tf.einsum('ak,ijk->aij',W_r,X_batch)
-                Prod_batch=tf.add(Prod_batch,b)
+                    Prod_batch=tf.add(Prod_batch,b)
             else:
                 if self.AddOneLayer:
                     embed_batch = tf.reshape(X_batch, [-1, self.num_features])
@@ -1549,7 +1557,12 @@ class tf_MI_max():
             elif self.obj_score_mul_tanh:
                 Prod_batch= tf.multiply(scores_batch,tf.tanh(Prod_batch))
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
-                Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
+                
+                if self.AddOneLayer:
+                    Max_batch=tf.reduce_max(Prod_batch,axis=1) # We take the max because we have at least one element of the bag that is positive
+                    Max_batch = tf.transpose(Max_batch,perm=[1,0])
+                else:
+                    Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
 
                 if self.MaxOfMax:
                     Max_batch_reshaped = tf.reshape(Max_batch,(self.num_classes,self.paral_number_W,-1))
@@ -1867,10 +1880,13 @@ class tf_MI_max():
                                     argmin = np.argmin(loss_value_j,axis=0)
                                     loss_value_j_min = np.min(loss_value_j,axis=0)
                                     W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
-                                    b_best[j,:,:] = b_tmp[j+argmin*self.num_classes]
+                                    
                                     if self.AddOneLayer:
+                                        b_best[j,:,:] = b_tmp[:,:,j+argmin*self.num_classes]
                                         W0_best[j,:] = W0_tmp[j+argmin*self.num_classes,:,:]
                                         b0_best[:,j,:] = b0_tmp[:,j+argmin*self.num_classes,:]
+                                    else:
+                                        b_best[j,:,:] = b_tmp[j+argmin*self.num_classes]
                                     loss_value_min+=[loss_value_j_min]
                                     if (self.C_Searching or  self.CV_Mode=='CVforCsearch') and self.verbose:
                                         print('Best C values : ',C_value_repeat[j+argmin*self.num_classes],'class ',j)

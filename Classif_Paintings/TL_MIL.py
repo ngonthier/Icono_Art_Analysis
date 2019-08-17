@@ -2380,11 +2380,11 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True  
             
-    # Data for the MI_max Latent SVM
+    # Data for the MI_max Latent perceptron
     # All those parameter are design for my GPU 1080 Ti memory size 
     performance = False
     if parallel_op:
-        sizeMax = 30*10000 // (k_per_bag*num_classes) 
+        sizeMax = 300000*7 // (k_per_bag*num_classes) 
     else:
         sizeMax = 30*10000 // k_per_bag
     if restarts_paral=='Dim': # It will create a new dimension
@@ -2399,7 +2399,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     if not(init_by_mean is None) and not(init_by_mean==''):
         if not(CV_Mode=='CV' and num_split==2):
             sizeMax //= 2
-     # boolean paralleliation du W
+    # boolean paralleliation du W
     if CV_Mode == 'CVforCsearch':
         sizeMax //= 2
     if num_features > 2048:
@@ -2407,7 +2407,6 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
 #    elif num_features < 2048:
 #        sizeMax //= (2048//num_features)
     # InternalError: Dst tensor is not initialized. can mean that you are running out of GPU memory
-    
     if model=='MI_max' or model=='':
         model_str = 'MI_max'
         if k_per_bag==300:
@@ -2426,20 +2425,18 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             raise(NotImplementedError)
     else:
         print(model,' is unknown')
-        raise(NotImplementedError)
-            
+        raise(NotImplementedError)        
     if (k_per_bag > 300 or num_trainval_im > 5000) and not(Not_on_NicolasPC): # We do the assumption that you are on a cluster with a big RAM (>50Go)
         usecache = False
     else:
         usecache = True
 
-    if verbose : print('usecache',usecache,mini_batch_size,buffer_size)
-
     if CV_Mode=='1000max':
-        sizeMax = min(sizeMax,1000)
-        
+        sizeMax = min(sizeMax,1000) 
     if mini_batch_size is None or mini_batch_size==0:
         mini_batch_size = min(sizeMax,num_trainval_im)
+
+    if verbose : print('usecache :',usecache,'mini_batch_size =',mini_batch_size,"buffer_size =",buffer_size)
 
     if testMode:
         ext_test = '_Test_Mode'

@@ -502,6 +502,112 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
             with open(name_dictAP, 'wb') as f:
                 pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
                 
+def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
+                                        Optimizer='GradientDescent',
+                                        max_iters_all_base=3000):
+    """
+    Compute the performance for the MaxOfMax model on num_rep runs
+    """
+    
+    seuillage_by_score = False
+    obj_score_add_tanh = False
+    loss_type = ''
+    seuil = 0
+    C_Searching = False
+    demonet = 'res152_COCO'
+    layer = 'fc7'
+    number_restarts = 11
+    CV_Mode = ''
+    AggregW = None
+    proportionToKeep = [0.25,1.0]
+    loss_type = ''
+    WR = True
+    with_scores = True
+    seuillage_by_score=False
+    obj_score_add_tanh=False
+    lambdas = 0.5
+    obj_score_mul_tanh = False
+    PCAuse = False
+    Max_version = None
+    k_per_bag = 300
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_output = path_data +'VarStudy/'
+    ReDo = True
+    
+    scores_tab = [True]
+    loss_tab = ['']
+    
+    for with_scores in scores_tab:
+        for loss_type in loss_tab:
+            name_dict = path_data_output 
+            name_dict += 'mi_model_'
+            if not(demonet== 'res152_COCO'):
+                name_dict += demonet +'_'
+            if not(layer== 'fc7'):
+                name_dict += '_'+demonet
+            name_dict +=  database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            CV_Mode+'_'+str(loss_type)
+            if not(WR):
+                name_dict += '_withRegularisationTermInLoss'
+            if with_scores:
+                 name_dict += '_WithScore'
+            if seuillage_by_score:
+                name_dict += 'SC'+str(seuil)
+            if obj_score_add_tanh:
+                name_dict += 'SAdd'+str(lambdas)
+            if obj_score_mul_tanh:
+                name_dict += 'SMul'    
+            if PCAuse:
+                name_dict +='_PCA09'
+            if not(k_per_bag==300):
+                name_dict +='_k'+str(k_per_bag)
+            if not(Max_version=='' or Max_version is None) :
+                name_dict +='_'+Max_version
+            if not(max_iters_all_base==300) :
+                name_dict +='_MIAB'+str(max_iters_all_base)
+            if not(num_rep==100):
+                name_dict += '_numRep'+ str(num_rep)
+            if not(Optimizer=='GradientDescent'):
+                name_dict += '_'+Optimizer
+            name_dictAP = name_dict + '_APscore.pkl'
+            DictAP = {}
+            ll = []
+            l01 = []
+            lclassif = []
+            for r in range(num_rep):
+                apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                                              verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                              PlotRegions = False,saved_clf=False,RPN=False,
+                                              CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+                                              parallel_op=True,CV_Mode=CV_Mode,num_split=2,
+                                              WR=WR,init_by_mean =None,seuil_estimation='',
+                                              restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+                                              C=1.0,Optimizer=Optimizer,norm='',
+                                              transform_output='tanh',with_rois_scores_atEnd=False,
+                                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+                                              Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                              k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
+                                              ,proportionToKeep=proportionToKeep,storeVectors=False,
+                                              obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                                              obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
+                                              layer=layer,model='mi_model')
+                ll += [apsAt05]
+                l01 += [apsAt01]
+                lclassif += [AP_per_class]
+            # End of the 100 experiment for a specific AggreW
+            ll_all = np.vstack(ll)
+            l01_all = np.vstack(l01)
+            apsClassif_all = np.vstack(lclassif)
+    
+            DictAP['AP@.5'] =  ll_all
+            DictAP['AP@.1'] =  l01_all
+            DictAP['APClassif'] =  apsClassif_all
+        
+            with open(name_dictAP, 'wb') as f:
+                pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+                
 def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
                                         MaxOfMax=True,MaxMMeanOfMax=False,
@@ -666,9 +772,11 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     ReDo = True
+    scores_tab = [True]
+    loss_tab = ['']
     
-    for loss_type in ['','hinge']:
-        for with_scores in [False,True]:
+    for loss_type in loss_tab:
+        for with_scores in scores_tab:
             name_dict = path_data_output 
             if not(demonet== 'res152_COCO'):
                 name_dict += demonet +'_'
@@ -706,12 +814,13 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
             ll = []
             l01 = []
             lclassif = []
+            parallel_op = True # Test que ce soit parallel des scores
             for r in range(num_rep):
                 apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
                                               verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
                                               PlotRegions = False,saved_clf=False,RPN=False,
                                               CompBest=False,Stocha=True,k_per_bag=k_per_bag,
-                                              parallel_op=False,CV_Mode=CV_Mode,num_split=2,
+                                              parallel_op=parallel_op,CV_Mode=CV_Mode,num_split=2,
                                               WR=WR,init_by_mean =None,seuil_estimation='',
                                               restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
                                               C=1.0,Optimizer=Optimizer,norm='',
@@ -724,7 +833,8 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
                                               ,proportionToKeep=proportionToKeep,storeVectors=False,
                                               obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                                               obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
-                                              layer=layer,AddOneLayer=AddOneLayer,num_features_hidden=num_features_hidden)
+                                              layer=layer,AddOneLayer=AddOneLayer,
+                                              num_features_hidden=num_features_hidden)
                 ll += [apsAt05]
                 l01 += [apsAt01]
                 lclassif += [AP_per_class]
@@ -744,12 +854,13 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
 def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO',\
                         k_per_bag=300,layer='fc7',num_rep = 100,Optimizer='GradientDescent',
                         r=11,bs=0,C=1.0,metamodel='FasterRCNN',
-                        mode='MI_max'):
+                        model='MI_max',max_iters_all_base=300):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
     First Part Store thevectors computed
     '''
+    tf.reset_default_graph()
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     if database is None:
@@ -775,7 +886,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
         output = get_params_fromi_scenario(i_scenario)
         listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,WR,\
         with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-        PCAuse,Max_version,max_iters_all_base = output   
+        PCAuse,Max_version = output   
             
             
        # TODO rajouter ici un cas ou l on fait normalise les features
@@ -896,7 +1007,6 @@ def get_params_fromi_scenario(i_scenario):
     listAggregW = [None]
     PCAuse = False
     Max_version = None
-    max_iters_all_base = 300
     if i_scenario==0: # MIMAX-S : MILS
         listAggregW = ['maxOfTanh',None,'meanOfTanh','minOfTanh','AveragingW']
         C_Searching = False
@@ -1179,7 +1289,7 @@ def get_params_fromi_scenario(i_scenario):
             
     output = listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,\
     WR,with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-    PCAuse,Max_version,max_iters_all_base
+    PCAuse,Max_version
     
     return(output)
         
@@ -1187,7 +1297,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
                         demonet = 'res152_COCO',k_per_bag=300,layer='fc7',
                         num_rep = 100,Optimizer='GradientDescent',
                         r=11,bs=0,C=1.0,metamodel='FasterRCNN',
-                        mode='MI_max'):
+                        model='MI_max',max_iters_all_base=300):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -1195,6 +1305,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
     '''
     print('========= Part 2 Variation Study ===========')
     
+    tf.reset_default_graph()
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     if database is None:
@@ -1220,6 +1331,13 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
     dont_use_07_metric  =True
     Dict = {}
     seuil = 0.9 
+    if metamodel=='FasterRCNN':
+        dim_rois = 5
+    elif metamodel=='EdgeBoxes':
+        dim_rois = 4
+    else:
+        print(metamodel,'unkwnon ! Error raised')
+        raise(NotImplementedError)
     
     data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
@@ -1228,7 +1346,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
         output = get_params_fromi_scenario(i_scenario)
         listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeepTab,loss_type,WR,\
         with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-        PCAuse,Max_version,max_iters_all_base = output
+        PCAuse,Max_version = output
         
         if withoutAggregW:
             listAggregW  = [None]
@@ -1375,8 +1493,11 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
             #    sLength_all = len(df_label[item_name])
             if demonet in ['vgg16_COCO','vgg16_VOC07','vgg16_VOC12']:
                 num_features = 4096
-            elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
+            elif demonet in ['res101_COCO','res152_COCO','res101_VOC07','res152']:
                 num_features = 2048
+            else:
+                print(demonet,'unkwon')
+                raise(NotImplementedError)
             
             if PCAuse:
                 if variance_thres==0.9:
@@ -1532,7 +1653,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
                                    cachefile_model_base=cachefile_model_base,transform_output=transform_output,
                                    scoreInMI_max=(with_scores or seuillage_by_score or obj_score_add_tanh or obj_score_mul_tanh)
                                    ,AggregW=AggregW,obj_score_add_tanh=obj_score_add_tanh,
-                                   obj_score_mul_tanh=obj_score_mul_tanh)
+                                   obj_score_mul_tanh=obj_score_mul_tanh,dim_rois=dim_rois)
                             tf.reset_default_graph()
 #                            print(export_dir)
 #                            os.remove(export_dir)
@@ -2593,9 +2714,9 @@ def VariationStudyPart2bis():
                         pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
       
 def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO',onlyAP05=False,
-                        withoutAggregW=False,k_per_bag=300,layer='fc7',num_rep = 100,
+                        withoutAggregW=True,k_per_bag=300,layer='fc7',num_rep = 100,
                         Optimizer='GradientDescent',r=11,bs=0,C=1.0,metamodel='FasterRCNN',
-                        mode='MI_max'):
+                        model='MI_max',max_iters_all_base=300):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -2634,7 +2755,7 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
             output = get_params_fromi_scenario(i_scenario)
             listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeepTab,loss_type,WR,\
             with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\
-            PCAuse,Max_version,max_iters_all_base = output
+            PCAuse,Max_version = output
             
             if withoutAggregW:
                 listAggregW  = [None]

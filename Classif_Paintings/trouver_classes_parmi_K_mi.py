@@ -440,10 +440,12 @@ class tf_mi_model():
         self.optim_wt_Reg= optim_wt_Reg
         self.AggregW = AggregW
         self.listAggregOnProdorTanh = ['meanOfProd','medianOfProd','maxOfProd','maxOfTanh',\
-                                       'meanOfTanh','medianOfTanh','minOfTanh','minOfProd','meanOfSign']
+                                       'meanOfTanh','medianOfTanh','minOfTanh','minOfProd',\
+                                       'meanOfSign']
         self.proportionToKeep = proportionToKeep
-        assert(proportionToKeep > 0.0)
-        assert(proportionToKeep <= 1.0)
+        if AggregW in self.listAggregOnProdorTanh:
+            assert(proportionToKeep > 0.0)
+            assert(proportionToKeep <= 1.0)
         self.Cbest =None
         self.obj_score_add_tanh = obj_score_add_tanh
         self.lambdas = lambdas
