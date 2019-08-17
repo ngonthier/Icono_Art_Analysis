@@ -192,7 +192,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         
 #        features_resnet = np.empty((sLength_all,k_per_bag,size_output),dtype=np.float32)  
         classes_vectors = np.zeros((sLength_all,num_classes),dtype=np.float32)
-        if database in ['Wikidata_Paintings_miniset_verif','VOC2007','watercolor','IconArt_v1']:
+        if database in ['Wikidata_Paintings_miniset_verif','VOC2007','watercolor','IconArt_v1','PeopleArt']:
             classes_vectors = df_label.as_matrix(columns=classes)
         f_test = {}
 
@@ -204,11 +204,12 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         if database=='Wikidata_Paintings_miniset_verif':
             raise(NotImplementedError)
     
-        if database in['VOC2007','watercolor','clipart','IconArt_v1']:
+        if database in['VOC2007','watercolor','clipart','IconArt_v1','PeopleArt']:
             if database=='VOC2007' : imdb = get_imdb('voc_2007_test',data_path=path_data)
             if database=='watercolor' : imdb = get_imdb('watercolor_test',data_path=path_data)
             if database=='clipart' : imdb = get_imdb('clipart_test',data_path=path_data)
             if database=='IconArt_v1' : imdb = get_imdb('IconArt_v1_test',data_path=path_data)
+            if database=='PeopleArt' : imdb = get_imdb('PeopleArt_test',data_path=path_data)
             imdb.set_force_dont_use_07_metric(True)
             if database in ['IconArt_v1']:
                 num_images =  len(df_label[df_label['set']=='test'][item_name])
