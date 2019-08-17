@@ -5,7 +5,7 @@ from sklearn.model_selection import KFold
 import tensorflow as tf
 
 from tf_faster_rcnn.lib.datasets.factory import get_imdb
-from IMDB_study import getDictFeaturesFasterRCNN,getTFRecordDataset
+from IMDB_study import getDictFeaturesPrecomputed,getTFRecordDataset
 from IMDB import get_database
 
 def load_dataset(dataset_nm='IconArt_v1',set_='train',classe=0,k_per_bag = 300,metamodel = 'FasterRCNN',demonet='res152_COCO'):
@@ -23,7 +23,7 @@ def load_dataset(dataset_nm='IconArt_v1',set_='train',classe=0,k_per_bag = 300,m
     datasets = {}
     
     item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(dataset_nm)
-    dict_name_file = getDictFeaturesFasterRCNN(dataset_nm,k_per_bag=k_per_bag,\
+    dict_name_file = getDictFeaturesPrecomputed(dataset_nm,k_per_bag=k_per_bag,\
                                                metamodel=metamodel,demonet=demonet)
     
     config = tf.ConfigProto()
