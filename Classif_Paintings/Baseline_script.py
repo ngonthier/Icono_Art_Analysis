@@ -229,8 +229,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                             classes_vectors[i,j] = 1
         
         # Separation training, validation, test set
-        if database in['VOC12','Paintings','VOC2007','watercolor','IconArt_v1','WikiTenLabels']:
-            if database in ['VOC2007','watercolor','IconArt_v1','WikiTenLabels']:
+        if database in['VOC12','Paintings','VOC2007','watercolor','IconArt_v1','WikiTenLabels','PeopleArt']:
+            if database in ['VOC2007','watercolor','IconArt_v1','WikiTenLabels','PeopleArt']:
                 str_val ='val' 
             else: 
                 str_val='validation'
@@ -693,7 +693,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         for i,name_img in  enumerate(df_label[item_name]):
             if i%1000==0 and not(i==0):
                 if verbose: print(i,name_img)
-            if database in ['VOC2007','VOC12','Paintings','watercolor','IconArt_v1']:          
+            if database in ['VOC2007','VOC12','Paintings','watercolor','IconArt_v1','PeopleArt']:          
                 InSet = (df_label.loc[df_label[item_name]==name_img]['set']=='test').any()
 #            elif database=='Wikidata_Paintings_miniset_verif':
 #                InSet = (i in index_test)
@@ -789,7 +789,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         print(AP_per_class)
         print(arrayToLatex(AP_per_class))
     
-        if database in ['VOC2007','watercolor','IconArt_v1']:
+        if database in ['VOC2007','watercolor','IconArt_v1','PeopleArt']:
             if testMode:
                 for j in range(0, imdb.num_classes-1):
                     if not(j==jtest):
