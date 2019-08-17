@@ -15,7 +15,7 @@ from MINNpy3.MI_Net_with_DS import MI_Net_with_DS_WSOD
 from MINNpy3.MI_Net_with_RC import MI_Net_with_RC_WSOD
 from MINNpy3.mi_Net import mi_Net_WSOD
 
-from IMDB_study import getDictFeaturesFasterRCNN,getTFRecordDataset
+from IMDB_study import getDictFeaturesPrecomputed,getTFRecordDataset
 from IMDB import get_database
 import numpy as np
 import cv2
@@ -79,7 +79,7 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
         model = MILmodel_fct(dataset,max_epoch=max_epoch)
         model_dict[j] = model
     
-    dict_name_file = getDictFeaturesFasterRCNN(dataset_nm,k_per_bag=k_per_bag,\
+    dict_name_file = getDictFeaturesPrecomputed(dataset_nm,k_per_bag=k_per_bag,\
                                                metamodel=metamodel,demonet=demonet)
     
     name_file = dict_name_file['test']
