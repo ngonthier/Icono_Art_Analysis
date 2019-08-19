@@ -804,8 +804,13 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             all_boxes_order = [[[] for _ in range(num_images_detect)] for _ in range(imdb.num_classes)]
             for i in range(num_images_detect):
                 name_img = imdb.image_path_at(i)
-                name_img_wt_ext = name_img.split('/')[-1]
-                name_img_wt_ext =name_img_wt_ext.split('.')[0]
+                if database=='PeopleArt':
+                    name_img_wt_ext = name_img.split('/')[-2] +'/' +name_img.split('/')[-1]
+                    name_img_wt_ext_tab =name_img_wt_ext.split('.')
+                    name_img_wt_ext = '.'.join(name_img_wt_ext_tab[0:-1])
+                else:
+                    name_img_wt_ext = name_img.split('/')[-1]
+                    name_img_wt_ext =name_img_wt_ext.split('.')[0]
                 #print(name_img_wt_ext)
                 name_img_ind = np.where(np.array(name_all_test)==name_img_wt_ext)[0]
                 #print(name_img_ind)
