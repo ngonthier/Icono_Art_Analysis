@@ -806,8 +806,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 name_img = imdb.image_path_at(i)
                 if database=='PeopleArt':
                     name_img_wt_ext = name_img.split('/')[-2] +'/' +name_img.split('/')[-1]
-                    name_img_wt_ext_tab =name_img_wt_ext.split('.')
-                    name_img_wt_ext = '.'.join(name_img_wt_ext_tab[0:-1])
+                    #name_img_wt_ext_tab =name_img_wt_ext.split('.')
+                    #name_img_wt_ext = '.'.join(name_img_wt_ext_tab[0:-1])
                 else:
                     name_img_wt_ext = name_img.split('/')[-1]
                     name_img_wt_ext =name_img_wt_ext.split('.')[0]
