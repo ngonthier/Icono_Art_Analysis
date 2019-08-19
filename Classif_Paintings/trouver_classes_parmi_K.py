@@ -2655,9 +2655,9 @@ class tf_MI_max():
             else:
                 if self.AddOneLayer:
                     embed = tf.reshape(X_, [-1, self.num_features])
-                    h_ = tf.einsum('lk,ijk->lij',embed,W0_best)
+                    h_ = tf.einsum('lk,ijk->lij',embed,tf.convert_to_tensor(W0_best))
                     denselayer_ = tf.tanh(tf.add(h_,b0_best))
-                    Prod_ = tf.einsum('ikl,kl->ik',denselayer_,W_best)
+                    Prod_ = tf.einsum('ikl,kl->ik',denselayer_,tf.convert_to_tensor(W_best))
                     Prod_ = tf.reshape(Prod_, [-1, self.num_rois,self.num_classes])
                     Prod_ = tf.transpose(Prod_,perm=[2,0,1])
                     Prod_=tf.add(Prod_,b,name='Prod')
