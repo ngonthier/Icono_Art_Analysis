@@ -3,7 +3,9 @@
 """
 Created on Fri May  4 11:56:51 2018
 
-The goal of this script is to create a panda dataframe for VOC 2007
+The goal of this script is to create a panda dataframe for VOC 2007 and others
+datasets used in this project such as Watercolor or PeopleArt
+
 
 Inspired https://github.com/pjreddie/darknet/blob/master/scripts/voc_label.py
 @author: gonthier
@@ -198,6 +200,37 @@ def Clipart():
 
     df=pd.read_csv(output_name,dtype=str)
     print(df.iloc[[45,46,47]])
+    
+def Comic():
+    df = None
+    classes = ['bike','bird','car','cat','dog','person']
+    sets = [('comic','train'),('comic','test')]
+    for base,image_set in sets:
+        path_b = '/media/gonthier/HDD/data/cross-domain-detection/datasets/comic/ImageSets/Main/%s.txt'%(image_set)
+        pd_b = pd.read_csv(path_b,sep=r"\s*",names=['name_img'],dtype=str)
+        for c in classes:
+            pd_b[c] = -1
+        print(pd_b.head(5))
+        for index, row in pd_b.iterrows():
+            i = row['name_img']
+            path_i = '/media/gonthier/HDD/data/cross-domain-detection/datasets/comic/Annotations/%s.xml'%(i)
+            read_file = voc_eval.parse_rec(path_i)
+            for element in read_file:
+                classe_elt = element['name']
+                for c in classes:
+                    if classe_elt==c:
+                        pd_b.loc[pd_b['name_img']==row['name_img'],c] = 1
+        pd_b['set'] = image_set
+        if df is None:
+            df = pd_b
+        else:
+            df = df.append(pd_b)
+    output_name = path_output + 'comic_all' + '.csv'
+    df.to_csv(output_name)
+    
+    output_name = path_output + 'comic' + '.csv'
+    df.to_csv(output_name)
+
         
 if __name__ == '__main__':
     Clipart()

@@ -892,11 +892,12 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             index_trainval = np.sort(index_trainval)
             index_test = np.sort(index_test)
     
-        if database=='VOC2007'  or database=='watercolor' or database=='clipart' or database=='WikiTenLabels' or database=='PeopleArt':
+        if database=='VOC2007'  or database in ['watercolor','clipart','comic'] or database=='WikiTenLabels' or database=='PeopleArt':
             if database=='VOC2007' : imdb = get_imdb('voc_2007_test')
             if database=='PeopleArt' : imdb = get_imdb('PeopleArt_test')
             if database=='watercolor' : imdb = get_imdb('watercolor_test')
             if database=='clipart' : imdb = get_imdb('clipart_test')
+            if database=='comic' : imdb = get_imdb('comic_test')
             if database=='WikiTenLabels' :imdb = get_imdb('WikiTenLabels_test')
             if database=='WikiTenLabels':
                 num_images =  len(df_label[df_label['set']=='test'][item_name])
@@ -1194,7 +1195,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         for i,name_img in  enumerate(df_label[item_name]):
             if i%1000==0 and not(i==0):
                 if verbose: print(i,name_img)
-            if database in ['VOC2007','VOC12','Paintings','watercolor','clipart','WikiTenLabels','PeopleArt']:         
+            if database in ['VOC2007','VOC12','Paintings','watercolor','clipart','comic','WikiTenLabels','PeopleArt']:         
                 InSet = (df_label.loc[df_label[item_name]==name_img]['set']=='test').any()
             elif database=='Wikidata_Paintings_miniset_verif':
                 InSet = (i in index_test)
@@ -1261,7 +1262,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                 y_predict_confidence_score_classifier[k]  = np.max(decision_function_output)
 #                roi_with_object_of_the_class = np.argmax(decision_function_output)
                 # For detection 
-                if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt']:
+                if database in ['VOC2007','watercolor','clipart','comic','WikiTenLabels','PeopleArt']:
                     thresh = 0.05 # Threshold score or distance MI_max
                     TEST_NMS = 0.3 # Recouvrement entre les classes
                     if not(database=='PeopleArt'):
@@ -1320,7 +1321,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         print(arrayToLatex(AP_per_class,per=True))
         print('~~~~~~~~')
 
-        if database in ['VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt']:
+        if database in ['VOC2007','watercolor','clipart','comic','WikiTenLabels','PeopleArt']:
 #            print('name_all_test',name_all_test)
             if testMode:
                 for j in range(0, imdb.num_classes-1):
@@ -1608,10 +1609,11 @@ def FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Pa
         
         if verbose: print("End data processing")
     
-        if database=='VOC2007'  or database=='watercolor' or database=='clipart':
+        if database=='VOC2007'  or database in ['watercolor','clipart','comic']:
             if database=='VOC2007' : imdb = get_imdb('voc_2007_test')
             if database=='watercolor' : imdb = get_imdb('watercolor_test')
             if database=='clipart' : imdb = get_imdb('clipart_test')
+            if database=='comic' : imdb = get_imdb('comic_test')
             num_images = len(imdb.image_index)
         elif database=='WikiTenLabels':
             imdb = get_imdb('WikiTenLabels_test')
@@ -2720,6 +2722,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         imdb = get_imdb('clipart_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
         num_images = len(imdb.image_index) 
+    elif database=='comic':
+        imdb = get_imdb('comic_test')
+        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+        num_images = len(imdb.image_index) 
     elif database=='IconArt_v1' or database=='RMN':
         imdb = get_imdb('IconArt_v1_test')
         imdb.set_force_dont_use_07_metric(dont_use_07_metric)
@@ -2937,7 +2943,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         pickle.dump(name_milsvm, f)
     
     # Detection evaluation
-    if database in ['RMN','VOC2007','watercolor','clipart','WikiTenLabels',\
+    if database in ['RMN','VOC2007','watercolor','clipart','comic','WikiTenLabels',\
                     'PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']\
                     or 'IconArt_v1' in database:
         if testMode:
@@ -3036,7 +3042,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     param_name,path_data_file,file_param = \
     create_param_id_file_and_dir(path_data+'/SauvParam/',arrayParam,arrayParamStr)
     
-    if database in ['RMN','VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt',\
+    if database in ['RMN','VOC2007','watercolor','clipart','comic','WikiTenLabels','PeopleArt',\
                     'MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']\
                     or 'IconArt_v1' in database:
         write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class),aps,np.mean(aps)],
@@ -3360,14 +3366,14 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         for k in range(len(labels)):
                             if index_im > number_im:
                                 continue
-                            if database in ['IconArt_v1','VOC2007','watercolor','Paintings','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training'] \
+                            if database in ['IconArt_v1','VOC2007','watercolor','Paintings','clipart','comic','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training'] \
                                 or 'OIV5' in database:
                                 name_img = str(name_imgs[k].decode("utf-8") )
                             else:
                                 name_img = name_imgs[k]
                             rois = roiss[k,:]
                             #if verbose: print(name_img)
-                            if database in ['IconArt_v1','VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt','WikiLabels1000training','MiniTrain_WikiTenLabels'] \
+                            if database in ['IconArt_v1','VOC12','Paintings','VOC2007','clipart','comic','watercolor','WikiTenLabels','PeopleArt','WikiLabels1000training','MiniTrain_WikiTenLabels'] \
                                 or 'OIV5' in database:
                                 complet_name = path_to_img + name_img + '.jpg'
                                 name_sans_ext = name_img
@@ -3851,7 +3857,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
 #                if predict_with=='LinearSVC':
                 #print(PositiveExScoreAll.shape)
                 for k in range(len(labels)):
-                    if database in ['IconArt_v1','VOC2007','watercolor','Paintings','clipart',\
+                    if database in ['IconArt_v1','VOC2007','watercolor','Paintings','clipart','comic',\
                                     'WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels',\
                                     'WikiLabels1000training'] or 'IconArt_v1' in database or 'OIV5' in database :
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
@@ -3896,7 +3902,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     i+=1
     
                 for l in range(len(name_imgs)): 
-                    if database in ['IconArt_v1','VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training'] \
+                    if database in ['IconArt_v1','VOC2007','watercolor','clipart','comic','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training'] \
                         or 'OIV5' in database:
                         name_all_test += [[str(name_imgs[l].decode("utf-8"))]]
                     else:
@@ -3911,13 +3917,13 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     for k in range(len(labels)):   
                         if ii > number_im:
                             continue
-                        if  database in ['IconArt_v1','VOC2007','Paintings','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']  \
+                        if  database in ['IconArt_v1','VOC2007','Paintings','watercolor','clipart','comic','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']  \
                             or 'OIV5' in database:
                             name_img = str(name_imgs[k].decode("utf-8") )
                         else:
                             name_img = name_imgs[k]
                         rois = roiss[k,:]
-                        if database in ['IconArt_v1','VOC12','Paintings','VOC2007','clipart','watercolor','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']\
+                        if database in ['IconArt_v1','VOC12','Paintings','VOC2007','clipart','comic','watercolor','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']\
                                 or 'OIV5' in database:
                             complet_name = path_to_img + name_img + '.jpg'
                             name_sans_ext = name_img

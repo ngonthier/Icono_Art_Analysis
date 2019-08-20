@@ -65,6 +65,11 @@ def get_database(database):
            'cow', 'diningtable', 'dog', 'horse',
            'motorbike', 'person', 'pottedplant',
            'sheep', 'sofa', 'train', 'tvmonitor']
+    elif database=='comic':
+        ext = '.csv'
+        item_name = 'name_img'
+        path_to_img = 'cross-domain-detection/datasets/comic/JPEGImages/'
+        classes =  ['bike','bird','car','cat','dog','person']
     elif(database=='Wikidata_Paintings'):
         item_name = 'image'
         path_to_img = 'data/Wikidata_Paintings/600/'

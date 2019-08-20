@@ -18,19 +18,19 @@ from CNNfeatures import Compute_EdgeBoxesAndCNN_features
 
 from MILnet_eval import runSeveralMInet
 
-def ExperienceRuns():
+def ExperienceRuns(database_tab =  ['IconArt_v1','watercolor','PeopleArt']):
     
-    database_tab =  ['IconArt_v1','watercolor','PeopleArt']
+    
     for database in database_tab:
         # Study of the impact of the number of restarts
         r_tab = [0,99] # 11 by default
-        r_tab = [1,4] # 11 by default
+        r_tab = [0,1,4,49,99,149] # 11 by default
         for r in r_tab:
             VariationStudyPart1(database,[0],num_rep = 10,r=r)
             VariationStudyPart2(database,[0],num_rep = 10,r=r)
 #                VariationStudyPart2(database,[0,5,3,22],num_rep = 10,Optimizer=Optimizer)
         # Batch size
-        bs_tab = [32,126,500] # 1000 by default
+        bs_tab = [8,16,32,126,256,500] # 1000 by default
         bs_tab = [8] # 1000 by default
         for bs in bs_tab:
             VariationStudyPart1(database,[0],num_rep = 10,bs=bs)
@@ -38,7 +38,7 @@ def ExperienceRuns():
         
         # C value
         C_tab = [0.01,0.1,0.5,1.5] # 1.0 by default
-        C_tab = [10.] # 1.0 by default
+        C_tab = [0.01,0.1,0.5,1.0,1.5,2.,10.] # 1.0 by default
         for C in C_tab:
             VariationStudyPart1(database,[0],num_rep = 10,C=C)
             VariationStudyPart2(database,[0],num_rep = 10,C=C)
@@ -106,7 +106,58 @@ def print_run_studyParam():
 #              fontsize=16)
         plt.show()
             
+def mainClipArt():
+   optim_list =['GradientDescent']
+   for Optimizer in optim_list:
+        for database in ['clipart']:
+            # If Faster RCNN [0,5,3,22] for scenario_tab
+            # MI_max
+            scenario_tab = [0,5,3,22]
+            try: 
+            #            Number 0 : MIMAX-score
+            #            Number 3 : hinge loss with score
+            #            Number 5 : MIMAX without score
+            #            Number 22 : hinge loss without score
+                VariationStudyPart1(database,scenario_tab,num_rep = 10,Optimizer=Optimizer)
+                VariationStudyPart2(database,scenario_tab,num_rep = 10,Optimizer=Optimizer)
+            except Exception as e:
+                 print(e)
+                 pass 
             
+            # MaxOfMax 
+            for MaxOfMax,MaxMMeanOfMax in [[True,False],[False,True]]:
+                try: 
+                    if Optimizer=='GradientDescent':
+                        max_iters_all_base = 3000
+                    elif Optimizer=='lbfgs':
+                        max_iters_all_base = 300
+                    unefficient_way_MaxOfMax_evaluation(database=database,num_rep = 10,
+                                                Optimizer=Optimizer,MaxOfMax=MaxOfMax,\
+                                                MaxMMeanOfMax=MaxMMeanOfMax,
+                                                max_iters_all_base = max_iters_all_base)
+                except Exception:
+                    pass   
+            
+            for metamodel,demonet,scenario_tab in zip(['EdgeBoxes'],['res152'],[[5,22]]):
+                try: 
+        #            Number 0 : MIMAX-score
+        #            Number 3 : hinge loss with score
+        #            Number 5 : MIMAX without score
+        #            Number 22 : hinge loss without score
+                    VariationStudyPart1(database,scenario_tab,num_rep = 10,Optimizer=Optimizer,
+                                        metamodel=metamodel,demonet=demonet)
+                    VariationStudyPart2(database,scenario_tab,num_rep = 10,Optimizer=Optimizer,
+                                        metamodel=metamodel,demonet=demonet)
+                except Exception as e:
+                    print(e)
+                    pass  
+                
+   MILmodel_tab = ['MI_Net','MI_Net_with_DS','MI_Net_with_RC','mi_Net']
+
+   for MILmodel in MILmodel_tab:
+        runSeveralMInet(dataset_nm='clipart',MILmodel=MILmodel)
+
+                  
             
 
 def main():
@@ -162,7 +213,7 @@ def main():
     # Instance based model mi_model
     for database in ['IconArt_v1','watercolor','PeopleArt']:
         try:
-            unefficient_way_mi_model_evaluation(database,num_rep = 10,
+            unefficient_way_mi_model_evaluation(database,num_rep =3,
                                         Optimizer='GradientDescent',
                                         max_iters_all_base=3000)
 #        # If Faster RCNN [0,5,3,22] for scenario_tab
@@ -184,21 +235,24 @@ def main():
             pass
             
     # One hidden layer model !
-#    for Optimizer in optim_list:
-#        for database in ['IconArt_v1','watercolor','PeopleArt']:
-#            try: 
-#                if Optimizer=='GradientDescent':
-#                    max_iters_all_base = 3000
-#                elif Optimizer=='lbfgs':
-#                    max_iters_all_base = 300
-#                # Pour 3 epochs 0 restarts cela prend : 50s soit 7 jours par cas :( 
-    # avec hidden layer = 25 : il faudrait 10 milles secondes par run....
-#                unefficient_way_OneHiddenLayer_evaluation(database=database,num_rep = 10,Optimizer=Optimizer,
-#                                                      max_iters_all_base=max_iters_all_base,
-#                                                      num_features_hidden=2048) 
-#            except Exception as e:
-#                print(e)
-#                pass 
+    optim_list = ['GradientDescent']
+    for Optimizer in optim_list:
+        for database in ['IconArt_v1','watercolor','PeopleArt']:
+            try: 
+                if Optimizer=='GradientDescent':
+                    max_iters_all_base = 3000
+                elif Optimizer=='lbfgs':
+                    max_iters_all_base = 300
+                # Pour 3 epochs 0 restarts cela prend : 50s soit 7 jours par cas :( 
+                # avec hidden layer = 25 : il faudrait 10 milles secondes par run....
+                unefficient_way_OneHiddenLayer_evaluation(database=database,num_rep =3,
+                                                          Optimizer=Optimizer,
+                                                          max_iters_all_base=max_iters_all_base,
+                                                          num_features_hidden=2048,
+                                                          number_restarts=1) 
+            except Exception as e:
+                print(e)
+                pass 
 
                
    
@@ -280,6 +334,6 @@ def PrintResults():
             except Exception:
                 pass         
 if __name__ == '__main__':
-#    ExperienceRuns()
+    ExperienceRuns(database_tab=['clipart'])
     main()
 #    PrintResults()

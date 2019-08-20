@@ -204,10 +204,11 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         if database=='Wikidata_Paintings_miniset_verif':
             raise(NotImplementedError)
     
-        if database in['VOC2007','watercolor','clipart','IconArt_v1','PeopleArt']:
+        if database in['VOC2007','watercolor','clipart','comic','IconArt_v1','PeopleArt']:
             if database=='VOC2007' : imdb = get_imdb('voc_2007_test',data_path=path_data)
             if database=='watercolor' : imdb = get_imdb('watercolor_test',data_path=path_data)
             if database=='clipart' : imdb = get_imdb('clipart_test',data_path=path_data)
+            if database=='comic' : imdb = get_imdb('comic_test',data_path=path_data)
             if database=='IconArt_v1' : imdb = get_imdb('IconArt_v1_test',data_path=path_data)
             if database=='PeopleArt' : imdb = get_imdb('PeopleArt_test',data_path=path_data)
             imdb.set_force_dont_use_07_metric(True)
@@ -230,8 +231,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                             classes_vectors[i,j] = 1
         
         # Separation training, validation, test set
-        if database in['VOC12','Paintings','VOC2007','watercolor','IconArt_v1','WikiTenLabels','PeopleArt']:
-            if database in ['VOC2007','watercolor','IconArt_v1','WikiTenLabels','PeopleArt']:
+        if database in['VOC12','Paintings','VOC2007','clipart','watercolor','comic','IconArt_v1','WikiTenLabels','PeopleArt']:
+            if database in ['VOC2007','watercolor','clipart','comic','IconArt_v1','WikiTenLabels','PeopleArt']:
                 str_val ='val' 
             else: 
                 str_val='validation'
@@ -694,7 +695,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         for i,name_img in  enumerate(df_label[item_name]):
             if i%1000==0 and not(i==0):
                 if verbose: print(i,name_img)
-            if database in ['VOC2007','VOC12','Paintings','watercolor','IconArt_v1','PeopleArt']:          
+            if database in ['VOC2007','VOC12','Paintings','watercolor','clipart','comic','IconArt_v1','PeopleArt']:          
                 InSet = (df_label.loc[df_label[item_name]==name_img]['set']=='test').any()
 #            elif database=='Wikidata_Paintings_miniset_verif':
 #                InSet = (i in index_test)

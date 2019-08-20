@@ -575,6 +575,7 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
             l01 = []
             lclassif = []
             for r in range(num_rep):
+                print('reboot :',r,'on',num_rep)
                 apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
                                               verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
                                               PlotRegions = False,saved_clf=False,RPN=False,
@@ -742,7 +743,8 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                 
 def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
-                                        max_iters_all_base = 300,num_features_hidden=256):
+                                        max_iters_all_base = 300,num_features_hidden=256,
+                                        number_restarts = 11):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
     """
@@ -754,7 +756,7 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
     C_Searching = False
     demonet = 'res152_COCO'
     layer = 'fc7'
-    number_restarts = 11
+    
     CV_Mode = ''
     AggregW = None
     proportionToKeep = [0.25,1.0]
@@ -809,13 +811,16 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
             name_dict += 'AddOneLayer'
             if not(num_features_hidden==256):
                 name_dict += '_'+str(num_features_hidden)
+            if not(number_restarts ==11):
+                name_dict += '_restarts'+str(number_restarts)
             name_dictAP = name_dict + '_APscore.pkl'
             DictAP = {}
             ll = []
             l01 = []
             lclassif = []
-            parallel_op = True # Test que ce soit parallel des scores
+            parallel_op = False # Test que ce soit parallel des scores
             for r in range(num_rep):
+                print('reboot :',r,'on',num_rep)
                 apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
                                               verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
                                               PlotRegions = False,saved_clf=False,RPN=False,
