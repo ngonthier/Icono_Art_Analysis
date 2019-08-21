@@ -106,10 +106,10 @@ def print_run_studyParam():
 #              fontsize=16)
         plt.show()
             
-def mainClipArt():
+def mainDatabase(database_tab=['clipart']):
    optim_list =['GradientDescent']
    for Optimizer in optim_list:
-        for database in ['clipart']:
+        for database in database_tab:
             # If Faster RCNN [0,5,3,22] for scenario_tab
             # MI_max
             scenario_tab = [0,5,3,22]
@@ -125,7 +125,7 @@ def mainClipArt():
                  pass 
             
             # MaxOfMax 
-            for MaxOfMax,MaxMMeanOfMax in [[True,False],[False,True]]:
+            for MaxOfMax in [True]:
                 try: 
                     if Optimizer=='GradientDescent':
                         max_iters_all_base = 3000
@@ -133,7 +133,7 @@ def mainClipArt():
                         max_iters_all_base = 300
                     unefficient_way_MaxOfMax_evaluation(database=database,num_rep = 10,
                                                 Optimizer=Optimizer,MaxOfMax=MaxOfMax,\
-                                                MaxMMeanOfMax=MaxMMeanOfMax,
+                                                MaxMMeanOfMax=False,
                                                 max_iters_all_base = max_iters_all_base)
                 except Exception:
                     pass   
@@ -154,11 +154,9 @@ def mainClipArt():
                 
    MILmodel_tab = ['MI_Net','MI_Net_with_DS','MI_Net_with_RC','mi_Net']
 
-   for MILmodel in MILmodel_tab:
-        runSeveralMInet(dataset_nm='clipart',MILmodel=MILmodel)
-
-                  
-            
+   for dataset_nm in database_tab:
+       for MILmodel in MILmodel_tab:
+           runSeveralMInet(dataset_nm=dataset_nm,MILmodel=MILmodel)
 
 def main():
     
@@ -254,23 +252,23 @@ def main():
                 print(e)
                 pass 
 
-               
-   
-            
 
-
-def PrintResults():
+def PrintResults(database_tab=['IconArt_v1','watercolor','PeopleArt','clipart'],pm_only_on_mean=True):
+    """
+    @param : pm_only_on_mean : only print the pm std for the mean over the classes
+    """
     #for Optimizer in ['GradientDescent','lbfgs']:
     
     for Optimizer in ['GradientDescent']:
-        for database in ['IconArt_v1','watercolor','PeopleArt']:
+        for database in database_tab:
             print('=== MImax with and without score ===')
             try: 
     #            Number 0 : MIMAX-score
     #            Number 3 : hinge loss with score
     #            Number 5 : MIMAX without score
     #            Number 22 : hinge loss without score
-                VariationStudyPart3(database,[0,5,3,22],num_rep = 10,Optimizer=Optimizer)
+                VariationStudyPart3(database,[0,5,3,22],num_rep = 10,Optimizer=Optimizer,
+                                    pm_only_on_mean=pm_only_on_mean)
             except Exception:
                 pass    
             
@@ -278,7 +276,8 @@ def PrintResults():
             for metamodel,demonet,scenario_tab in zip(['EdgeBoxes'],['res152'],[[5,22]]):
                 try: 
                     VariationStudyPart3(database,scenario_tab,num_rep = 10,
-                                        Optimizer=Optimizer,metamodel=metamodel,demonet=demonet)
+                                        Optimizer=Optimizer,metamodel=metamodel,
+                                        demonet=demonet,pm_only_on_mean=pm_only_on_mean)
                 except Exception:
                     pass 
             # MaxOfMax 
@@ -327,13 +326,14 @@ def PrintResults():
 
     print('=== Revisiting MIL Nets ===')               
     MILmodel_tab = ['MI_Net','MI_Net_with_DS','MI_Net_with_RC','mi_Net']
-    for database in ['IconArt_v1','watercolor','PeopleArt']:
+    for database in database_tab:
         for MILmodel in MILmodel_tab:
             try:
-                runSeveralMInet(dataset_nm=database,MILmodel=MILmodel,printR=True)
+                runSeveralMInet(dataset_nm=database,MILmodel=MILmodel,printR=True,
+                                pm_only_on_mean=pm_only_on_mean)
             except Exception:
                 pass         
 if __name__ == '__main__':
     ExperienceRuns(database_tab=['clipart'])
-    main()
+    mainDatabase(database_tab=['clipart'])
 #    PrintResults()

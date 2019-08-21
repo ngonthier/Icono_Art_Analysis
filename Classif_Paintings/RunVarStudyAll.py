@@ -897,26 +897,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
        # TODO rajouter ici un cas ou l on fait normalise les features
     
         for database in database_tab:
-            ## Compte the vectors and bias W
-            exportname,arrayParam = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
-                                          verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
-                                          PlotRegions = False,saved_clf=False,RPN=False,
-                                          CompBest=False,Stocha=True,k_per_bag=k_per_bag,
-                                          parallel_op=True,CV_Mode=CV_Mode,num_split=2,
-                                          WR=WR,init_by_mean =None,seuil_estimation='',
-                                          restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
-                                          C=C,Optimizer=Optimizer,norm='',
-                                          transform_output='tanh',with_rois_scores_atEnd=False,
-                                          with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-                                          Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
-                                          k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
-                                          gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                                          thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
-                                          ,proportionToKeep=proportionToKeep,storeVectors=True,
-                                          obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                                          obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
-                                          layer=layer,mini_batch_size=bs,metamodel=metamodel,model=model)
-            tf.reset_default_graph()
+            
             name_dict = path_data_output 
             if not(model=='MI_max'):
                 name_dict += model+'_'
@@ -958,8 +939,34 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
             if not(metamodel=='FasterRCNN'):
                 name_dict += '_'+metamodel
             name_dict += '.pkl'
-            copyfile(exportname,name_dict)
-            print(name_dict,'copied')
+            
+            ReDo  = False
+            if not os.path.isfile(name_dict) or ReDo: 
+            
+                ## Compte the vectors and bias W
+                exportname,arrayParam = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                                              verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                              PlotRegions = False,saved_clf=False,RPN=False,
+                                              CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+                                              parallel_op=True,CV_Mode=CV_Mode,num_split=2,
+                                              WR=WR,init_by_mean =None,seuil_estimation='',
+                                              restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+                                              C=C,Optimizer=Optimizer,norm='',
+                                              transform_output='tanh',with_rois_scores_atEnd=False,
+                                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+                                              Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                              k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
+                                              ,proportionToKeep=proportionToKeep,storeVectors=True,
+                                              obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                                              obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
+                                              layer=layer,mini_batch_size=bs,metamodel=metamodel,model=model)
+                tf.reset_default_graph()
+                copyfile(exportname,name_dict)
+                print(name_dict,'copied')
+            else:
+                print(name_dict,'already exists.')
             
 def ComputationForLossPlot(database= 'PeopleArt'):
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
@@ -1404,91 +1411,8 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
                 name_dict += '_'+metamodel
             name_dictW = name_dict + '.pkl'
             
-
-            ext = '.txt'
-            if database=='Paintings':
-                item_name = 'name_img'
-                path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
-                classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
-            elif database=='VOC12':
-                item_name = 'name_img'
-                path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
-            elif database=='VOC2007':
-                ext = '.csv'
-                item_name = 'name_img'
-                path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
-                classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
-                   'bottle', 'bus', 'car', 'cat', 'chair',
-                   'cow', 'diningtable', 'dog', 'horse',
-                   'motorbike', 'person', 'pottedplant',
-                   'sheep', 'sofa', 'train', 'tvmonitor']
-            elif database=='watercolor':
-                ext = '.csv'
-                item_name = 'name_img'
-                path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
-                classes =  ["bicycle", "bird","car", "cat", "dog", "person"]
-            elif database=='PeopleArt':
-                ext = '.csv'
-                item_name = 'name_img'
-                path_to_img = '/media/gonthier/HDD/data/PeopleArt/JPEGImages/'
-                classes =  ["person"]
-            elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
-                ext = '.csv'
-                item_name = 'item'
-                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/JPEGImages/'
-                classes =  ['angel', 'beard','capital','Child_Jesus', 'crucifixion_of_Jesus',
-                            'Mary','nudity', 'ruins','Saint_Sebastien','turban']
-            elif database=='clipart':
-                ext = '.csv'
-                item_name = 'name_img'
-                path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/clipart/JPEGImages/'
-                classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
-                   'bottle', 'bus', 'car', 'cat', 'chair',
-                   'cow', 'diningtable', 'dog', 'horse',
-                   'motorbike', 'person', 'pottedplant',
-                   'sheep', 'sofa', 'train', 'tvmonitor']
-            elif(database=='Wikidata_Paintings'):
-                item_name = 'image'
-                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-                raise NotImplementedError # TODO implementer cela !!! 
-            elif(database=='IconArt_v1'):
-                ext='.csv'
-                item_name='item'
-                classes =  ['angel','Child_Jesus', 'crucifixion_of_Jesus',
-                'Mary','nudity', 'ruins','Saint_Sebastien']
-                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/JPEGImages/'
-            elif(database=='Wikidata_Paintings_miniset_verif'):
-                item_name = 'image'
-                path_to_img = '/media/gonthier/HDD/data/Wikidata_Paintings/600/'
-                classes = ['Q235113_verif','Q345_verif','Q10791_verif','Q109607_verif','Q942467_verif']
-            else:
-                raise NotImplementedError
-            
-            path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-            if database=='IconArt_v1':
-                path_data_csvfile = '/media/gonthier/HDD/data/Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
-            else:
-                path_data_csvfile = path_data
-            databasetxt =path_data_csvfile + database + ext
-            if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
-                dtypes = {0:str,'item':str,'angel':int,'beard':int,'capital':int, \
-                              'Child_Jesus':int,'crucifixion_of_Jesus':int,'Mary':int,'nudity':int,'ruins':int,'Saint_Sebastien':int,\
-                              'turban':int,'set':str,'Anno':int}
-                df_label = pd.read_csv(databasetxt,sep=",",dtype=dtypes)    
-            else:
-                df_label = pd.read_csv(databasetxt,sep=",")
-            str_val = 'val'
-            if database=='Wikidata_Paintings_miniset_verif':
-                df_label = df_label[df_label['BadPhoto'] <= 0.0]
-                str_val = 'validation'
-            elif database=='Paintings':
-                str_val = 'validation'
-            elif database in ['VOC2007','watercolor','clipart','PeopleArt']:
-                str_val = 'val'
-                df_label[classes] = df_label[classes].apply(lambda x:(x + 1.0)/2.0)
-            num_trainval_im = len(df_label[df_label['set']=='train'][item_name]) + len(df_label[df_label['set']==str_val][item_name])
-            num_classes = len(classes)
-#                print(database,'with ',num_trainval_im,' images in the trainval set')
+            item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data, \
+                Not_on_NicolasPC = get_database(database)
             N = 1
             extL2 = ''
             nms_thresh = 0.7
@@ -1559,6 +1483,10 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
                 num_images = len(imdb.image_index)
             elif database=='clipart':
                 imdb = get_imdb('clipart_test')
+                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+                num_images = len(imdb.image_index)
+            elif database=='comic':
+                imdb = get_imdb('comic_test')
                 imdb.set_force_dont_use_07_metric(dont_use_07_metric)
                 num_images = len(imdb.image_index)
             elif database=='IconArt_v1':
@@ -1745,7 +1673,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
                         with open(name_dictAP, 'wb') as f:
                             pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
                     else:
-                        print('The files already exist we will not do it again')
+                        print('The file already exist we will not do it again :',name_dictAP)
                         
 def VariationStudyPart2_forVOC07():
     '''
@@ -2721,7 +2649,7 @@ def VariationStudyPart2bis():
 def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO',onlyAP05=False,
                         withoutAggregW=True,k_per_bag=300,layer='fc7',num_rep = 100,
                         Optimizer='GradientDescent',r=11,bs=0,C=1.0,metamodel='FasterRCNN',
-                        model='MI_max',max_iters_all_base=300):
+                        model='MI_max',max_iters_all_base=300,pm_only_on_mean=False):
     '''
     The goal of this function is to study the variation of the performance of our 
     method
@@ -2858,9 +2786,14 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
     #                            print(mean_over_class.shape)
     #                            print(std_over_class.shape)
     #                            input('wait')
-                                for mean_c,std_c in zip(mean_over_class,std_over_class):
-                                    s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
-                                    string_to_print += s + ' & '
+                                if not(pm_only_on_mean):
+                                    for mean_c,std_c in zip(mean_over_class,std_over_class):
+                                        s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
+                                        string_to_print += s + ' & '
+                                else:
+                                    for mean_c,std_c in zip(mean_over_class,std_over_class):
+                                        s =  "{0:.1f} ".format(mean_c*multi)
+                                        string_to_print += s + ' & '
                                 s =  "{0:.1f}  ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f}  ".format(std_of_mean_over_reboot*multi)
                                 string_to_print += s + ' \\\  '
                             else:
