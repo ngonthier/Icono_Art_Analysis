@@ -278,7 +278,9 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
                 if not(i==0):
                     pickle.dump(features_resnet_dict,pkl) # Save the data
                     features_resnet_dict= {}
-            if database in ['IconArt_v1','VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['IconArt_v1','VOC2007','clipart','comic','Paintings',\
+                            'watercolor','WikiTenLabels','MiniTrain_WikiTenLabels',\
+                            'WikiLabels1000training','CASPApaintings']:
                 complet_name = path_to_img + name_img + '.jpg'
             elif database=='PeopleArt':
                 complet_name = path_to_img + name_img
@@ -307,7 +309,8 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
         elif filesave=='tfrecords':
             if i%Itera==0:
                 if verbose : print(i,name_img)
-            if database in ['IconArt_v1','VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['IconArt_v1','VOC2007','clipart','comic','Paintings','watercolor'\
+                            ,'CASPApaintings','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
             elif database=='PeopleArt':
@@ -357,10 +360,9 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
                 for j in range(num_classes):
                     if(classes[j] in df_label['classe'][i]):
                         classes_vectors[j] = 1
-            if database in ['VOC2007','clipart','watercolor','PeopleArt']:
+            if database in ['VOC2007','clipart','watercolor','comic','PeopleArt','CASPApaintings']:
                 for j in range(num_classes):
                     value = int((int(df_label[classes[j]][i])+1.)/2.)
-                    #print(value)
                     classes_vectors[j] = value
             if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
                 for j in range(num_classes):
@@ -416,7 +418,8 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
                     dict_writers['trainval'].write(example.SerializeToString())
                 elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
                     dict_writers['test'].write(example.SerializeToString())
-            if database in ['IconArt_v1','watercolor','clipart','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+            if database in ['IconArt_v1','watercolor','clipart','comic','WikiTenLabels',\
+                            'MiniTrain_WikiTenLabels','WikiLabels1000training','CASPApaintings']:
                 if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
                     dict_writers['train'].write(example.SerializeToString())
                     dict_writers['trainval'].write(example.SerializeToString())
@@ -457,7 +460,9 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
                 nx = sess.run(next_element)
                 print(nx)
                 name_img = nx[-1][0].decode('utf8')
-                if database in ['IconArt_v1','VOC2007','clipart','Paintings','watercolor','WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+                if database in ['IconArt_v1','VOC2007','clipart','comic','Paintings',\
+                                'watercolor','WikiTenLabels','MiniTrain_WikiTenLabels',\
+                                'WikiLabels1000training','CASPApaintings']:
                     complet_name = path_to_img + name_img + '.jpg'
                     name_sans_ext = name_img
                 elif database=='PeopleArt':

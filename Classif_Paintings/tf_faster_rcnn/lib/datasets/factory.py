@@ -45,6 +45,11 @@ def get_sets(data_path='/media/gonthier/HDD/data/'):
         name = '{}_{}'.format(db,split)
         __sets[name] = (lambda split=split, db=db: CrossMod_db(db,split,devkit_path=data_path,test_ext=True))
  
+  for db in ['CASPApaintings']:
+    for split in ['train', 'test']:
+        name = '{}_{}'.format(db,split)
+        __sets[name] = (lambda split=split, db=db: CrossMod_db(db,split,devkit_path=data_path,test_ext=True))
+ 
   for db in ['WikiTenLabels']:
     for split in ['test']:
         name = '{}_{}'.format(db,split)

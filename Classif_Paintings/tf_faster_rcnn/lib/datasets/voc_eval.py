@@ -20,9 +20,14 @@ def parse_rec(filename):
   for obj in tree.findall('object'):
     obj_struct = {}
     obj_struct['name'] = obj.find('name').text
-    obj_struct['pose'] = obj.find('pose').text
-    obj_struct['truncated'] = int(obj.find('truncated').text)
-    obj_struct['difficult'] = int(obj.find('difficult').text)
+    for elt in ['pose','truncated','difficult']:
+        try:
+            if elt in ['truncated','difficult']:
+                obj_struct[elt] = int(obj.find(elt).text)
+            else:
+                obj_struct[elt] = obj.find(elt).text
+        except AttributeError:
+            print('No ',elt,' element')
     bbox = obj.find('bndbox')
     obj_struct['bbox'] = [int(bbox.find('xmin').text),
                           int(bbox.find('ymin').text),

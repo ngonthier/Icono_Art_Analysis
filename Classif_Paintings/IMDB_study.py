@@ -246,7 +246,7 @@ def modify_EdgeBoxesWrongBoxes(database='IconArt_v1',k_per_bag = 300,\
     dim_rois = 4
     #num_classes = 7
     num_features = 2048
-    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =get_database(database)
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =get_database(database)
     for key in dict_name_file.keys():
         print('=========',key,'==========')
         name_file = dict_name_file[key]
@@ -294,7 +294,7 @@ def modify_RMNAddClasses(database='RMN',k_per_bag = 300,\
     dim_rois = 5
     num_classes_old = 1
     num_features = 2048
-    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =get_database(database)
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =get_database(database)
     name_file = dict_name_file['trainval']
     dst = name_file.replace('.tfrecords','_old.tfrecords')
     name_file_new = name_file.replace('.tfrecords','_new.tfrecords')
@@ -525,7 +525,7 @@ def eval_Recall_Boxes(database='IconArt_v1',metamodel='FasterRCNN',demonet='res1
     The goal of this function is to compute the recall of the 
     """
     tf.reset_default_graph()
-    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
    
     if database=='IconArt_v1':
         imdb = get_imdb('IconArt_v1_test')

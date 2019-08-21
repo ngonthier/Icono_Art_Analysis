@@ -407,7 +407,7 @@ def Estimate_Contrib_Vectors(MaxOfMax=False,MaxMMeanOfMax=False,withscore=False)
         np_neg_value =  Dict['np_neg_value']
         
         dataset_nm = 'IconArt_v1'
-        item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =\
+        item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =\
             get_database(dataset_nm)
         
         k_per_bag = 300

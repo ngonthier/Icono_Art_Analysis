@@ -104,7 +104,7 @@ def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1
     return(classifier)
 
 
-def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test_on_k_bag = False,
+def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag = False,
                              normalisation= False,baseline_kind = 'MAX1',
                              verbose = True,gridSearch=False,k_per_bag=300,jtest=0,testMode=False,
                              n_jobs=-1,clf='LinearSVC',PCAuse=False,variance_thres= 0.9,
@@ -161,8 +161,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
             num_features = 4096
         elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
             num_features = 2048
-        item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC \
-            = get_database(database)
+        item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,\
+            Not_on_NicolasPC  = get_database(database)
 
         if(jtest>len(classes)) and testMode:
            print("We are in test mode but jtest>len(classes), we will use jtest =0" )
@@ -192,7 +192,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         
 #        features_resnet = np.empty((sLength_all,k_per_bag,size_output),dtype=np.float32)  
         classes_vectors = np.zeros((sLength_all,num_classes),dtype=np.float32)
-        if database in ['Wikidata_Paintings_miniset_verif','VOC2007','watercolor','IconArt_v1','PeopleArt']:
+        if database in ['Wikidata_Paintings_miniset_verif','VOC2007','comic','clipart','CASPApaintings','IconArt_v1','PeopleArt']:
             classes_vectors = df_label.as_matrix(columns=classes)
         f_test = {}
 
@@ -204,13 +204,14 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         if database=='Wikidata_Paintings_miniset_verif':
             raise(NotImplementedError)
     
-        if database in['VOC2007','watercolor','clipart','comic','IconArt_v1','PeopleArt']:
-            if database=='VOC2007' : imdb = get_imdb('voc_2007_test',data_path=path_data)
-            if database=='watercolor' : imdb = get_imdb('watercolor_test',data_path=path_data)
-            if database=='clipart' : imdb = get_imdb('clipart_test',data_path=path_data)
-            if database=='comic' : imdb = get_imdb('comic_test',data_path=path_data)
-            if database=='IconArt_v1' : imdb = get_imdb('IconArt_v1_test',data_path=path_data)
-            if database=='PeopleArt' : imdb = get_imdb('PeopleArt_test',data_path=path_data)
+        if database in['VOC2007','watercolor','comic','clipart','CASPApaintings','IconArt_v1','PeopleArt']:
+            if database=='VOC2007' : imdb = get_imdb('voc_2007_test',data_path=default_path_imdb)
+            if database=='watercolor' : imdb = get_imdb('watercolor_test',data_path=default_path_imdb)
+            if database=='clipart' : imdb = get_imdb('clipart_test',data_path=default_path_imdb)
+            if database=='comic' : imdb = get_imdb('comic_test',data_path=default_path_imdb)
+            if database=='CASPApaintings' : imdb = get_imdb('CASPApaintings_test',data_path=default_path_imdb)
+            if database=='IconArt_v1' : imdb = get_imdb('IconArt_v1_test',data_path=default_path_imdb)
+            if database=='PeopleArt' : imdb = get_imdb('PeopleArt_test',data_path=default_path_imdb)
             imdb.set_force_dont_use_07_metric(True)
             if database in ['IconArt_v1']:
                 num_images =  len(df_label[df_label['set']=='test'][item_name])
@@ -231,8 +232,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
                             classes_vectors[i,j] = 1
         
         # Separation training, validation, test set
-        if database in['VOC12','Paintings','VOC2007','clipart','watercolor','comic','IconArt_v1','WikiTenLabels','PeopleArt']:
-            if database in ['VOC2007','watercolor','clipart','comic','IconArt_v1','WikiTenLabels','PeopleArt']:
+        if database in['VOC12','Paintings','VOC2007','comic','clipart','CASPApaintings','comic','IconArt_v1','WikiTenLabels','PeopleArt']:
+            if database in ['VOC2007','watercolor','comic','clipart','CASPApaintings','IconArt_v1','WikiTenLabels','PeopleArt']:
                 str_val ='val' 
             else: 
                 str_val='validation'
@@ -695,7 +696,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         for i,name_img in  enumerate(df_label[item_name]):
             if i%1000==0 and not(i==0):
                 if verbose: print(i,name_img)
-            if database in ['VOC2007','VOC12','Paintings','watercolor','clipart','comic','IconArt_v1','PeopleArt']:          
+            if database in ['VOC2007','VOC12','Paintings','watercolor','comic','clipart','CASPApaintings','IconArt_v1','PeopleArt']:          
                 InSet = (df_label.loc[df_label[item_name]==name_img]['set']=='test').any()
 #            elif database=='Wikidata_Paintings_miniset_verif':
 #                InSet = (i in index_test)
@@ -791,7 +792,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'Paintings',Test
         print(AP_per_class)
         print(arrayToLatex(AP_per_class))
     
-        if database in ['VOC2007','watercolor','IconArt_v1','PeopleArt']:
+        if database in ['VOC2007','watercolor','comic','clipart','CASPApaintings','IconArt_v1','PeopleArt']:
             if testMode:
                 for j in range(0, imdb.num_classes-1):
                     if not(j==jtest):

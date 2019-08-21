@@ -8,7 +8,8 @@ from tf_faster_rcnn.lib.datasets.factory import get_imdb
 from IMDB_study import getDictFeaturesPrecomputed,getTFRecordDataset
 from IMDB import get_database
 
-def load_dataset(dataset_nm='IconArt_v1',set_='train',classe=0,k_per_bag = 300,metamodel = 'FasterRCNN',demonet='res152_COCO'):
+def load_dataset(dataset_nm='IconArt_v1',set_='train',classe=0,k_per_bag = 300,
+                 metamodel = 'FasterRCNN',demonet='res152_COCO'):
     """Load data from file, do pre-processing, split it into train/test set.
     Parameters
     -----------------
@@ -22,7 +23,7 @@ def load_dataset(dataset_nm='IconArt_v1',set_='train',classe=0,k_per_bag = 300,m
     
     datasets = {}
     
-    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(dataset_nm)
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(dataset_nm)
     dict_name_file = getDictFeaturesPrecomputed(dataset_nm,k_per_bag=k_per_bag,\
                                                metamodel=metamodel,demonet=demonet)
     

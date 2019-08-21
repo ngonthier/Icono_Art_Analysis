@@ -344,6 +344,6 @@ def PrintResults(database_tab=['IconArt_v1','watercolor','PeopleArt','clipart'],
             except Exception:
                 pass         
 if __name__ == '__main__':
-    ExperienceRuns(database_tab=['clipart'])
-    mainDatabase(database_tab=['clipart'])
+    ExperienceRuns(database_tab=['comic'])
+    mainDatabase(database_tab=['comic','clipart'])
 #    PrintResults()

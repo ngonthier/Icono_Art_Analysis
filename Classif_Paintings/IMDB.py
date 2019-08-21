@@ -69,7 +69,13 @@ def get_database(database):
         ext = '.csv'
         item_name = 'name_img'
         path_to_img = 'cross-domain-detection/datasets/comic/JPEGImages/'
-        classes =  ['bike','bird','car','cat','dog','person']
+        classes =  ['bicycle','bird','car','cat','dog','person']
+    elif database=='CASPApaintings':
+        default_path_imdb = '/media/gonthier/HDD2/data/'
+        ext = '.csv'
+        item_name = 'name_img'
+        path_to_img = 'CASPApaintings/JPEGImages/'     
+        classes = ["bear", "bird", "cat", "cow", "dog", "elephant", "horse", "sheep"]
     elif(database=='Wikidata_Paintings'):
         item_name = 'image'
         path_to_img = 'data/Wikidata_Paintings/600/'
@@ -209,6 +215,7 @@ def get_database(database):
             path_data_csvfile = path_tmp+'OIV5/'           
         else:
             path_data_csvfile = path_data
+        default_path_imdb = path_tmp
     else:
         path_to_img = default_path_imdb + path_to_img
 #        path_to_img = '/media/gonthier/HDD/data/' + path_to_img
@@ -255,4 +262,4 @@ def get_database(database):
         str_val = 'val'
         df_label[classes] = df_label[classes].apply(lambda x:(x + 1.0)/2.0)
     
-    return(item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC)
+    return(item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC)

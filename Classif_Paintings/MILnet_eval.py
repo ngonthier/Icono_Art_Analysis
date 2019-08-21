@@ -60,7 +60,8 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
         print(MILmodel,'is unkwon')
         return(0)
     print('MILmodel',MILmodel,max_epoch)    
-    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(dataset_nm)
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+        path_data,Not_on_NicolasPC = get_database(dataset_nm)
     
     dataset,bags_full_label,mean_fea,std_fea = load_dataset(dataset_nm,classe=0,k_per_bag = k_per_bag,metamodel = metamodel,demonet=demonet)
     model_dict = {}
@@ -92,37 +93,39 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
     
     dont_use_07_metric = False
     if dataset_nm=='VOC2007':
-        imdb = get_imdb('voc_2007_test')
-        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+        imdb = get_imdb('voc_2007_test',data_path=default_path_imdb)
         num_images = len(imdb.image_index)
     elif dataset_nm=='watercolor':
-        imdb = get_imdb('watercolor_test')
-        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+        imdb = get_imdb('watercolor_test',data_path=default_path_imdb)
         num_images = len(imdb.image_index)
     elif dataset_nm=='PeopleArt':
-        imdb = get_imdb('PeopleArt_test')
-        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+        imdb = get_imdb('PeopleArt_test',data_path=default_path_imdb)
         num_images = len(imdb.image_index)
     elif dataset_nm=='clipart':
-        imdb = get_imdb('clipart_test')
-        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+        imdb = get_imdb('clipart_test',data_path=default_path_imdb)
+        num_images = len(imdb.image_index) 
+    elif dataset_nm=='comic':
+        imdb = get_imdb('comic_test',data_path=default_path_imdb)
+        num_images = len(imdb.image_index) 
+    elif dataset_nm=='comic':
+        imdb = get_imdb('CASPApaintings_test',data_path=default_path_imdb)
         num_images = len(imdb.image_index) 
     elif dataset_nm=='IconArt_v1' or dataset_nm=='RMN':
-        imdb = get_imdb('IconArt_v1_test')
-        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+        imdb = get_imdb('IconArt_v1_test',data_path=default_path_imdb)
         num_images =  len(df_label[df_label['set']=='test'][item_name])
     elif 'IconArt_v1' in dataset_nm and not('IconArt_v1' ==dataset_nm):
-        imdb = get_imdb('IconArt_v1_test',ext=dataset_nm.split('_')[-1])
-        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+        imdb = get_imdb('IconArt_v1_test',ext=dataset_nm.split('_')[-1],data_path=default_path_imdb)
 #        num_images = len(imdb.image_index) 
         num_images =  len(df_label[df_label['set']=='test'][item_name])
     elif dataset_nm in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
-        imdb = get_imdb('WikiTenLabels_test')
-        imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+        imdb = get_imdb('WikiTenLabels_test',data_path=default_path_imdb)
         #num_images = len(imdb.image_index) 
+        num_images =  len(df_label[df_label['set']=='test'][item_name])
+    elif 'OIV5' in dataset_nm: # For OIV5 for instance !
         num_images =  len(df_label[df_label['set']=='test'][item_name])
     else:
         num_images =  len(df_label[df_label['set']=='test'][item_name])
+    imdb.set_force_dont_use_07_metric(dont_use_07_metric)
     all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
     
     
@@ -187,7 +190,9 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
                     all_boxes[j][i] = cls_dets
                 i += 1
             for l in range(len(name_imgs)): 
-                if dataset_nm in ['IconArt_v1','VOC2007','watercolor','clipart','WikiTenLabels','PeopleArt','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+                if dataset_nm in ['IconArt_v1','VOC2007','watercolor','clipart',\
+                                  'comic','CASPApaintings','WikiTenLabels','PeopleArt',\
+                                  'MiniTrain_WikiTenLabels','WikiLabels1000training']:
                     name_all_test += [[str(name_imgs[l].decode("utf-8"))]]
                 else:
                     name_all_test += [[name_imgs[l]]]
@@ -264,7 +269,8 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
     return(apsAt05,apsAt01,AP_per_class)
 
 def runSeveralMInet(dataset_nm='IconArt_v1',MILmodel='MI_Net',demonet = 'res152_COCO',\
-                        k_per_bag=300,layer='fc7',num_rep = 10,metamodel = 'FasterRCNN',printR=False):
+                        k_per_bag=300,layer='fc7',num_rep = 10,metamodel = 'FasterRCNN',
+                        printR=False,pm_only_on_mean=False):
     """
     @param : printR if True, we print the results instead of compute them
     """
@@ -333,9 +339,14 @@ def runSeveralMInet(dataset_nm='IconArt_v1',MILmodel='MI_Net',demonet = 'res152_
 #                            print(mean_over_class.shape)
 #                            print(std_over_class.shape)
 #                            input('wait')
-                    for mean_c,std_c in zip(mean_over_class,std_over_class):
-                        s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
-                        string_to_print += s + ' & '
+                    if not(pm_only_on_mean):
+                        for mean_c,std_c in zip(mean_over_class,std_over_class):
+                            s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
+                            string_to_print += s + ' & '
+                    else:
+                        for mean_c,std_c in zip(mean_over_class,std_over_class):
+                            s =  "{0:.1f} ".format(mean_c*multi)
+                            string_to_print += s + ' & '
                     s =  "{0:.1f}  ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f}  ".format(std_of_mean_over_reboot*multi)
                     string_to_print += s + ' \\\  '
                 else:

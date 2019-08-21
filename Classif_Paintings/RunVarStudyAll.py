@@ -293,7 +293,7 @@ def Study_eval_perf_onSplit_of_IconArt(computeMode=True):
     @param : computeMode : we will compute the performance otherwise we will only show them
     """
 
-    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =\
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC =\
         get_database('IconArt_v1')
     
     nRep = 3
@@ -472,8 +472,9 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
                 l01 = []
                 lclassif = []
                 for r in range(num_rep):
+                    print('reboot',r,'on',num_rep)
                     apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
-                                                  verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                                  verbose = True,testMode = False,jtest = 'cow',loss_type=loss_type,
                                                   PlotRegions = False,saved_clf=False,RPN=False,
                                                   CompBest=False,Stocha=True,k_per_bag=k_per_bag,
                                                   parallel_op=True,CV_Mode=CV_Mode,num_split=2,
@@ -585,7 +586,7 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
                 for r in range(num_rep):
                     print('reboot :',r,'on',num_rep)
                     apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
-                                                  verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                                  verbose = True,testMode = False,jtest = 'cow',loss_type=loss_type,
                                                   PlotRegions = False,saved_clf=False,RPN=False,
                                                   CompBest=False,Stocha=True,k_per_bag=k_per_bag,
                                                   parallel_op=True,CV_Mode=CV_Mode,num_split=2,
@@ -835,7 +836,7 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
                 for r in range(num_rep):
                     print('reboot :',r,'on',num_rep)
                     apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
-                                                  verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                                  verbose = True,testMode = False,jtest = 'cow',loss_type=loss_type,
                                                   PlotRegions = False,saved_clf=False,RPN=False,
                                                   CompBest=False,Stocha=True,k_per_bag=k_per_bag,
                                                   parallel_op=parallel_op,CV_Mode=CV_Mode,num_split=2,
@@ -1426,7 +1427,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
                 name_dict += '_'+metamodel
             name_dictW = name_dict + '.pkl'
             
-            item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data, \
+            item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data, \
                 Not_on_NicolasPC = get_database(database)
             N = 1
             extL2 = ''

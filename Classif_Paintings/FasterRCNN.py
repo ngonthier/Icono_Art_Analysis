@@ -1572,7 +1572,8 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
     """
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
-    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+        path_data,Not_on_NicolasPC = get_database(database)
     
     if augmentation:
         raise NotImplementedError
@@ -1675,7 +1676,8 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                     pickle.dump(features_resnet_dict,pkl) # Save the data
                     features_resnet_dict= {}
             if database in ['IconArt_v1','VOC2007','clipart','comic','Paintings','watercolor',\
-                            'WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']\
+                            'WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training',\
+                            'CASPApaintings']\
                             or 'IconArt_v1' in database or 'OIV5' in database:
                 complet_name = path_to_img + name_img + '.jpg'
             elif database=='PeopleArt':
@@ -1704,7 +1706,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 if verbose : print(i,name_img)
             if database in ['RMN','IconArt_v1','VOC2007','clipart','comic','Paintings',\
                             'watercolor','WikiTenLabels','MiniTrain_WikiTenLabels',\
-                            'WikiLabels1000training']\
+                            'WikiLabels1000training','CASPApaintings']\
                         or 'IconArt_v1' in database or 'OIV5' in database:
                 complet_name = path_to_img + name_img + '.jpg'
                 name_sans_ext = name_img
@@ -1771,10 +1773,10 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 for j in range(num_classes):
                     if(classes[j] in df_label['classe'][i]):
                         classes_vectors[j] = 1
-            if database in ['VOC2007','clipart','comic','watercolor','PeopleArt']:
+            if database in ['VOC2007','clipart','comic','watercolor','PeopleArt','CASPApaintings']:
                 for j in range(num_classes):
                     value = int((int(df_label[classes[j]][i])+1.)/2.)
-                    #print(value)
+                    # to get from -1 et 1 to 0-1
                     classes_vectors[j] = value
             if database in ['RMN','WikiTenLabels','MiniTrain_WikiTenLabels',\
                             'WikiLabels1000training','IconArt_v1']\
@@ -1831,7 +1833,7 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
                 elif (df_label.loc[df_label[item_name]==name_img]['set']=='test').any():
                     dict_writers['test'].write(example.SerializeToString())
             if database in ['watercolor','clipart','comic','WikiTenLabels','MiniTrain_WikiTenLabels',\
-                            'WikiLabels1000training','IconArt_v1']\
+                            'WikiLabels1000training','IconArt_v1','CASPApaintings']\
                             or 'IconArt_v1' in database:
                 if (df_label.loc[df_label[item_name]==name_img]['set']=='train').any():
                     dict_writers['train'].write(example.SerializeToString())
