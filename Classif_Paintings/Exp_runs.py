@@ -19,25 +19,26 @@ from CNNfeatures import Compute_EdgeBoxesAndCNN_features
 from MILnet_eval import runSeveralMInet
 
 def ExperienceRuns(database_tab =  ['IconArt_v1','watercolor','PeopleArt']):
-    
-    
+        
     for database in database_tab:
         # Study of the impact of the number of restarts
-        r_tab = [0,99] # 11 by default
-        r_tab = [0,1,4,49,99,149] # 11 by default
+        #r_tab = [0,99] # 11 by default
+        r_tab = [0,1,4,11,49,99,149] # 11 by default
         for r in r_tab:
             VariationStudyPart1(database,[0],num_rep = 10,r=r)
             VariationStudyPart2(database,[0],num_rep = 10,r=r)
 #                VariationStudyPart2(database,[0,5,3,22],num_rep = 10,Optimizer=Optimizer)
         # Batch size
-        bs_tab = [8,16,32,126,256,500] # 1000 by default
-        bs_tab = [8] # 1000 by default
+        bs_tab = [8,16,32,126,256,500,1000] # 1000 by default
+        if database=='clipart':
+            bs_tab = [8,16,32,126,256,500]
+        #bs_tab = [8] # 1000 by default
         for bs in bs_tab:
             VariationStudyPart1(database,[0],num_rep = 10,bs=bs)
             VariationStudyPart2(database,[0],num_rep = 10,bs=bs)
         
         # C value
-        C_tab = [0.01,0.1,0.5,1.5] # 1.0 by default
+        #C_tab = [0.01,0.1,0.5,1.5] # 1.0 by default
         C_tab = [0.01,0.1,0.5,1.0,1.5,2.,10.] # 1.0 by default
         for C in C_tab:
             VariationStudyPart1(database,[0],num_rep = 10,C=C)
@@ -47,9 +48,9 @@ def print_run_studyParam():
     """
     In this function we plot the evolution of the different parameters evaluation
     """
-    database_tab =  ['IconArt_v1','watercolor','PeopleArt']
-    colors = ['r', 'b','g']
-    makers = ['+','x','o']
+    database_tab =  ['IconArt_v1','watercolor','PeopleArt','clipart']
+    colors = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf']
+    makers = ['P','X','o','v','D','h','^']
     
     list_param = ['r','bs','C']
     for param in list_param:
@@ -57,14 +58,17 @@ def print_run_studyParam():
             p_tab = [0,1,4,11,49,99,149] # 11 by default
             tt =' the number of reinitialization'
             tx = r'Number of reinitialization'
+            name_figure ='Reinit'
         if param=='bs':
             p_tab = [8,16,32,126,256,500,1000]
             tt = 'the batch size'
             tx = r'Batch size'
+            name_figure ='bs'
         if param=='C':
             p_tab =  [0.01,0.1,0.5,1.0,1.5,2.,10.] 
             tt = 'the regularization term'
             tx = r'Regularization term'
+            name_figure ='C'
     
         plt.figure()
         plt.rc('text', usetex=True)
@@ -75,7 +79,11 @@ def print_run_studyParam():
             y = []
             std = []
             i = 0
-            for p in p_tab:
+            if param=='bs' and database=='clipart':
+                p_tab_local = [8,16,32,126,256,500]
+            else:
+                p_tab_local = p_tab
+            for p in p_tab_local:
                 if param=='r':
                     ll_all = VariationStudyPart3(database,[0],num_rep = 10,r=p,withoutAggregW=True)
                 if param=='bs':
@@ -96,11 +104,13 @@ def print_run_studyParam():
                 i+= 1
             #plt.plot(x,y,c,label=database)
             label = database.replace('_v1','')
-            plt.errorbar(x, y, yerr=std,marker=m,c=c,label=label,solid_capstyle='projecting', capsize=5)
+            plt.errorbar(x, y,linestyle=':', yerr=std,marker=m,c=c,label=label,solid_capstyle='projecting', capsize=5)
         plt.xticks(x, p_tab)
         plt.legend(loc='best')
         plt.xlabel(tx,fontsize=12)
         plt.ylabel(r'mAP ( \% )',fontsize=12)
+        fname = 'fig/'+name_figure +'.png'
+        plt.savefig(fname)
 #        str_t = r"Evolution of the impact of "+ tt
 #        plt.title(str_t,
 #              fontsize=16)
