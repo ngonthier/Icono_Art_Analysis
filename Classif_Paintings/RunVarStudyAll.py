@@ -464,43 +464,48 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
             elif MaxMMeanOfMax:
                 name_dict += '_MaxMMeanOfMax'
             name_dictAP = name_dict + '_APscore.pkl'
-            DictAP = {}
-            ll = []
-            l01 = []
-            lclassif = []
-            for r in range(num_rep):
-                apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
-                                              verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
-                                              PlotRegions = False,saved_clf=False,RPN=False,
-                                              CompBest=False,Stocha=True,k_per_bag=k_per_bag,
-                                              parallel_op=True,CV_Mode=CV_Mode,num_split=2,
-                                              WR=WR,init_by_mean =None,seuil_estimation='',
-                                              restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
-                                              C=1.0,Optimizer=Optimizer,norm='',
-                                              transform_output='tanh',with_rois_scores_atEnd=False,
-                                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-                                              Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
-                                              k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
-                                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
-                                              ,proportionToKeep=proportionToKeep,storeVectors=False,
-                                              obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                                              obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
-                                              layer=layer,MaxOfMax=MaxOfMax,MaxMMeanOfMax=MaxMMeanOfMax)
-                ll += [apsAt05]
-                l01 += [apsAt01]
-                lclassif += [AP_per_class]
-            # End of the 100 experiment for a specific AggreW
-            ll_all = np.vstack(ll)
-            l01_all = np.vstack(l01)
-            apsClassif_all = np.vstack(lclassif)
-    
-            DictAP['AP@.5'] =  ll_all
-            DictAP['AP@.1'] =  l01_all
-            DictAP['APClassif'] =  apsClassif_all
+            
+            ReDo  = False
+            if not os.path.isfile(name_dictAP) or ReDo: 
+                DictAP = {}
+                ll = []
+                l01 = []
+                lclassif = []
+                for r in range(num_rep):
+                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                                                  verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                                  CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+                                                  parallel_op=True,CV_Mode=CV_Mode,num_split=2,
+                                                  WR=WR,init_by_mean =None,seuil_estimation='',
+                                                  restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+                                                  C=1.0,Optimizer=Optimizer,norm='',
+                                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+                                                  Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                                  k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
+                                                  ,proportionToKeep=proportionToKeep,storeVectors=False,
+                                                  obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                                                  obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
+                                                  layer=layer,MaxOfMax=MaxOfMax,MaxMMeanOfMax=MaxMMeanOfMax)
+                    ll += [apsAt05]
+                    l01 += [apsAt01]
+                    lclassif += [AP_per_class]
+                # End of the 100 experiment for a specific AggreW
+                ll_all = np.vstack(ll)
+                l01_all = np.vstack(l01)
+                apsClassif_all = np.vstack(lclassif)
         
-            with open(name_dictAP, 'wb') as f:
-                pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+                DictAP['AP@.5'] =  ll_all
+                DictAP['AP@.1'] =  l01_all
+                DictAP['APClassif'] =  apsClassif_all
+            
+                with open(name_dictAP, 'wb') as f:
+                    pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+            else:
+                print(name_dictAP,'already exists')
                 
 def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
@@ -570,44 +575,49 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
             if not(Optimizer=='GradientDescent'):
                 name_dict += '_'+Optimizer
             name_dictAP = name_dict + '_APscore.pkl'
-            DictAP = {}
-            ll = []
-            l01 = []
-            lclassif = []
-            for r in range(num_rep):
-                print('reboot :',r,'on',num_rep)
-                apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
-                                              verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
-                                              PlotRegions = False,saved_clf=False,RPN=False,
-                                              CompBest=False,Stocha=True,k_per_bag=k_per_bag,
-                                              parallel_op=True,CV_Mode=CV_Mode,num_split=2,
-                                              WR=WR,init_by_mean =None,seuil_estimation='',
-                                              restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
-                                              C=1.0,Optimizer=Optimizer,norm='',
-                                              transform_output='tanh',with_rois_scores_atEnd=False,
-                                              with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
-                                              Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
-                                              k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
-                                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
-                                              ,proportionToKeep=proportionToKeep,storeVectors=False,
-                                              obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                                              obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
-                                              layer=layer,model='mi_model')
-                ll += [apsAt05]
-                l01 += [apsAt01]
-                lclassif += [AP_per_class]
-            # End of the 100 experiment for a specific AggreW
-            ll_all = np.vstack(ll)
-            l01_all = np.vstack(l01)
-            apsClassif_all = np.vstack(lclassif)
-    
-            DictAP['AP@.5'] =  ll_all
-            DictAP['AP@.1'] =  l01_all
-            DictAP['APClassif'] =  apsClassif_all
+            
+            ReDo  = False
+            if not os.path.isfile(name_dictAP) or ReDo: 
+                DictAP = {}
+                ll = []
+                l01 = []
+                lclassif = []
+                for r in range(num_rep):
+                    print('reboot :',r,'on',num_rep)
+                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                                                  verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                                  CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+                                                  parallel_op=True,CV_Mode=CV_Mode,num_split=2,
+                                                  WR=WR,init_by_mean =None,seuil_estimation='',
+                                                  restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+                                                  C=1.0,Optimizer=Optimizer,norm='',
+                                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+                                                  Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                                  k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
+                                                  ,proportionToKeep=proportionToKeep,storeVectors=False,
+                                                  obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                                                  obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
+                                                  layer=layer,model='mi_model')
+                    ll += [apsAt05]
+                    l01 += [apsAt01]
+                    lclassif += [AP_per_class]
+                # End of the 100 experiment for a specific AggreW
+                ll_all = np.vstack(ll)
+                l01_all = np.vstack(l01)
+                apsClassif_all = np.vstack(lclassif)
         
-            with open(name_dictAP, 'wb') as f:
-                pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+                DictAP['AP@.5'] =  ll_all
+                DictAP['AP@.1'] =  l01_all
+                DictAP['APClassif'] =  apsClassif_all
+            
+                with open(name_dictAP, 'wb') as f:
+                    pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+            else:
+                print(name_dictAP,'already exists')
                 
 def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
@@ -814,46 +824,51 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
             if not(number_restarts ==11):
                 name_dict += '_restarts'+str(number_restarts)
             name_dictAP = name_dict + '_APscore.pkl'
-            DictAP = {}
-            ll = []
-            l01 = []
-            lclassif = []
-            parallel_op = False # Test que ce soit parallel des scores
-            for r in range(num_rep):
-                print('reboot :',r,'on',num_rep)
-                apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
-                                              verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
-                                              PlotRegions = False,saved_clf=False,RPN=False,
-                                              CompBest=False,Stocha=True,k_per_bag=k_per_bag,
-                                              parallel_op=parallel_op,CV_Mode=CV_Mode,num_split=2,
-                                              WR=WR,init_by_mean =None,seuil_estimation='',
-                                              restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
-                                              C=1.0,Optimizer=Optimizer,norm='',
-                                              transform_output='tanh',with_rois_scores_atEnd=False,
-                                              with_scores=with_scores,epsilon=0.01,restarts_paral='',
-                                              Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
-                                              k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
-                                              gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                                              thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
-                                              ,proportionToKeep=proportionToKeep,storeVectors=False,
-                                              obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
-                                              obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
-                                              layer=layer,AddOneLayer=AddOneLayer,
-                                              num_features_hidden=num_features_hidden)
-                ll += [apsAt05]
-                l01 += [apsAt01]
-                lclassif += [AP_per_class]
-            # End of the 100 experiment for a specific AggreW
-            ll_all = np.vstack(ll)
-            l01_all = np.vstack(l01)
-            apsClassif_all = np.vstack(lclassif)
-    
-            DictAP['AP@.5'] =  ll_all
-            DictAP['AP@.1'] =  l01_all
-            DictAP['APClassif'] =  apsClassif_all
+            
+            ReDo  = False
+            if not os.path.isfile(name_dictAP) or ReDo: 
+                DictAP = {}
+                ll = []
+                l01 = []
+                lclassif = []
+                parallel_op = False # Test que ce soit parallel des scores
+                for r in range(num_rep):
+                    print('reboot :',r,'on',num_rep)
+                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                                                  verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                                  CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+                                                  parallel_op=parallel_op,CV_Mode=CV_Mode,num_split=2,
+                                                  WR=WR,init_by_mean =None,seuil_estimation='',
+                                                  restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+                                                  C=1.0,Optimizer=Optimizer,norm='',
+                                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                                  with_scores=with_scores,epsilon=0.01,restarts_paral='',
+                                                  Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                                  k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
+                                                  ,proportionToKeep=proportionToKeep,storeVectors=False,
+                                                  obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                                                  obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
+                                                  layer=layer,AddOneLayer=AddOneLayer,
+                                                  num_features_hidden=num_features_hidden)
+                    ll += [apsAt05]
+                    l01 += [apsAt01]
+                    lclassif += [AP_per_class]
+                # End of the 100 experiment for a specific AggreW
+                ll_all = np.vstack(ll)
+                l01_all = np.vstack(l01)
+                apsClassif_all = np.vstack(lclassif)
         
-            with open(name_dictAP, 'wb') as f:
-                pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+                DictAP['AP@.5'] =  ll_all
+                DictAP['AP@.1'] =  l01_all
+                DictAP['APClassif'] =  apsClassif_all
+            
+                with open(name_dictAP, 'wb') as f:
+                    pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+            else:
+                print(name_dictAP,'already exists')
     
              
 def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO',\
