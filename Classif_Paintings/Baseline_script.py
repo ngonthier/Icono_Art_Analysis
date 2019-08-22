@@ -104,9 +104,11 @@ def TrainClassif(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1
     return(classifier)
 
 
-def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag = False,
+def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
+                             Test_on_k_bag = False,
                              normalisation= False,baseline_kind = 'MAX1',
-                             verbose = True,gridSearch=False,k_per_bag=300,jtest=0,testMode=False,
+                             verbose = True,gridSearch=False,k_per_bag=300,jtest=0,
+                             testMode=False,
                              n_jobs=-1,clf='LinearSVC',PCAuse=False,variance_thres= 0.9,
                              restarts = 0,max_iter = 10,reDo=True):
     """ 
@@ -152,6 +154,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Tes
     
     
     """
+    
+    t0 = time.time()
     # TODO be able to train on background 
     list_methods =['MAXA_lowMem','MAX1','MEAN','MISVM','miSVM','SISVM','MAXA']
     print('==========')
@@ -668,6 +672,9 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Tes
             
         gc.collect()
         
+        t1 = time.time()
+        print("--- Training duration :",str(t1-t0),' s')
+        
         
         # In the case of the test mode
         if testMode:
@@ -696,7 +703,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Tes
         for i,name_img in  enumerate(df_label[item_name]):
             if i%1000==0 and not(i==0):
                 if verbose: print(i,name_img)
-            if database in ['VOC2007','VOC12','Paintings','watercolor','comic','clipart','CASPApaintings','IconArt_v1','PeopleArt']:          
+            if database in ['VOC2007','VOC12','Paintings','watercolor','comic','clipart',\
+                            'CASPApaintings','IconArt_v1','PeopleArt']:          
                 InSet = (df_label.loc[df_label[item_name]==name_img]['set']=='test').any()
 #            elif database=='Wikidata_Paintings_miniset_verif':
 #                InSet = (i in index_test)
@@ -748,10 +756,14 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Tes
 #                roi_with_object_of_the_class = np.argmax(decision_function_output)
                 
                 # For detection 
-                if database in ['VOC2007','watercolor','IconArt_v1']:
+                if database in ['VOC2007','watercolor','clipart','comic','WikiTenLabels',\
+                    'PeopleArt','IconArt_v1','CASPApaintings']:
                     thresh = 0.05 # Threshold score or distance MILSVM
                     TEST_NMS = 0.3 # Recouvrement entre les classes
-                    complet_name = path_to_img + str(name_test[k]) + '.jpg'
+                    if not(database=='PeopleArt'):
+                        complet_name = path_to_img + str(name_test[k]) + '.jpg'
+                    else:
+                        complet_name = path_to_img + str(name_test[k])
                     im = cv2.imread(complet_name)
                     blobs, im_scales = get_blobs(im)
                     inds = np.where(decision_function_output > thresh)[0]
@@ -763,6 +775,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Tes
                     keep = nms(cls_dets, TEST_NMS)
                     cls_dets = cls_dets[keep, :]
                     all_boxes[j][k] = cls_dets
+                else:
+                    print('No detection done')
                    
                 if np.max(decision_function_output) > 0:
                     labels_test_predited[k] = 1 
@@ -827,8 +841,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Tes
                     j_minus_1 = j-1
                     all_boxes_order[j][i]  = all_boxes[j_minus_1][name_img_ind[0]]
                 if max_per_image > 0:
-                    image_scores = np.hstack([all_boxes_order[j][i][:, -1]
-                                for j in range(1, imdb.num_classes)])
+                    image_scores = stack_elt_from_object_list(all_boxes_order,i,imdb)
                     if len(image_scores) > max_per_image:
                         image_thresh = np.sort(image_scores)[-max_per_image]
                         for j in range(1, imdb.num_classes):
@@ -848,6 +861,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Tes
             det_file = os.path.join(path_data, det_name_filef)
             with open(det_file, 'wb') as f:
                 pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
+                
             output_dir =  os.path.join(path_data,'tmp',database) # path_data +'tmp/' + database + '/'
 
             aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
@@ -868,6 +882,9 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Tes
             
             pkl = open(det_name_fileAP, 'wb')
             pickle.dump(results_pkl,pkl)
+        t2 = time.time()
+        print("--- Testing duration :",str(t2-t1),' s')
+
 
     except KeyboardInterrupt:
         gc.collect()  
@@ -903,7 +920,18 @@ def BaselineRunAll():
                     normalisation= normalisation,baseline_kind=method,verbose=False,
                     gridSearch=False,k_per_bag=300,n_jobs=4,PCAuse=PCAuse,variance_thres= variance_thres,
                     restarts=restarts,max_iter=max_iter,reDo=False)
-            
+
+def stack_elt_from_object_list(all_boxes_order,i,imdb):
+    list_img_i = []
+    for j in range(1, imdb.num_classes):
+        boxes_img_i_class_j = all_boxes_order[j][i]
+        if not(len(boxes_img_i_class_j)==0):
+            list_img_i += [boxes_img_i_class_j[:, -1]]
+    if not(len(list_img_i)==0):
+        stack = np.hstack(list_img_i)
+    else:
+        stack = []
+    return(stack)
 def RunTest():
     """ Run severals baseline model on two datasets
     """
