@@ -2819,6 +2819,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             database = 'IconArt_v1'
             item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
                 path_data,Not_on_NicolasPC = get_database(database)
+        if verbose:
+            t1 = time.time()
 
         true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited \
         ,all_boxes = \
@@ -2903,8 +2905,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             number_zone = k_per_bag
             dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
             #print(export_dir)
-           
-            ## Predicition with the MI_max
+            t1 = time.time()
+             ## Predicition with the MI_max
             parameters=PlotRegions,RPN,Stocha,CompBest
             param_clf = k_per_bag,Number_of_positif_elt,num_features
             true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited,all_boxes = \
@@ -3041,6 +3043,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     
     param_name,path_data_file,file_param = \
     create_param_id_file_and_dir(path_data+'/SauvParam/',arrayParam,arrayParamStr)
+    
+    t2 = time.time()
+    print("--- Testing duration :",str(t2-t1),' s')
     
     if database in ['RMN','VOC2007','watercolor','clipart','comic','WikiTenLabels','PeopleArt',\
                     'MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1','CASPApaintings']\

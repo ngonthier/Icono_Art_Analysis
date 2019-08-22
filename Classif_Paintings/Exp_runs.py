@@ -48,7 +48,7 @@ def print_run_studyParam():
     """
     In this function we plot the evolution of the different parameters evaluation
     """
-    database_tab =  ['IconArt_v1','watercolor','PeopleArt','clipart']
+    database_tab =  ['IconArt_v1','watercolor','PeopleArt','clipart','comic']
     colors = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf']
     makers = ['P','X','o','v','D','h','^']
     

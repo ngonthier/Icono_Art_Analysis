@@ -28,6 +28,7 @@ from tf_faster_rcnn.lib.model.nms_wrapper import nms
 import os 
 from LatexOuput import arrayToLatex
 from sklearn.metrics import average_precision_score
+import time
 
 MILmodel_tab = ['MI_Net','mi_Net','MI_Net_with_DS','MI_Net_with_RC','MI_Max_AddOneLayer_Keras']
 
@@ -43,6 +44,8 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
 #    MILmodel='MI_Net_with_DS'
 #    max_epoch = 1
     
+    t0 = time.time()
+                        
     if test:
         classe = 0
     
@@ -80,6 +83,9 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
         model = MILmodel_fct(dataset,max_epoch=max_epoch)
         model_dict[j] = model
     
+    t1 = time.time()
+    print("--- Training duration :",str(t1-t0),' s')
+    
     dict_name_file = getDictFeaturesPrecomputed(dataset_nm,k_per_bag=k_per_bag,\
                                                metamodel=metamodel,demonet=demonet)
     
@@ -107,7 +113,7 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
     elif dataset_nm=='comic':
         imdb = get_imdb('comic_test',data_path=default_path_imdb)
         num_images = len(imdb.image_index) 
-    elif dataset_nm=='comic':
+    elif dataset_nm=='CASPApaintings':
         imdb = get_imdb('CASPApaintings_test',data_path=default_path_imdb)
         num_images = len(imdb.image_index) 
     elif dataset_nm=='IconArt_v1' or dataset_nm=='RMN':
@@ -202,6 +208,9 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
 
     sess.close()
     
+    
+    
+    
     true_label_all_test = np.concatenate(true_label_all_test)
     predict_label_all_test = np.concatenate(predict_label_all_test,axis=0)
     name_all_test = np.concatenate(name_all_test)
@@ -263,8 +272,11 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
         aps = imdb.evaluate_localisation_ovthresh(all_boxes_order, output_dir,ovthresh)
         if ovthresh == 0.1:
             apsAt01 = aps
-        print("Detection score with thres at ",ovthresh,'with ',model)
+        print("Detection score with thres at ",ovthresh,'with ',MILmodel)
         print(arrayToLatex(aps,per=True))
+    
+    t2 = time.time()
+    print("--- Testing duration :",str(t2-t1),' s')
     
     return(apsAt05,apsAt01,AP_per_class)
 
