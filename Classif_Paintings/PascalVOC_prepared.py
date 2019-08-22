@@ -23,6 +23,7 @@ import glob
 from sklearn.model_selection import train_test_split
 from pascal_voc_writer import Writer # pip install pascal-voc-writer
 import matplotlib.pyplot as plt
+import numpy as np
 
 sets=[('2012', 'train'), ('2012', 'val'), ('2007', 'train'), ('2007', 'val'), ('2007', 'test')]
 sets=[('2007', 'train'), ('2007', 'val'), ('2007', 'test')]
@@ -435,7 +436,22 @@ def CASPApaintings(copyFile=False,convertXML=False,copyIm=False):
         print('XML not found, not saved')
         
     # Il faut extraire les  fichiers test et etc
-
+    output_name = path_output + 'CASPApaintings' + '.csv'
+    df_new =  pd.read_csv(output_name,dtype=str)
+    for set in ['train','test']:
+        df_set = df_new[df_new['set']==set]
+        print(df_set.head())
+        all_names = df_set['name_img'].values
+        output_name = default_path_imdb + 'CASPApaintings/ImageSets/Main/'+set+'.txt' 
+        np.savetxt(output_name, all_names, delimiter='\n',fmt='%s')
+        for c in classes:
+            df_c = df_set[df_set[c]==str(1)]
+            print(df_c.head())
+            all_names_c = df_c['name_img'].values
+            print(c,all_names_c)
+            output_name = default_path_imdb + 'CASPApaintings/ImageSets/Main/'+c+'_'+set+'.txt' 
+            np.savetxt(output_name, all_names_c, delimiter='\n',fmt='%s')
+    
         
 if __name__ == '__main__':
     Clipart()
