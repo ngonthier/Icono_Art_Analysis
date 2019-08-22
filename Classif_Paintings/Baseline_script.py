@@ -42,6 +42,7 @@ from tf_faster_rcnn.lib.datasets.factory import get_imdb
 from random import uniform
 from sklearn.metrics import hinge_loss
 from IMDB import get_database
+from TL_MIL import get_imdb_test_detection
 
 # For optimal performance, use C-ordered numpy.ndarray (dense) or scipy.sparse.csr_matrix (sparse) with dtype=float64
 
@@ -196,7 +197,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
         
 #        features_resnet = np.empty((sLength_all,k_per_bag,size_output),dtype=np.float32)  
         classes_vectors = np.zeros((sLength_all,num_classes),dtype=np.float32)
-        if database in ['Wikidata_Paintings_miniset_verif','VOC2007','comic','clipart','CASPApaintings','IconArt_v1','PeopleArt']:
+        if database in ['Wikidata_Paintings_miniset_verif','VOC2007','comic','clipart','CASPApaintings','IconArt_v1','PeopleArt','watercolor']:
             classes_vectors = df_label.as_matrix(columns=classes)
         f_test = {}
 
@@ -208,21 +209,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
         if database=='Wikidata_Paintings_miniset_verif':
             raise(NotImplementedError)
     
-        if database in['VOC2007','watercolor','comic','clipart','CASPApaintings','IconArt_v1','PeopleArt']:
-            if database=='VOC2007' : imdb = get_imdb('voc_2007_test',data_path=default_path_imdb)
-            if database=='watercolor' : imdb = get_imdb('watercolor_test',data_path=default_path_imdb)
-            if database=='clipart' : imdb = get_imdb('clipart_test',data_path=default_path_imdb)
-            if database=='comic' : imdb = get_imdb('comic_test',data_path=default_path_imdb)
-            if database=='CASPApaintings' : imdb = get_imdb('CASPApaintings_test',data_path=default_path_imdb)
-            if database=='IconArt_v1' : imdb = get_imdb('IconArt_v1_test',data_path=default_path_imdb)
-            if database=='PeopleArt' : imdb = get_imdb('PeopleArt_test',data_path=default_path_imdb)
-            imdb.set_force_dont_use_07_metric(True)
-            if database in ['IconArt_v1']:
-                num_images =  len(df_label[df_label['set']=='test'][item_name])
-            else:
-                num_images = len(imdb.image_index)
-        else:
-            num_images = len(df_label[df_label['set']=='test'])
+        imdb,num_images,_,_ = get_imdb_test_detection(database,df_label,item_name,default_path_imdb)
+
         all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
 
         # First we save the test images
@@ -236,7 +224,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
                             classes_vectors[i,j] = 1
         
         # Separation training, validation, test set
-        if database in['VOC12','Paintings','VOC2007','comic','clipart','CASPApaintings','comic','IconArt_v1','WikiTenLabels','PeopleArt']:
+        if database in['VOC12','Paintings','VOC2007','comic','clipart','CASPApaintings','comic','IconArt_v1','WikiTenLabels','PeopleArt','watercolor']:
             if database in ['VOC2007','watercolor','comic','clipart','CASPApaintings','IconArt_v1','WikiTenLabels','PeopleArt']:
                 str_val ='val' 
             else: 

@@ -2076,7 +2076,350 @@ def FasterRCNN_TL_MI_max_ClassifOutMI_max(demonet = 'res152_COCO',database = 'Pa
         gc.collect()
         tf.reset_default_graph()
 
+def get_cachefilepath(path_data,demonet,database,k_per_bag,N,extL2,nms_thresh,savedstr,mini_batch_size,
+                  performance,buffer_size,predict_with,shuffle,C,testMode,restarts,max_iters_all_base,
+                  max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
+                  Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
+                  TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
+                  with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
+                  k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
+                  proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
+                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,MaxTopMinOfMax,
+                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden,trainOnTest):
 
+    if restarts_paral=='Dim': # It will create a new dimension
+        restarts_paral_str = '_RP'
+    elif restarts_paral=='paral': # Version 2 of the parallelisation
+        restarts_paral_str = '_RPV2'
+    else:
+        restarts_paral_str=''
+    if model=='MI_max' or model=='':
+        model_str = 'MI_max'
+    elif model=='mi_model':
+        model_str ='mi_model'      
+        
+    if testMode:
+        ext_test = '_Test_Mode'
+    else:
+        ext_test= ''
+    
+    if C == 1.0:
+        C_str=''
+    else:
+        C_str = '_C'+str(C) # regularisation term 
+    if C_Searching:
+        C_Searching_str ='_Csearch'
+        C_str = ''
+    else:
+        C_Searching_str = ''
+    if with_scores:
+        with_scores_str = '_WRC'+str(epsilon)
+    else:
+        with_scores_str=''
+    if seuillage_by_score:
+        seuillage_by_score_str = '_SBS'+str(seuil)
+    else: seuillage_by_score_str = ''
+    if norm=='L2':
+        extNorm = '_L2'
+    elif norm=='STDall':
+        extNorm = '_STDall'
+    elif norm=='STDSaid':
+        extNorm = '_STDSaid'
+    elif norm=='STD':
+        extNorm = '_STD'
+        raise(NotImplementedError)
+    elif norm=='' or norm is None:
+        extNorm = ''
+    if parallel_op:
+        extPar = '_p'
+    else:
+        extPar =''
+    if CV_Mode=='CV':
+        max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max par rapport au nombre de split
+        extCV = '_cv'+str(num_split)
+    elif CV_Mode=='LA':
+        max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max par rapport au nombre de split
+        extCV = '_la'+str(num_split)
+    elif CV_Mode=='CV' and WR==True:
+        extCV = '_cv'+str(num_split)
+    elif CV_Mode == '1000max':
+        extCV = '_1000max'
+    elif CV_Mode == 'CVforCsearch':
+        extCV = '_CVforCsearch'
+    elif CV_Mode is None or CV_Mode=='':
+        extCV =''
+    else:
+        raise(NotImplementedError)
+    if WR: extCV += '_wr'
+
+    if Optimizer=='Adam':
+        opti_str=''
+    elif Optimizer=='GradientDescent':
+        opti_str='_gd'
+    elif Optimizer=='lbfgs':
+        opti_str='_lbfgs'
+    else:
+        raise(NotImplementedError)
+    if init_by_mean is None or init_by_mean=='':
+        init_by_mean_str = ''
+    elif init_by_mean=='First':
+        init_by_mean_str= '_ibnF'
+    elif init_by_mean=='All':
+        init_by_mean_str= '_ibnA'
+    if LR==0.01:
+        LR_str = ''
+    else:
+        LR_str='_LR'+str(LR)
+    
+    if Max_version=='max' or Max_version=='' or Max_version is None:
+        Max_version_str =''
+    elif Max_version=='softmax':
+        Max_version_str ='_MVSF'
+        if not(w_exp==1.0): Max_version_str+=str(w_exp)
+    elif Max_version=='sparsemax':
+        Max_version_str ='_MVSM'
+    elif Max_version=='mintopk':
+        Max_version_str ='_MVMT'+str(k_intopk)
+    elif Max_version=='MaxPlusMin':
+        Max_version_str ='_MaxPlusMin'+str(k_intopk)+'_'+str(alpha)
+    elif Max_version=='LogSumExp':
+        Max_version_str ='_MLogSumExp'
+    elif Max_version=='maxByPow':
+        Max_version_str ='_maxByPow'+str(exp)
+    
+    if optimArg== None or Optimizer=='GradientDescent':
+        optimArg_str = ''
+    else:
+        if  Optimizer=='Adam' and str(optimArg).replace(' ','_')=="{'learning_rate':_0.01,_'beta1':_0.9,_'beta2':_0.999,_'epsilon':_1e-08}":
+            optimArg_str = ''
+        else:
+            optimArg_str =  str(optimArg).replace(' ','_')
+    
+    if shuffle:
+        shuffle_str = ''
+    else:
+        shuffle_str = '_allBase'
+    if optim_wt_Reg:
+        optim_wt_Reg_str = '_OptimWTReg'
+    else:
+        optim_wt_Reg_str =''
+    if AggregW is None or AggregW=='':
+        AggregW_str =''
+    elif AggregW=='AveragingWportion' and not(proportionToKeep==1.0):
+        AggregW_str = '_AvW'+str(proportionToKeep) 
+    elif AggregW=='AveragingW' or (AggregW=='AveragingWportion' and (proportionToKeep==1.0)):
+        AggregW_str = '_AveragingW'
+    elif AggregW=='meanOfProd':
+        AggregW_str = '_VW'+str(proportionToKeep)
+    elif AggregW=='medianOfProd':
+        AggregW_str = '_VMedW'+str(proportionToKeep)
+    elif AggregW=='maxOfProd':
+        AggregW_str = '_VMaxW'+str(proportionToKeep)
+    elif AggregW=='minOfProd':
+        AggregW_str = '_VMinW'+str(proportionToKeep)
+    elif AggregW=='meanOfTanh':
+        AggregW_str = '_VTanh'+str(proportionToKeep)
+    elif AggregW=='medianOfTanh':
+        AggregW_str = '_VMedTanh'+str(proportionToKeep)
+    elif AggregW=='maxOfTanh':
+        AggregW_str = '_VMaxTanh'+str(proportionToKeep)
+    elif AggregW=='minOfTanh':
+        AggregW_str = '_VMinTanh'+str(proportionToKeep)
+    elif AggregW=='meanOfSign':
+        AggregW_str = '_VMeanSign'+str(proportionToKeep)
+    
+    if loss_type is None or loss_type=='':
+        loss_type_str =''
+    elif loss_type=='MSE':
+        loss_type_str = 'LossMSE'
+    elif loss_type=='hinge':
+        loss_type_str = 'Losshinge'
+    elif loss_type=='hinge_tanh':
+        loss_type_str = 'LosshingeTanh'
+    elif loss_type=='log':
+        loss_type_str = 'LossLog'
+    else:
+        raise(NotImplementedError)
+        
+    if obj_score_add_tanh:
+        str_obj_score_add_tanh = '_ScoreAdd'+str(lambdas)
+    else:
+        str_obj_score_add_tanh = ''
+    if obj_score_mul_tanh:
+        str_obj_score_mul_tanh = '_SMulTanh'
+    else:
+        str_obj_score_mul_tanh = ''
+        
+    if MaxOfMax:
+        str_MaxOfMax = '_MaxOfMax'
+    elif MaxMMeanOfMax :
+        str_MaxOfMax = '_MaxMMeanOfMax'
+    elif MaxTopMinOfMax:
+        str_MaxOfMax = '_MaxTopMinOfMax'+str(proportionToKeep)
+    else:
+        str_MaxOfMax =''
+    if Cosine_ofW_inLoss:
+        str_Cosine_ofW_inLoss = '_Cosine_ofW_inLoss'+str(Coeff_cosine)
+    else:
+        str_Cosine_ofW_inLoss = ''
+          
+    if predict_with=='':
+        predict_with = 'MI_max' 
+    if not(PCAuse):
+        PCAusestr =''
+    else:
+        PCAusestr= '_PCAc'+str(number_composant)
+     
+        
+    if metamodel=='FasterRCNN':
+        metamodelstr=''
+    else:
+        metamodelstr ='_'+ metamodel
+        
+    arrayParam = [demonet,database,N,extL2,nms_thresh,savedstr,mini_batch_size,
+                  performance,buffer_size,predict_with,shuffle,C,testMode,restarts,max_iters_all_base,
+                  max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
+                  Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
+                  TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
+                  with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
+                  k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
+                  proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
+                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,MaxTopMinOfMax,
+                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden]
+    arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
+                     'mini_batch_size','performance','buffer_size','predict_with',
+                     'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
+                     'num_split','parallel_op','WR','norm','Optimizer','LR',
+                     'optimArg','Number_of_positif_elt','number_zone','seuil_estimation'
+                     ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
+                     'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
+                     'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
+                     'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
+                     'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant',\
+                     'AddOneLayer','exp','MaxOfMax','MaxMMeanOfMax','MaxTopMinOfMax','alpha','layer',\
+                     'Cosine_ofW_inLoss','Coeff_cosine','num_features_hidden']
+    assert(len(arrayParam)==len(arrayParamStr))
+    print(tabs_to_str(arrayParam,arrayParamStr))
+    
+    cachefilefolder = os.path.join(path_data,'cachefile')
+    if not(layer=='fc7'):
+        layerStr = '_'+layer
+    else:
+        layerStr = ''
+    cachefile_model_base='WLS_'+ database+metamodelstr+ '_'+demonet+layerStr+'_r'+str(restarts)+'_s' \
+        +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
+        extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
+        +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
+        + AggregW_str + loss_type_str+str_obj_score_add_tanh+str_obj_score_mul_tanh \
+        + PCAusestr+str_MaxOfMax+str_Cosine_ofW_inLoss
+    if trainOnTest:
+        cachefile_model_base += '_trainOnTest'
+    if AddOneLayer:
+        cachefile_model_base += '_AddOneLayer' + str(num_features_hidden)
+    pathlib.Path(cachefilefolder).mkdir(parents=True, exist_ok=True)
+    cachefile_model = os.path.join(cachefilefolder,cachefile_model_base+'_'+model_str+'.pkl')
+    return(cachefile_model_base,cachefile_model,cachefilefolder,arrayParam,arrayParamStr)
+
+def get_max_iters(database,max_iters_all_base,restarts,parallel_op,restarts_paral,num_classes,init_by_mean,CV_Mode,\
+                  num_features,AddOneLayer,k_per_bag,Not_on_NicolasPC,\
+                  model,num_split,num_trainval_im,mini_batch_size):
+    """
+    This fucntion compute the max number of iterations and batch size
+    """
+    if parallel_op:
+        sizeMax = 300000*7 // (k_per_bag*num_classes) 
+    else:
+        sizeMax = 30*10000 // k_per_bag
+    if restarts_paral=='Dim': # It will create a new dimension
+        sizeMax //= max(int((restarts+1)//2),1) # To avoid division by zero
+        # it seems that using a different size batch drasticly change the results
+    elif restarts_paral=='paral': # Version 2 of the parallelisation
+        sizeMax = 30*200000 // (k_per_bag*20)
+    if not(init_by_mean is None) and not(init_by_mean==''):
+        if not(CV_Mode=='CV' and num_split==2):
+            sizeMax //= 2
+    # boolean paralleliation du W
+    if CV_Mode == 'CVforCsearch':
+        sizeMax //= 2
+    if num_features > 2048:
+        sizeMax //= (num_features//2048)
+#    elif num_features < 2048:
+#        sizeMax //= (2048//num_features)
+    # InternalError: Dst tensor is not initialized. can mean that you are running out of GPU memory
+    if model=='MI_max' or model=='':
+        if k_per_bag==300:
+            buffer_size = 10000
+        else:
+            buffer_size = 5000*300 // k_per_bag
+        if AddOneLayer:
+            sizeMax //= 2
+    elif model=='mi_model':
+        buffer_size = 10000*300 // k_per_bag
+        if not (database in ['watercolor','IconArt_v1','comic','PeopleArt','clipart','CASPApaintings']):
+            # ie if it is a big dataset
+            sizeMax //= 2
+        if AddOneLayer:
+            print('AddOneLayer is not implemented in mi_model')
+            raise(NotImplementedError)
+    else:
+        print(model,' is unknown')
+        raise(NotImplementedError)        
+    if (k_per_bag > 300 or num_trainval_im > 5000) and not(Not_on_NicolasPC): # We do the assumption that you are on a cluster with a big RAM (>50Go)
+        usecache = False
+    else:
+        usecache = True
+
+    if CV_Mode=='1000max':
+        sizeMax = min(sizeMax,1000) 
+    if mini_batch_size is None or mini_batch_size==0:
+        mini_batch_size = min(sizeMax,num_trainval_im)
+    max_iters = ((num_trainval_im // mini_batch_size)+ \
+                 np.sign(num_trainval_im % mini_batch_size))*max_iters_all_base
+    return(max_iters,mini_batch_size,usecache,buffer_size)
+
+def get_imdb_test_detection(database,df_label,item_name,default_path_imdb):
+    usecache_eval = True
+    boxCoord01 =False
+    dont_use_07_metric = True
+    if database=='VOC2007':
+        imdb = get_imdb('voc_2007_test',data_path=default_path_imdb)
+        num_images = len(imdb.image_index)
+    elif database=='watercolor':
+        imdb = get_imdb('watercolor_test',data_path=default_path_imdb)
+        num_images = len(imdb.image_index)
+    elif database=='PeopleArt':
+        imdb = get_imdb('PeopleArt_test',data_path=default_path_imdb)
+        num_images = len(imdb.image_index)
+    elif database=='clipart':
+        imdb = get_imdb('clipart_test',data_path=default_path_imdb)
+        num_images = len(imdb.image_index) 
+    elif database=='comic':
+        imdb = get_imdb('comic_test',data_path=default_path_imdb)
+        num_images = len(imdb.image_index) 
+    elif database=='CASPApaintings':
+        imdb = get_imdb('CASPApaintings_test',data_path=default_path_imdb)
+        num_images = len(imdb.image_index) 
+    elif database=='IconArt_v1' or database=='RMN':
+        imdb = get_imdb('IconArt_v1_test',data_path=default_path_imdb)
+        num_images =  len(df_label[df_label['set']=='test'][item_name])
+    elif 'IconArt_v1' in database and not('IconArt_v1' ==database):
+        imdb = get_imdb('IconArt_v1_test',ext=database.split('_')[-1],data_path=default_path_imdb)
+#        num_images = len(imdb.image_index) 
+        num_images =  len(df_label[df_label['set']=='test'][item_name])
+    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
+        imdb = get_imdb('WikiTenLabels_test',data_path=default_path_imdb)
+        #num_images = len(imdb.image_index) 
+        num_images =  len(df_label[df_label['set']=='test'][item_name])
+    elif 'OIV5' in database: # For OIV5 for instance !
+        num_images =  len(df_label[df_label['set']=='test'][item_name])
+        usecache_eval  = False
+        boxCoord01 = True
+    else:
+        num_images =  len(df_label[df_label['set']=='test'][item_name])
+        return(None,num_images,usecache_eval,boxCoord01)
+    imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+    
+    return(imdb,num_images,usecache_eval,boxCoord01)
     
 def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                                   model='MI_max',
@@ -2386,68 +2729,13 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     # Data for the MI_max Latent perceptron
     # All those parameter are design for my GPU 1080 Ti memory size 
     performance = False
-    if parallel_op:
-        sizeMax = 300000*7 // (k_per_bag*num_classes) 
-    else:
-        sizeMax = 30*10000 // k_per_bag
-    if restarts_paral=='Dim': # It will create a new dimension
-        restarts_paral_str = '_RP'
-        sizeMax //= max(int((restarts+1)//2),1) # To avoid division by zero
-        # it seems that using a different size batch drasticly change the results
-    elif restarts_paral=='paral': # Version 2 of the parallelisation
-        restarts_paral_str = '_RPV2'
-        sizeMax = 30*200000 // (k_per_bag*20)
-    else:
-        restarts_paral_str=''
-    if not(init_by_mean is None) and not(init_by_mean==''):
-        if not(CV_Mode=='CV' and num_split==2):
-            sizeMax //= 2
-    # boolean paralleliation du W
-    if CV_Mode == 'CVforCsearch':
-        sizeMax //= 2
-    if num_features > 2048:
-        sizeMax //= (num_features//2048)
-#    elif num_features < 2048:
-#        sizeMax //= (2048//num_features)
-    # InternalError: Dst tensor is not initialized. can mean that you are running out of GPU memory
-    if model=='MI_max' or model=='':
-        model_str = 'MI_max'
-        if k_per_bag==300:
-            buffer_size = 10000
-        else:
-            buffer_size = 5000*300 // k_per_bag
-        if AddOneLayer:
-            sizeMax //= 2
-    elif model=='mi_model':
-        model_str ='mi_model'
-        buffer_size = 10000*300 // k_per_bag
-        if not (database in ['watercolor','IconArt_v1']):
-            sizeMax //= 2
-        if AddOneLayer:
-            print('AddOneLayer is not implemented in mi_model')
-            raise(NotImplementedError)
-    else:
-        print(model,' is unknown')
-        raise(NotImplementedError)        
-    if (k_per_bag > 300 or num_trainval_im > 5000) and not(Not_on_NicolasPC): # We do the assumption that you are on a cluster with a big RAM (>50Go)
-        usecache = False
-    else:
-        usecache = True
-
-    if CV_Mode=='1000max':
-        sizeMax = min(sizeMax,1000) 
-    if mini_batch_size is None or mini_batch_size==0:
-        mini_batch_size = min(sizeMax,num_trainval_im)
-
+    max_iters,mini_batch_size,usecache,buffer_size =get_max_iters(database,max_iters_all_base,\
+                  restarts,parallel_op,restarts_paral,num_classes,init_by_mean,CV_Mode,\
+                  num_features,AddOneLayer,k_per_bag,Not_on_NicolasPC,\
+                  model,num_split,num_trainval_im,mini_batch_size)
     if verbose : print('usecache :',usecache,'mini_batch_size =',mini_batch_size,"buffer_size =",buffer_size)
 
-    if testMode:
-        ext_test = '_Test_Mode'
-    else:
-        ext_test= ''
-
-    max_iters = ((num_trainval_im // mini_batch_size)+ \
-                 np.sign(num_trainval_im % mini_batch_size))*max_iters_all_base
+    
             
     AP_per_class = []
     P_per_class = []
@@ -2456,198 +2744,28 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     AP_per_classbS = []
     final_clf = None
     
-    if C == 1.0:
-        C_str=''
-    else:
-        C_str = '_C'+str(C) # regularisation term 
-    if C_Searching:
-        C_Searching_str ='_Csearch'
-        C_str = ''
-    else:
-        C_Searching_str = ''
-    if with_scores:
-        with_scores_str = '_WRC'+str(epsilon)
-    else:
-        with_scores_str=''
-    if seuillage_by_score:
-        seuillage_by_score_str = '_SBS'+str(seuil)
-    else: seuillage_by_score_str = ''
-    if norm=='L2':
-        extNorm = '_L2'
-    elif norm=='STDall':
-        extNorm = '_STDall'
-    elif norm=='STDSaid':
-        extNorm = '_STDSaid'
-    elif norm=='STD':
-        extNorm = '_STD'
-        raise(NotImplementedError)
-    elif norm=='' or norm is None:
-        extNorm = ''
-    if parallel_op:
-        extPar = '_p'
-    else:
-        extPar =''
-    if CV_Mode=='CV':
-        max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max par rapport au nombre de split
-        extCV = '_cv'+str(num_split)
-    elif CV_Mode=='LA':
-        max_iters = (max_iters*(num_split-1)//num_split) # Modification d iteration max par rapport au nombre de split
-        extCV = '_la'+str(num_split)
-    elif CV_Mode=='CV' and WR==True:
-        extCV = '_cv'+str(num_split)
-    elif CV_Mode == '1000max':
-        extCV = '_1000max'
-    elif CV_Mode == 'CVforCsearch':
-        extCV = '_CVforCsearch'
-    elif CV_Mode is None or CV_Mode=='':
-        extCV =''
-    else:
-        raise(NotImplementedError)
-    if WR: extCV += '_wr'
-
-    if Optimizer=='Adam':
-        opti_str=''
-    elif Optimizer=='GradientDescent':
-        opti_str='_gd'
-    elif Optimizer=='lbfgs':
-        opti_str='_lbfgs'
-    else:
-        raise(NotImplementedError)
-    if init_by_mean is None or init_by_mean=='':
-        init_by_mean_str = ''
-    elif init_by_mean=='First':
-        init_by_mean_str= '_ibnF'
-    elif init_by_mean=='All':
-        init_by_mean_str= '_ibnA'
-    if LR==0.01:
-        LR_str = ''
-    else:
-        LR_str='_LR'+str(LR)
     
-    if Max_version=='max' or Max_version=='' or Max_version is None:
-        Max_version_str =''
-    elif Max_version=='softmax':
-        Max_version_str ='_MVSF'
-        if not(w_exp==1.0): Max_version_str+=str(w_exp)
-    elif Max_version=='sparsemax':
-        Max_version_str ='_MVSM'
-    elif Max_version=='mintopk':
-        Max_version_str ='_MVMT'+str(k_intopk)
-    elif Max_version=='MaxPlusMin':
-        Max_version_str ='_MaxPlusMin'+str(k_intopk)+'_'+str(alpha)
-    elif Max_version=='LogSumExp':
-        Max_version_str ='_MLogSumExp'
-    elif Max_version=='maxByPow':
-        Max_version_str ='_maxByPow'+str(exp)
-    optimArg = None
-    #optimArg = {'learning_rate':LR,'beta1':0.9,'beta2':0.999,'epsilon':1}
-    if optimArg== None or Optimizer=='GradientDescent':
-        optimArg_str = ''
-    else:
-        if  Optimizer=='Adam' and str(optimArg).replace(' ','_')=="{'learning_rate':_0.01,_'beta1':_0.9,_'beta2':_0.999,_'epsilon':_1e-08}":
-            optimArg_str = ''
-        else:
-            optimArg_str =  str(optimArg).replace(' ','_')
     verboseMI_max = verbose
     shuffle = True
     if num_trainval_im==mini_batch_size:
         shuffle = False
-    if shuffle:
-        shuffle_str = ''
-    else:
-        shuffle_str = '_allBase'
-    if optim_wt_Reg:
-        optim_wt_Reg_str = '_OptimWTReg'
-    else:
-        optim_wt_Reg_str =''
-    if AggregW is None or AggregW=='':
-        AggregW_str =''
-    elif AggregW=='AveragingWportion' and not(proportionToKeep==1.0):
-        AggregW_str = '_AvW'+str(proportionToKeep) 
-    elif AggregW=='AveragingW' or (AggregW=='AveragingWportion' and (proportionToKeep==1.0)):
-        AggregW_str = '_AveragingW'
-    elif AggregW=='meanOfProd':
-        AggregW_str = '_VW'+str(proportionToKeep)
-    elif AggregW=='medianOfProd':
-        AggregW_str = '_VMedW'+str(proportionToKeep)
-    elif AggregW=='maxOfProd':
-        AggregW_str = '_VMaxW'+str(proportionToKeep)
-    elif AggregW=='minOfProd':
-        AggregW_str = '_VMinW'+str(proportionToKeep)
-    elif AggregW=='meanOfTanh':
-        AggregW_str = '_VTanh'+str(proportionToKeep)
-    elif AggregW=='medianOfTanh':
-        AggregW_str = '_VMedTanh'+str(proportionToKeep)
-    elif AggregW=='maxOfTanh':
-        AggregW_str = '_VMaxTanh'+str(proportionToKeep)
-    elif AggregW=='minOfTanh':
-        AggregW_str = '_VMinTanh'+str(proportionToKeep)
-    elif AggregW=='meanOfSign':
-        AggregW_str = '_VMeanSign'+str(proportionToKeep)
-    
-    if loss_type is None or loss_type=='':
-        loss_type_str =''
-    elif loss_type=='MSE':
-        loss_type_str = 'LossMSE'
-    elif loss_type=='hinge':
-        loss_type_str = 'Losshinge'
-    elif loss_type=='hinge_tanh':
-        loss_type_str = 'LosshingeTanh'
-    elif loss_type=='log':
-        loss_type_str = 'LossLog'
-    else:
-        raise(NotImplementedError)
-        
-    if obj_score_add_tanh:
-        str_obj_score_add_tanh = '_ScoreAdd'+str(lambdas)
-    else:
-        str_obj_score_add_tanh = ''
-    if obj_score_mul_tanh:
-        str_obj_score_mul_tanh = '_SMulTanh'
-    else:
-        str_obj_score_mul_tanh = ''
-        
-    if MaxOfMax:
-        str_MaxOfMax = '_MaxOfMax'
-    elif MaxMMeanOfMax :
-        str_MaxOfMax = '_MaxMMeanOfMax'
-    elif MaxTopMinOfMax:
-        str_MaxOfMax = '_MaxTopMinOfMax'+str(proportionToKeep)
-    else:
-        str_MaxOfMax =''
-    if Cosine_ofW_inLoss:
-        str_Cosine_ofW_inLoss = '_Cosine_ofW_inLoss'+str(Coeff_cosine)
-    else:
-        str_Cosine_ofW_inLoss = ''
-        
     Number_of_positif_elt = 1 
     number_zone = k_per_bag
-    
-#    thresh_evaluation,TEST_NMS = 0.05,0.3
-    dont_use_07_metric = True
     symway = True
-    
-
-        
-    if predict_with=='':
-        predict_with = 'MI_max' 
-    if not(PCAuse):
-        PCAusestr =''
-    else:
-        PCAusestr= '_PCAc'+str(number_composant)
-     
-        
-    if metamodel=='FasterRCNN':
-        metamodelstr=''
-    else:
-        metamodelstr ='_'+ metamodel
         
     if metamodel=='FasterRCNN':
         dim_rois = 5
     if metamodel=='EdgeBoxes':
         dim_rois = 4
 
-    arrayParam = [demonet,database,N,extL2,nms_thresh,savedstr,mini_batch_size,
+#    if os.path.isfile(cachefile_model_old):
+#        print('Do you want to erase the model or do a new one ?')
+#        input_str = input('Answer yes or not')
+#    cachefile_model = path_data + param_name + '.pkl'
+    optimArg = None
+    #optimArg = {'learning_rate':LR,'beta1':0.9,'beta2':0.999,'epsilon':1}
+    cachefile_model_base,cachefile_model,cachefilefolder,arrayParam,arrayParamStr = get_cachefilepath(path_data,demonet,database,k_per_bag,
+                  N,extL2,nms_thresh,savedstr,mini_batch_size,
                   performance,buffer_size,predict_with,shuffle,C,testMode,restarts,max_iters_all_base,
                   max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
                   Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
@@ -2655,47 +2773,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                   with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
-                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,
-                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden]
-    arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
-                     'mini_batch_size','performance','buffer_size','predict_with',
-                     'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
-                     'num_split','parallel_op','WR','norm','Optimizer','LR',
-                     'optimArg','Number_of_positif_elt','number_zone','seuil_estimation'
-                     ,'thresh_evaluation','TEST_NMS','init_by_mean','transform_output','with_rois_scores_atEnd',
-                     'with_scores','epsilon','restarts_paral','Max_version','w_exp','seuillage_by_score',
-                     'seuil','k_intopk','C_Searching','gridSearch','thres_FinalClassifier','optim_wt_Reg',
-                     'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
-                     'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant',\
-                     'AddOneLayer','exp','MaxOfMax','MaxMMeanOfMax','alpha','layer',\
-                     'Cosine_ofW_inLoss','Coeff_cosine','num_features_hidden']
-    assert(len(arrayParam)==len(arrayParamStr))
-    print(tabs_to_str(arrayParam,arrayParamStr))
-#    print('database',database,'mini_batch_size',mini_batch_size,'max_iters',max_iters,'norm',norm,\
-#          'parallel_op',parallel_op,'CV_Mode',CV_Mode,'WR',WR,'restarts',restarts,'demonet',demonet,
-#          'Optimizer',Optimizer,'init_by_mean',init_by_mean,'with_tanh',with_tanh)
-    
-    cachefilefolder = os.path.join(path_data,'cachefile')
-    if not(layer=='fc7'):
-        layerStr = '_'+layer
-    else:
-        layerStr = ''
-    cachefile_model_base='WLS_'+ database+metamodelstr+ '_'+demonet+layerStr+'_r'+str(restarts)+'_s' \
-        +str(mini_batch_size)+'_k'+str(k_per_bag)+'_m'+str(max_iters)+extNorm+extPar+\
-        extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
-        +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
-        + AggregW_str + loss_type_str+str_obj_score_add_tanh+str_obj_score_mul_tanh \
-        + PCAusestr+str_MaxOfMax+str_Cosine_ofW_inLoss
-    if trainOnTest:
-        cachefile_model_base += '_trainOnTest'
-    if AddOneLayer:
-        cachefile_model_base += '_AddOneLayer' + str(num_features_hidden)
-    pathlib.Path(cachefilefolder).mkdir(parents=True, exist_ok=True)
-    cachefile_model = os.path.join(cachefilefolder,cachefile_model_base+'_'+model_str+'.pkl')
-#    if os.path.isfile(cachefile_model_old):
-#        print('Do you want to erase the model or do a new one ?')
-#        input_str = input('Answer yes or not')
-#    cachefile_model = path_data + param_name + '.pkl'
+                  model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,MaxTopMinOfMax,
+                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden,trainOnTest)
     if verbose: print("cachefile name",cachefile_model)
     if not os.path.isfile(cachefile_model) or ReDo:
         name_milsvm = {}
@@ -2705,45 +2784,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             name_milsvm = pickle.load(f)
             if verbose: print("The cachefile exists")
     
-    usecache_eval = True
-    boxCoord01 =False
-    
-    if database=='VOC2007':
-        imdb = get_imdb('voc_2007_test',data_path=default_path_imdb)
-        num_images = len(imdb.image_index)
-    elif database=='watercolor':
-        imdb = get_imdb('watercolor_test',data_path=default_path_imdb)
-        num_images = len(imdb.image_index)
-    elif database=='PeopleArt':
-        imdb = get_imdb('PeopleArt_test',data_path=default_path_imdb)
-        num_images = len(imdb.image_index)
-    elif database=='clipart':
-        imdb = get_imdb('clipart_test',data_path=default_path_imdb)
-        num_images = len(imdb.image_index) 
-    elif database=='comic':
-        imdb = get_imdb('comic_test',data_path=default_path_imdb)
-        num_images = len(imdb.image_index) 
-    elif database=='CASPApaintings':
-        imdb = get_imdb('CASPApaintings_test',data_path=default_path_imdb)
-        num_images = len(imdb.image_index) 
-    elif database=='IconArt_v1' or database=='RMN':
-        imdb = get_imdb('IconArt_v1_test',data_path=default_path_imdb)
-        num_images =  len(df_label[df_label['set']=='test'][item_name])
-    elif 'IconArt_v1' in database and not('IconArt_v1' ==database):
-        imdb = get_imdb('IconArt_v1_test',ext=database.split('_')[-1],data_path=default_path_imdb)
-#        num_images = len(imdb.image_index) 
-        num_images =  len(df_label[df_label['set']=='test'][item_name])
-    elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
-        imdb = get_imdb('WikiTenLabels_test',data_path=default_path_imdb)
-        #num_images = len(imdb.image_index) 
-        num_images =  len(df_label[df_label['set']=='test'][item_name])
-    elif 'OIV5' in database: # For OIV5 for instance !
-        num_images =  len(df_label[df_label['set']=='test'][item_name])
-        usecache_eval  = False
-        boxCoord01 = True
-    else:
-        num_images =  len(df_label[df_label['set']=='test'][item_name])
-    imdb.set_force_dont_use_07_metric(dont_use_07_metric)
+    imdb,num_images,usecache_eval,boxCoord01 = get_imdb_test_detection(database,df_label,item_name,default_path_imdb)
     all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
    
     data_path_train= dict_name_file['trainval']
@@ -2806,8 +2847,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                  pickle.dump(name_milsvm, f)
         else:
             export_dir,np_pos_value,np_neg_value= name_milsvm
-        export_dir = export_dir.replace('data/','/media/gonthier/HDD/output_exp/')
-        print('new export_dir',export_dir) # A retirer
+
         usecache_eval = False # A retirer
 #        plot_onSubSet =  ['angel','Child_Jesus', 'crucifixion_of_Jesus','Mary','nudity', 'ruins','Saint_Sebastien'] 
 #        
@@ -3009,9 +3049,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             print("Detection score with thres at ",ovthresh,'with ',model,'with score =',with_scores)
             print(arrayToLatex(aps,per=True))
         imdb.set_use_diff(True) # Modification of the use_diff attribute in the imdb 
-        aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
+        aps_diff =  imdb.evaluate_detections(all_boxes_order, output_dir)
         print("Detection score with the difficult elementwith ",model)
-        print(arrayToLatex(aps,per=True))
+        print(arrayToLatex(aps_diff,per=True))
         imdb.set_use_diff(False)
     
     elif not(parallel_op) and 'OIV5' in database :
@@ -4469,6 +4509,245 @@ def detectionOnOtherImages(demonet = 'res152_COCO',database = 'Wikidata_Painting
         #print(dets_list[0].shape)
         vis_detections_list(im, cls_list, dets_list, thresh=CONF_THRESH)
         name_output = output_DIR  + im_name_wt_ext  + '_NMSRegions.jpg'
+        plt.savefig(name_output)
+        plt.close()
+    
+    sess.close()
+    
+def MImax_detectionOnOtherImages(demonet = 'res152_COCO',learning_database = 'IconArt_v1',
+                                 DATA_DIR='OtherImages',output_DIR='OtherImages/outputs',
+                                  model='MI_max',verbose = True,k_per_bag=300,
+                                  parallel_op =True,CV_Mode=None,num_split=2,
+                                  WR=True,init_by_mean=None,seuil_estimation=None,
+                                  restarts=11,max_iters_all_base=300,LR=0.01,
+                                  with_tanh=True,C=1.0,Optimizer='GradientDescent',norm=None,
+                                  transform_output=None,with_rois_scores_atEnd=False,
+                                  with_scores=False,epsilon=0.0,restarts_paral='paral',
+                                  Max_version=None,w_exp=1.0,seuillage_by_score=False,
+                                  seuil=0.5,k_intopk=3,C_Searching=False,gridSearch=False,n_jobs=1,
+                                  predict_with='MI_max',thres_FinalClassifier=0.5,
+                                  thresh_evaluation=0.05,TEST_NMS=0.3,eval_onk300=False,
+                                  optim_wt_Reg=False,AggregW=None,proportionToKeep=0.25,
+                                  plot_onSubSet=None,loss_type=None,storeVectors=False,
+                                  storeLossValues=False,obj_score_add_tanh=False,lambdas=0.5,
+                                  obj_score_mul_tanh=False,metamodel='FasterRCNN',
+                                  PCAuse=False,variance_thres=0.9,trainOnTest=False,
+                                  AddOneLayer=False,exp=10,MaxOfMax=False,debug = False,alpha=0.7,
+                                  layer='fc7',MaxMMeanOfMax=False,MaxTopMinOfMax=False,
+                                  Cosine_ofW_inLoss=False,Coeff_cosine=1.,
+                                  mini_batch_size=None,num_features_hidden=256,dtype=None):
+    """
+    This code run a detection model MImax and co. on all the image from a given dataset
+    """
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+        path_data,Not_on_NicolasPC = get_database(learning_database)
+    DATA_DIR =  path_data + DATA_DIR
+    output_DIR = path_data + output_DIR
+    pathlib.Path(output_DIR).mkdir(parents=True, exist_ok=True)
+        
+    N = 1
+    extL2 = ''
+    nms_thresh = 0.7
+    
+    # Load model :
+    if 'VOC'in demonet:
+        CLASSES = CLASSES_SET['VOC']
+        anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+    elif 'COCO'in demonet:
+        CLASSES = CLASSES_SET['COCO']
+        anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
+    nbClasses = len(CLASSES)
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
+    tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+    tfconfig = tf.ConfigProto(allow_soft_placement=True)
+    tfconfig.gpu_options.allow_growth=True
+    # init session
+    sess = tf.Session(config=tfconfig)
+    
+    # load network
+    if  'vgg16' in demonet:
+      net = vgg16()
+      number_composant = 4096
+    elif demonet == 'res50':
+      raise NotImplementedError
+    elif 'res101' in demonet:
+      net = resnetv1(num_layers=101)
+      number_composant = 2048
+    elif 'res152' in demonet:
+      net = resnetv1(num_layers=152)
+      number_composant = 2048
+    elif demonet == 'mobile':
+      raise NotImplementedError
+    else:
+      raise NotImplementedError
+    
+    net.create_architecture("TEST", nbClasses,
+                          tag='default', anchor_scales=anchor_scales,
+                          modeTL= True,nms_thresh=nms_thresh)
+    saver = tf.train.Saver()
+    saver.restore(sess, tfmodel)
+    
+    print("The cachefile have to exist, the model have to be trained before")
+    shuffle = True
+    optimArg = None
+    Number_of_positif_elt = 1
+    number_zone = k_per_bag
+    testMode = False
+    performance = False
+    buffer_size= 10000    
+    savedstr = '_all'
+    if layer=='fc6':
+        savedstr+='_fc6'
+    num_features = number_composant
+    imdb,num_images,usecache_eval,boxCoord01 = get_imdb_test_detection(database,df_label,item_name,default_path_imdb)
+    num_trainval_im=num_images
+    max_iters,mini_batch_size,usecache,buffer_size =get_max_iters(database,max_iters_all_base,\
+              restarts,parallel_op,restarts_paral,num_classes,init_by_mean,CV_Mode,\
+              num_features,AddOneLayer,k_per_bag,Not_on_NicolasPC,\
+              model,num_split,num_trainval_im,mini_batch_size)
+    
+    cachefile_model_base,cachefile_model,cachefilefolder,arrayParam,arrayParamStr = get_cachefilepath(path_data,demonet,database,k_per_bag,
+              N,extL2,nms_thresh,savedstr,mini_batch_size,
+              performance,buffer_size,predict_with,shuffle,C,testMode,restarts,max_iters_all_base,
+              max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
+              Number_of_positif_elt,number_zone,seuil_estimation,thresh_evaluation,
+              TEST_NMS,init_by_mean,transform_output,with_rois_scores_atEnd,
+              with_scores,epsilon,restarts_paral,Max_version,w_exp,seuillage_by_score,seuil,
+              k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
+              proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
+              model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,MaxTopMinOfMax,
+              alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden,trainOnTest)
+        
+    # Load model
+    with open(cachefile_model, 'rb') as f:
+        name_milsvm = pickle.load(f)
+        export_dir,np_pos_value,np_neg_value= name_milsvm
+    with_tanh_alreadyApplied = False 
+    with_softmax_a_intraining = False
+    with_softmax = False
+    print('Warning you have with_tanh_alreadyApplied =',with_tanh_alreadyApplied,'with_softmax_a_intraining',with_softmax_a_intraining,'with_softmax',with_softmax)
+    scoreInMI_max = with_scores
+    export_dir_path = ('/').join(export_dir.split('/')[:-1])
+    name_model_meta = export_dir + '.meta'
+    new_saver = tf.train.import_meta_graph(name_model_meta)
+    new_saver.restore(sess, tf.train.latest_checkpoint(export_dir_path))
+    graph= tf.get_default_graph()
+    if not(k_per_bag==300) and eval_onk300:
+        print('Que fais tu la ?')
+        X = tf.placeholder(tf.float32, shape=(None,300,num_features),name='X')
+        y = tf.placeholder(tf.float32, shape=(None,num_classes),name='y')
+        if scoreInMI_max:
+            scores_tf = tf.placeholder(tf.float32, shape=(None,),name='scores')
+    else:
+        X = get_tensor_by_nameDescendant(graph,"X")
+        y = get_tensor_by_nameDescendant(graph,"y")
+    if scoreInMI_max: 
+        scores_tf = get_tensor_by_nameDescendant(graph,"scores")
+        if with_tanh_alreadyApplied:
+            Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+        else:
+            Prod_best = get_tensor_by_nameDescendant(graph,"ProdScore")
+    else:
+        if with_tanh_alreadyApplied:
+            Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+        else:
+            Prod_best =  get_tensor_by_nameDescendant(graph,"Prod")
+    if with_tanh:
+        print('We add the tanh in the test fct')
+        Tanh = tf.tanh(Prod_best)
+        mei = tf.argmax(Tanh,axis=2)
+        score_mei = tf.reduce_max(Tanh,axis=2)
+    elif with_softmax:
+        Softmax = tf.nn.softmax(Prod_best,axis=-1)
+        mei = tf.argmax(Softmax,axis=2)
+        score_mei = tf.reduce_max(Softmax,axis=2)
+    elif with_softmax_a_intraining:
+        Softmax=tf.multiply(tf.nn.softmax(Prod_best,axis=-1),Prod_best)
+        mei = tf.argmax(Softmax,axis=2)
+        score_mei = tf.reduce_max(Softmax,axis=2)
+    else:
+        mei = tf.argmax(Prod_best,axis=-1)
+        score_mei = tf.reduce_max(Prod_best,axis=-1)
+    sess.run(tf.global_variables_initializer())
+    sess.run(tf.local_variables_initializer())
+    
+    CONF_THRESH = 0.0
+    NMS_THRESH = 0.0 # non max suppression
+    thresh = 0.01
+    dirs = os.listdir(DATA_DIR)
+    for im_name in dirs:
+        im_name_wt_ext, _ = im_name.split('.')
+        imfile = os.path.join(DATA_DIR, im_name)
+        im = cv2.imread(imfile)
+        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im)
+        blobs, im_scales = get_blobs(im)
+        cls_boxes =  rois[:,1:5] / im_scales[0]
+        fc7s = np.expand_dim(fc7,axis=0)
+        rois_scores = np.expand_dim(fc7,axis=0)
+        rois = np.expand_dim(rois,axis=0)
+        labels = np.zeros((1,num_classes))
+        if scoreInMI_max:
+            feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
+        else:
+            feed_dict_value = {X: fc7s, y: labels}
+        if with_tanh:
+            PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
+            sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
+        elif with_softmax or with_softmax_a_intraining:
+            PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
+            sess.run([mei,score_mei,Softmax], feed_dict=feed_dict_value)
+        else:
+            PositiveRegions,get_RegionsScore,PositiveExScoreAll = \
+            sess.run([mei,score_mei,Prod_best], feed_dict=feed_dict_value)
+        if with_rois_scores_atEnd:
+            PositiveExScoreAll = PositiveExScoreAll*rois_scores
+            get_RegionsScore = np.max(PositiveExScoreAll,axis=2)
+            PositiveRegions = np.amax(PositiveExScoreAll,axis=2)
+        scores_all = PositiveExScoreAll[1,:]
+        for j in range(num_classes):
+            scores = scores_all[j,:]
+            inds = np.where(scores > thresh)[0]
+            cls_scores = scores[inds]
+            cls_boxes = cls_boxes[inds,:]
+            cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])).astype(np.float32, copy=False)
+            keep = nms(cls_dets, TEST_NMS)
+            cls_dets = cls_dets[keep, :]
+
+        roi_boxes_and_score = []
+        local_cls = []
+        for j in range(num_classes):
+            if len(cls_dets) > 0:
+                local_cls += [classes[j]]
+#                                roi_boxes_score = np.expand_dims(cls_dets,axis=0)
+                roi_boxes_score = cls_dets
+#                                print(roi_boxes_score.shape)
+                if roi_boxes_and_score is None:
+                    roi_boxes_and_score = [roi_boxes_score]
+                else:
+                    roi_boxes_and_score += [roi_boxes_score] 
+                    #np.vstack((roi_boxes_and_score,roi_boxes_score))
+
+        if roi_boxes_and_score is None: roi_boxes_and_score = [[]]    
+        cls = local_cls
+
+        vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf,list_class=plot_onSubSet)
+        name_output = output_DIR + im_name_wt_ext + '_Regions.jpg'
+        if database=='PeopleArt':
+            path_tmp = '/'.join(name_output.split('/')[0:-1])
+            pathlib.Path(path_tmp).mkdir(parents=True, exist_ok=True) 
+        plt.savefig(name_output)
+        plt.close()
+        
+        vis_detections_list(im, cls, roi_boxes_and_score, thresh=0.25,list_class=plot_onSubSet)
+        name_output = output_DIR + im_name_wt_ext + '_Regions_over025.jpg'
+        plt.savefig(name_output)
+        plt.close()
+        vis_detections_list(im, cls, roi_boxes_and_score, thresh=0.5,list_class=plot_onSubSet)
+        name_output = output_DIR + im_name_wt_ext + '_Regions_over05.jpg'
+        plt.savefig(name_output)
+        plt.close()
+        vis_detections_list(im, cls, roi_boxes_and_score, thresh=0.75,list_class=plot_onSubSet)
+        name_output = output_DIR + im_name_wt_ext + '_Regions_over075.jpg'
         plt.savefig(name_output)
         plt.close()
     
