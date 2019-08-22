@@ -345,10 +345,8 @@ def CASPApaintings(copyFile=False,convertXML=False,copyIm=False):
             else:
                 df_test = df_test.append(pd_c_test)
             
-        df_test.drop_duplicates(subset ='name_img', 
-                     keep = False, inplace = True) 
-        df_train.drop_duplicates(subset ='name_img', 
-                     keep = False, inplace = True)
+        df_test = df_test.drop_duplicates(subset ='name_img') 
+        df_train = df_train.drop_duplicates(subset ='name_img')
         df_train = df_train['name_img']
         df_test = df_test['name_img']
         #print(df_test.head(5))
@@ -403,13 +401,16 @@ def CASPApaintings(copyFile=False,convertXML=False,copyIm=False):
             df = pd_b
         else:
             df = df.append(pd_b)
+    df = df.drop_duplicates(subset ='name_img') 
+    print('Size dataset :',len(df))
+    
     print(list_mising_xml)
-    for  i in list_mising_xml:
-        name_img = default_path_imdb + 'CASPApaintings/JPEGImages/' + i +'.jpg'
-        plt.figure()
-        imreadoutput = plt.imread(name_img)
-        plt.imshow(imreadoutput)
-    input('wait')
+#    for  i in list_mising_xml:
+#        name_img = default_path_imdb + 'CASPApaintings/JPEGImages/' + i +'.jpg'
+#        plt.figure()
+#        imreadoutput = plt.imread(name_img)
+#        plt.imshow(imreadoutput)
+#    input('wait')
     
     c_missing = [['bear','horse'],['bear'],['bear'],['elephant'],['horse'],['horse'],['horse'],['horse'],['bear'],['bear','sheep'],['bear','dog'],['bear'],['bear'],['bear'],['horse']]
       
@@ -421,6 +422,8 @@ def CASPApaintings(copyFile=False,convertXML=False,copyIm=False):
         df.loc[df['name_img']==name,'set'] = 'train'
     print('Size of datasets : ',len(df),'size train set :',len(df[df['set']=='train']),'size test set :',len(df[df['set']=='test']))
     oneNotFound = False
+    
+    df.loc[df['name_img']=='4-cat-and-cattle','cat'] = 1
     
     if not(oneNotFound):
         output_name = path_output + 'CASPApaintings_all' + '.csv'
@@ -436,19 +439,18 @@ def CASPApaintings(copyFile=False,convertXML=False,copyIm=False):
         print('XML not found, not saved')
         
     # Il faut extraire les  fichiers test et etc
-    output_name = path_output + 'CASPApaintings' + '.csv'
-    df_new =  pd.read_csv(output_name,dtype=str)
+    output_name_csv = path_output + 'CASPApaintings' + '.csv'
+    print(output_name_csv)
+    df_new =  pd.read_csv(output_name_csv,dtype=str)
     for set in ['train','test']:
         df_set = df_new[df_new['set']==set]
-        print(df_set.head())
+        print(set,len(df_set))
         all_names = df_set['name_img'].values
         output_name = default_path_imdb + 'CASPApaintings/ImageSets/Main/'+set+'.txt' 
         np.savetxt(output_name, all_names, delimiter='\n',fmt='%s')
         for c in classes:
             df_c = df_set[df_set[c]==str(1)]
-            print(df_c.head())
             all_names_c = df_c['name_img'].values
-            print(c,all_names_c)
             output_name = default_path_imdb + 'CASPApaintings/ImageSets/Main/'+c+'_'+set+'.txt' 
             np.savetxt(output_name, all_names_c, delimiter='\n',fmt='%s')
     
