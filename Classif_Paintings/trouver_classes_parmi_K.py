@@ -1286,6 +1286,7 @@ class tf_MI_max():
         shuffle_iterator = dataset_shuffle.make_initializable_iterator()
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh  or self.obj_score_mul_tanh:
             X_,scores_, y_ = shuffle_iterator.get_next()
+            scores_first = None # variable if we need to modfify scores_ variable
         else:
             X_, y_ = shuffle_iterator.get_next()
 
@@ -1343,7 +1344,7 @@ class tf_MI_max():
                     W0 = tf.Variable(tf.random_normal([self.num_classes,self.num_features_hidden,self.num_features], stddev=1.,dtype=self.dtype),name="W0",dtype=self.dtype)
                     b0=tf.Variable(tf.random_normal([1,self.num_classes,self.num_features_hidden], stddev=1.,dtype=self.dtype), name="b0",dtype=self.dtype)
                     W=tf.Variable(tf.random_normal([self.num_classes,self.num_features_hidden], stddev=1.,dtype=self.dtype),name="weights",dtype=self.dtype)
-                    b=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.,dtype=self.dtype), name="bias",dtype=self.dtype)
+                    b=tf.Variable(tf.random_normal([1,1,self.num_classes], stddev=1.,dtype=self.dtype), name="bias",dtype=self.dtype)
                 else:
                     W=tf.Variable(tf.random_normal([self.num_classes,self.num_features], stddev=1.,dtype=self.dtype),name="weights",dtype=self.dtype)
                     b=tf.Variable(tf.random_normal([self.num_classes,1,1], stddev=1.,dtype=self.dtype), name="bias",dtype=self.dtype)
@@ -1355,10 +1356,11 @@ class tf_MI_max():
                     normalize_W = W.assign(tf.nn.l2_normalize(W,dim=0))
                     if self.AddOneLayer:
                         normalize_W = tf.group(normalize_W,W0.assign(tf.nn.l2_normalize(W0,dim=0))) 
-                if not(self.AddOneLayer):
-                    W_r=tf.reshape(W,(self.num_classes,1,1,self.num_features))
-                else:
-                    W_r = W
+#                if not(self.AddOneLayer):
+#                    W_r=tf.reshape(W,(self.num_classes,1,self.num_features))
+#                else:
+#                    W_r = W
+                W_r = W
             
             if self.restarts_paral_V2:
                 # Batch matrix multiplication
@@ -1370,24 +1372,43 @@ class tf_MI_max():
                     Prod = tf.einsum('ikl,kl->ik',denselayer,W) # a verifier
                     Prod = tf.reshape(Prod, [-1, self.num_rois,self.paral_number_W*self.num_classes])
 #                    Prod = tf.transpose(Prod,perm=[2,0,1])
+                    if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
+                        scores_first = scores_
+                        scores_ =tf.reshape( scores_first, [-1,self.num_rois,1])
                 else:
                     Prod = tf.einsum('ak,ijk->aij',W_r,X_)
                     Prod=tf.add(Prod,b)
             else:
                 if self.AddOneLayer: # A finir ici
+                    print('X_',X_)
                     embed = tf.reshape(X_, [-1, self.num_features])
+                    print('embed',embed)
                     h = tf.einsum('lk,ijk->lij',embed,W0)
+                    print('h',h)
                     denselayer = tf.tanh(tf.add(h,b0))
+                    print('denselayer',denselayer)
                     Prod = tf.einsum('lij,ij->li',denselayer,W)
+                    print('Prod',Prod)
                     Prod = tf.reshape(Prod, [-1, self.num_rois,self.num_classes])
-                    Prod = tf.transpose(Prod,perm=[2,0,1]) # Ralenti beaucoup ?
+                    #Prod = tf.transpose(Prod,perm=[2,0,1]) # Ralenti beaucoup ?
+                    print('Prod',Prod)
+                    print('b',b)
                     Prod=tf.add(Prod,b)
+                    if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
+                        scores_first = scores_
+                        scores_ =tf.reshape( scores_first, [-1,self.num_rois,1])
                 else:
-                    Prod=tf.add(tf.reduce_sum(tf.multiply(W_r,X_),axis=-1),b)
-
+                    Prod=tf.add(tf.einsum('ij,klj->ikl',W_r,X_),b)
+                    
+            print('Prod lilala',Prod)
+            
+            
+            
             if self.with_scores: 
+                print('scores_ lilala',scores_)
                 if self.verbose: print('With score multiplication')
                 Prod=tf.multiply(Prod,tf.add(scores_,self.epsilon))
+                print('after multi',Prod)
             elif self.seuillage_by_score:
                 if self.verbose: print('score seuil')
                 Prod=tf.multiply(Prod,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.))
@@ -1402,8 +1423,10 @@ class tf_MI_max():
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 
                 if self.AddOneLayer:
+                    print('Prod',Prod)
                     Max=tf.reduce_max(Prod,axis=1) 
                     Max = tf.transpose(Max,perm=[1,0])
+                    print('Max after transpose',Max)
                 else:
                     Max=tf.reduce_max(Prod,axis=-1) 
             
@@ -1464,30 +1487,37 @@ class tf_MI_max():
                 y_tilde_i = tf.tanh(Max)
             else:
                 y_tilde_i = Max
+#            if self.AddOneLayer:
+#                print('weights_bags_ratio',weights_bags_ratio)
+#                reduce_loss_axis = 0
+#            else:
+#                reduce_loss_axis = -1
+            reduce_loss_axis = -1
+            print('y_tilde_i,weights_bags_ratio)',y_tilde_i,weights_bags_ratio)
             if self.loss_type == '' or self.loss_type is None:
-                Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
+                Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=reduce_loss_axis) # Sum on all the positive exemples 
             elif self.loss_type=='MSE':
                 if self.verbose: print('Used of the mean squared Error')
                 # y_ in [0,1]  et y_tilde_i in [-1,1]
                 squared = tf.pow(tf.add(-y_tilde_i,y_long_pm1),2)
-                Tan = tf.multiply(tf.reduce_sum(tf.multiply(squared,tf.abs(weights_bags_ratio)),axis=-1),0.25)
+                Tan = tf.multiply(tf.reduce_sum(tf.multiply(squared,tf.abs(weights_bags_ratio)),axis=reduce_loss_axis),0.25)
                 #Tan = tf.losses.mean_squared_error(tf.add(tf.multiply(y_,2),-1),tf.transpose(y_tilde_i,,weights=tf.abs(weights_bags_ratio))
             elif self.loss_type=='hinge_tanh':
                 if self.verbose: print('Used of the hinge loss with tanh')
                 # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
                 hinge = tf.maximum(tf.add(-tf.multiply(y_tilde_i,y_long_pm1),1.),0.)
-                Tan = tf.reduce_sum(tf.multiply(hinge,tf.abs(weights_bags_ratio)),axis=-1)
+                Tan = tf.reduce_sum(tf.multiply(hinge,tf.abs(weights_bags_ratio)),axis=reduce_loss_axis)
             elif self.loss_type=='hinge':
                 if self.verbose: print('Used of the hinge loss without tanh')
                 hinge = tf.maximum(tf.add(-tf.multiply(Max,y_long_pm1),1.),0.)
-                Tan = tf.reduce_sum(tf.multiply(hinge,tf.abs(weights_bags_ratio)),axis=-1)
+                Tan = tf.reduce_sum(tf.multiply(hinge,tf.abs(weights_bags_ratio)),axis=reduce_loss_axis)
             elif self.loss_type=='log':
                 if self.verbose: print('Used of the log loss')
                 log1 = -tf.multiply(tf.divide(tf.add(y_long_pm1,1),2),tf.log(tf.divide(tf.add(y_tilde_i,1),2)))
                 log2 = -tf.multiply(tf.divide(tf.add(-y_long_pm1,1),2),tf.log(tf.divide(tf.add(-y_tilde_i,1),2)))
                 log = tf.add(log1,log2)
-                Tan = tf.reduce_sum(tf.multiply(log,tf.abs(weights_bags_ratio)),axis=-1)
-                
+                Tan = tf.reduce_sum(tf.multiply(log,tf.abs(weights_bags_ratio)),axis=reduce_loss_axis)
+            print('Tan',Tan)  
 #            Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
             if self.restarts_paral_V2:
                 if self.C_Searching:    
@@ -1517,9 +1547,11 @@ class tf_MI_max():
                     
             else:
                 Wnorm = tf.reduce_sum(tf.pow(W_r,2),axis=-1)
+                print('Wnorm',Wnorm)
                 loss= tf.add(Tan,tf.multiply(self.C,Wnorm))
                 if self.AddOneLayer:
                     W0_norm = tf.reduce_sum(tf.pow(W0,2),axis=[-2,-1])
+                    print('W0_norm',W0_norm)
                     loss = tf.add(loss,tf.multiply(self.C,W0_norm))
             # Shape 20 and if self.restarts_paral_Dim shape (number_W) x 20
             
@@ -1533,6 +1565,8 @@ class tf_MI_max():
                     Prod_batch = tf.reshape(Prod_batch, [-1,self.num_rois,self.paral_number_W*self.num_classes])
                     #Prod_batch = tf.transpose(Prod_batch,perm=[2,0,1])
                     Prod_batch=tf.add(Prod_batch,b)
+                    if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
+                        scores_batch =tf.reshape( scores_batch, [-1,self.num_rois,1])
                 else:
                     Prod_batch = tf.einsum('ak,ijk->aij',W_r,X_batch)
                     Prod_batch=tf.add(Prod_batch,b)
@@ -1543,8 +1577,11 @@ class tf_MI_max():
                     denselayer_batch = tf.tanh(tf.add(h_batch,b0))
                     Prod_batch = tf.einsum('ikl,kl->ik',denselayer_batch,W_r)
                     Prod_batch = tf.reshape(Prod_batch, [-1, self.num_rois,self.num_classes])
-                    Prod_batch = tf.transpose(Prod_batch,perm=[2,0,1])
+                    #Prod_batch = tf.transpose(Prod_batch,perm=[2,0,1])
+                    if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
+                        scores_batch =tf.reshape( scores_batch, [-1,self.num_rois,1])
                 else:
+                    print('W_r',W_r,'X_batch',X_batch)
                     Prod_batch = tf.einsum('ak,ijk->aij',W_r,X_batch)
                 Prod_batch=tf.add(Prod_batch,b)
                 #Prod_batch=tf.add(tf.reduce_sum(tf.multiply(W_r,X_batch),axis=-1),b)
@@ -1614,24 +1651,24 @@ class tf_MI_max():
                 y_tilde_i_batch = Max_batch
                 
             if self.loss_type == '' or self.loss_type is None:
-                Tan_batch= tf.reduce_sum(tf.multiply(y_tilde_i_batch,weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
+                Tan_batch= tf.reduce_sum(tf.multiply(y_tilde_i_batch,weights_bags_ratio_batch),axis=reduce_loss_axis) # Sum on all the positive exemples 
             elif self.loss_type=='MSE':
                 squared_batch = tf.pow(tf.add(-y_tilde_i,y_long_pm1_batch),2)
-                Tan_batch = tf.multiply(tf.reduce_sum(tf.multiply(squared_batch,tf.abs(weights_bags_ratio_batch)),axis=-1),0.25)
+                Tan_batch = tf.multiply(tf.reduce_sum(tf.multiply(squared_batch,tf.abs(weights_bags_ratio_batch)),axis=reduce_loss_axis),0.25)
 #                Tan_batch = tf.losses.mean_squared_error(tf.add(tf.multiply(label_batch,2),-1),y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
             elif self.loss_type=='hinge_tanh':
                 # hinge label = 0,1 must in in [0,1] whereas the logits must be unbounded and centered 0
                 hinge_batch = tf.maximum(tf.add(-tf.multiply(y_tilde_i_batch,y_long_pm1_batch),1.),0.)
-                Tan_batch = tf.reduce_sum(tf.multiply(hinge_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
+                Tan_batch = tf.reduce_sum(tf.multiply(hinge_batch,tf.abs(weights_bags_ratio_batch)),axis=reduce_loss_axis)
 #                Tan_batch = tf.losses.hinge_loss(label_batch,y_tilde_i_batch,weights=tf.abs(weights_bags_ratio_batch))
             elif self.loss_type=='hinge':
                 hinge_batch = tf.maximum(tf.add(-tf.multiply(Max_batch,y_long_pm1_batch),1.),0.)
-                Tan_batch = tf.reduce_sum(tf.multiply(hinge_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
+                Tan_batch = tf.reduce_sum(tf.multiply(hinge_batch,tf.abs(weights_bags_ratio_batch)),axis=reduce_loss_axis)
             elif self.loss_type=='log':
                 log1_batch = -tf.multiply(tf.divide(tf.add(y_long_pm1_batch,1),2),tf.log(tf.divide(tf.add(y_tilde_i_batch,1),2)))
                 log2_batch = -tf.multiply(tf.divide(tf.add(-y_long_pm1_batch,1),2),tf.log(tf.divide(tf.add(-y_tilde_i_batch,1),2)))
                 log_batch = tf.add(log1_batch,log2_batch)
-                Tan_batch = tf.reduce_sum(tf.multiply(log_batch,tf.abs(weights_bags_ratio_batch)),axis=-1)
+                Tan_batch = tf.reduce_sum(tf.multiply(log_batch,tf.abs(weights_bags_ratio_batch)),axis=reduce_loss_axis)
                 
 #            Tan_batch= tf.reduce_sum(tf.multiply(tf.tanh(Max_batch),weights_bags_ratio_batch),axis=-1) # Sum on all the positive exemples 
             if self.WR or self.optim_wt_Reg:
@@ -1643,6 +1680,7 @@ class tf_MI_max():
                     loss_batch= tf.add(Tan_batch,tf.multiply(self.C,tf.reduce_sum(tf.pow(W_r,2),axis=[-3,-2,-1])))
 
         else:
+            
             if self.AddOneLayer:
                 W0 = tf.Variable(tf.random_normal([self.num_features,self.num_features], stddev=1.,dtype=self.dtype),name="W0",dtype=self.dtype)
                 b0=tf.Variable(tf.random_normal([1,1,self.num_features], stddev=1.,dtype=self.dtype), name="b0",dtype=self.dtype)
@@ -1867,12 +1905,13 @@ class tf_MI_max():
                             loss_value_min = []
                             if self.AddOneLayer:
                                 W_best = np.zeros((self.num_classes,self.num_features_hidden),dtype=np.float32)
-                                b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
+                                b_best = np.zeros((1,1,self.num_classes),dtype=np.float32)
                                 W0_best = np.zeros((self.num_classes,self.num_features_hidden,self.num_features),dtype=np.float32)
                                 b0_best = np.zeros((1,self.num_classes,self.num_features_hidden),dtype=np.float32)
                             else:
                                 W_best = np.zeros((self.num_classes,self.num_features),dtype=np.float32)
                                 b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
+                            print('b_tmp',b_tmp.shape)
                             if self.restarts>0:
                                 for j in range(self.num_classes):
                                     loss_value_j = loss_value[j::self.num_classes]
@@ -1882,7 +1921,7 @@ class tf_MI_max():
                                     W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
                                     
                                     if self.AddOneLayer:
-                                        b_best[j,:,:] = b_tmp[:,:,j+argmin*self.num_classes]
+                                        b_best[:,:,j] = b_tmp[:,:,j+argmin*self.num_classes]
                                         W0_best[j,:] = W0_tmp[j+argmin*self.num_classes,:,:]
                                         b0_best[:,j,:] = b0_tmp[:,j+argmin*self.num_classes,:]
                                     else:
@@ -1894,6 +1933,9 @@ class tf_MI_max():
                             else:
                                 W_best = W_tmp
                                 b_best = b_tmp
+                                if self.AddOneLayer:
+                                    b0_best = b0_tmp
+                                    W0_best = W0_tmp
                                 loss_value_min = loss_value
                         else: # Aggregation of the vector W to do so, we need to select several of them
                             loss_value_min = []
@@ -2048,10 +2090,12 @@ class tf_MI_max():
                             if(loss_value[i] < bestloss[i]):
                                 bestloss[i] = loss_value[i]
                                 W_best[i,:]=W_tmp[i,:]
-                                b_best[i]=b_tmp[i]
                                 if self.AddOneLayer:
+                                    b_best[0,0,i]=b_tmp[0,0,i]
                                     W0_best[i,:,:]=W0_tmp[i,:,:]
                                     b0_best[:,i,:]=b0_tmp[:,i,:]
+                                else:
+                                    b_best[i]=b_tmp[i]
                     if self.verbose : print("bestloss",bestloss) # La loss est minimale est -2 
                 else:
                     if (essai==0) | (loss_value<bestloss): 
@@ -2476,6 +2520,7 @@ class tf_MI_max():
                             W_best = np.zeros((self.num_classes,self.num_features),dtype=np.float32)
                             b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
                             if self.AddOneLayer:
+                                b_best = np.zeros((1,1,self.num_classes),dtype=np.float32)
                                 W0_best = np.zeros((self.num_classes,self.num_features_hidden,self.num_features),dtype=np.float32)
                                 b0_best = np.zeros((self.num_classes,self.num_features_hidden),dtype=np.float32)
                             if self.restarts>0:
@@ -2484,10 +2529,13 @@ class tf_MI_max():
                                     argmin = np.argmin(loss_value_j,axis=0)
                                     loss_value_j_min = np.min(loss_value_j,axis=0)
                                     W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
-                                    b_best[j,:,:] = b_tmp[j+argmin*self.num_classes]
                                     if self.AddOneLayer:
+                                        print('b_tmp',b_tmp.shape)
+                                        b_best[:,:,j] = b_tmp[:,:,j+argmin*self.num_classes]
                                         W0_best[j,:] = W0_tmp[j+argmin*self.num_classes,:,:]
                                         b0_best[j,:,:] = b0_tmp[j+argmin*self.num_classes,:]
+                                    else:
+                                        b_best[j,:,:] = b_tmp[j+argmin*self.num_classes]
                                     if self.verbose: loss_value_min+=[loss_value_j_min]
                                     if (self.C_Searching or  self.CV_Mode=='CVforCsearch') and self.verbose:
                                         print('Best C values : ',C_value_repeat[j+argmin*self.num_classes],'class ',j)
@@ -2496,6 +2544,7 @@ class tf_MI_max():
                                 W_best = W_tmp
                                 b_best = b_tmp
                                 loss_value_min = loss_value
+                            print('b_tmp',b_tmp.shape)
                          else:
                             loss_value_min = []
                             self.numberWtoKeep = min(int(np.ceil((self.restarts+1))*self.proportionToKeep),self.restarts+1)
@@ -2557,7 +2606,12 @@ class tf_MI_max():
         y_ = tf.identity(y_, name="y")
         
         if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
-            scores_ = tf.identity(scores_,name="scores")
+            if scores_first is None:
+                scores_ = tf.identity(scores_,name="scores")
+                if self.AddOneLayer and self.class_indice==-1 and self.restarts_paral=='':
+                    scores_ = tf.reshape(scores_,[-1,self.num_rois,1])
+            else:
+                scores_ = tf.identity(scores_first,name="scores")
             if not(self.dtype is None or self.dtype==tf.float32):
                 scores_ = tf.cast(scores_, self.dtype)
         if self.AggregW in self.listAggregOnProdorTanh:
@@ -2624,7 +2678,7 @@ class tf_MI_max():
                 else:
                     Prod_best = tf.reduce_min(tf.tanh(Prod_best,name='Prod'),axis=0,name='Tanh')
         else:
-            if self.class_indice==-1:
+            if self.class_indice==-1: # i.e. if parall_op =True : if we do the different classes in parallel
 #                if self.restarts_paral_V2: # ICI 
                 if self.MaxOfMax or self.MaxMMeanOfMax:
                     Product = tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
@@ -2645,32 +2699,41 @@ class tf_MI_max():
                         denselayer_2 = tf.tanh(tf.add(h_2,b0_best))
                         Prod_2 = tf.einsum('ikl,kl->ik',denselayer_2,tf.convert_to_tensor(W_best))
                         Prod_2= tf.reshape(Prod_2, [-1, self.num_rois,self.num_classes])
-                        Prod_2 = tf.transpose(Prod_2,perm=[2,0,1])
-                        Prod_best = tf.add(Prod_2,b_best,name='Prod')
+                        #Prod_2 = tf.transpose(Prod_2,perm=[2,0,1])
+                        print('b_best',b_best.shape)
+                        print('Prod_2',Prod_2)
+                        Prod_best = tf.add(Prod_2,b_best)
+                        Prod_best = tf.transpose(Prod_best,perm=[2,0,1],name='Prod')
                     else:
                         Prod_best=tf.add(tf.einsum('ak,ijk->aij',tf.convert_to_tensor(W_best),X_)\
                                      ,b_best,name='Prod')
                 # TODO rajouter les autres cas : comme parallel dim
                     
             else:
+                # Dans le cas sans parallelisation des classes 
                 if self.AddOneLayer:
-                    embed = tf.reshape(X_, [-1, self.num_features])
-                    h_ = tf.einsum('lk,ijk->lij',embed,tf.convert_to_tensor(W0_best))
-                    denselayer_ = tf.tanh(tf.add(h_,b0_best))
-                    Prod_ = tf.einsum('ikl,kl->ik',denselayer_,tf.convert_to_tensor(W_best))
-                    Prod_ = tf.reshape(Prod_, [-1, self.num_rois,self.num_classes])
-                    Prod_ = tf.transpose(Prod_,perm=[2,0,1])
-                    Prod_=tf.add(Prod_,b,name='Prod')
-#                    embed_ = tf.reshape(X_, [-1, self.num_features])
-#                    h_ = tf.matmul(embed_, W0_best)
-#                    h_ = tf.reshape(h_, [-1, self.num_rois,self.num_features])
-##                    denselayer_ = tf.nn.relu(tf.add(h_,b0))
+#                    embed = tf.reshape(X_, [-1, self.num_features])
+#                    h_ = tf.einsum('lk,ijk->lij',embed,tf.convert_to_tensor(W0_best))
 #                    denselayer_ = tf.tanh(tf.add(h_,b0_best))
-#                    Prod_best=tf.add(tf.reduce_sum(tf.multiply(W_best,denselayer_),axis=2),b_best,name='Prod')
+#                    Prod_ = tf.einsum('ikl,kl->ik',denselayer_,tf.convert_to_tensor(W_best))
+#                    Prod_ = tf.reshape(Prod_, [-1, self.num_rois,self.num_classes])
+#                    Prod_ = tf.transpose(Prod_,perm=[2,0,1])
+#                    Prod_=tf.add(Prod_,b,name='Prod')
+                    embed_ = tf.reshape(X_, [-1, self.num_features])
+                    h_ = tf.matmul(embed_, W0_best)
+                    h_ = tf.reshape(h_, [-1, self.num_rois,self.num_features])
+#                    denselayer_ = tf.nn.relu(tf.add(h_,b0))
+                    denselayer_ = tf.tanh(tf.add(h_,b0_best))
+                    Prod_best=tf.add(tf.reduce_sum(tf.multiply(W_best,denselayer_),axis=2),b_best,name='Prod')
+                    
                 else:
                     Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
+            print('Prod_best',Prod_best)
+            
             #Integration du score dans ce qui est retourner a la fin
             if self.with_scores: 
+                print('scores_',scores_)
+                print('scores_first',scores_first)
                 Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
             elif self.seuillage_by_score:
                 Prod_score=tf.multiply(Prod_best,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.),name='ProdScore')
