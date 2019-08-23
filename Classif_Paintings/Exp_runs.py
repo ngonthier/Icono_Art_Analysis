@@ -185,7 +185,8 @@ def mainDatabase_mi_model(database_tab=['clipart'],scores_tab = [True],loss_tab 
    optim_list =['GradientDescent']
    for Optimizer in optim_list:
         for database in database_tab:
-            try: 
+            try:  #  Il semblerait qu'il soit nécessaire de faire 3000 iterations dans le cas 
+                 # de mi_model
                 unefficient_way_mi_model_evaluation(database=database,num_rep = 10,
                                 Optimizer='GradientDescent',
                                 max_iters_all_base = 3000,
