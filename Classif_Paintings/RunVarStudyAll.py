@@ -8,7 +8,7 @@ This script will run our code 100 times only for the MIMAX model for the moment
 @author: gonthier
 """
 
-from TL_MIL import tfR_FRCNN,tfR_evaluation_parall
+from TL_MIL import tfR_FRCNN,tfR_evaluation_parall,get_imdb_test_detection
 
 import time
 import pickle
@@ -1484,39 +1484,8 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
             config = tf.ConfigProto()
             config.gpu_options.allow_growth = True  
 
-            
-            if database=='VOC2007':
-                imdb = get_imdb('voc_2007_test')
-                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
-                num_images = len(imdb.image_index)
-            elif database=='watercolor':
-                imdb = get_imdb('watercolor_test')
-                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
-                num_images = len(imdb.image_index)
-            elif database=='PeopleArt':
-                imdb = get_imdb('PeopleArt_test')
-                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
-                num_images = len(imdb.image_index)
-            elif database=='clipart':
-                imdb = get_imdb('clipart_test')
-                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
-                num_images = len(imdb.image_index)
-            elif database=='comic':
-                imdb = get_imdb('comic_test')
-                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
-                num_images = len(imdb.image_index)
-            elif database=='IconArt_v1':
-                imdb = get_imdb('IconArt_v1_test')
-                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
-                num_images = len(df_label[df_label['set']=='test'][item_name])
-            elif database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training']:
-                imdb = get_imdb('WikiTenLabels_test')
-                imdb.set_force_dont_use_07_metric(dont_use_07_metric)
-                #num_images = len(imdb.image_index) 
-                num_images =  len(df_label[df_label['set']=='test'][item_name])
-            else:
-                num_images =  len(df_label[df_label['set']=='test'][item_name])
-                
+            imdb,num_images,_,_ = get_imdb_test_detection(database,df_label,item_name,default_path_imdb)
+           
             with open(name_dictW, 'rb') as f:
                  Dict = pickle.load(f)
             Wstored = Dict['Wstored']
