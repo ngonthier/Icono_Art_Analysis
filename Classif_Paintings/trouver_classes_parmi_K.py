@@ -1380,35 +1380,22 @@ class tf_MI_max():
                     Prod=tf.add(Prod,b)
             else:
                 if self.AddOneLayer: # A finir ici
-                    print('X_',X_)
                     embed = tf.reshape(X_, [-1, self.num_features])
-                    print('embed',embed)
                     h = tf.einsum('lk,ijk->lij',embed,W0)
-                    print('h',h)
                     denselayer = tf.tanh(tf.add(h,b0))
-                    print('denselayer',denselayer)
                     Prod = tf.einsum('lij,ij->li',denselayer,W)
-                    print('Prod',Prod)
                     Prod = tf.reshape(Prod, [-1, self.num_rois,self.num_classes])
                     #Prod = tf.transpose(Prod,perm=[2,0,1]) # Ralenti beaucoup ?
-                    print('Prod',Prod)
-                    print('b',b)
                     Prod=tf.add(Prod,b)
                     if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
                         scores_first = scores_
                         scores_ =tf.reshape( scores_first, [-1,self.num_rois,1])
                 else:
                     Prod=tf.add(tf.einsum('ij,klj->ikl',W_r,X_),b)
-                    
-            print('Prod lilala',Prod)
-            
-            
             
             if self.with_scores: 
-                print('scores_ lilala',scores_)
                 if self.verbose: print('With score multiplication')
                 Prod=tf.multiply(Prod,tf.add(scores_,self.epsilon))
-                print('after multi',Prod)
             elif self.seuillage_by_score:
                 if self.verbose: print('score seuil')
                 Prod=tf.multiply(Prod,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.))
@@ -1423,10 +1410,8 @@ class tf_MI_max():
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 
                 
                 if self.AddOneLayer:
-                    print('Prod',Prod)
                     Max=tf.reduce_max(Prod,axis=1) 
                     Max = tf.transpose(Max,perm=[1,0])
-                    print('Max after transpose',Max)
                 else:
                     Max=tf.reduce_max(Prod,axis=-1) 
             
@@ -1487,13 +1472,8 @@ class tf_MI_max():
                 y_tilde_i = tf.tanh(Max)
             else:
                 y_tilde_i = Max
-#            if self.AddOneLayer:
-#                print('weights_bags_ratio',weights_bags_ratio)
-#                reduce_loss_axis = 0
-#            else:
-#                reduce_loss_axis = -1
+
             reduce_loss_axis = -1
-            print('y_tilde_i,weights_bags_ratio)',y_tilde_i,weights_bags_ratio)
             if self.loss_type == '' or self.loss_type is None:
                 Tan= tf.reduce_sum(tf.multiply(y_tilde_i,weights_bags_ratio),axis=reduce_loss_axis) # Sum on all the positive exemples 
             elif self.loss_type=='MSE':
@@ -1517,7 +1497,7 @@ class tf_MI_max():
                 log2 = -tf.multiply(tf.divide(tf.add(-y_long_pm1,1),2),tf.log(tf.divide(tf.add(-y_tilde_i,1),2)))
                 log = tf.add(log1,log2)
                 Tan = tf.reduce_sum(tf.multiply(log,tf.abs(weights_bags_ratio)),axis=reduce_loss_axis)
-            print('Tan',Tan)  
+                
 #            Tan= tf.reduce_sum(tf.multiply(tf.tanh(Max),weights_bags_ratio),axis=-1) # Sum on all the positive exemples 
             if self.restarts_paral_V2:
                 if self.C_Searching:    
@@ -1547,11 +1527,9 @@ class tf_MI_max():
                     
             else:
                 Wnorm = tf.reduce_sum(tf.pow(W_r,2),axis=-1)
-                print('Wnorm',Wnorm)
                 loss= tf.add(Tan,tf.multiply(self.C,Wnorm))
                 if self.AddOneLayer:
                     W0_norm = tf.reduce_sum(tf.pow(W0,2),axis=[-2,-1])
-                    print('W0_norm',W0_norm)
                     loss = tf.add(loss,tf.multiply(self.C,W0_norm))
             # Shape 20 and if self.restarts_paral_Dim shape (number_W) x 20
             
@@ -1581,7 +1559,6 @@ class tf_MI_max():
                     if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
                         scores_batch =tf.reshape( scores_batch, [-1,self.num_rois,1])
                 else:
-                    print('W_r',W_r,'X_batch',X_batch)
                     Prod_batch = tf.einsum('ak,ijk->aij',W_r,X_batch)
                 Prod_batch=tf.add(Prod_batch,b)
                 #Prod_batch=tf.add(tf.reduce_sum(tf.multiply(W_r,X_batch),axis=-1),b)
@@ -1911,7 +1888,6 @@ class tf_MI_max():
                             else:
                                 W_best = np.zeros((self.num_classes,self.num_features),dtype=np.float32)
                                 b_best = np.zeros((self.num_classes,1,1),dtype=np.float32)
-                            print('b_tmp',b_tmp.shape)
                             if self.restarts>0:
                                 for j in range(self.num_classes):
                                     loss_value_j = loss_value[j::self.num_classes]
@@ -2530,7 +2506,6 @@ class tf_MI_max():
                                     loss_value_j_min = np.min(loss_value_j,axis=0)
                                     W_best[j,:] = W_tmp[j+argmin*self.num_classes,:]
                                     if self.AddOneLayer:
-                                        print('b_tmp',b_tmp.shape)
                                         b_best[:,:,j] = b_tmp[:,:,j+argmin*self.num_classes]
                                         W0_best[j,:] = W0_tmp[j+argmin*self.num_classes,:,:]
                                         b0_best[j,:,:] = b0_tmp[j+argmin*self.num_classes,:]
@@ -2544,7 +2519,6 @@ class tf_MI_max():
                                 W_best = W_tmp
                                 b_best = b_tmp
                                 loss_value_min = loss_value
-                            print('b_tmp',b_tmp.shape)
                          else:
                             loss_value_min = []
                             self.numberWtoKeep = min(int(np.ceil((self.restarts+1))*self.proportionToKeep),self.restarts+1)
@@ -2700,8 +2674,6 @@ class tf_MI_max():
                         Prod_2 = tf.einsum('ikl,kl->ik',denselayer_2,tf.convert_to_tensor(W_best))
                         Prod_2= tf.reshape(Prod_2, [-1, self.num_rois,self.num_classes])
                         #Prod_2 = tf.transpose(Prod_2,perm=[2,0,1])
-                        print('b_best',b_best.shape)
-                        print('Prod_2',Prod_2)
                         Prod_best = tf.add(Prod_2,b_best)
                         Prod_best = tf.transpose(Prod_best,perm=[2,0,1],name='Prod')
                     else:
@@ -2728,12 +2700,9 @@ class tf_MI_max():
                     
                 else:
                     Prod_best= tf.add(tf.reduce_sum(tf.multiply(W_best,X_),axis=2),b_best,name='Prod')
-            print('Prod_best',Prod_best)
             
             #Integration du score dans ce qui est retourner a la fin
             if self.with_scores: 
-                print('scores_',scores_)
-                print('scores_first',scores_first)
                 Prod_score=tf.multiply(Prod_best,tf.add(scores_,self.epsilon),name='ProdScore')
             elif self.seuillage_by_score:
                 Prod_score=tf.multiply(Prod_best,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.),name='ProdScore')
