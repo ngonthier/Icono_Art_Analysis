@@ -2326,8 +2326,13 @@ def get_max_iters(database,max_iters_all_base,restarts,parallel_op,restarts_para
     """
     This fucntion compute the max number of iterations and batch size
     """
+    # Ces valeurs ont ete optimisées pour l ordi de Nicolas
+    
     if parallel_op:
-        sizeMax = 300000*7 // (k_per_bag*num_classes) 
+        if np.abs( num_classes - 7 ) > 2:
+            sizeMax = 300000*7 // (k_per_bag*num_classes) 
+        else:
+            sizeMax = 300000 // (k_per_bag) 
     else:
         sizeMax = 30*10000 // k_per_bag
     if restarts_paral=='Dim': # It will create a new dimension

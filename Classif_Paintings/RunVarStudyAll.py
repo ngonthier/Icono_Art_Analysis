@@ -510,7 +510,8 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
                 
 def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
-                                        max_iters_all_base=3000):
+                                        max_iters_all_base=3000,scores_tab = [True],
+                                        loss_tab = ['']):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
     """
@@ -540,8 +541,7 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
     path_data_output = path_data +'VarStudy/'
     ReDo = True
     
-    scores_tab = [True]
-    loss_tab = ['']
+    
     
     for with_scores in scores_tab:
         for loss_type in loss_tab:
@@ -755,7 +755,7 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
 def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
                                         max_iters_all_base = 300,num_features_hidden=256,
-                                        number_restarts = 11):
+                                        number_restarts = 11,scores_tab = [True],loss_tab = ['']):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
     """
@@ -785,8 +785,8 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     ReDo = True
-    scores_tab = [True]
-    loss_tab = ['']
+    
+    
     
     for loss_type in loss_tab:
         for with_scores in scores_tab:
@@ -832,7 +832,8 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
                 ll = []
                 l01 = []
                 lclassif = []
-                parallel_op = False # Test que ce soit parallel des scores
+                parallel_op = True # Test que ce soit parallel des scores
+                restarts_paral = ''
                 for r in range(num_rep):
                     print('reboot :',r,'on',num_rep)
                     apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
@@ -844,7 +845,7 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
                                                   restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
                                                   C=1.0,Optimizer=Optimizer,norm='',
                                                   transform_output='tanh',with_rois_scores_atEnd=False,
-                                                  with_scores=with_scores,epsilon=0.01,restarts_paral='',
+                                                  with_scores=with_scores,epsilon=0.01,restarts_paral=restarts_paral,
                                                   Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
                                                   k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
                                                   gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
@@ -854,6 +855,130 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
                                                   obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
                                                   layer=layer,AddOneLayer=AddOneLayer,
                                                   num_features_hidden=num_features_hidden)
+                    ll += [apsAt05]
+                    l01 += [apsAt01]
+                    lclassif += [AP_per_class]
+                # End of the 100 experiment for a specific AggreW
+                ll_all = np.vstack(ll)
+                l01_all = np.vstack(l01)
+                apsClassif_all = np.vstack(lclassif)
+        
+                DictAP['AP@.5'] =  ll_all
+                DictAP['AP@.1'] =  l01_all
+                DictAP['APClassif'] =  apsClassif_all
+            
+                with open(name_dictAP, 'wb') as f:
+                    pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+            else:
+                print(name_dictAP,'already exists')
+                
+def approx_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10,
+                                        Optimizer='GradientDescent',
+                                        max_iters_all_base = 300,num_features_hidden=256,
+                                        number_restarts = 11):
+    """
+    Compute the performance for the MaxOfMax model on num_rep runs
+    In this case we force the batch size to 120 and use float16 precision
+    """
+    AddOneLayer=True
+    seuillage_by_score = False
+    obj_score_add_tanh = False
+    loss_type = ''
+    seuil = 0
+    C_Searching = False
+    demonet = 'res152_COCO'
+    layer = 'fc7'
+    
+    CV_Mode = ''
+    AggregW = None
+    proportionToKeep = [0.25,1.0]
+    loss_type = ''
+    WR = True
+    with_scores = True
+    seuillage_by_score=False
+    obj_score_add_tanh=False
+    lambdas = 0.5
+    obj_score_mul_tanh = False
+    PCAuse = False
+    Max_version = None
+    mini_batch_size=120
+    k_per_bag = 300
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    path_data_output = path_data +'VarStudy/'
+    ReDo = True
+    scores_tab = [True]
+    loss_tab = ['']
+    
+    for loss_type in loss_tab:
+        for with_scores in scores_tab:
+            name_dict = path_data_output 
+            if not(demonet== 'res152_COCO'):
+                name_dict += demonet +'_'
+            if not(layer== 'fc7'):
+                name_dict += '_'+demonet
+            name_dict +=  database+ '_Wvectors_C_Searching'+str(C_Searching) + '_' +\
+            CV_Mode+'_'+str(loss_type)
+            if not(WR):
+                name_dict += '_withRegularisationTermInLoss'
+            if with_scores:
+                 name_dict += '_WithScore'
+            if seuillage_by_score:
+                name_dict += 'SC'+str(seuil)
+            if obj_score_add_tanh:
+                name_dict += 'SAdd'+str(lambdas)
+            if obj_score_mul_tanh:
+                name_dict += 'SMul'    
+            if PCAuse:
+                name_dict +='_PCA09'
+            if not(k_per_bag==300):
+                name_dict +='_k'+str(k_per_bag)
+            if not(Max_version=='' or Max_version is None) :
+                name_dict +='_'+Max_version
+            if not(max_iters_all_base==300) :
+                name_dict +='_MIAB'+str(max_iters_all_base)
+            if not(num_rep==100):
+                name_dict += '_numRep'+ str(num_rep)
+            if not(Optimizer=='GradientDescent'):
+                name_dict += '_'+Optimizer
+            if not(mini_batch_size==0 or mini_batch_size==1000):
+                name_dict += '_bs'+str(mini_batch_size)
+            name_dict += 'AddOneLayer_float16'
+            if not(num_features_hidden==256):
+                name_dict += '_'+str(num_features_hidden)
+            if not(number_restarts ==11):
+                name_dict += '_restarts'+str(number_restarts)
+            name_dictAP = name_dict + '_APscore.pkl'
+            
+            ReDo  = False
+            if not os.path.isfile(name_dictAP) or ReDo: 
+                DictAP = {}
+                ll = []
+                l01 = []
+                lclassif = []
+                parallel_op = True # Test que ce soit parallel des scores
+                restarts_paral = 'paral'
+                for r in range(num_rep):
+                    print('reboot :',r,'on',num_rep)
+                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                                                  verbose = True,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                                  CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+                                                  parallel_op=parallel_op,CV_Mode=CV_Mode,num_split=2,
+                                                  WR=WR,init_by_mean =None,seuil_estimation='',
+                                                  restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+                                                  C=1.0,Optimizer=Optimizer,norm='',
+                                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                                  with_scores=with_scores,epsilon=0.01,restarts_paral=restarts_paral,
+                                                  Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                                  k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
+                                                  ,proportionToKeep=proportionToKeep,storeVectors=False,
+                                                  obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                                                  obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
+                                                  layer=layer,AddOneLayer=AddOneLayer,
+                                                  num_features_hidden=num_features_hidden,
+                                                  dtype='float16',mini_batch_size=mini_batch_size)
                     ll += [apsAt05]
                     l01 += [apsAt01]
                     lclassif += [AP_per_class]

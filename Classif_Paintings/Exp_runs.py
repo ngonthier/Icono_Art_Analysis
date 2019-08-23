@@ -167,6 +167,32 @@ def mainDatabase(database_tab=['clipart']):
    for dataset_nm in database_tab:
        for MILmodel in MILmodel_tab:
            runSeveralMInet(dataset_nm=dataset_nm,MILmodel=MILmodel)
+           
+def mainDatabase_HL(database_tab=['clipart'],scores_tab = [True],loss_tab = ['']):
+   optim_list =['GradientDescent']
+   for Optimizer in optim_list:
+        for database in database_tab:
+            try: 
+                unefficient_way_OneHiddenLayer_evaluation(database=database,num_rep = 10,
+                                Optimizer='GradientDescent',
+                                max_iters_all_base = 300,num_features_hidden=256,
+                                number_restarts = 11,scores_tab =scores_tab,loss_tab = loss_tab)
+            except Exception as e:
+                 print(e)
+                 pass
+             
+def mainDatabase_mi_model(database_tab=['clipart'],scores_tab = [True],loss_tab = ['']):
+   optim_list =['GradientDescent']
+   for Optimizer in optim_list:
+        for database in database_tab:
+            try: 
+                unefficient_way_mi_model_evaluation(database=database,num_rep = 10,
+                                Optimizer='GradientDescent',
+                                max_iters_all_base = 3000,
+                                number_restarts = 11,scores_tab =scores_tab,loss_tab = loss_tab)
+            except Exception as e:
+                 print(e)
+                 pass
 
 def main():
     
@@ -346,4 +372,5 @@ def PrintResults(database_tab=['IconArt_v1','watercolor','PeopleArt','clipart'],
 if __name__ == '__main__':
     ExperienceRuns(database_tab=['CASPApaintings'])
     mainDatabase(database_tab=['CASPApaintings','comic','clipart'])
+    mainDatabase_HL(database_tab=['IconArt_v1','watercolor','PeopleArt','CASPApaintings','comic','clipart'])
 #    PrintResults()
