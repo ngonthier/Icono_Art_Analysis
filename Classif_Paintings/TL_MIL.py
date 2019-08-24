@@ -2733,6 +2733,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             
     # Data for the MI_max Latent perceptron
     # All those parameter are design for my GPU 1080 Ti memory size 
+    if not(isinstance(mini_batch_size, int)):
+        print('mini_batch_size has to be an integer, we will convert it')
+        mini_batch_size =  int(mini_batch_size)
     performance = False
     max_iters,mini_batch_size,usecache,buffer_size =get_max_iters(database,max_iters_all_base,\
                   restarts,parallel_op,restarts_paral,num_classes,init_by_mean,CV_Mode,\
@@ -4540,7 +4543,8 @@ def MImax_detectionOnOtherImages(demonet = 'res152_COCO',learning_database = 'Ic
                                   AddOneLayer=False,exp=10,MaxOfMax=False,debug = False,alpha=0.7,
                                   layer='fc7',MaxMMeanOfMax=False,MaxTopMinOfMax=False,
                                   Cosine_ofW_inLoss=False,Coeff_cosine=1.,
-                                  mini_batch_size=None,num_features_hidden=256,dtype=None):
+                                  mini_batch_size=None,num_features_hidden=256,dtype=None,
+                                  ReDo =False):
     """
     This code run a detection model MImax and co. on all the image from a given dataset
     """
@@ -4548,8 +4552,7 @@ def MImax_detectionOnOtherImages(demonet = 'res152_COCO',learning_database = 'Ic
         path_data,Not_on_NicolasPC = get_database(learning_database)
     DATA_DIR =  path_data + DATA_DIR
     output_DIR = path_data + output_DIR
-    pathlib.Path(output_DIR).mkdir(parents=True, exist_ok=True)
-        
+
     N = 1
     extL2 = ''
     nms_thresh = 0.7
@@ -4592,6 +4595,34 @@ def MImax_detectionOnOtherImages(demonet = 'res152_COCO',learning_database = 'Ic
     saver = tf.train.Saver()
     saver.restore(sess, tfmodel)
     
+    list_outputs = {}
+    dirs = os.listdir(DATA_DIR)
+    print('list of images :',dirs)
+    print('Do the ',metamodel,'preprocessing (features extractions and boxes porposals)')
+    k_regions = k_per_bag
+    size_output =number_composant
+    for im_name in dirs:
+        path = os.path.join(DATA_DIR, im_name)
+        if os.path.isdir(path):
+            # skip directories
+            continue
+        im_name_wt_ext, _ = im_name.split('.')
+        imfile = os.path.join(DATA_DIR, im_name)
+        im = cv2.imread(imfile)
+        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5= TL_im_detect(sess, net, im)
+        rois_tmp = np.zeros((k_regions,5))
+        roi_scores_tmp = np.zeros((k_regions,1))
+        fc7_tmp = np.zeros((k_regions,size_output))
+        rois_tmp[0:rois.shape[0],0:rois.shape[1]] = rois
+        roi_scores_tmp[0:roi_scores.shape[0],0:roi_scores.shape[1]] = roi_scores
+        fc7_tmp[0:fc7.shape[0],0:fc7.shape[1]] = fc7           
+        rois = rois_tmp
+        roi_scores =roi_scores_tmp
+        fc7 = fc7_tmp
+        outputs = rois,roi_scores, fc7
+        list_outputs[im_name] = outputs
+    sess.close()
+    
     print("The cachefile have to exist, the model have to be trained before")
     shuffle = True
     optimArg = None
@@ -4604,14 +4635,14 @@ def MImax_detectionOnOtherImages(demonet = 'res152_COCO',learning_database = 'Ic
     if layer=='fc6':
         savedstr+='_fc6'
     num_features = number_composant
-    imdb,num_images,usecache_eval,boxCoord01 = get_imdb_test_detection(database,df_label,item_name,default_path_imdb)
+    imdb,num_images,usecache_eval,boxCoord01 = get_imdb_test_detection(learning_database,df_label,item_name,default_path_imdb)
     num_trainval_im=num_images
-    max_iters,mini_batch_size,usecache,buffer_size =get_max_iters(database,max_iters_all_base,\
+    max_iters,mini_batch_size,usecache,buffer_size =get_max_iters(learning_database,max_iters_all_base,\
               restarts,parallel_op,restarts_paral,num_classes,init_by_mean,CV_Mode,\
               num_features,AddOneLayer,k_per_bag,Not_on_NicolasPC,\
               model,num_split,num_trainval_im,mini_batch_size)
     
-    cachefile_model_base,cachefile_model,cachefilefolder,arrayParam,arrayParamStr = get_cachefilepath(path_data,demonet,database,k_per_bag,
+    cachefile_model_base,cachefile_model,cachefilefolder,arrayParam,arrayParamStr = get_cachefilepath(path_data,demonet,learning_database,k_per_bag,
               N,extL2,nms_thresh,savedstr,mini_batch_size,
               performance,buffer_size,predict_with,shuffle,C,testMode,restarts,max_iters_all_base,
               max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
@@ -4622,18 +4653,56 @@ def MImax_detectionOnOtherImages(demonet = 'res152_COCO',learning_database = 'Ic
               proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
               model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,MaxTopMinOfMax,
               alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden,trainOnTest)
-        
+      
+    output_DIR = output_DIR + '/' + cachefile_model_base
+    pathlib.Path(output_DIR).mkdir(parents=True, exist_ok=True)
+    
     # Load model
-    with open(cachefile_model, 'rb') as f:
-        name_milsvm = pickle.load(f)
-        export_dir,np_pos_value,np_neg_value= name_milsvm
+    try:    
+        with open(cachefile_model, 'rb') as f:
+            name_milsvm = pickle.load(f)
+            export_dir,np_pos_value,np_neg_value= name_milsvm
+        export_dir_path = ('/').join(export_dir.split('/')[:-1])
+        name_model_meta = export_dir + '.meta'
+    except FileNotFoundError as e:
+        print(e)
+        
+    if ReDo:
+        print('We will do the training once again !')
+    if not os.path.isfile(cachefile_model) or not(os.path.isfile(name_model_meta)) or ReDo:
+        tfR_FRCNN(demonet=demonet,database=learning_database,ReDo=True,
+                                  model=model,verbose = True,k_per_bag=k_per_bag,
+                                  parallel_op =parallel_op,CV_Mode=CV_Mode,num_split=num_split,
+                                  WR=WR,init_by_mean=init_by_mean,
+                                  restarts=restarts,max_iters_all_base=max_iters_all_base,LR=LR,
+                                  with_tanh=with_tanh,C=C,Optimizer=Optimizer,norm=norm,
+                                  transform_output=transform_output,with_rois_scores_atEnd=with_rois_scores_atEnd,
+                                  with_scores=with_scores,epsilon=epsilon,restarts_paral=restarts_paral,
+                                  Max_version=Max_version,w_exp=w_exp,seuillage_by_score=seuillage_by_score,
+                                  seuil=seuil,k_intopk=k_intopk,C_Searching=C_Searching,
+                                  predict_with=predict_with,optim_wt_Reg=optim_wt_Reg,AggregW=AggregW,proportionToKeep=proportionToKeep,
+                                  loss_type=loss_type,obj_score_mul_tanh=obj_score_add_tanh,lambdas=lambdas,
+                                  metamodel=metamodel,
+                                  PCAuse=PCAuse,variance_thres=variance_thres,
+                                  AddOneLayer=AddOneLayer,exp=exp,MaxOfMax=MaxOfMax,alpha=alpha,
+                                  layer=layer,MaxMMeanOfMax=MaxMMeanOfMax,MaxTopMinOfMax=MaxTopMinOfMax,
+                                  Cosine_ofW_inLoss=Cosine_ofW_inLoss,Coeff_cosine=Coeff_cosine,
+                                  mini_batch_size=mini_batch_size,num_features_hidden=num_features_hidden,dtype=dtype)
+        with open(cachefile_model, 'rb') as f:
+                name_milsvm = pickle.load(f)
+                export_dir,np_pos_value,np_neg_value= name_milsvm
+        export_dir_path = ('/').join(export_dir.split('/')[:-1])
+        name_model_meta = export_dir + '.meta'
+    
+    
+    sess = tf.Session(config=tfconfig)
+
     with_tanh_alreadyApplied = False 
     with_softmax_a_intraining = False
     with_softmax = False
     print('Warning you have with_tanh_alreadyApplied =',with_tanh_alreadyApplied,'with_softmax_a_intraining',with_softmax_a_intraining,'with_softmax',with_softmax)
     scoreInMI_max = with_scores
-    export_dir_path = ('/').join(export_dir.split('/')[:-1])
-    name_model_meta = export_dir + '.meta'
+    
     new_saver = tf.train.import_meta_graph(name_model_meta)
     new_saver.restore(sess, tf.train.latest_checkpoint(export_dir_path))
     graph= tf.get_default_graph()
@@ -4679,22 +4748,26 @@ def MImax_detectionOnOtherImages(demonet = 'res152_COCO',learning_database = 'Ic
     CONF_THRESH = 0.0
     NMS_THRESH = 0.0 # non max suppression
     thresh = 0.01
-    dirs = os.listdir(DATA_DIR)
+   
     for im_name in dirs:
-        im_name_wt_ext, _ = im_name.split('.')
         imfile = os.path.join(DATA_DIR, im_name)
+        if os.path.isdir(imfile):
+            # skip directories
+            continue
+        im_name_wt_ext = '.'.join(im_name.split('.')[:-1])
         im = cv2.imread(imfile)
-        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = TL_im_detect(sess, net, im)
+        rois,roi_scores, fc7 = list_outputs[im_name]
         blobs, im_scales = get_blobs(im)
-        cls_boxes =  rois[:,1:5] / im_scales[0]
-        fc7s = np.expand_dim(fc7,axis=0)
-        rois_scores = np.expand_dim(fc7,axis=0)
-        rois = np.expand_dim(rois,axis=0)
+        roi =  rois[:,1:5] / im_scales[0]
+        fc7s = np.expand_dims(fc7,axis=0)
+        rois_scores = np.reshape(roi_scores,(1,300))
+        rois = np.expand_dims(rois,axis=0)
         labels = np.zeros((1,num_classes))
         if scoreInMI_max:
             feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
         else:
             feed_dict_value = {X: fc7s, y: labels}
+
         if with_tanh:
             PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
             sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
@@ -4708,19 +4781,18 @@ def MImax_detectionOnOtherImages(demonet = 'res152_COCO',learning_database = 'Ic
             PositiveExScoreAll = PositiveExScoreAll*rois_scores
             get_RegionsScore = np.max(PositiveExScoreAll,axis=2)
             PositiveRegions = np.amax(PositiveExScoreAll,axis=2)
-        scores_all = PositiveExScoreAll[1,:]
+        scores_all = PositiveExScoreAll[:,0,:]
+        
+        roi_boxes_and_score = []
+        local_cls = []
         for j in range(num_classes):
             scores = scores_all[j,:]
             inds = np.where(scores > thresh)[0]
             cls_scores = scores[inds]
-            cls_boxes = cls_boxes[inds,:]
+            cls_boxes = roi[inds,:]
             cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])).astype(np.float32, copy=False)
             keep = nms(cls_dets, TEST_NMS)
             cls_dets = cls_dets[keep, :]
-
-        roi_boxes_and_score = []
-        local_cls = []
-        for j in range(num_classes):
             if len(cls_dets) > 0:
                 local_cls += [classes[j]]
 #                                roi_boxes_score = np.expand_dims(cls_dets,axis=0)
@@ -4730,34 +4802,33 @@ def MImax_detectionOnOtherImages(demonet = 'res152_COCO',learning_database = 'Ic
                     roi_boxes_and_score = [roi_boxes_score]
                 else:
                     roi_boxes_and_score += [roi_boxes_score] 
-                    #np.vstack((roi_boxes_and_score,roi_boxes_score))
 
-        if roi_boxes_and_score is None: roi_boxes_and_score = [[]]    
-        cls = local_cls
+        if roi_boxes_and_score is None or len(roi_boxes_and_score)==0: roi_boxes_and_score = [[]]    
 
-        vis_detections_list(im, cls, roi_boxes_and_score, thresh=-np.inf,list_class=plot_onSubSet)
-        name_output = output_DIR + im_name_wt_ext + '_Regions.jpg'
-        if database=='PeopleArt':
-            path_tmp = '/'.join(name_output.split('/')[0:-1])
-            pathlib.Path(path_tmp).mkdir(parents=True, exist_ok=True) 
+        vis_detections_list(im, local_cls, roi_boxes_and_score, thresh=-np.inf,list_class=plot_onSubSet)
+        name_output = output_DIR  +'/'+ im_name_wt_ext + '_Regions.jpg'
+#        if learning_database=='PeopleArt':
+#            path_tmp = '/'.join(name_output.split('/')[0:-1])
+#            pathlib.Path(path_tmp).mkdir(parents=True, exist_ok=True) 
         plt.savefig(name_output)
         plt.close()
         
-        vis_detections_list(im, cls, roi_boxes_and_score, thresh=0.25,list_class=plot_onSubSet)
-        name_output = output_DIR + im_name_wt_ext + '_Regions_over025.jpg'
+        vis_detections_list(im, local_cls, roi_boxes_and_score, thresh=0.25,list_class=plot_onSubSet)
+        name_output = output_DIR +'/'+ im_name_wt_ext + '_Regions_over025.jpg'
         plt.savefig(name_output)
         plt.close()
-        vis_detections_list(im, cls, roi_boxes_and_score, thresh=0.5,list_class=plot_onSubSet)
-        name_output = output_DIR + im_name_wt_ext + '_Regions_over05.jpg'
+        vis_detections_list(im, local_cls, roi_boxes_and_score, thresh=0.5,list_class=plot_onSubSet)
+        name_output = output_DIR  +'/'+ im_name_wt_ext + '_Regions_over05.jpg'
         plt.savefig(name_output)
         plt.close()
-        vis_detections_list(im, cls, roi_boxes_and_score, thresh=0.75,list_class=plot_onSubSet)
-        name_output = output_DIR + im_name_wt_ext + '_Regions_over075.jpg'
+        vis_detections_list(im, local_cls, roi_boxes_and_score, thresh=0.75,list_class=plot_onSubSet)
+        name_output = output_DIR  +'/'+ im_name_wt_ext + '_Regions_over075.jpg'
         plt.savefig(name_output)
         plt.close()
     
     sess.close()
-        
+    tf.reset_default_graph()
+
     
 def FasterRCNN_TL_MISVM(demonet = 'res152_COCO',database = 'Paintings', 
                                           verbose = True,testMode = True,jtest = 0,
