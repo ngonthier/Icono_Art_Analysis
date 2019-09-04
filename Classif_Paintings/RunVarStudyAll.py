@@ -511,7 +511,7 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
 def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
                                         max_iters_all_base=3000,scores_tab = [True],
-                                        loss_tab = ['']):
+                                        loss_tab = [''],number_restarts=11):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
     """
@@ -523,7 +523,6 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
     C_Searching = False
     demonet = 'res152_COCO'
     layer = 'fc7'
-    number_restarts = 11
     CV_Mode = ''
     AggregW = None
     proportionToKeep = [0.25,1.0]
@@ -624,7 +623,7 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
                                         MaxOfMax=True,MaxMMeanOfMax=False,
                                         max_iters_all_base=3000,AddOneLayer=False,
-                                        num_features_hidden=256):
+                                        num_features_hidden=256,pm_only_on_mean=True):
     seuillage_by_score = False
     obj_score_add_tanh = False
     loss_type = ''
@@ -696,7 +695,17 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                 print(name_dictAP)
                 DictAP = pickle.load(f)
                 for Metric in DictAP.keys():
-                    string_to_print =  str(Metric) + ' & ' +'Mimax ' + str(loss_type) + ' ' 
+                    string_to_print =  str(Metric) + ' & ' 
+                    if MaxOfMax:
+                        string_to_print += 'MaxOfMax '
+                    elif MaxMMeanOfMax:
+                        string_to_print += 'MaxMMeanOfMax '
+                    elif AddOneLayer:
+                        string_to_print += 'AddOneLayer ' +str(num_features_hidden)
+                    else:
+                        string_to_print +=  'Mimax ' 
+                    
+                    string_to_print+= str(loss_type) + ' ' 
                     if C_Searching:
                         string_to_print += 'C_Searching '
                     if CV_Mode=='CV':
@@ -733,9 +742,15 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
 #                            print(mean_over_class.shape)
 #                            print(std_over_class.shape)
 #                            input('wait')
-                        for mean_c,std_c in zip(mean_over_class,std_over_class):
-                            s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
-                            string_to_print += s + ' & '
+                        
+                        if not(pm_only_on_mean):
+                            for mean_c,std_c in zip(mean_over_class,std_over_class):
+                                s =  "{0:.1f} ".format(mean_c*multi) + ' $\pm$ ' +  "{0:.1f}".format(std_c*multi)
+                                string_to_print += s + ' & '
+                        else:
+                            for mean_c,std_c in zip(mean_over_class,std_over_class):
+                                s =  "{0:.1f} ".format(mean_c*multi)
+                                string_to_print += s + ' & '
                         s =  "{0:.1f}  ".format(mean_of_mean_over_reboot*multi) + ' $\pm$ ' +  "{0:.1f}  ".format(std_of_mean_over_reboot*multi)
                         string_to_print += s + ' \\\  '
                     else:

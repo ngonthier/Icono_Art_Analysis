@@ -199,6 +199,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
         classes_vectors = np.zeros((sLength_all,num_classes),dtype=np.float32)
         if database in ['Wikidata_Paintings_miniset_verif','VOC2007','comic','clipart','CASPApaintings','IconArt_v1','PeopleArt','watercolor']:
             classes_vectors = df_label.as_matrix(columns=classes)
+
         f_test = {}
 
         # Parameters important
@@ -251,6 +252,12 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
 ##            X_trainval =features_resnet[index_trainval,:,:]
 #            y_trainval =  classes_vectors[index_trainval,:]
         
+        if (np.unique(y_test)==[-1.,1]).all(): # Value between -1 and 1
+            y_test = (y_test+1.)/2.
+        if (np.unique(y_trainval)==[-1.,1]).all():
+            y_trainval = (y_trainval+1.)/2.
+
+                
         name_trainval = name_trainval.ravel()
         
         if baseline_kind in list_methods:
@@ -770,12 +777,14 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
                     labels_test_predited[k] = 1 
                 else: 
                     labels_test_predited[k] =  0 # Label of the class 0 or 1
+            
             AP = average_precision_score(y_test[:,j],y_predict_confidence_score_classifier,average=None)
             if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                 raise(NotImplementedError)
 #                print("Baseline SVM version Average Precision for",depicts_depictsLabel[classes[j]]," = ",AP)
             else:
                 print("Baseline ",baseline_kind," version Average Precision classification for",classes[j]," = ",AP)
+            
             test_precision = precision_score(y_test[:,j],labels_test_predited)
             test_recall = recall_score(y_test[:,j],labels_test_predited)
             F1 = f1_score(y_test[:,j],labels_test_predited)

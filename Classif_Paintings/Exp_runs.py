@@ -18,7 +18,7 @@ from CNNfeatures import Compute_EdgeBoxesAndCNN_features
 
 from MILnet_eval import runSeveralMInet
 
-def ExperienceRuns(database_tab =  ['IconArt_v1','watercolor','PeopleArt']):
+def ExperienceRuns(database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']):
         
     for database in database_tab:
         # Study of the impact of the number of restarts
@@ -32,14 +32,13 @@ def ExperienceRuns(database_tab =  ['IconArt_v1','watercolor','PeopleArt']):
         bs_tab = [8,16,32,126,256,500,1000] # 1000 by default
         if database=='clipart':
             bs_tab = [8,16,32,126,256,500]
-        #bs_tab = [8] # 1000 by default
         for bs in bs_tab:
             VariationStudyPart1(database,[0],num_rep = 10,bs=bs)
             VariationStudyPart2(database,[0],num_rep = 10,bs=bs)
         
         # C value
         #C_tab = [0.01,0.1,0.5,1.5] # 1.0 by default
-        C_tab = [0.01,0.1,0.5,1.0,1.5,2.,10.] # 1.0 by default
+        C_tab = [0.0,0.01,0.1,0.5,1.0,1.5,2.,10.] # 1.0 by default
         for C in C_tab:
             VariationStudyPart1(database,[0],num_rep = 10,C=C)
             VariationStudyPart2(database,[0],num_rep = 10,C=C)
@@ -48,7 +47,7 @@ def print_run_studyParam():
     """
     In this function we plot the evolution of the different parameters evaluation
     """
-    database_tab =  ['IconArt_v1','watercolor','PeopleArt','clipart','comic']
+    database_tab =  ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
     colors = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf']
     makers = ['P','X','o','v','D','h','^']
     
@@ -65,7 +64,7 @@ def print_run_studyParam():
             tx = r'Batch size'
             name_figure ='bs'
         if param=='C':
-            p_tab =  [0.01,0.1,0.5,1.0,1.5,2.,10.] 
+            p_tab =  [0.0,0.01,0.1,0.5,1.0,1.5,2.,10.] 
             tt = 'the regularization term'
             tx = r'Regularization term'
             name_figure ='C'
@@ -90,6 +89,7 @@ def print_run_studyParam():
                     ll_all = VariationStudyPart3(database,[0],num_rep = 10,bs=p,withoutAggregW=True)
                 if param=='C':
                     ll_all = VariationStudyPart3(database,[0],num_rep = 10,C=p,withoutAggregW=True)
+                ll_all = ll_all[0]
                 if not(database=='PeopleArt'):
                     mean_over_reboot = np.mean(ll_all,axis=1) # Moyenne par ligne / reboot 
         #                            print(mean_over_reboot.shape)
@@ -328,7 +328,7 @@ def PrintResults(database_tab=['IconArt_v1','watercolor','PeopleArt','clipart'],
                     unefficient_evaluation_PrintResults(database=database,num_rep = 10,
                                                 Optimizer=Optimizer,MaxOfMax=MaxOfMax,\
                                                 MaxMMeanOfMax=MaxMMeanOfMax,
-                                                max_iters_all_base = max_iters_all_base)
+                                                max_iters_all_base = max_iters_all_base,pm_only_on_mean=pm_only_on_mean)
                 except Exception:
                     pass 
                 
@@ -350,14 +350,14 @@ def PrintResults(database_tab=['IconArt_v1','watercolor','PeopleArt','clipart'],
             print('=== Add One Layer ===')
             try: 
                 if Optimizer=='GradientDescent':
-                    max_iters_all_base = 3000
+                    max_iters_all_base = 300
                 elif Optimizer=='lbfgs':
                     max_iters_all_base = 300
                 unefficient_evaluation_PrintResults(database=database,num_rep = 10,Optimizer=Optimizer,
                                                       max_iters_all_base=max_iters_all_base,
                                                       AddOneLayer=True,
                                                       MaxOfMax=False,MaxMMeanOfMax=False,
-                                                      num_features_hidden=2048)
+                                                      num_features_hidden=256,pm_only_on_mean=pm_only_on_mean)
             except Exception:
                 pass 
 
@@ -371,7 +371,8 @@ def PrintResults(database_tab=['IconArt_v1','watercolor','PeopleArt','clipart'],
             except Exception:
                 pass         
 if __name__ == '__main__':
-    ExperienceRuns(database_tab=['CASPApaintings'])
+    #ExperienceRuns(database_tab=['CASPApaintings'])
     mainDatabase(database_tab=['CASPApaintings','comic','clipart'])
     mainDatabase_HL(database_tab=['IconArt_v1','watercolor','PeopleArt','CASPApaintings','comic','clipart'])
+    mainDatabase_mi_model(database_tab=['IconArt_v1','watercolor','PeopleArt','CASPApaintings','comic','clipart'])
 #    PrintResults()

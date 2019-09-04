@@ -2733,9 +2733,10 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             
     # Data for the MI_max Latent perceptron
     # All those parameter are design for my GPU 1080 Ti memory size 
-    if not(isinstance(mini_batch_size, int)):
-        print('mini_batch_size has to be an integer, we will convert it')
-        mini_batch_size =  int(mini_batch_size)
+    if not(mini_batch_size is None):
+        if not(isinstance(mini_batch_size, int)):
+            print('mini_batch_size has to be an integer, we will convert it')
+            mini_batch_size =  int(mini_batch_size)
     performance = False
     max_iters,mini_batch_size,usecache,buffer_size =get_max_iters(database,max_iters_all_base,\
                   restarts,parallel_op,restarts_paral,num_classes,init_by_mean,CV_Mode,\
