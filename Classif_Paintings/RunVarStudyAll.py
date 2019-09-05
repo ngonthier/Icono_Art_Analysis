@@ -584,7 +584,7 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
                 lclassif = []
                 for r in range(num_rep):
                     print('reboot :',r,'on',num_rep)
-                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=True,
                                                   verbose = True,testMode = False,jtest = 'cow',loss_type=loss_type,
                                                   PlotRegions = False,saved_clf=False,RPN=False,
                                                   CompBest=False,Stocha=True,k_per_bag=k_per_bag,
@@ -851,7 +851,7 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
                 restarts_paral = ''
                 for r in range(num_rep):
                     print('reboot :',r,'on',num_rep)
-                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=True,
                                                   verbose = True,testMode = False,jtest = 'cow',loss_type=loss_type,
                                                   PlotRegions = False,saved_clf=False,RPN=False,
                                                   CompBest=False,Stocha=True,k_per_bag=k_per_bag,
@@ -974,7 +974,7 @@ def approx_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10,
                 restarts_paral = 'paral'
                 for r in range(num_rep):
                     print('reboot :',r,'on',num_rep)
-                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=True,
                                                   verbose = True,testMode = False,jtest = 'cow',loss_type=loss_type,
                                                   PlotRegions = False,saved_clf=False,RPN=False,
                                                   CompBest=False,Stocha=True,k_per_bag=k_per_bag,
@@ -1100,7 +1100,7 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
             if not os.path.isfile(name_dict) or ReDo: 
             
                 ## Compte the vectors and bias W
-                exportname,arrayParam = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                exportname,arrayParam = tfR_FRCNN(demonet =demonet,database = database,ReDo=True,
                                               verbose = False,testMode = False,jtest = 'cow',loss_type=loss_type,
                                               PlotRegions = False,saved_clf=False,RPN=False,
                                               CompBest=False,Stocha=True,k_per_bag=k_per_bag,

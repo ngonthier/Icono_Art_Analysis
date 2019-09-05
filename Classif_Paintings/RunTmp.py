@@ -57,7 +57,7 @@ def clipartMaxA():
 
 
 if __name__ == '__main__':
-    OtherBaselines()
+    #OtherBaselines()
     mainDatabase_HL(database_tab=['IconArt_v1','watercolor','PeopleArt','CASPApaintings','comic','clipart'])
     mainDatabase_mi_model(database_tab=['IconArt_v1','watercolor','PeopleArt','CASPApaintings','comic','clipart'])
     mainDatabase(database_tab=['clipart'])
