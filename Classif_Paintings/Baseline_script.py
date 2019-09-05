@@ -156,7 +156,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
     
     """
     
-    t0 = time.time()
+    t00 = time.time()
     # TODO be able to train on background 
     list_methods =['MAXA_lowMem','MAX1','MEAN','MISVM','miSVM','SISVM','MAXA']
     print('==========')
@@ -667,8 +667,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
             
         gc.collect()
         
-        t1 = time.time()
-        print("--- Training duration :",str(t1-t0),' s')
+        t11 = time.time()
+        print("--- Training duration :",str(t11-t00),' s')
         
         
         # In the case of the test mode

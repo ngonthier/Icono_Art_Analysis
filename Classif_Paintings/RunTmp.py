@@ -11,9 +11,7 @@ from Baseline_script import Baseline_FRCNN_TL_Detect
 
 def OtherBaselines():
     datasets = ['comic','CASPApaintings']
-    datasets = ['comic']
     list_methods =['MAX1','MAXA','MISVM','miSVM']
-    list_methods =['MAX1']
     normalisation = False
     restarts = 0
     max_iter = 50
@@ -59,7 +57,7 @@ def clipartMaxA():
 
 
 if __name__ == '__main__':
-    mainDatabase_HL(database_tab=['IconArt_v1','watercolor','PeopleArt','CASPApaintings','comic','clipart'])
     OtherBaselines()
+    mainDatabase_HL(database_tab=['IconArt_v1','watercolor','PeopleArt','CASPApaintings','comic','clipart'])
     mainDatabase_mi_model(database_tab=['IconArt_v1','watercolor','PeopleArt','CASPApaintings','comic','clipart'])
     mainDatabase(database_tab=['clipart'])
