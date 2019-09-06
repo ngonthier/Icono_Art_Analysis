@@ -869,7 +869,7 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
                                                   obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                                                   obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
                                                   layer=layer,AddOneLayer=AddOneLayer,
-                                                  num_features_hidden=num_features_hidden)
+                                                  num_features_hidden=num_features_hidden,normOfHL=False)
                     ll += [apsAt05]
                     l01 += [apsAt01]
                     lclassif += [AP_per_class]

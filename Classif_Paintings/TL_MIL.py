@@ -2085,7 +2085,7 @@ def get_cachefilepath(path_data,demonet,database,k_per_bag,N,extL2,nms_thresh,sa
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
                   model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,MaxTopMinOfMax,
-                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden,trainOnTest):
+                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden,trainOnTest,normOfHL=True):
 
     if restarts_paral=='Dim': # It will create a new dimension
         restarts_paral_str = '_RP'
@@ -2276,6 +2276,11 @@ def get_cachefilepath(path_data,demonet,database,k_per_bag,N,extL2,nms_thresh,sa
     else:
         metamodelstr ='_'+ metamodel
         
+    if normOfHL:
+        normOfHLstr= ''
+    else:
+        normOfHLstr ='_WtnormOfHL'
+        
     arrayParam = [demonet,database,N,extL2,nms_thresh,savedstr,mini_batch_size,
                   performance,buffer_size,predict_with,shuffle,C,testMode,restarts,max_iters_all_base,
                   max_iters,CV_Mode,num_split,parallel_op,WR,norm,Optimizer,LR,optimArg,
@@ -2285,7 +2290,7 @@ def get_cachefilepath(path_data,demonet,database,k_per_bag,N,extL2,nms_thresh,sa
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
                   model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,MaxTopMinOfMax,
-                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden]
+                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden,normOfHL]
     arrayParamStr = ['demonet','database','N','extL2','nms_thresh','savedstr',
                      'mini_batch_size','performance','buffer_size','predict_with',
                      'shuffle','C','testMode','restarts','max_iters_all_base','max_iters','CV_Mode',
@@ -2297,7 +2302,7 @@ def get_cachefilepath(path_data,demonet,database,k_per_bag,N,extL2,nms_thresh,sa
                      'AggregW','proportionToKeep','loss_type','storeVectors','obj_score_add_tanh','lambdas',
                      'obj_score_mul_tanh','model','metamodel','PCAuse','number_composant',\
                      'AddOneLayer','exp','MaxOfMax','MaxMMeanOfMax','MaxTopMinOfMax','alpha','layer',\
-                     'Cosine_ofW_inLoss','Coeff_cosine','num_features_hidden']
+                     'Cosine_ofW_inLoss','Coeff_cosine','num_features_hidden','normOfHL']
     assert(len(arrayParam)==len(arrayParamStr))
     print(tabs_to_str(arrayParam,arrayParamStr))
     
@@ -2311,7 +2316,7 @@ def get_cachefilepath(path_data,demonet,database,k_per_bag,N,extL2,nms_thresh,sa
         extCV+ext_test+opti_str+LR_str+C_str+init_by_mean_str+with_scores_str+restarts_paral_str\
         +Max_version_str+seuillage_by_score_str+shuffle_str+C_Searching_str+optim_wt_Reg_str+optimArg_str\
         + AggregW_str + loss_type_str+str_obj_score_add_tanh+str_obj_score_mul_tanh \
-        + PCAusestr+str_MaxOfMax+str_Cosine_ofW_inLoss
+        + PCAusestr+str_MaxOfMax+str_Cosine_ofW_inLoss+normOfHLstr
     if trainOnTest:
         cachefile_model_base += '_trainOnTest'
     if AddOneLayer:
@@ -2449,7 +2454,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                                   AddOneLayer=False,exp=10,MaxOfMax=False,debug = False,alpha=0.7,
                                   layer='fc7',MaxMMeanOfMax=False,MaxTopMinOfMax=False,
                                   Cosine_ofW_inLoss=False,Coeff_cosine=1.,
-                                  mini_batch_size=None,num_features_hidden=256,dtype=None):
+                                  mini_batch_size=None,num_features_hidden=256,dtype=None,
+                                  normOfHL=True):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2567,6 +2573,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
    @param : mini_batch_size if None or 0 an automatic adhoc mini batch size is set
    @param : num_features_hidden features size of the hidden layer of the AddOneLayer model 
        if is None or 0 then equal to num_features
+   @param : normOfHL = True default : the fact to also have a regularisation on the first hidden layer weights
+
     The idea of this algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -2584,6 +2592,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     
     
     """
+    # TODO add the dtype in the cachefile name
     if not(dtype is None or dtype=='float32'):
         if dtype=='float16':
             dtype = tf.float16
@@ -2783,7 +2792,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                   k_intopk,C_Searching,gridSearch,thres_FinalClassifier,optim_wt_Reg,AggregW,
                   proportionToKeep,loss_type,storeVectors,obj_score_add_tanh,lambdas,obj_score_mul_tanh,
                   model,metamodel,PCAuse,number_composant,AddOneLayer,exp,MaxOfMax,MaxMMeanOfMax,MaxTopMinOfMax,
-                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden,trainOnTest)
+                  alpha,layer,Cosine_ofW_inLoss,Coeff_cosine,num_features_hidden,trainOnTest,normOfHL)
     if verbose: print("cachefile name",cachefile_model)
     if not os.path.isfile(cachefile_model) or ReDo:
         name_milsvm = {}
@@ -2818,7 +2827,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                        obj_score_mul_tanh=obj_score_mul_tanh,AddOneLayer=AddOneLayer,exp=exp,\
                        MaxOfMax=MaxOfMax,MaxMMeanOfMax=MaxMMeanOfMax,MaxTopMinOfMax=MaxTopMinOfMax,usecache=usecache,\
                        alpha=alpha,Cosine_ofW_inLoss=Cosine_ofW_inLoss,Coeff_cosine=Coeff_cosine,\
-                       num_features_hidden=num_features_hidden,dtype=dtype)
+                       num_features_hidden=num_features_hidden,dtype=dtype,normOfHL=normOfHL)
                  export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
                        class_indice=-1,shuffle=shuffle,init_by_mean=init_by_mean,norm=norm,
                        WR=WR,performance=performance,restarts_paral=restarts_paral,

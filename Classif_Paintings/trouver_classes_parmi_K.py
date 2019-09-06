@@ -319,7 +319,7 @@ class tf_MI_max():
                   obj_score_add_tanh=False,lambdas=0.5,obj_score_mul_tanh=False,
                   AddOneLayer=False,exp=10,MaxOfMax=False,usecache=True,alpha=0.7,
                   MaxMMeanOfMax=False,MaxTopMinOfMax=False,Cosine_ofW_inLoss=False,Coeff_cosine=1.,
-                  num_features_hidden = 256,dtype=tf.float32): #predictMMM_withMean  @param : predictMMM_withMean :  (default False)
+                  num_features_hidden = 256,dtype=tf.float32,normOfHL=False): #predictMMM_withMean  @param : predictMMM_withMean :  (default False)
 #                  seuil= 0.5,k_intopk=3,optim_wt_Reg=False,AveragingW=False,AveragingWportion=False,
 #                  votingW=False,proportionToKeep=0.25,votingWmedian=False):
         # TODOD enelver les trucs inutiles ici
@@ -401,6 +401,7 @@ class tf_MI_max():
             Have to be used with MaxOfMax of MaxMMeanOfMax (default = False)
         @param : Coeff_cosine : weight in front the cosine loss (default = 1.)
         @param : num_features_hidden = 256 inside the net
+        @param : normOfHL = True default : the fact to also have a regularisation on the first hidden layer weights
         """
         self.LR = LR
         self.C = tf.cast(C,dtype=dtype)
@@ -508,6 +509,7 @@ class tf_MI_max():
         else:
             self.num_features_hidden = num_features_hidden
         self.dtype = dtype
+        self.normOfHL = normOfHL
     # From http://www.machinelearninguru.com/deep_learning/tensorflow/basics/tfrecord/tfrecord.html
     def parser(self,record):
         # Perform additional preprocessing on the parsed data.
@@ -1528,7 +1530,7 @@ class tf_MI_max():
             else:
                 Wnorm = tf.reduce_sum(tf.pow(W_r,2),axis=-1)
                 loss= tf.add(Tan,tf.multiply(self.C,Wnorm))
-                if self.AddOneLayer:
+                if self.AddOneLayer and self.normOfHL:
                     W0_norm = tf.reduce_sum(tf.pow(W0,2),axis=[-2,-1])
                     loss = tf.add(loss,tf.multiply(self.C,W0_norm))
             # Shape 20 and if self.restarts_paral_Dim shape (number_W) x 20
@@ -1553,7 +1555,7 @@ class tf_MI_max():
                     embed_batch = tf.reshape(X_batch, [-1, self.num_features])
                     h_batch = tf.einsum('lk,ijk->lij',embed_batch,W0)
                     denselayer_batch = tf.tanh(tf.add(h_batch,b0))
-                    Prod_batch = tf.einsum('ikl,kl->ik',denselayer_batch,W_r)
+                    Prod_batch = tf.einsum('lij,ij->li',denselayer_batch,W)
                     Prod_batch = tf.reshape(Prod_batch, [-1, self.num_rois,self.num_classes])
                     #Prod_batch = tf.transpose(Prod_batch,perm=[2,0,1])
                     if self.with_scores or self.seuillage_by_score or self.obj_score_add_tanh or self.obj_score_mul_tanh:
@@ -1574,7 +1576,7 @@ class tf_MI_max():
                 
                 if self.AddOneLayer:
                     Max_batch=tf.reduce_max(Prod_batch,axis=1) # We take the max because we have at least one element of the bag that is positive
-                    Max_batch = tf.transpose(Max_batch,perm=[1,0])
+                    Max_batch = tf.transpose(Max_batch,perm=[1,0]) # Shape = num_classes, batch size
                 else:
                     Max_batch=tf.reduce_max(Prod_batch,axis=-1) # We take the max because we have at least one element of the bag that is positive
 
@@ -2671,7 +2673,7 @@ class tf_MI_max():
                         embed_2 = tf.reshape(X_, [-1, self.num_features])
                         h_2 = tf.einsum('lk,ijk->lij',embed_2,tf.convert_to_tensor(W0_best))
                         denselayer_2 = tf.tanh(tf.add(h_2,b0_best))
-                        Prod_2 = tf.einsum('ikl,kl->ik',denselayer_2,tf.convert_to_tensor(W_best))
+                        Prod_2 = tf.einsum('lij,ij->li',denselayer_2,tf.convert_to_tensor(W_best))
                         Prod_2= tf.reshape(Prod_2, [-1, self.num_rois,self.num_classes])
                         #Prod_2 = tf.transpose(Prod_2,perm=[2,0,1])
                         Prod_best = tf.add(Prod_2,b_best)
