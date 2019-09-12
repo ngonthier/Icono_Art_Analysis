@@ -290,7 +290,8 @@ def main():
                 pass 
 
 
-def PrintResults(database_tab=['IconArt_v1','watercolor','PeopleArt','clipart'],pm_only_on_mean=True):
+def PrintResults(database_tab=['IconArt_v1','watercolor','PeopleArt','CASPApaintings','comic','clipart'],
+                 pm_only_on_mean=True,list_print=['MImax','EdgeBoxes','miModel','MaxOfMax','HL','Minet']):
     """
     @param : pm_only_on_mean : only print the pm std for the mean over the classes
     """
@@ -298,78 +299,91 @@ def PrintResults(database_tab=['IconArt_v1','watercolor','PeopleArt','clipart'],
     
     for Optimizer in ['GradientDescent']:
         for database in database_tab:
-            print('=== MImax with and without score ===')
-            try: 
-    #            Number 0 : MIMAX-score
-    #            Number 3 : hinge loss with score
-    #            Number 5 : MIMAX without score
-    #            Number 22 : hinge loss without score
-                VariationStudyPart3(database,[0,5,3,22],num_rep = 10,Optimizer=Optimizer,
-                                    pm_only_on_mean=pm_only_on_mean)
-            except Exception:
-                pass    
-            
-            print('=== EdgeBoxes MImax ===')
-            for metamodel,demonet,scenario_tab in zip(['EdgeBoxes'],['res152'],[[5,22]]):
+            print('=======',database,'======')
+            if 'MImax' in list_print:
+                print('=== MImax with and without score ===')
                 try: 
-                    VariationStudyPart3(database,scenario_tab,num_rep = 10,
-                                        Optimizer=Optimizer,metamodel=metamodel,
-                                        demonet=demonet,pm_only_on_mean=pm_only_on_mean)
+        #            Number 0 : MIMAX-score
+        #            Number 3 : hinge loss with score
+        #            Number 5 : MIMAX without score
+        #            Number 22 : hinge loss without score
+                    VariationStudyPart3(database,[0,5,3,22],num_rep = 10,Optimizer=Optimizer,
+                                        pm_only_on_mean=pm_only_on_mean)
                 except Exception:
+                    pass    
+            
+            if 'EdgeBoxes' in list_print:
+                print('=== EdgeBoxes MImax ===')
+                for metamodel,demonet,scenario_tab in zip(['EdgeBoxes'],['res152'],[[5,22]]):
+                    try: 
+                        VariationStudyPart3(database,scenario_tab,num_rep = 10,
+                                            Optimizer=Optimizer,metamodel=metamodel,
+                                            demonet=demonet,pm_only_on_mean=pm_only_on_mean)
+                    except Exception:
+                        pass 
+            if 'MaxOfMax' in list_print:
+                # MaxOfMax
+                print('=== MaxOfMax ===')
+                for MaxOfMax,MaxMMeanOfMax in [[True,False],[False,True]]:
+                    try: 
+                            if Optimizer=='GradientDescent':
+                                max_iters_all_base = 3000
+                            elif Optimizer=='lbfgs':
+                                max_iters_all_base = 300
+                            unefficient_evaluation_PrintResults(database=database,num_rep = 10,
+                                                        Optimizer=Optimizer,MaxOfMax=MaxOfMax,\
+                                                        MaxMMeanOfMax=MaxMMeanOfMax,
+                                                        max_iters_all_base = max_iters_all_base,
+                                                        pm_only_on_mean=pm_only_on_mean)
+                    except Exception:
+                          pass 
+              
+            if 'miModel' in list_print:
+                print('=== MiModel ===')
+                max_iters_all_base = 3000
+                try: 
+        #            Number 0 : MIMAX-score
+        #            Number 3 : hinge loss with score
+        #            Number 5 : MIMAX without score
+        #            Number 22 : hinge loss without score
+                    unefficient_evaluation_PrintResults(database=database,num_rep = 10,Optimizer=Optimizer,
+                                                      max_iters_all_base=max_iters_all_base,
+                                                      AddOneLayer=False,
+                                                      MaxOfMax=False,MaxMMeanOfMax=False,
+                                                      num_features_hidden=256,
+                                                      pm_only_on_mean=pm_only_on_mean,
+                                                      mi_model=True)
+                except Exception as e:
+                    print(e)
                     pass 
-            # MaxOfMax 
-            print('=== MaxOfMax ===')
-            for MaxOfMax,MaxMMeanOfMax in [[True,False],[False,True]]:
+            
+            if 'HL' in list_print:
+                print('=== Add One Layer ===')
                 try: 
                     if Optimizer=='GradientDescent':
-                        max_iters_all_base = 3000
+                        max_iters_all_base = 300
                     elif Optimizer=='lbfgs':
                         max_iters_all_base = 300
-                    unefficient_evaluation_PrintResults(database=database,num_rep = 10,
-                                                Optimizer=Optimizer,MaxOfMax=MaxOfMax,\
-                                                MaxMMeanOfMax=MaxMMeanOfMax,
-                                                max_iters_all_base = max_iters_all_base,pm_only_on_mean=pm_only_on_mean)
+                    unefficient_evaluation_PrintResults(database=database,num_rep = 10,Optimizer=Optimizer,
+                                                          max_iters_all_base=max_iters_all_base,
+                                                          AddOneLayer=True,
+                                                          MaxOfMax=False,MaxMMeanOfMax=False,
+                                                          num_features_hidden=256,
+                                                          pm_only_on_mean=pm_only_on_mean)
                 except Exception:
                     pass 
-                
-            print('=== MiModel ===')
-            scenario_tab = [0,5,3,22]
-            max_iters_all_base = 3000
-            try: 
-    #            Number 0 : MIMAX-score
-    #            Number 3 : hinge loss with score
-    #            Number 5 : MIMAX without score
-    #            Number 22 : hinge loss without score
-                VariationStudyPart3(database,scenario_tab,num_rep = 10,
-                                    Optimizer=Optimizer,model='mi_model',
-                                    max_iters_all_base=max_iters_all_base)
-            except Exception as e:
-                print(e)
-                pass 
-                
-            print('=== Add One Layer ===')
-            try: 
-                if Optimizer=='GradientDescent':
-                    max_iters_all_base = 300
-                elif Optimizer=='lbfgs':
-                    max_iters_all_base = 300
-                unefficient_evaluation_PrintResults(database=database,num_rep = 10,Optimizer=Optimizer,
-                                                      max_iters_all_base=max_iters_all_base,
-                                                      AddOneLayer=True,
-                                                      MaxOfMax=False,MaxMMeanOfMax=False,
-                                                      num_features_hidden=256,pm_only_on_mean=pm_only_on_mean)
-            except Exception:
-                pass 
 
-    print('=== Revisiting MIL Nets ===')               
-    MILmodel_tab = ['MI_Net','MI_Net_with_DS','MI_Net_with_RC','mi_Net']
-    for database in database_tab:
-        for MILmodel in MILmodel_tab:
-            try:
-                runSeveralMInet(dataset_nm=database,MILmodel=MILmodel,printR=True,
-                                pm_only_on_mean=pm_only_on_mean)
-            except Exception:
-                pass         
+    if 'Minet' in list_print:
+        print('=== Revisiting MIL Nets ===')               
+        MILmodel_tab = ['MI_Net','MI_Net_with_DS','MI_Net_with_RC','mi_Net']
+        for database in database_tab:
+            for MILmodel in MILmodel_tab:
+                try:
+                    runSeveralMInet(dataset_nm=database,MILmodel=MILmodel,printR=True,
+                                    pm_only_on_mean=pm_only_on_mean)
+                except Exception:
+                    pass    
+                
 if __name__ == '__main__':
     #ExperienceRuns(database_tab=['CASPApaintings'])
     mainDatabase(database_tab=['CASPApaintings','comic','clipart'])

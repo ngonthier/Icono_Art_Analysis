@@ -153,7 +153,7 @@ def mi_Net(dataset):
     return test_acc
 
 def mi_Net_WSOD(dataset,weight_decay=0.005,pooling_mode='max',init_lr=0.001,momentum=0.9,
-                max_epoch=20):
+                max_epoch=20,verbose=True):
     """Train and evaluate on mi-Net.
     Parameters
     -----------------
@@ -197,9 +197,9 @@ def mi_Net_WSOD(dataset,weight_decay=0.005,pooling_mode='max',init_lr=0.001,mome
     for epoch in range(max_epoch):
         train_loss, train_acc = train_eval(model, train_set)
 #        test_loss, test_acc = test_eval(model, test_set)
-        print('epoch=', epoch, '  train_loss= {:.3f}'.format(train_loss), '  train_acc= {:.3f}'.format(train_acc))#, '  test_loss={:.3f}'.format(test_loss), '  test_acc= {:.3f}'.format(test_acc))
+        if verbose: print('epoch=', epoch, '  train_loss= {:.3f}'.format(train_loss), '  train_acc= {:.3f}'.format(train_acc))#, '  test_loss={:.3f}'.format(test_loss), '  test_acc= {:.3f}'.format(test_acc))
     t2 = time.time()
-    print('run time:', (t2-t1) / 60.0, 'min')
+    if verbose: print('run time:', (t2-t1) / 60.0, 'min')
     #print('test_acc={:.3f}'.format(test_acc))
 
     return model

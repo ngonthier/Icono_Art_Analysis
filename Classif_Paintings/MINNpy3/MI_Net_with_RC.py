@@ -162,7 +162,7 @@ def MI_Net_with_RC(dataset):
     return test_acc
 
 def MI_Net_with_RC_WSOD(dataset,weight_decay=0.005,pooling_mode='max',init_lr=0.001,momentum=0.9,
-                max_epoch=20):
+                max_epoch=20,verbose=True):
     """Train and evaluate on MI-Net with residual connection.
     Parameters
     -----------------
@@ -214,9 +214,9 @@ def MI_Net_with_RC_WSOD(dataset,weight_decay=0.005,pooling_mode='max',init_lr=0.
     for epoch in range(max_epoch):
         train_loss, train_acc = train_eval(model, train_set)
         #test_loss, test_acc = test_eval(model, test_set)
-        print('epoch=', epoch, '  train_loss= {:.3f}'.format(train_loss), '  train_acc= {:.3f}'.format(train_acc))#, '  test_loss= {:.3f}'.format(test_loss))#, '  test_acc= {:.3f}'.format(test_acc))
+        if verbose: print('epoch=', epoch, '  train_loss= {:.3f}'.format(train_loss), '  train_acc= {:.3f}'.format(train_acc))#, '  test_loss= {:.3f}'.format(test_loss))#, '  test_acc= {:.3f}'.format(test_acc))
     t2 = time.time()
-    print('run time:', (t2-t1) / 60, 'min')
+    if verbose: print('run time:', (t2-t1) / 60, 'min')
     #print('test_acc={:.3f}'.format(test_acc))
 
     return model
