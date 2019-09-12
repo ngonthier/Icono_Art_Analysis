@@ -623,7 +623,8 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
                                         MaxOfMax=True,MaxMMeanOfMax=False,
                                         max_iters_all_base=3000,AddOneLayer=False,
-                                        num_features_hidden=256,pm_only_on_mean=True):
+                                        num_features_hidden=256,pm_only_on_mean=True,
+                                        mi_model=False):
     seuillage_by_score = False
     obj_score_add_tanh = False
     loss_type = ''
@@ -649,7 +650,9 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
     onlyAP05 = False
     for with_scores in [False,True]:
         for loss_type in ['','hinge']:
-            name_dict = path_data_output 
+            name_dict = path_data_output
+            if mi_model:
+                name_dict += 'mi_model_'
             if not(demonet== 'res152_COCO'):
                 name_dict += demonet +'_'
             if not(layer== 'fc7'):
@@ -869,7 +872,8 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
                                                   obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
                                                   obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
                                                   layer=layer,AddOneLayer=AddOneLayer,
-                                                  num_features_hidden=num_features_hidden,normOfHL=False)
+                                                  num_features_hidden=num_features_hidden,
+                                                  normOfHL=False)
                     ll += [apsAt05]
                     l01 += [apsAt01]
                     lclassif += [AP_per_class]
