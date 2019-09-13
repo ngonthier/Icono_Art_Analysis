@@ -34,7 +34,17 @@ def load_crop(path_to_img,max_dim = 224):
   return img
 
 def load_crop_and_process_img(path_to_img,max_dim = 224):
-  img = load_crop(path_to_img,max_dim=max_dim)
+ # img = load_crop(path_to_img,max_dim=max_dim)
+ 
+  img = tf.keras.preprocessing.image.load_img(
+    path_to_img,
+    grayscale=False,
+    target_size=(max_dim, max_dim),
+    interpolation='nearest')
+  # This way to load the images and to convert them to numpy array before preprocessing
+  # are certainly suboptimal
+  img = kp_image.img_to_array(img)
+  img = np.expand_dims(img, axis=0)
   img = tf.keras.applications.vgg19.preprocess_input(img)
   return img
 
@@ -66,7 +76,7 @@ def covariance_matrix(features_map, eps=1e-8):
   features_map_reshaped = tf.transpose(features_map_squeezed, (2, 0, 1))
   # CxHxW -> CxH*W
   features_map_flat = tf.reshape(features_map_reshaped, (C, H*W))
-  mean = tf.cast(tf.reduce_mean(features_map_flat, axis=1, keep_dims=True), tf.float32)
+  mean = tf.cast(tf.reduce_mean(features_map_flat, axis=1, keepdims=True), tf.float32)
   f = features_map_flat - mean
   # Covariance
   cov = tf.matmul(f, f, transpose_b=True) / (tf.cast(H*W, tf.float32) - 1.) + tf.eye(C)*eps                          
