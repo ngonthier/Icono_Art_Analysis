@@ -20,8 +20,8 @@ from tensorflow.python.keras.layers import Layer
 # Others libraries
 import numpy as np
 from PIL import Image
-import time
-import functools
+#import time
+#import functools
 
 def load_crop(path_to_img,max_dim = 224):
   img = Image.open(path_to_img)
@@ -199,6 +199,58 @@ def get_gram_mean_features(model,img_path):
     list_stats += [[cov,mean]]
   return list_stats
 
+
+### VGG with features modifed
+  
+def vgg_AdaIn(style_layers,list_mean_and_std):
+  """
+  VGG with an AdaIn : Instance normalisation
+  """
+  model = tf.keras.Sequential()
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
+  vgg_layers = vgg.layers
+  vgg.trainable = False
+  i = 0
+  for layer in vgg_layers:
+    name_layer = layer.name
+    if i < len(style_layers) and name_layer==style_layers[i]:
+      model.add(layer)
+      betas = tf.keras.initializers.Constant(value=-list_mean_and_std[i][0]) # Offset of beta => beta = - mean
+      gammas = tf.keras.initializers.Constant(value=1./list_mean_and_std[i][1]) # multiply by gamma => gamma = 1/std
+      model.add(tf.keras.layers.BatchNormalization(axis=-1, center=True, scale=True,\
+                                                   beta_initializer=betas, gamma_initializer=gammas))
+      i += 1
+    else:
+      model.add(layer)
+    if name_layer=='fc2':
+      model_outputs = model.output
+  model.trainable = False
+ 
+  return(models.Model(model.input, model_outputs)) 
+
+
+
+# Define an keras layer that impose the Gram Matrix
+class GramImposed_Layer(Layer):
+
+    def __init__(self, cov_matrix,mean,manner, **kwargs):
+        self.cov_matrix = cov_matrix
+        self.mean = mean
+        self.manner = manner
+        super(GramImposed_Layer, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        # Besoin de creer une fonction partielle ?
+        super(GramImposed_Layer, self).build(input_shape)  # Be sure to call this at the end
+
+    def call(self, x):
+        if self.manner=='WCT':
+          output = wct_tf(x, self.cov_matrix,self.mean)
+        return output
+
+    def compute_output_shape(self, input_shape):
+        return(input_shape)
+
 def vgg_GramImposed(style_layers,list_Gram_matrices,manner):
   """
   VGG with Gram matrices imposed according to different method (manner)
@@ -221,8 +273,8 @@ def vgg_GramImposed(style_layers,list_Gram_matrices,manner):
     name_layer = layer.name
     if i < len(style_layers) and name_layer==style_layers[i]:
       model.add(layer)
-      cov = list_mean_and_std[i][0] 
-      m = list_mean_and_std[i][1]
+      cov = list_Gram_matrices[i][0] 
+      m = list_Gram_matrices[i][1]
       gram_layer = GramImposed_Layer(cov,m,manner)
       model.add(gram_layer)
       i += 1
