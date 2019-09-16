@@ -539,9 +539,7 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
     ReDo = True
-    
-    
-    
+
     for with_scores in scores_tab:
         for loss_type in loss_tab:
             name_dict = path_data_output 
@@ -773,7 +771,8 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
 def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
                                         max_iters_all_base = 300,num_features_hidden=256,
-                                        number_restarts = 11,scores_tab = [True],loss_tab = ['']):
+                                        number_restarts = 11,scores_tab = [True],
+                                        loss_tab = ['']):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
     """
@@ -850,8 +849,13 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
                 ll = []
                 l01 = []
                 lclassif = []
-                parallel_op = True # Test que ce soit parallel des scores
-                restarts_paral = ''
+                
+                if database=='PeopleArt':
+                    restarts_paral = ''
+                    parallel_op = False
+                else:
+                    restarts_paral = ''
+                    parallel_op = True
                 for r in range(num_rep):
                     print('reboot :',r,'on',num_rep)
                     apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=True,
