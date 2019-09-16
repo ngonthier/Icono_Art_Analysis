@@ -258,7 +258,7 @@ def get_database(database):
         str_val = 'validation'
     elif database=='Paintings':
         str_val = 'validation'
-    elif database in ['VOC2007','watercolor','clipart','PeopleArt']:
+    elif database in ['VOC2007','watercolor','clipart','PeopleArt','CASPApaintings','comic']:
         str_val = 'val'
         df_label[classes] = df_label[classes].apply(lambda x:(x + 1.0)/2.0)
     

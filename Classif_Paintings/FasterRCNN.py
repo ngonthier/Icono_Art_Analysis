@@ -1776,6 +1776,10 @@ def Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database
             if database in ['VOC2007','clipart','comic','watercolor','PeopleArt','CASPApaintings']:
                 for j in range(num_classes):
                     value = int((int(df_label[classes[j]][i])+1.)/2.)
+                    # En fait ce qui se passe la c'est que tu rescale a la sauvage 
+                    # entre 0 et 1 un truc qui peut etre entre 0 et 1 mais aussi entre  -1 et 1
+                    assert(value<=1.0)
+                    assert(value>=0.0)
                     # to get from -1 et 1 to 0-1
                     classes_vectors[j] = value
             if database in ['RMN','WikiTenLabels','MiniTrain_WikiTenLabels',\

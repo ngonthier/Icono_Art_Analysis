@@ -4203,7 +4203,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                                 name_img = str(name_imgs[k].decode("utf-8") )
                                 rois = roiss[k,:]
                                 #if verbose: print(name_img)
-                                if database in ['VOC12','Paintings','VOC2007','watercolor','IconArt_v1']:
+                                if database in ['IconArt_v1','VOC2007','watercolor','Paintings','CASPApaintings','clipart','comic','PeopleArt']:
                                     complet_name = path_to_img + name_img + '.jpg'
                                     name_sans_ext = name_img
                                 elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -4283,13 +4283,14 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                     predict_label_all_test +=  [get_RegionsScore]
 #                if predict_with=='LinearSVC':
                 for k in range(len(labels)):
-                    if database in['IconArt_v1','VOC12','Paintings','VOC2007','watercolor','WikiTenLabels']:
+                    if database in['IconArt_v1','VOC2007','watercolor','Paintings','CASPApaintings','clipart','comic','PeopleArt']:
                         complet_name = path_to_img + str(name_imgs[k].decode("utf-8")) + '.jpg'
                     elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
                         name_sans_ext = os.path.splitext(name_img)[0]
                         complet_name = path_to_img +name_sans_ext + '.jpg'
                     else:
                         print(database,' is not known !')
+                        raise(NotImplementedError)
                     im = cv2.imread(complet_name)
                     blobs, im_scales = get_blobs(im)
                     if predict_with=='MI_max':
@@ -4320,7 +4321,7 @@ def tfR_evaluation(database,j,dict_class_weight,num_classes,predict_with,
                             name_img = str(name_imgs[k].decode("utf-8") )
                             rois = roiss[k,:]
                             #if verbose: print(name_img)
-                            if database in['IconArt_v1','VOC12','Paintings','VOC2007','watercolor','WikiTenLabels']:
+                            if database in['IconArt_v1','VOC2007','watercolor','Paintings','CASPApaintings','clipart','comic','PeopleArt']:
                                 complet_name = path_to_img + name_img + '.jpg'
                                 name_sans_ext = name_img
                             elif(database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
