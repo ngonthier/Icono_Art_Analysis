@@ -31,7 +31,7 @@ from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features
 
 
 
-def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf):
+def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None):
     """
     In this function we will compute the Gram Matrix for two subsets
     a small part of ImageNet validation set 
@@ -41,7 +41,8 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf):
         if == np.inf we will use all the image in the folder of the dataset
     """
 
-    dataset_tab = ['ImageNet','Paintings','watercolor','IconArt_v1','OIV5']
+    if dataset_tab is None:
+        dataset_tab = ['ImageNet','Paintings','watercolor','IconArt_v1','OIV5']
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata')
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
 
@@ -56,8 +57,6 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf):
     num_style_layers = len(style_layers)
     # Load the VGG model
     vgg_inter =  get_intermediate_layers_vgg(style_layers) 
-    
-    
     
     # 6000 images pour IconArt
     # Un peu moins de 8700 images pour ArtUK
