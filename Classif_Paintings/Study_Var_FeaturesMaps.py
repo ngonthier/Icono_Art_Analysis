@@ -29,8 +29,6 @@ import tensorflow as tf
 
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features
 
-
-
 def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None):
     """
     In this function we will compute the Gram Matrix for two subsets
