@@ -28,13 +28,30 @@ import h5py
 import tensorflow as tf
 from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
-    load_crop_and_process_img,get_VGGmodel_gram_mean_features
+    load_crop_and_process_img,get_VGGmodel_gram_mean_features,vgg_get_cov
 
+keras_vgg_layers= ['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                'block5_conv1','block5_conv2','block5_conv3','block5_conv4',
+                'block5_pool','flatten','fc1','fc2','predictions']
 
-def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,dataset='ImageNet',set='',saveformat='h5'):
+def numeral_layers_index(style_layers):
+    string = ''
+    for elt in style_layers:
+        string+= str(keras_vgg_layers.index(elt))
+    return(string)
+
+def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
+                        dataset='ImageNet',set='',saveformat='h5',whatToload='var'):
     """
     In this function we precompute the mean and cov for certain dataset
+    @param : whatToload mention what you want to load by default only return variances
     """
+    if not(whatToload in ['var','cov','mean','covmean','varmean','all','']):
+        print(whatToload,'is not known')
+        raise(NotImplementedError)
+    
     if saveformat=='h5':
         # Create a storage file where data is to be stored
         store = h5py.File(filename_path, 'a')
@@ -115,7 +132,16 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,dataset=
                 cov = vgg_cov_mean[2*l]
                 mean = vgg_cov_mean[2*l+1]
                 # Here we only get a tensor we need to run the session !!! 
-                dict_var[layer] += [np.diag(cov)]
+                if whatToload=='var':
+                    dict_var[layer] += [np.diag(cov)]
+                elif whatToload=='cov':
+                    dict_var[layer] += [cov]
+                elif whatToload=='mean':
+                    dict_var[layer] += [mean]
+                elif whatToload in ['covmean','','all']:
+                    dict_var[layer] += [[cov,mean]]
+                elif whatToload=='varmean':
+                    dict_var[layer] += [[np.diag(cov),mean]]
         else:
             continue
     for l,layer in enumerate(style_layers):
@@ -185,11 +211,36 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
                     dict_var[layer] += [[cov,mean]]
                 elif whatToload=='varmean':
                     dict_var[layer] += [[np.diag(cov),mean]]
-                dict_var[layer] += [np.diag(cov)]
             for l,layer in enumerate(style_layers):
                 stacked = np.stack(dict_var[layer]) 
                 dict_var[layer] = stacked
         store.close()
+
+def get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                   whatToload,saveformat='h5'):
+    str_layers = numeral_layers_index(style_layers)
+    filename = source_dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
+    output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp')
+    
+    if os.path.isdir(output_path):
+        output_path_full = os.path.join(output_path,'Covdata')
+    else:
+        output_path_full = os.path.join('data','Covdata')
+    pathlib.Path(output_path_full).mkdir(parents=True, exist_ok=True)  
+    if not(set=='' or set is None):
+        filename += '_'+set
+    if saveformat=='pkl':
+        filename += '.pkl'
+    if saveformat=='h5':
+        filename += '.h5'
+    filename_path= os.path.join(output_path_full,filename)
+    if not os.path.isfile(filename_path):
+        dict_stats = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
+                                       dataset=source_dataset,set=set,saveformat=saveformat,whatToload=whatToload)
+    else:
+        dict_stats = load_precomputed_mean_cov(filename_path,style_layers,source_dataset,
+                                            saveformat=saveformat,whatToload=whatToload)
+    return(dict_stats)
 
 def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None):
     """
@@ -214,21 +265,23 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
                 'block5_conv1'
                ]
 
-    num_style_layers = len(style_layers)
+#    num_style_layers = len(style_layers)
     # Load the VGG model
-    vgg_inter =  get_intermediate_layers_vgg(style_layers) 
+#    vgg_inter =  get_intermediate_layers_vgg(style_layers) 
     
     set = None
     dict_of_dict = {}
 #    config = tf.ConfigProto()
 #    config.gpu_options.allow_growth = True
-    vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers)
+#    vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers)
 #    sess = tf.Session(config=config)
 #    sess.run(tf.global_variables_initializer())
 #    sess.run(tf.local_variables_initializer())
+    whatToload= 'var'
     for dataset in dataset_tab:
         print('===',dataset,'===')
-        filename = dataset + '_' + str(number_im_considered) + '_CovMean'
+        str_layers = numeral_layers_index(style_layers)
+        filename = dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
         if not(set=='' or set is None):
             filename += '_'+set
         if saveformat=='pkl':
@@ -239,12 +292,12 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
         
         if not os.path.isfile(filename_path):
             dict_var = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
-                                           dataset=dataset,set=set,saveformat=saveformat)
+                                           dataset=dataset,set=set,saveformat=saveformat,whatToload=whatToload)
             dict_of_dict[dataset] = dict_var
         else:
             print('We will load the features ')
             dict_var =load_precomputed_mean_cov(filename_path,style_layers,dataset,
-                                                saveformat=saveformat,whatToload='var')
+                                                saveformat=saveformat,whatToload=whatToload)
             dict_of_dict[dataset] = dict_var
     
     print('Start plotting')

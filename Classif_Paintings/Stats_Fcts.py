@@ -20,6 +20,7 @@ from tensorflow.python.keras.layers import Lambda
 from tensorflow.python.keras.layers import concatenate
 from tensorflow.python.keras.backend import expand_dims
 from tensorflow.python.ops import math_ops
+from keras.applications.imagenet_utils import decode_predictions
 
 # Others libraries
 import numpy as np
@@ -303,6 +304,31 @@ class HomeMade_BatchNormalisation(Layer):
         assert isinstance(input_shape, list)
         return input_shape
     
+class HomeMade_adapt_BatchNormalisation(Layer):
+
+    def __init__(self,beta,gamma, **kwargs):
+        self.beta=beta # offset ie new mean
+        self.gamma = gamma # New std
+        super(HomeMade_adapt_BatchNormalisation, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(HomeMade_adapt_BatchNormalisation, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
+        std = math_ops.sqrt(variance)
+#        comparison = tf.math.greater(std,self.gamma) # Returns the truth value of (x > y) element-wise.
+        comparison = tf.greater_equal(std,self.gamma) # Returns the truth value of (x > y) element-wise.
+        float_comp = tf.cast(comparison,tf.float32)
+        feature_maps_modified =  (((x - mean) * self.gamma  )/ std)  + self.beta 
+        output = tf.multiply(feature_maps_modified,float_comp) + tf.multiply(x,1 - float_comp)
+        return output
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        return input_shape
+    
 class Mean_Matrix_Layer(Layer):
 
     def __init__(self, **kwargs):
@@ -398,6 +424,50 @@ def vgg_AdaIn(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNorm
       # multiply by gamma => gamma = std
       if HomeMadeBatchNorm:
           model.add(HomeMade_BatchNormalisation(betas,gammas))
+      else:
+          # Don t work
+          raise(NotImplementedError)
+          betas = tf.keras.initializers.Constant(value=betas)
+          gammas = gammas**2 # from std to var
+          gammas = tf.keras.initializers.Constant(value=gammas)
+          model.add(layers.BatchNormalization(axis=-1, center=True, scale=True,\
+                                       beta_initializer=betas,\
+                                       gamma_initializer=gammas,\
+                                       fused = False))
+          # fused = True accelerated version
+      i += 1
+    else:
+      model.add(layer)
+    if name_layer==final_layer:
+      model_outputs = model.output
+      break
+      
+  model.trainable = False
+ 
+  return(models.Model(model.input, model_outputs)) 
+  
+def vgg_AdaIn_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
+                         HomeMadeBatchNorm=True):
+  """
+  VGG with an AdaIn : Instance normalisation but we only modify the features 
+  that have a std lower than the reference one 
+  @param : final_layer final layer provide for feature extraction
+  """
+  model = tf.keras.Sequential()
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
+  vgg_layers = vgg.layers
+  vgg.trainable = False
+  i = 0
+  for layer in vgg_layers:
+    name_layer = layer.name
+    if i < len(style_layers) and name_layer==style_layers[i]:
+      model.add(layer)
+      betas = list_mean_and_std[i][0] 
+      # Offset of beta => beta = mean 
+      gammas = list_mean_and_std[i][1]
+      # multiply by gamma => gamma = std
+      if HomeMadeBatchNorm:
+          model.add(HomeMade_adapt_BatchNormalisation(betas,gammas))
       else:
           # Don t work
           raise(NotImplementedError)
@@ -548,7 +618,7 @@ def unity_test_of_VGG_AdaIn():
         vgg_mean_vars_values += [[mean,stds]]
     
     vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_vars_values,final_layer='fc2',
-                         HomeMadeBatchNorm=False)
+                         HomeMadeBatchNorm=True)
     #print(vggAdaIn.summary())
     #sess.run(tf.global_variables_initializer())
 #    sess.run(tf.local_variables_initializer())
@@ -563,8 +633,82 @@ def unity_test_of_VGG_AdaIn():
     print('max abs(a-b)/abs(a)',np.max(np.abs(output_vggAdaIn - fc2_original_vgg19)/np.abs(fc2_original_vgg19+10**(-16))))
     print(' norm2(a-b)/norm2(a)',np.linalg.norm(output_vggAdaIn - fc2_original_vgg19)/np.linalg.norm(fc2_original_vgg19+10**(-16)))
     print('First elts',output_vggAdaIn[0,0:5],fc2_original_vgg19[0,0:5])
-
     
+def topn(x,n=5):
+    return(x[np.argsort(x)[-n:]])
+    
+def test_change_mean_std(adapt=False):
+    """ In this fct we test to use the mean and std of a givent image to an other one
+    """
+    
+#    images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
+#    image_path =  os.path.join(images_path,'abd_aag_002276_624x544.jpg')
+    cat_path =  os.path.join('data','cat.jpg')
+    #init_image = tf.convert_to_tensor(load_crop_and_process_img(image_path))
+    cat_image = load_crop_and_process_img(cat_path)
+    # Fc2 of VGG
+    # Add a layer where input is the output of the  second last layer 
+    vgg_full = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
+    predictions_cat = vgg_full.predict(cat_image)
+#    print('Top k index')
+#    print(topn(predictions_cat))
+    cat_decode = decode_predictions(predictions_cat)
+    print(cat_decode)
+    
+    style_layers = ['block1_conv1',
+                'block2_conv1',
+                'block3_conv1', 
+                'block4_conv1', 
+                'block5_conv1'
+               ]
+
+    num_style_layers = len(style_layers)
+    # Todo a finir le vgg_AdaIn_adaptative avec gamma==std a l infini on modife encore le reseau alors qu'on devrait pas
+    list_imgs = ['bus','dog','flower','cat2']
+    list_imgs = ['bus']
+    style_layers_tab = [style_layers,[style_layers[0]],[style_layers[-1]]]
+    for style_layers in style_layers_tab:
+        print('Layers :',style_layers)
+        # Load the model that compute cov matrices and mean
+        vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers)
+        for j,elt in enumerate(list_imgs):
+            print('====',elt,'===')
+            object_path =  os.path.join('data',elt+'.jpg')
+            object_image = load_crop_and_process_img(object_path)
+            vgg_cov_mean = vgg_get_cov.predict(object_image, batch_size=1)
+            vgg_mean_vars_values = []
+            vgg_mean_vars_values_0_1 = []
+            for l,layer in enumerate(style_layers):
+                cov = vgg_cov_mean[2*l]
+                cov = np.squeeze(cov,axis=0) 
+                mean = vgg_cov_mean[2*l+1]
+                mean = mean.reshape((mean.shape[1],))
+                stds = np.sqrt(np.diag(cov))
+                vgg_mean_vars_values += [[mean,stds]]
+                if j ==len(list_imgs)-1:
+                    vgg_mean_vars_values_0_1 += [[np.zeros_like(mean),np.inf*np.ones_like(stds)]]
+            if adapt:
+                vggAdaIn = vgg_AdaIn_adaptative(style_layers,vgg_mean_vars_values,final_layer='predictions',
+                             HomeMadeBatchNorm=True)
+            else:
+                vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_vars_values,final_layer='predictions',
+                             HomeMadeBatchNorm=True)
+            object_predction = vggAdaIn.predict(cat_image)
+            object_decode = decode_predictions(object_predction)
+            print(object_decode)
+            if j ==len(list_imgs)-1:
+                print('=== means=0 and stds=1 ===')
+                if adapt:
+                    vggAdaIn = vgg_AdaIn_adaptative(style_layers,vgg_mean_vars_values_0_1,final_layer='predictions',
+                             HomeMadeBatchNorm=True)
+                else:
+                    vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_vars_values_0_1,final_layer='predictions',
+                             HomeMadeBatchNorm=True)
+                object_predction = vggAdaIn.predict(cat_image)
+                object_decode = decode_predictions(object_predction)
+                print(object_decode) 
+        K.clear_session() # To clean memory
+            
 def unity_test_StatsCompute():
     """ In this function we try to se if we have a stable and consistent computation
     of mean and variance of the features maps"""
