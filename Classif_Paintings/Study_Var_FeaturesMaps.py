@@ -27,7 +27,7 @@ import h5py
 
 import tensorflow as tf
 
-from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features
+from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,get_VGGmodel_gram_mean_features
 
 def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None):
     """
@@ -70,9 +70,10 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
     dict_of_dict = {}
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
-    sess.run(tf.global_variables_initializer())
-    sess.run(tf.local_variables_initializer())
+    vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers)
+#    sess = tf.Session(config=config)
+#    sess.run(tf.global_variables_initializer())
+#    sess.run(tf.local_variables_initializer())
     for dataset in dataset_tab:
         print('===',dataset,'===')
         filename = dataset + '_' + str(number_im_considered) + '_CovMean'
@@ -113,7 +114,8 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
                     short_name = '.'.join(tail.split('.')[0:-1])
                     # Get the covairances matrixes and the means
                     try:
-                        vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
+                        #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
+                        vgg_cov_mean = vgg_get_cov.predict(init_image, batch_size=1)
                     except IndexError as e:
                         print(e)
                         print(i,image_path)
@@ -122,16 +124,19 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
                     if saveformat=='h5':
                         grp = store.create_group(short_name)
                         for l,layer in enumerate(style_layers):
-                            vgg_cov_mean_l  = vgg_cov_mean[l]
+                            cov = vgg_cov_mean[2*l]
+                            mean = vgg_cov_mean[2*l+1]
                             cov_str = layer + '_cov'
                             mean_str = layer + '_mean'
-                            grp.create_dataset(cov_str,data=vgg_cov_mean_l[0]) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
-                            grp.create_dataset(mean_str,data=vgg_cov_mean_l[1]) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                            grp.create_dataset(cov_str,data=cov) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                            grp.create_dataset(mean_str,data=mean) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
                     elif saveformat=='pkl':
                         dict_output[short_name] = vgg_cov_mean
                         
                     for l,layer in enumerate(style_layers):
-                        [cov,mean] = vgg_cov_mean[l]
+#                        [cov,mean] = vgg_cov_mean[l]
+                        cov = vgg_cov_mean[2*l]
+                        mean = vgg_cov_mean[2*l+1]
                         # Here we only get a tensor we need to run the session !!! 
                         dict_var[layer] += [np.diag(cov)]
                 else:
@@ -180,8 +185,6 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
                         dict_var[layer] = stacked
                 dict_of_dict[dataset] = dict_var
                 store.close()
-            
-    sess.close()
     
     print('Start plotting')
     # Plot the histograms (one per kernel for the different layers and save all in a pdf file)

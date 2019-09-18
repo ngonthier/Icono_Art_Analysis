@@ -16,6 +16,10 @@ from tensorflow.python.keras import losses
 from tensorflow.python.keras import layers
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.layers import Layer
+from tensorflow.python.keras.layers import Lambda
+from tensorflow.python.keras.layers import concatenate
+from tensorflow.python.keras.backend import expand_dims
+from tensorflow.python.ops import math_ops
 
 # Others libraries
 import numpy as np
@@ -100,6 +104,40 @@ def covariance_matrix2(features_map, eps=1e-8):
   # Covariance
   cov = tf.matmul(f, f, transpose_b=True) / (tf.cast(H*W, tf.float32)) # + tf.eye(C)*eps                          
   return(cov,mean,f,C,H,W)
+  
+def covariance_mean_matrix_only(features_map, eps=1e-8):
+  """
+  Compute the covariance matric of a specific features map with shape 1xHxWxC
+  Return : covariance matrix and means 
+  """
+  bs, H, W, C = tf.unstack(tf.shape(features_map))
+  # Remove batch dim and reorder to CxHxW
+  features_map_squeezed = tf.reshape(features_map,[H, W, C])
+  features_map_reshaped = tf.transpose(features_map_squeezed, (2, 0, 1))
+  # CxHxW -> CxH*W
+  features_map_flat = tf.reshape(features_map_reshaped, (C, H*W))
+  mean = tf.cast(tf.reduce_mean(features_map_flat, axis=1, keepdims=True), tf.float32)
+  f = features_map_flat - mean
+  # Covariance
+  cov = tf.matmul(f, f, transpose_b=True) / (tf.cast(H*W, tf.float32)) # + tf.eye(C)*eps                          
+  return(cov,mean)
+  
+def covariance_matrix_only(features_map,mean, eps=1e-8):
+  """
+  Compute the covariance matric of a specific features map with shape 1xHxWxC
+  Return : covariance matrix and means 
+  """
+  bs, H, W, C = tf.unstack(tf.shape(features_map))
+  # Remove batch dim 
+  #features_map_squeezed = tf.reshape(features_map,[H, W, C])
+  # reorder to bsxCxHxW
+  features_map_reshaped = tf.transpose(features_map, (0,3, 1, 2))
+  # bsxCxHxW -> bsxCxH*W
+  features_map_flat = tf.reshape(features_map_reshaped, (bs,C, H*W))
+  f = features_map_flat - tf.reshape(mean, (bs,C, 1))
+  # Covariance
+  cov = tf.matmul(f, f, transpose_b=True) / (tf.cast(H*W, tf.float32)) # + tf.eye(C)*eps                          
+  return(cov)
                                  
 ### Whiten-Color Transform ops ###
 
@@ -218,6 +256,94 @@ def get_gram_mean_features(model,img_path):
     list_stats += [[cov,mean]]
   return list_stats
 
+class Cov_Mean_Matrix_Layer(Layer):
+
+    def __init__(self, **kwargs):
+
+        super(Cov_Mean_Matrix_Layer, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+#        input_shape = input_shape.as_list()
+        print(type(input_shape))
+        print(input_shape)
+#        assert isinstance(input_shape, list)
+        super(Cov_Mean_Matrix_Layer, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        cov,mean =covariance_mean_matrix_only(x, eps=1e-8) 
+        output = concatenate([cov,mean])
+        output = expand_dims(output,axis=0)
+        return output
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        b,k1,k2,c = input_shape
+        print('in compute output shape',(b,c, c+1))
+        return (b,c, c+1)
+    
+class HomeMade_BatchNormalisation(Layer):
+
+    def __init__(self,beta,gamma, **kwargs):
+        self.beta=beta # offset ie new mean
+        self.gamma = gamma # New std
+        super(HomeMade_BatchNormalisation, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(HomeMade_BatchNormalisation, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
+        std = math_ops.sqrt(variance)
+        output =  (((x - mean) * self.gamma  )/ std)  + self.beta 
+        return output
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        return input_shape
+    
+class Mean_Matrix_Layer(Layer):
+
+    def __init__(self, **kwargs):
+
+        super(Mean_Matrix_Layer, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(Mean_Matrix_Layer, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        # x size bs,H,W,C
+        mean = tf.reduce_mean(x,axis=[1,2],keepdims=False)
+        return mean
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        b,k1,k2,c = input_shape
+        return (b,1,1,c)
+    
+class Cov_Matrix_Layer(Layer):
+
+    def __init__(self, **kwargs):
+
+        super(Cov_Matrix_Layer, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(Cov_Matrix_Layer, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        f,mean= x
+        # f size bs,H,W,C
+        cov = covariance_matrix_only(f,mean)
+        return cov
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        b,k1,k2,c = input_shape[0]
+        return (b,c,c)
+    
 def get_VGGmodel_gram_mean_features(style_layers):
   """Helper function to compute the Gram matrix and mean of feature representations 
   from vgg.
@@ -238,12 +364,13 @@ def get_VGGmodel_gram_mean_features(style_layers):
   vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
   vgg.trainable = False
   # Get output layers corresponding to style and content layers 
-  style_outputs = [vgg.get_layer(name).output for name in style_layers]
-
   list_stats = []
-  for output in style_outputs:
-    cov,mean,f,C,H,W =covariance_matrix2(output, eps=1e-8) 
-    list_stats += [[cov,mean]]
+  for name in style_layers:
+      output = vgg.get_layer(name).output
+      mean_layer = Mean_Matrix_Layer()(output)
+      cov_layer = Cov_Matrix_Layer()([output,mean_layer])
+      list_stats += [cov_layer,mean_layer]
+  
   return models.Model(vgg.input,list_stats)
 
 
@@ -251,7 +378,7 @@ def get_VGGmodel_gram_mean_features(style_layers):
   
 #def local_batch_normalization()
 
-def vgg_AdaIn(style_layers,list_mean_and_std,final_layer='fc2'):
+def vgg_AdaIn(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNorm=True):
   """
   VGG with an AdaIn : Instance normalisation
   @param : final_layer final layer provide for feature extraction
@@ -265,16 +392,23 @@ def vgg_AdaIn(style_layers,list_mean_and_std,final_layer='fc2'):
     name_layer = layer.name
     if i < len(style_layers) and name_layer==style_layers[i]:
       model.add(layer)
-      betas = tf.keras.initializers.Constant(value=list_mean_and_std[i][0]) 
-      # Offset of beta => beta = mean
-      gammas = tf.keras.initializers.Constant(value=list_mean_and_std[i][1]) 
+      betas = list_mean_and_std[i][0] 
+      # Offset of beta => beta = mean 
+      gammas = list_mean_and_std[i][1]
       # multiply by gamma => gamma = std
-      model.add(tf.keras.layers.BatchNormalization(axis=-1, center=True, scale=True,\
-                                                   beta_initializer=betas, 
-                                                   gamma_initializer=gammas,
-                                                   epsilon=np.finfo(np.float32).eps,
-                                                   fused=False,
-                                                   trainable=True)) # fused = True accelerated version
+      if HomeMadeBatchNorm:
+          model.add(HomeMade_BatchNormalisation(betas,gammas))
+      else:
+          # Don t work
+          raise(NotImplementedError)
+          betas = tf.keras.initializers.Constant(value=betas)
+          gammas = gammas**2 # from std to var
+          gammas = tf.keras.initializers.Constant(value=gammas)
+          model.add(layers.BatchNormalization(axis=-1, center=True, scale=True,\
+                                       beta_initializer=betas,\
+                                       gamma_initializer=gammas,\
+                                       fused = False))
+          # fused = True accelerated version
       i += 1
     else:
       model.add(layer)
@@ -375,8 +509,9 @@ def unity_test_of_VGG_AdaIn():
     """ In this function we compare the fc2 for VGG19 of a given image
     and the fc2 of the VGG_adaIn with the parameters computed on the same image"""
     
-    images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
-    image_path =  os.path.join(images_path,'abd_aag_002276_624x544.jpg')
+#    images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
+#    image_path =  os.path.join(images_path,'abd_aag_002276_624x544.jpg')
+    image_path =  os.path.join('data','Q23898.jpg')
     #init_image = tf.convert_to_tensor(load_crop_and_process_img(image_path))
     init_image = load_crop_and_process_img(image_path)
     # Fc2 of VGG
@@ -399,32 +534,27 @@ def unity_test_of_VGG_AdaIn():
                ]
 
     num_style_layers = len(style_layers)
-    # Load the VGG model
-#    vgg_inter =  get_intermediate_layers_vgg(style_layers) 
-#    config = tf.ConfigProto()
-#    config.gpu_options.allow_growth = True
-#    sess = tf.Session(config=config)
-#    sess.run(tf.global_variables_initializer())
-#    sess.run(tf.local_variables_initializer())
     
+    # Load the model that compute cov matrices and mean
     vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers)
-#    vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
-    vgg_cov_mean = vgg_get_cov.predict(init_image)
+    vgg_cov_mean = vgg_get_cov.predict(init_image, batch_size=1)
     vgg_mean_vars_values = []
     for l,layer in enumerate(style_layers):
-        [cov,mean] = vgg_cov_mean[l]
-        mean = mean.reshape((-1,))
-        vgg_mean_vars_values += [mean,np.sqrt(np.diag(cov))]
-        print('mean05',layer,mean[0:5])
-#    sess.close()     
+        cov = vgg_cov_mean[2*l]
+        cov = np.squeeze(cov,axis=0) 
+        mean = vgg_cov_mean[2*l+1]
+        mean = mean.reshape((mean.shape[1],))
+        stds = np.sqrt(np.diag(cov))
+        vgg_mean_vars_values += [[mean,stds]]
     
-    vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_vars_values,final_layer='fc2')
+    vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_vars_values,final_layer='fc2',
+                         HomeMadeBatchNorm=False)
     #print(vggAdaIn.summary())
     #sess.run(tf.global_variables_initializer())
 #    sess.run(tf.local_variables_initializer())
-    for i in range(1):
+    for i in range(2):
         output_vggAdaIn = vggAdaIn.predict(init_image)
-        print('First elts',output_vggAdaIn[0,0:5])
+        print(i,'First elts AdaIn run',output_vggAdaIn[0,0:5])
 #    output_vggAdaIn = sess.run(vgg_fc2_model(init_image))
     print('output_vggAdaIn shape',output_vggAdaIn.shape)
     
@@ -433,40 +563,89 @@ def unity_test_of_VGG_AdaIn():
     print('max abs(a-b)/abs(a)',np.max(np.abs(output_vggAdaIn - fc2_original_vgg19)/np.abs(fc2_original_vgg19+10**(-16))))
     print(' norm2(a-b)/norm2(a)',np.linalg.norm(output_vggAdaIn - fc2_original_vgg19)/np.linalg.norm(fc2_original_vgg19+10**(-16)))
     print('First elts',output_vggAdaIn[0,0:5],fc2_original_vgg19[0,0:5])
-    
+
     
 def unity_test_StatsCompute():
     """ In this function we try to se if we have a stable and consistent computation
     of mean and variance of the features maps"""
-    
-    images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
-    image_path =  os.path.join(images_path,'abd_aag_002276_624x544.jpg')
-    #init_image = tf.convert_to_tensor(load_crop_and_process_img(image_path))
-    init_image = load_crop_and_process_img(image_path)
+    image_path =  os.path.join('data','Q23898.jpg')
+    init_image_original = load_crop_and_process_img(image_path)
+    init_image = np.tile(init_image_original,(2,1,1,1))
 
-    style_layers = ['block1_conv1']
+    style_layers = ['block1_conv1','block2_conv1']
 
     num_style_layers = len(style_layers)
     # Load the VGG model
 #    vgg_inter =  get_intermediate_layers_vgg(style_layers) 
-#    config = tf.ConfigProto()
-#    config.gpu_options.allow_growth = True
-#    sess = tf.Session(config=config)
-#    sess.run(tf.global_variables_initializer())
-#    sess.run(tf.local_variables_initializer())
-    
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
+
     vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers)
+    print(vgg_get_cov.summary())
+#    print('vgg_get_cov',vgg_get_cov)
 #    vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
-    for i in range(5):
-        vgg_cov_mean = vgg_get_cov.predict(init_image)
+    
+    # First we will test that we have the same output between 2 times the same images
+    # and between two run of the same model !
+    old_mean = []
+    old_cov = []
+    for i in range(2):
+        print('Restart',i)
+#        print('init_image',init_image.shape)
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
+    
+        vgg_cov_mean = vgg_get_cov.predict(init_image, batch_size=1)
+#        print(vgg_cov_mean)
         vgg_mean_vars_values = []
         for l,layer in enumerate(style_layers):
-            [cov,mean] = vgg_cov_mean[l]
-            mean = mean.reshape((-1,))
-            vgg_mean_vars_values += [mean,np.sqrt(np.diag(cov))]
-            print('mean05',layer,mean[0:5])
-#    sess.close()     
+            cov = vgg_cov_mean[2*l]
+#            print(cov.shape)
+            #cov = np.squeeze(cov,axis=0) # If image bs ==1
+#            print(cov.shape)
+            mean = vgg_cov_mean[2*l+1]
+            assert((mean[0,:]==mean[1,:]).all())
+            assert((cov[0,:,:]==cov[1,:,:]).all())
+            if i==0:
+                old_mean += [mean]
+                old_cov += [cov]
+            elif i==1:
+                assert((old_mean[l]==mean).all())
+                assert((old_cov[l]==cov).all())
+    
+    # Do we obtain the save mean and var than computed by numpy ?
+    vgg_inter = get_intermediate_layers_vgg(style_layers) 
+    features_maps = vgg_inter.predict(init_image_original)
+    for l,layer in enumerate(style_layers):
+        features_maps_l = features_maps[l]
+        features_maps_l = features_maps[l]
+        np_mean = np.mean(features_maps_l,axis=(0,1,2))
+        np_var = np.var(features_maps_l-np_mean,axis=(0,1,2))
+        keras_mean = old_mean[l][0,:]
+        keras_cov= old_cov[l][0,:,:]
+        keras_var = np.diag(keras_cov)
+        try:
+            assert((keras_mean==np_mean).all())
+        except AssertionError:
+            print(layer,'mean')
+            print('max abs(a-b)',np.max(np.abs(np_mean - keras_mean)))
+            print('max abs(a-b)/abs(a)',np.max(np.abs(np_mean - keras_mean)/np.abs(np_mean+10**(-16))))
+            print(' norm2(a-b)/norm2(a)',np.linalg.norm(np_mean - keras_mean)/np.linalg.norm(np_mean+10**(-16)))
+            print('First elts',np_mean[0:5],keras_mean[0:5])
+        try:
+            assert((keras_var==np_var).all())
+        except AssertionError:
+            print(layer,'var')
+            print('max abs(a-b)',np.max(np.abs(np_var - keras_var)))
+            print('max abs(a-b)/abs(a)',np.max(np.abs(np_var - keras_var)/np.abs(np_var+10**(-16))))
+            print(' norm2(a-b)/norm2(a)',np.linalg.norm(np_var - keras_var)/np.linalg.norm(np_var+10**(-16)))
+            print('First elts',np_var[0:5],keras_var[0:5])
+
+    sess.close()   
+            
+            
     
 if __name__ == '__main__':
-  unity_test_StatsCompute()
-#  unity_test_of_VGG_AdaIn()
+#  unity_test_StatsCompute()
+  unity_test_of_VGG_AdaIn()
