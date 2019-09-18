@@ -259,6 +259,10 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
     plt.clf()
     
 if __name__ == '__main__':         
-    Var_of_featuresMaps()
+    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
+    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
+    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+    Var_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+    
                     
         
