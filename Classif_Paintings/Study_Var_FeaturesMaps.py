@@ -27,7 +27,7 @@ import h5py
 
 import tensorflow as tf
 
-from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,get_VGGmodel_gram_mean_features
+from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,load_crop_and_process_img,get_VGGmodel_gram_mean_features
 
 def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None):
     """
@@ -115,7 +115,8 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
                     # Get the covairances matrixes and the means
                     try:
                         #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
-                        vgg_cov_mean = vgg_get_cov.predict(init_image, batch_size=1)
+                        image_array = load_crop_and_process_img(image_path)
+                        vgg_cov_mean = vgg_get_cov.predict(image_array, batch_size=1)
                     except IndexError as e:
                         print(e)
                         print(i,image_path)
