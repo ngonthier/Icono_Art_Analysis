@@ -33,7 +33,7 @@ import time
 MILmodel_tab = ['MI_Net','mi_Net','MI_Net_with_DS','MI_Net_with_RC','MI_Max_AddOneLayer_Keras']
 
 def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'FasterRCNN',\
-             demonet='res152_COCO',test=False,MILmodel='MI_Net',max_epoch=20):
+             demonet='res152_COCO',test=False,MILmodel='MI_Net',max_epoch=20,verbose=True):
     
 #    dataset_nm='IconArt_v1'
 #    classe=1
@@ -80,7 +80,7 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
                 dataset['train'][k] = a
                 
         print('start training for class',j)
-        model = MILmodel_fct(dataset,max_epoch=max_epoch)
+        model = MILmodel_fct(dataset,max_epoch=max_epoch,verbose=verbose)
         model_dict[j] = model
     
     t1 = time.time()
@@ -286,6 +286,7 @@ def runSeveralMInet(dataset_nm='IconArt_v1',MILmodel='MI_Net',demonet = 'res152_
     """
     @param : printR if True, we print the results instead of compute them
     """
+    verbose = False
     max_epoch=20    
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     path_data_output = path_data +'VarStudy/'
@@ -308,10 +309,11 @@ def runSeveralMInet(dataset_nm='IconArt_v1',MILmodel='MI_Net',demonet = 'res152_
         l01 = []
         lclassif = []
         for r in range(num_rep):
+            print('Reboot ',r,'on ',num_rep)
             apsAt05,apsAt01,AP_per_class = mainEval(dataset_nm=dataset_nm,\
                                  k_per_bag = k_per_bag,metamodel =metamodel,\
                                  demonet=demonet,test=False,\
-                                 MILmodel=MILmodel,max_epoch=max_epoch)
+                                 MILmodel=MILmodel,max_epoch=max_epoch,verbose=verbose)
             ll += [apsAt05]
             l01 += [apsAt01]
             lclassif += [AP_per_class]

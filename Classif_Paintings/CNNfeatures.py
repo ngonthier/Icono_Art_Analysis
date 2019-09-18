@@ -363,6 +363,9 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
             if database in ['VOC2007','clipart','watercolor','comic','PeopleArt','CASPApaintings']:
                 for j in range(num_classes):
                     value = int((int(df_label[classes[j]][i])+1.)/2.)
+                    # En fait ce qui se passe la c'est que tu rescale a la sauvage 
+                    # entre 0 et 1 un truc qui peut etre entre 0 et 1 mais aussi entre  -1 et 1
+                    # C'est chelou
                     classes_vectors[j] = value
             if database in ['WikiTenLabels','MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1']:
                 for j in range(num_classes):

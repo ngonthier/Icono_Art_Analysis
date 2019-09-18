@@ -1470,7 +1470,41 @@ def createSubset2():
     print(df.head(2))
     namefile = 'data/Wikidata_Paintings_'+classe_a_annotee+'_.txt'
     df.to_csv(namefile, index=None, sep=',', mode='w')     
-        
+  
+
+def CreationOneFilePerClassForSPN(dataset):
+    """
+    Creation of one file per class for the SPN training 
+    """
+    dataset_tab = ['comic','CASPApaintings','clipart']
+    from IMDB import get_database
+    
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+    path_data,Not_on_NicolasPC = get_database(dataset)
+    
+    print(dataset,df_label.head())
+    default_path_imdb,_ = os.path.split(os.path.split(path_to_img)[0])
+    
+    sets = ['train','test','train'+str_val,str_val]
+    for set in sets:
+        if set=='train'+str_val:
+            df = df_label[df_label['set']=='train']
+        else:
+            df = df_label[df_label['set']==set]
+        filename = 'Classification_'+dataset+'_'+set + '.csv'
+        filenamepath = os.path.join(default_path_imdb, 'ImageSets', 'Main',filename)
+        if dataset in ['watercolor','CASPApaintings','comic','clipart']:
+            for c in classes:
+                df[c] = df[c].apply(lambda x : int(2*x-1))
+        else:
+            print('Do you already have value between -1 and 1 for',dataset,'?')
+        df.to_csv(filenamepath,index=False,sep=',')
+        for c in classes:
+            names = df[[item_name,c]]
+            filename = c +'_'+set + '.txt'
+            filenamepath = os.path.join(default_path_imdb, 'ImageSets', 'Main',filename)
+            names.to_csv(filenamepath,index=False,header=False,sep=' ',line_terminator='\n')
+      
 if __name__ == '__main__':
     #prepareVOC12()
     #preparePaintings()
