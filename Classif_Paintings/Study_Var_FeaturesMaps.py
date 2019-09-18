@@ -26,8 +26,170 @@ import pathlib
 import h5py
 
 import tensorflow as tf
+from IMDB import get_database
+from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
+    load_crop_and_process_img,get_VGGmodel_gram_mean_features
 
-from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,load_crop_and_process_img,get_VGGmodel_gram_mean_features
+
+def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,dataset='ImageNet',set='',saveformat='h5'):
+    """
+    In this function we precompute the mean and cov for certain dataset
+    """
+    if saveformat=='h5':
+        # Create a storage file where data is to be stored
+        store = h5py.File(filename_path, 'a')
+    print('We will compute features')
+    if dataset == 'ImageNet':
+        ImageNet_val_path = os.path.join(os.sep,'media','gonthier','HDD2','data','IMAGENET','val')
+        list_imgs = glob.glob(os.path.join(ImageNet_val_path,'*.JPEG'))
+    elif dataset == 'Paintings':
+        images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
+        list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
+    elif dataset == 'watercolor':
+        images_path = os.path.join(os.sep,'media','gonthier','HDD','data','cross-domain-detection','datasets','watercolor','JPEGImages')
+        list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
+    elif dataset == 'IconArt_v1':
+        images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Wikidata_Paintings','IconArt_v1','JPEGImages')
+        list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
+    elif dataset == 'OIV5':
+        images_path = os.path.join(os.sep,'media','gonthier','HDD2','data','OIV5','Images')
+        list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
+    
+    if not(set is None or set==''):
+        if dataset in ['ImageNet','OIV5']:
+            print('Sorry we do not have the splitting information on ',dataset)
+            raise(NotImplementedError)
+        item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+        path_data,Not_on_NicolasPC = get_database(dataset)
+        images_in_set = df_label[df_label['set']==set][item_name].values
+    
+    # 6000 images pour IconArt
+    # Un peu moins de 8700 images pour ArtUK
+    # On devrait faire un test à 10000 
+    
+    if number_im_considered >= 10:
+        if not(np.isinf(number_im_considered)):
+            itera = number_im_considered//10
+        else:
+            itera =1000
+    else:
+        itera=1
+    print('Number of images :',len(list_imgs))
+    dict_output = {}
+    dict_var = {}
+    for l,layer in enumerate(style_layers):
+        dict_var[layer] = []
+    for i,image_path in enumerate(list_imgs):
+        if not(number_im_considered is None) and i < number_im_considered:
+            if i%itera==0: print(i,image_path)
+            head, tail = os.path.split(image_path)
+            short_name = '.'.join(tail.split('.')[0:-1])
+            if not(set is None or set==''):
+                if not(short_name in images_in_set):
+                    # The image is not in the set considered
+                    continue
+            # Get the covairances matrixes and the means
+            try:
+                #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
+                image_array = load_crop_and_process_img(image_path)
+                vgg_cov_mean = vgg_get_cov.predict(image_array, batch_size=1)
+            except IndexError as e:
+                print(e)
+                print(i,image_path)
+                raise(e)
+            
+            if saveformat=='h5':
+                grp = store.create_group(short_name)
+                for l,layer in enumerate(style_layers):
+                    cov = vgg_cov_mean[2*l]
+                    mean = vgg_cov_mean[2*l+1]
+                    cov_str = layer + '_cov'
+                    mean_str = layer + '_mean'
+                    grp.create_dataset(cov_str,data=cov) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                    grp.create_dataset(mean_str,data=mean) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+            elif saveformat=='pkl':
+                dict_output[short_name] = vgg_cov_mean
+                
+            for l,layer in enumerate(style_layers):
+#                        [cov,mean] = vgg_cov_mean[l]
+                cov = vgg_cov_mean[2*l]
+                mean = vgg_cov_mean[2*l+1]
+                # Here we only get a tensor we need to run the session !!! 
+                dict_var[layer] += [np.diag(cov)]
+        else:
+            continue
+    for l,layer in enumerate(style_layers):
+        stacked = np.stack(dict_var[layer]) 
+        dict_var[layer] =   stacked
+    
+    # Save data
+    if saveformat=='pkl':
+        with open(filename_path, 'wb') as handle:
+            pickle.dump(dict_output, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    if saveformat=='h5':
+        store.close()
+    return(dict_var)
+
+def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5',
+                              whatToload='var'):
+    """
+    @param : whatToload mention what you want to load by default only return variances
+    """
+    
+    if not(whatToload in ['var','cov','mean','covmean','varmean','all','']):
+        print(whatToload,'is not known')
+        raise(NotImplementedError)
+    
+    if saveformat=='pkl':
+        with open(filename_path, 'rb') as handle:
+           dict_output = pickle.load(handle)
+        dict_var = {}
+        for l,layer in enumerate(style_layers):
+            dict_var[layer] = []
+        for elt in dict_output.keys():
+           vgg_cov_mean =  dict_output[elt]
+           for l,layer in enumerate(style_layers):
+                [cov,mean] = vgg_cov_mean[l]
+                if whatToload=='var':
+                    dict_var[layer] += [np.diag(cov)]
+                elif whatToload=='cov':
+                    dict_var[layer] += [cov]
+                elif whatToload=='mean':
+                    dict_var[layer] += [mean]
+                elif whatToload in ['covmean','','all']:
+                    dict_var[layer] += [[cov,mean]]
+                elif whatToload=='varmean':
+                    dict_var[layer] += [[np.diag(cov),mean]]
+        for l,layer in enumerate(style_layers):
+            stacked = np.stack(dict_var[layer]) 
+            dict_var[layer] = stacked
+    if saveformat=='h5':
+        store = h5py.File(filename_path, 'r')
+        dict_var = {}
+        for key in store.keys():
+            vgg_cov_mean =  dict_output[elt]
+            for l,layer in enumerate(style_layers):
+                if 'cov' in whatToload or 'cov' in whatToload or whatToload=='' or whatToload=='all':
+                    cov_str = layer + '_cov'
+                    cov = vgg_cov_mean[cov_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                if 'mean' in whatToload:
+                    mean_str = layer + '_mean'
+                    mean = vgg_cov_mean[mean_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                if whatToload=='var':
+                    dict_var[layer] += [np.diag(cov)]
+                elif whatToload=='cov':
+                    dict_var[layer] += [cov]
+                elif whatToload=='mean':
+                    dict_var[layer] += [mean]
+                elif whatToload in  ['covmean','','all']:
+                    dict_var[layer] += [[cov,mean]]
+                elif whatToload=='varmean':
+                    dict_var[layer] += [[np.diag(cov),mean]]
+                dict_var[layer] += [np.diag(cov)]
+            for l,layer in enumerate(style_layers):
+                stacked = np.stack(dict_var[layer]) 
+                dict_var[layer] = stacked
+        store.close()
 
 def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None):
     """
@@ -56,20 +218,10 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
     # Load the VGG model
     vgg_inter =  get_intermediate_layers_vgg(style_layers) 
     
-    # 6000 images pour IconArt
-    # Un peu moins de 8700 images pour ArtUK
-    # On devrait faire un test à 10000 
-    
-    if number_im_considered >= 10:
-        if not(np.isinf(number_im_considered)):
-            itera = number_im_considered//10
-        else:
-            itera =1000
-    else:
-        itera=1
+    set = None
     dict_of_dict = {}
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
+#    config = tf.ConfigProto()
+#    config.gpu_options.allow_growth = True
     vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers)
 #    sess = tf.Session(config=config)
 #    sess.run(tf.global_variables_initializer())
@@ -77,115 +229,23 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
     for dataset in dataset_tab:
         print('===',dataset,'===')
         filename = dataset + '_' + str(number_im_considered) + '_CovMean'
+        if not(set=='' or set is None):
+            filename += '_'+set
         if saveformat=='pkl':
             filename += '.pkl'
         if saveformat=='h5':
             filename += '.h5'
         filename_path= os.path.join(output_path,filename)
+        
         if not os.path.isfile(filename_path):
-            if saveformat=='h5':
-                # Create a storage file where data is to be stored
-                store = h5py.File(filename_path, 'a')
-            print('We will compute features')
-            if dataset == 'ImageNet':
-                ImageNet_val_path = os.path.join(os.sep,'media','gonthier','HDD2','data','IMAGENET','val')
-                list_imgs = glob.glob(os.path.join(ImageNet_val_path,'*.JPEG'))
-            elif dataset == 'Paintings':
-                images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
-                list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
-            elif dataset == 'watercolor':
-                images_path = os.path.join(os.sep,'media','gonthier','HDD','data','cross-domain-detection','datasets','watercolor','JPEGImages')
-                list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
-            elif dataset == 'IconArt_v1':
-                images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Wikidata_Paintings','IconArt_v1','JPEGImages')
-                list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
-            elif dataset == 'OIV5':
-                images_path = os.path.join(os.sep,'media','gonthier','HDD2','data','OIV5','Images')
-                list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
-            print('Number of images :',len(list_imgs))
-            dict_output = {}
-            dict_var = {}
-            for l,layer in enumerate(style_layers):
-                dict_var[layer] = []
-            for i,image_path in enumerate(list_imgs):
-                if not(number_im_considered is None) and i < number_im_considered:
-                    if i%itera==0: print(i,image_path)
-                    head, tail = os.path.split(image_path)
-                    short_name = '.'.join(tail.split('.')[0:-1])
-                    # Get the covairances matrixes and the means
-                    try:
-                        #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
-                        image_array = load_crop_and_process_img(image_path)
-                        vgg_cov_mean = vgg_get_cov.predict(image_array, batch_size=1)
-                    except IndexError as e:
-                        print(e)
-                        print(i,image_path)
-                        raise(e)
-                    
-                    if saveformat=='h5':
-                        grp = store.create_group(short_name)
-                        for l,layer in enumerate(style_layers):
-                            cov = vgg_cov_mean[2*l]
-                            mean = vgg_cov_mean[2*l+1]
-                            cov_str = layer + '_cov'
-                            mean_str = layer + '_mean'
-                            grp.create_dataset(cov_str,data=cov) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
-                            grp.create_dataset(mean_str,data=mean) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
-                    elif saveformat=='pkl':
-                        dict_output[short_name] = vgg_cov_mean
-                        
-                    for l,layer in enumerate(style_layers):
-#                        [cov,mean] = vgg_cov_mean[l]
-                        cov = vgg_cov_mean[2*l]
-                        mean = vgg_cov_mean[2*l+1]
-                        # Here we only get a tensor we need to run the session !!! 
-                        dict_var[layer] += [np.diag(cov)]
-                else:
-                    continue
-            for l,layer in enumerate(style_layers):
-                stacked = np.stack(dict_var[layer]) 
-                dict_var[layer] =   stacked
+            dict_var = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
+                                           dataset=dataset,set=set,saveformat=saveformat)
             dict_of_dict[dataset] = dict_var
-            
-            # Save data
-            if saveformat=='pkl':
-                with open(filename_path, 'wb') as handle:
-                    pickle.dump(dict_output, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            if saveformat=='h5':
-                store.close()
         else:
             print('We will load the features ')
-            if saveformat=='pkl':
-                with open(filename_path, 'rb') as handle:
-                   dict_output = pickle.load(handle)
-                dict_var = {}
-                for l,layer in enumerate(style_layers):
-                    dict_var[layer] = []
-                for elt in dict_output.keys():
-                   vgg_cov_mean =  dict_output[elt]
-                   for l,layer in enumerate(style_layers):
-                        [cov,mean] = vgg_cov_mean[l]
-                        dict_var[layer] += [np.diag(cov)]
-                for l,layer in enumerate(style_layers):
-                    stacked = np.stack(dict_var[layer]) 
-                    dict_var[layer] = stacked
-                dict_of_dict[dataset] = dict_var
-            if saveformat=='h5':
-                store = h5py.File(filename_path, 'r')
-                dict_var = {}
-                for key in store.keys():
-                    vgg_cov_mean =  dict_output[elt]
-                    for l,layer in enumerate(style_layers):
-                        cov_str = layer + '_cov'
-                        mean_str = layer + '_mean'
-                        cov = vgg_cov_mean[cov_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
-                        mean = vgg_cov_mean[mean_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
-                        dict_var[layer] += [np.diag(cov)]
-                    for l,layer in enumerate(style_layers):
-                        stacked = np.stack(dict_var[layer]) 
-                        dict_var[layer] = stacked
-                dict_of_dict[dataset] = dict_var
-                store.close()
+            dict_var =load_precomputed_mean_cov(filename_path,style_layers,dataset,
+                                                saveformat=saveformat,whatToload='var')
+            dict_of_dict[dataset] = dict_var
     
     print('Start plotting')
     # Plot the histograms (one per kernel for the different layers and save all in a pdf file)
