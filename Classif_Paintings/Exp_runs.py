@@ -163,7 +163,8 @@ def mainDatabase(database_tab=['clipart']):
                     pass  
                 
    MILmodel_tab = ['MI_Net','MI_Net_with_DS','MI_Net_with_RC','mi_Net']
-
+   MILmodel_tab = MILmodel_tab[::-1]
+    
    for dataset_nm in database_tab:
        for MILmodel in MILmodel_tab:
            runSeveralMInet(dataset_nm=dataset_nm,MILmodel=MILmodel)
