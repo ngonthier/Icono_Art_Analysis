@@ -345,6 +345,7 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
         for dataset in dataset_tab: 
             vars_ = dict_of_dict[dataset][layer]
             num_images,num_features = vars_.shape
+            print('num_images,num_features ',num_images,num_features )
             tab_vars +=[vars_]
  
         number_img_w = 4
@@ -380,10 +381,10 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
     plt.clf()
     
 if __name__ == '__main__':         
-    #Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
+    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
     Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
-    #Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
-    Var_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+    #Var_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     
         
