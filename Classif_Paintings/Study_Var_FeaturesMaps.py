@@ -149,7 +149,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             continue
     for l,layer in enumerate(style_layers):
         stacked = np.stack(dict_var[layer]) 
-        dict_var[layer] =   stacked
+        dict_var[layer] = stacked
     
     # Save data
     if saveformat=='pkl':
@@ -168,17 +168,18 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
     if not(whatToload in ['var','cov','mean','covmean','varmean','all','']):
         print(whatToload,'is not known')
         raise(NotImplementedError)
-    
+    dict_var = {}
+    for l,layer in enumerate(style_layers):
+        dict_var[layer] = []
     if saveformat=='pkl':
         with open(filename_path, 'rb') as handle:
            dict_output = pickle.load(handle)
-        dict_var = {}
-        for l,layer in enumerate(style_layers):
-            dict_var[layer] = []
         for elt in dict_output.keys():
            vgg_cov_mean =  dict_output[elt]
            for l,layer in enumerate(style_layers):
                 [cov,mean] = vgg_cov_mean[l]
+                cov = cov[0,:,:]
+                mean = mean[0,:]
                 if whatToload=='var':
                     dict_var[layer] += [np.diag(cov)]
                 elif whatToload=='cov':
@@ -194,16 +195,17 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
             dict_var[layer] = stacked
     if saveformat=='h5':
         store = h5py.File(filename_path, 'r')
-        dict_var = {}
-        for key in store.keys():
-            vgg_cov_mean =  dict_output[elt]
+        for elt in store.keys():
+            vgg_cov_mean =  store[elt]
             for l,layer in enumerate(style_layers):
-                if 'cov' in whatToload or 'cov' in whatToload or whatToload=='' or whatToload=='all':
+                if 'cov' in whatToload or 'var' in whatToload or whatToload=='' or whatToload=='all':
                     cov_str = layer + '_cov'
                     cov = vgg_cov_mean[cov_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                    cov = cov[0,:,:]
                 if 'mean' in whatToload:
                     mean_str = layer + '_mean'
                     mean = vgg_cov_mean[mean_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                    mean = mean[0,:]
                 if whatToload=='var':
                     dict_var[layer] += [np.diag(cov)]
                 elif whatToload=='cov':
@@ -218,6 +220,7 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
                 stacked = np.stack(dict_var[layer]) 
                 dict_var[layer] = stacked
         store.close()
+    return(dict_var)
 
 def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    whatToload,saveformat='h5'):
@@ -339,7 +342,7 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
         print("Layer",layer)
         tab_vars = []
         for dataset in dataset_tab: 
-            vars_ = dict_of_dict[dataset][layer] 
+            vars_ = dict_of_dict[dataset][layer]
             num_images,num_features = vars_.shape
             tab_vars +=[vars_]
  
