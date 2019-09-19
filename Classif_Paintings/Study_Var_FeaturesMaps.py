@@ -202,6 +202,7 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
                     cov_str = layer + '_cov'
                     cov = vgg_cov_mean[cov_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
                     cov = cov[0,:,:]
+                    print(cov.shape)
                 if 'mean' in whatToload:
                     mean_str = layer + '_mean'
                     mean = vgg_cov_mean[mean_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
@@ -216,9 +217,9 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
                     dict_var[layer] += [[cov,mean]]
                 elif whatToload=='varmean':
                     dict_var[layer] += [[np.diag(cov),mean]]
-            for l,layer in enumerate(style_layers):
-                stacked = np.stack(dict_var[layer]) 
-                dict_var[layer] = stacked
+        for l,layer in enumerate(style_layers):
+            stacked = np.stack(dict_var[layer]) 
+            dict_var[layer] = stacked
         store.close()
     return(dict_var)
 
@@ -379,9 +380,9 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
     plt.clf()
     
 if __name__ == '__main__':         
-    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
+    #Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
     Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
-    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+    #Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     Var_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     
