@@ -28,7 +28,7 @@ import h5py
 import tensorflow as tf
 from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
-    load_crop_and_process_img,get_VGGmodel_gram_mean_features,vgg_get_cov
+    load_crop_and_process_img,get_VGGmodel_gram_mean_features
 
 keras_vgg_layers= ['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
                 'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
@@ -94,6 +94,9 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
     print('Number of images :',len(list_imgs))
     dict_output = {}
     dict_var = {}
+    
+    vgg_get_cov =  get_VGGmodel_gram_mean_features(style_layers)
+    
     for l,layer in enumerate(style_layers):
         dict_var[layer] = []
     for i,image_path in enumerate(list_imgs):
@@ -129,8 +132,8 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                 
             for l,layer in enumerate(style_layers):
 #                        [cov,mean] = vgg_cov_mean[l]
-                cov = vgg_cov_mean[2*l]
-                mean = vgg_cov_mean[2*l+1]
+                cov = vgg_cov_mean[2*l][0,:,:]
+                mean = vgg_cov_mean[2*l+1][0,:] # car batch size == 1
                 # Here we only get a tensor we need to run the session !!! 
                 if whatToload=='var':
                     dict_var[layer] += [np.diag(cov)]
