@@ -285,9 +285,10 @@ class Cov_Mean_Matrix_Layer(Layer):
     
 class HomeMade_BatchNormalisation(Layer):
 
-    def __init__(self,beta,gamma, **kwargs):
+    def __init__(self,beta,gamma,epsilon = 0.00001, **kwargs):
         self.beta=beta # offset ie new mean
         self.gamma = gamma # New std
+        self.epsilon = epsilon # Small float added to variance to avoid dividing by zero.
         super(HomeMade_BatchNormalisation, self).__init__(**kwargs)
 
     def build(self,input_shape):
@@ -297,7 +298,7 @@ class HomeMade_BatchNormalisation(Layer):
     def call(self, x):
         mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
         std = math_ops.sqrt(variance)
-        output =  (((x - mean) * self.gamma  )/ std)  + self.beta 
+        output =  (((x - mean) * self.gamma  )/ (std+self.epsilon))  + self.beta 
         return output
 
     def compute_output_shape(self, input_shape):
@@ -306,9 +307,10 @@ class HomeMade_BatchNormalisation(Layer):
     
 class HomeMade_adapt_BatchNormalisation(Layer):
 
-    def __init__(self,beta,gamma, **kwargs):
+    def __init__(self,beta,gamma,epsilon = 0.00001, **kwargs):
         self.beta=beta # offset ie new mean
         self.gamma = gamma # New std
+        self.epsilon = epsilon
         super(HomeMade_adapt_BatchNormalisation, self).__init__(**kwargs)
 
     def build(self,input_shape):
@@ -319,10 +321,10 @@ class HomeMade_adapt_BatchNormalisation(Layer):
         mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
         std = math_ops.sqrt(variance)
 #        comparison = tf.math.greater(std,self.gamma) # Returns the truth value of (x > y) element-wise.
-        comparison = tf.greater_equal(std,self.gamma) # Returns the truth value of (x > y) element-wise.
+        comparison = tf.greater_equal(std,tf.cast(self.gamma,tf.float32)) # Returns the truth value of (x > y) element-wise.
         float_comp = tf.cast(comparison,tf.float32)
-        feature_maps_modified =  (((x - mean) * self.gamma  )/ std)  + self.beta 
-        output = tf.multiply(feature_maps_modified,float_comp) + tf.multiply(x,1 - float_comp)
+        feature_maps_modified =  (((x - mean) * self.gamma  )/ (std+self.epsilon))  + self.beta
+        output = tf.multiply(float_comp,feature_maps_modified) + tf.multiply(1. - float_comp,x)
         return output
 
     def compute_output_shape(self, input_shape):
@@ -640,10 +642,11 @@ def topn(x,n=5):
 def test_change_mean_std(adapt=False):
     """ In this fct we test to use the mean and std of a givent image to an other one
     """
-    
+    print('Adapt =',adapt)
 #    images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
 #    image_path =  os.path.join(images_path,'abd_aag_002276_624x544.jpg')
     cat_path =  os.path.join('data','cat.jpg')
+#    cat_path =  os.path.join('data','ny_yag_yorag_156_624x544.jpg')
     #init_image = tf.convert_to_tensor(load_crop_and_process_img(image_path))
     cat_image = load_crop_and_process_img(cat_path)
     # Fc2 of VGG
@@ -663,10 +666,12 @@ def test_change_mean_std(adapt=False):
                ]
 
     num_style_layers = len(style_layers)
-    # Todo a finir le vgg_AdaIn_adaptative avec gamma==std a l infini on modife encore le reseau alors qu'on devrait pas
+    # Todo a finir le vgg_AdaIn_adaptative avec gamma==std a l infini on modife 
+    # encore le reseau alors qu'on devrait pas
     list_imgs = ['bus','dog','flower','cat2']
-    list_imgs = ['bus']
+#    list_imgs = ['dog']
     style_layers_tab = [style_layers,[style_layers[0]],[style_layers[-1]]]
+#    style_layers_tab = [style_layers]
     for style_layers in style_layers_tab:
         print('Layers :',style_layers)
         # Load the model that compute cov matrices and mean
@@ -686,7 +691,7 @@ def test_change_mean_std(adapt=False):
                 stds = np.sqrt(np.diag(cov))
                 vgg_mean_vars_values += [[mean,stds]]
                 if j ==len(list_imgs)-1:
-                    vgg_mean_vars_values_0_1 += [[np.zeros_like(mean),np.inf*np.ones_like(stds)]]
+                    vgg_mean_vars_values_0_1 += [[np.zeros_like(mean),np.ones_like(stds)]]
             if adapt:
                 vggAdaIn = vgg_AdaIn_adaptative(style_layers,vgg_mean_vars_values,final_layer='predictions',
                              HomeMadeBatchNorm=True)
