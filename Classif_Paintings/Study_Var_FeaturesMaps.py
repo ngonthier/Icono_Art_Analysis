@@ -28,7 +28,7 @@ import h5py
 import tensorflow as tf
 from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
-    load_crop_and_process_img,get_VGGmodel_gram_mean_features,vgg_get_cov
+    load_crop_and_process_img,get_VGGmodel_gram_mean_features
 
 keras_vgg_layers= ['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
                 'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
@@ -94,6 +94,9 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
     print('Number of images :',len(list_imgs))
     dict_output = {}
     dict_var = {}
+    
+    vgg_get_cov =  get_VGGmodel_gram_mean_features(style_layers)
+    
     for l,layer in enumerate(style_layers):
         dict_var[layer] = []
     for i,image_path in enumerate(list_imgs):
@@ -129,8 +132,8 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                 
             for l,layer in enumerate(style_layers):
 #                        [cov,mean] = vgg_cov_mean[l]
-                cov = vgg_cov_mean[2*l]
-                mean = vgg_cov_mean[2*l+1]
+                cov = vgg_cov_mean[2*l][0,:,:]
+                mean = vgg_cov_mean[2*l+1][0,:] # car batch size == 1
                 # Here we only get a tensor we need to run the session !!! 
                 if whatToload=='var':
                     dict_var[layer] += [np.diag(cov)]
@@ -146,7 +149,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             continue
     for l,layer in enumerate(style_layers):
         stacked = np.stack(dict_var[layer]) 
-        dict_var[layer] =   stacked
+        dict_var[layer] = stacked
     
     # Save data
     if saveformat=='pkl':
@@ -165,17 +168,18 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
     if not(whatToload in ['var','cov','mean','covmean','varmean','all','']):
         print(whatToload,'is not known')
         raise(NotImplementedError)
-    
+    dict_var = {}
+    for l,layer in enumerate(style_layers):
+        dict_var[layer] = []
     if saveformat=='pkl':
         with open(filename_path, 'rb') as handle:
            dict_output = pickle.load(handle)
-        dict_var = {}
-        for l,layer in enumerate(style_layers):
-            dict_var[layer] = []
         for elt in dict_output.keys():
            vgg_cov_mean =  dict_output[elt]
            for l,layer in enumerate(style_layers):
                 [cov,mean] = vgg_cov_mean[l]
+                cov = cov[0,:,:]
+                mean = mean[0,:]
                 if whatToload=='var':
                     dict_var[layer] += [np.diag(cov)]
                 elif whatToload=='cov':
@@ -191,16 +195,18 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
             dict_var[layer] = stacked
     if saveformat=='h5':
         store = h5py.File(filename_path, 'r')
-        dict_var = {}
-        for key in store.keys():
-            vgg_cov_mean =  dict_output[elt]
+        for elt in store.keys():
+            vgg_cov_mean =  store[elt]
             for l,layer in enumerate(style_layers):
-                if 'cov' in whatToload or 'cov' in whatToload or whatToload=='' or whatToload=='all':
+                if 'cov' in whatToload or 'var' in whatToload or whatToload=='' or whatToload=='all':
                     cov_str = layer + '_cov'
                     cov = vgg_cov_mean[cov_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                    cov = cov[0,:,:]
+                    print(cov.shape)
                 if 'mean' in whatToload:
                     mean_str = layer + '_mean'
                     mean = vgg_cov_mean[mean_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                    mean = mean[0,:]
                 if whatToload=='var':
                     dict_var[layer] += [np.diag(cov)]
                 elif whatToload=='cov':
@@ -211,10 +217,11 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
                     dict_var[layer] += [[cov,mean]]
                 elif whatToload=='varmean':
                     dict_var[layer] += [[np.diag(cov),mean]]
-            for l,layer in enumerate(style_layers):
-                stacked = np.stack(dict_var[layer]) 
-                dict_var[layer] = stacked
+        for l,layer in enumerate(style_layers):
+            stacked = np.stack(dict_var[layer]) 
+            dict_var[layer] = stacked
         store.close()
+    return(dict_var)
 
 def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    whatToload,saveformat='h5'):
@@ -336,8 +343,9 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
         print("Layer",layer)
         tab_vars = []
         for dataset in dataset_tab: 
-            vars_ = dict_of_dict[dataset][layer] 
+            vars_ = dict_of_dict[dataset][layer]
             num_images,num_features = vars_.shape
+            print('num_images,num_features ',num_images,num_features )
             tab_vars +=[vars_]
  
         number_img_w = 4
@@ -376,7 +384,7 @@ if __name__ == '__main__':
     Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
     Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
     Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
-    Var_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+    #Var_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     
         
