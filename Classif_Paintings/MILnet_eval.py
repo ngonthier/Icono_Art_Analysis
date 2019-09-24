@@ -22,13 +22,14 @@ import cv2
 from tf_faster_rcnn.lib.model.test import get_blobs
 import tensorflow as tf
 from tf_faster_rcnn.lib.datasets.factory import get_imdb
-from Transform_Box import py_cpu_modif
+#from Transform_Box import py_cpu_modif
 import pickle
 from tf_faster_rcnn.lib.model.nms_wrapper import nms
 import os 
 from LatexOuput import arrayToLatex
 from sklearn.metrics import average_precision_score
 import time
+import os.path
 
 MILmodel_tab = ['MI_Net','mi_Net','MI_Net_with_DS','MI_Net_with_RC','MI_Max_AddOneLayer_Keras']
 
@@ -282,7 +283,7 @@ def mainEval(dataset_nm='IconArt_v1',classe=0,k_per_bag = 300,metamodel = 'Faste
 
 def runSeveralMInet(dataset_nm='IconArt_v1',MILmodel='MI_Net',demonet = 'res152_COCO',\
                         k_per_bag=300,layer='fc7',num_rep = 10,metamodel = 'FasterRCNN',
-                        printR=False,pm_only_on_mean=False):
+                        printR=False,pm_only_on_mean=False,ReDo=False):
     """
     @param : printR if True, we print the results instead of compute them
     """
@@ -303,31 +304,33 @@ def runSeveralMInet(dataset_nm='IconArt_v1',MILmodel='MI_Net',demonet = 'res152_
     multi = 100
     
     if not(printR):
+        # Compute the performance
     
-        DictAP = {}
-        ll = []
-        l01 = []
-        lclassif = []
-        for r in range(num_rep):
-            print('Reboot ',r,'on ',num_rep)
-            apsAt05,apsAt01,AP_per_class = mainEval(dataset_nm=dataset_nm,\
-                                 k_per_bag = k_per_bag,metamodel =metamodel,\
-                                 demonet=demonet,test=False,\
-                                 MILmodel=MILmodel,max_epoch=max_epoch,verbose=verbose)
-            ll += [apsAt05]
-            l01 += [apsAt01]
-            lclassif += [AP_per_class]
-        # End of the 100 experiment for a specific AggreW
-        ll_all = np.vstack(ll)
-        l01_all = np.vstack(l01)
-        apsClassif_all = np.vstack(lclassif)
-    
-        DictAP['AP@.5'] =  ll_all
-        DictAP['AP@.1'] =  l01_all
-        DictAP['APClassif'] =  apsClassif_all
-    
-        with open(name_dictAP, 'wb') as f:
-            pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
+        if not(os.path.isfile(name_dictAP)) or ReDo:
+            DictAP = {}
+            ll = []
+            l01 = []
+            lclassif = []
+            for r in range(num_rep):
+                print('Reboot ',r,'on ',num_rep)
+                apsAt05,apsAt01,AP_per_class = mainEval(dataset_nm=dataset_nm,\
+                                     k_per_bag = k_per_bag,metamodel =metamodel,\
+                                     demonet=demonet,test=False,\
+                                     MILmodel=MILmodel,max_epoch=max_epoch,verbose=verbose)
+                ll += [apsAt05]
+                l01 += [apsAt01]
+                lclassif += [AP_per_class]
+            # End of the 100 experiment for a specific AggreW
+            ll_all = np.vstack(ll)
+            l01_all = np.vstack(l01)
+            apsClassif_all = np.vstack(lclassif)
+        
+            DictAP['AP@.5'] =  ll_all
+            DictAP['AP@.1'] =  l01_all
+            DictAP['APClassif'] =  apsClassif_all
+        
+            with open(name_dictAP, 'wb') as f:
+                pickle.dump(DictAP, f, pickle.HIGHEST_PROTOCOL)
     else:
         # Print the results
         onlyAP05 = False
