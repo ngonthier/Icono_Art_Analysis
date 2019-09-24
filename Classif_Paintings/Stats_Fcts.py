@@ -12,15 +12,15 @@ In this script
 import tensorflow as tf
 from tensorflow.python.keras.preprocessing import image as kp_image
 from tensorflow.python.keras import models 
-from tensorflow.python.keras import losses
 from tensorflow.python.keras import layers
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.layers import Layer
-from tensorflow.python.keras.layers import Lambda
 from tensorflow.python.keras.layers import concatenate
 from tensorflow.python.keras.backend import expand_dims
 from tensorflow.python.ops import math_ops
 from keras.applications.imagenet_utils import decode_predictions
+
+#from custom_pooling import GlobalMinPooling2D
 
 # Others libraries
 import numpy as np
@@ -403,8 +403,40 @@ def get_VGGmodel_gram_mean_features(style_layers):
 
 
 ### VGG with features modifed
-  
-#def local_batch_normalization()
+
+def vgg_cut(final_layer,transformOnFinalLayer=None):
+  """
+  Return VGG output up to final_layer
+  """
+  model = tf.keras.Sequential()
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
+  vgg_layers = vgg.layers
+  vgg.trainable = False
+
+  otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D','GlobalMinPooling2D']
+  if not(transformOnFinalLayer in otherOutputPorposed):
+      print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
+      raise(NotImplementedError)
+
+  for layer in vgg_layers:
+    name_layer = layer.name
+    model.add(layer)
+#    print(model.output)
+    if name_layer==final_layer:
+      if not(transformOnFinalLayer is None or transformOnFinalLayer==''):
+          if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+              model.add(layers.GlobalMaxPooling2D)
+#          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
+#              model.add(GlobalMinPooling2D)
+#          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling
+#              model.add(GlobalMinPooling2D)
+          elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+              model.add(layers.GlobalAveragePooling2D)
+      break
+  model_outputs = model.output
+  model.trainable = False
+ 
+  return(models.Model(model.input, model_outputs)) 
 
 def vgg_AdaIn(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNorm=True):
   """

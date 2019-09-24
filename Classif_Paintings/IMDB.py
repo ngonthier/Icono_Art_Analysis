@@ -14,7 +14,7 @@ def get_database(database):
     default_path_imdb = '/media/gonthier/HDD/data/'
     if database=='Paintings':
         item_name = 'name_img'
-        path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
+        path_to_img = 'Painting_Dataset/'
         classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     elif database=='VOC12':
         item_name = 'name_img'

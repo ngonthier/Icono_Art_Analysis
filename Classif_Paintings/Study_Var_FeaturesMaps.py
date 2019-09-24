@@ -202,7 +202,6 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
                     cov_str = layer + '_cov'
                     cov = vgg_cov_mean[cov_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
                     cov = cov[0,:,:]
-                    print(cov.shape)
                 if 'mean' in whatToload:
                     mean_str = layer + '_mean'
                     mean = vgg_cov_mean[mean_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
@@ -224,7 +223,7 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
     return(dict_var)
 
 def get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                   whatToload,saveformat='h5'):
+                   whatToload,saveformat='h5',set=''):
     str_layers = numeral_layers_index(style_layers)
     filename = source_dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp')
