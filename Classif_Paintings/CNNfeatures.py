@@ -206,8 +206,8 @@ def Compute_EdgeBoxesAndCNN_features(demonet='res152',nms_thresh = 0.7,database=
         print("We will only plot the regions of the EdgeBoxes with k_regions = ",k_regions,path_imgs)
         pathlib.Path(path_imgs).mkdir(parents=True, exist_ok=True) 
     
-    item_name,path_to_img,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = \
-        get_database(database)
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+        path_data,Not_on_NicolasPC = get_database(database)
     
     if augmentation:
         raise NotImplementedError
