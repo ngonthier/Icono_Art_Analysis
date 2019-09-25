@@ -20,10 +20,11 @@ import pathlib
 from Classifier_On_Features import TrainClassifierOnAllClass,PredictOnTestSet
 from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score,label_ranking_average_precision_score,classification_report
 from sklearn.metrics import matthews_corrcoef,f1_score
+from sklearn.preprocessing import StandardScaler
 from Custom_Metrics import ranking_precision_score
 from LatexOuput import arrayToLatex
 
-def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean'):
+def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
     This function compute a reference statistics on the statistics of the whole dataset
     """
@@ -33,8 +34,12 @@ def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatTolo
         if whatToload == 'varmean':
             if imageUsed=='all':
                 if type_ref=='mean':
-                    mean_stats = np.mean(stats,axis=0)
-                    vgg_stats_values += [[mean_stats[1,:],mean_stats[0,:]]]
+                    mean_stats = np.mean(stats,axis=0) # First colunm = variance, second = mean
+                    mean_of_means = mean_stats[1,:]
+                    mean_of_vars = mean_stats[0,:]
+                    if applySqrtOnVar:
+                        mean_of_vars = np.sqrt(mean_of_vars) # STD
+                    vgg_stats_values += [[mean_of_means,mean_of_vars]]
                     # To return vgg_mean_vars_values
     return(vgg_stats_values)
 
@@ -45,7 +50,7 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
                                     'block4_conv1', 
                                     'block5_conv1'
                                    ],normalisation=False,gridSearch=True,ReDo=False,\
-                                   transformOnFinalLayer=''):
+                                   transformOnFinalLayer='',number_im_considered = 10000):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -69,15 +74,15 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
     else:
         if constrNet=='VGGAdaIn' or constrNet=='VGGAdaInAdapt':
             whatToload = 'varmean'
+            dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                   whatToload,saveformat='h5')
+            # Compute the reference statistics
+            vgg_mean_stds_values = compute_ref_stats(dict_stats,style_layers,type_ref='mean',\
+                                                 imageUsed='all',whatToload =whatToload,
+                                                 applySqrtOnVar=True)
         else:
             raise(NotImplementedError)
-        number_im_considered = 10000
-        source_dataset = 'ImageNet'
-        dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                   whatToload,saveformat='h5')
-        # Compute the reference statistics
-        vgg_mean_vars_values = compute_ref_stats(dict_stats,style_layers,type_ref='mean',\
-                                                 imageUsed='all',whatToload =whatToload)
+        
         
     # Load info about dataset
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
@@ -107,10 +112,10 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
             if constrNet=='VGG':
                 network_features_extraction = vgg_cut(final_layer)
             elif constrNet=='VGGAdaInAdapt':
-                network_features_extraction = vgg_AdaIn_adaptative(style_layers,vgg_mean_vars_values,final_layer=final_layer,
+                network_features_extraction = vgg_AdaIn_adaptative(style_layers,vgg_mean_stds_values,final_layer=final_layer,
                              HomeMadeBatchNorm=True)
             elif constrNet=='VGGAdaIn':
-                network_features_extraction = vgg_AdaIn(style_layers,vgg_mean_vars_values,final_layer=final_layer,
+                network_features_extraction = vgg_AdaIn(style_layers,vgg_mean_stds_values,final_layer=final_layer,
                              HomeMadeBatchNorm=True)
             
             # Compute bottleneck features on the target dataset
@@ -156,11 +161,9 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
         else:
             raise(NotImplementedError)
         
-        print(classes_vectors.shape)
-        print(df_label)
+        print('classes_vectors.shape',classes_vectors.shape)
         index_train = df_label['set']=='train'
-        print(index_train.shape)
-        print(features_net.shape)
+        print('features_net.shape',features_net.shape)
         X_train = features_net[index_train,:]
         y_train = classes_vectors[df_label['set']=='train',:]
         
@@ -174,7 +177,9 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
         ytrainval = np.vstack([y_train,y_val])
         
         if normalisation:
-            raise(NotImplementedError)
+            scaler = StandardScaler()
+            Xtrainval = scaler.fit_transform(Xtrainval)
+            X_test = scaler.transform(X_test)
         
         dico_clf=TrainClassifierOnAllClass(Xtrainval,ytrainval,clf=final_clf,gridSearch=gridSearch)
         dico_pred = PredictOnTestSet(X_test,dico_clf,clf=final_clf)
@@ -187,14 +192,14 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
             metrics = pickle.load(pkl)
     AP_per_class,P_per_class,R_per_class,P20_per_class = metrics
     
-    print(target_dataset,source_dataset,final_clf,features,transformOnFinalLayer,\
-          constrNet,kind_method,'GS',gridSearch)
+    print(target_dataset,source_dataset,number_im_considered,final_clf,features,transformOnFinalLayer,\
+          constrNet,kind_method,'GS',gridSearch,'norm',normalisation)
     print(style_layers)
     print(arrayToLatex(AP_per_class,per=True))
     
     return(AP_per_class,P_per_class,R_per_class,P20_per_class)
 
-def evaluationScore(y_gt,dico_pred,k = 20):
+def evaluationScore(y_gt,dico_pred,verbose=False,k = 20):
     """
     @param k for precision at rank k
     """
@@ -207,7 +212,7 @@ def evaluationScore(y_gt,dico_pred,k = 20):
         y_gt_c = y_gt[:,c]
         [y_predict_confidence_score,y_predict_test] = dico_pred[c]
         AP = average_precision_score(y_gt_c,y_predict_confidence_score,average=None)
-        print("Average Precision on all the data for classe",c," = ",AP)  
+        if verbose: print("Average Precision on all the data for classe",c," = ",AP)  
         AP_per_class += [AP] 
         test_precision = precision_score(y_gt_c,y_predict_test)
         test_recall = recall_score(y_gt_c,y_predict_test)
@@ -217,7 +222,7 @@ def evaluationScore(y_gt,dico_pred,k = 20):
         
         precision_at_k = ranking_precision_score(np.array(y_gt_c), y_predict_confidence_score,k)
         P20_per_class += [precision_at_k]
-        print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}, precision a rank k=20  = {3:.2f}.".format(test_precision,test_recall,F1,precision_at_k))
+        if verbose: print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}, precision a rank k=20  = {3:.2f}.".format(test_precision,test_recall,F1,precision_at_k))
     return(AP_per_class,P_per_class,R_per_class,P20_per_class)
     
 def RunAllEvaluation(dataset='Paintings'):
@@ -225,28 +230,49 @@ def RunAllEvaluation(dataset='Paintings'):
     source_dataset = 'ImageNet'
     ## Run the baseline
     
-    final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
-    features_list = ['fc2','fc1','flatten'] # We want to do fc2, fc1, max spatial and concat max and min spatial
-    # Normalisation and not normalise
-    net_tab = ['VGG','VGGAdaIn']
-    kind_method = 'TL'
-    style_layers = []
     
-    for final_clf in final_clf_list:
-        for features in features_list:
-            for constrNet  in net_tab:
-                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                           constrNet,kind_method,style_layers,gridSearch=False)
+    for normalisation in [False]:
+        final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
+        features_list = ['fc2','fc1','flatten'] # We want to do fc2, fc1, max spatial and concat max and min spatial
+         # We want to do fc2, fc1, max spatial and concat max and min spatial
+        # Normalisation and not normalise
+        net_tab = ['VGG','VGGAdaIn']
+        kind_method = 'TL'
+        style_layers = []
         
-    constrNet = 'VGG'
-    features = 'block5_pool'
-    transformOnFinalLayer_list = ['GlobalMaxPool2D']
-    for final_clf in final_clf_list:
-        for transformOnFinalLayer in transformOnFinalLayer_list:
-            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                           constrNet,kind_method,style_layers,gridSearch=False,\
-                           transformOnFinalLayer=transformOnFinalLayer) 
-                   
+        # Baseline with just VGG
+        constrNet = 'VGG'
+        for final_clf in final_clf_list:
+            for features in features_list:
+                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                           constrNet,kind_method,style_layers,gridSearch=False,normalisation=normalisation)
+            
+    #    constrNet = 'VGG'
+    #    features = 'block5_pool'
+    #    transformOnFinalLayer_list = ['GlobalMaxPool2D']
+    #    for final_clf in final_clf_list:
+    #        for transformOnFinalLayer in transformOnFinalLayer_list:
+    #            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+    #                           constrNet,kind_method,style_layers,gridSearch=False,\
+    #                           transformOnFinalLayer=transformOnFinalLayer) 
+         
+        # With VGGAdaIn
+        style_layers_tab = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                         ['block1_conv1'],['block1_conv1','block2_conv1']]
+        
+        features_list = ['fc2','fc1','flatten']
+        net_tab = ['VGGAdaIn','VGGAdaInAdapt']
+        number_im_considered_tab = [1000,1]
+        for constrNet in net_tab:
+            for final_clf in final_clf_list:
+                for style_layers in style_layers_tab:
+                    for features in features_list:
+                        for number_im_considered in number_im_considered_tab:
+                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers,gridSearch=False,
+                                   number_im_considered=number_im_considered,normalisation=normalisation)
+                
+                       
                    
     
 if __name__ == '__main__': 

@@ -425,7 +425,7 @@ def vgg_cut(final_layer,transformOnFinalLayer=None):
     if name_layer==final_layer:
       if not(transformOnFinalLayer is None or transformOnFinalLayer==''):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
-              model.add(layers.GlobalMaxPooling2D)
+              model.add(layers.GlobalMaxPooling2D) # Truc chelou la
 #          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
 #              model.add(GlobalMinPooling2D)
 #          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling
@@ -473,9 +473,9 @@ def vgg_AdaIn(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNorm
     else:
       model.add(layer)
     if name_layer==final_layer:
-      model_outputs = model.output
       break
-      
+  
+  model_outputs = model.output
   model.trainable = False
  
   return(models.Model(model.input, model_outputs)) 
@@ -713,22 +713,22 @@ def test_change_mean_std(adapt=False):
             object_path =  os.path.join('data',elt+'.jpg')
             object_image = load_crop_and_process_img(object_path)
             vgg_cov_mean = vgg_get_cov.predict(object_image, batch_size=1)
-            vgg_mean_vars_values = []
-            vgg_mean_vars_values_0_1 = []
+            vgg_mean_stds_values = []
+            vgg_mean_stds_values_0_1 = []
             for l,layer in enumerate(style_layers):
                 cov = vgg_cov_mean[2*l]
                 cov = np.squeeze(cov,axis=0) 
                 mean = vgg_cov_mean[2*l+1]
                 mean = mean.reshape((mean.shape[1],))
                 stds = np.sqrt(np.diag(cov))
-                vgg_mean_vars_values += [[mean,stds]]
+                vgg_mean_stds_values += [[mean,stds]]
                 if j ==len(list_imgs)-1:
-                    vgg_mean_vars_values_0_1 += [[np.zeros_like(mean),np.ones_like(stds)]]
+                    vgg_mean_stds_values_0_1 += [[np.zeros_like(mean),np.ones_like(stds)]]
             if adapt:
-                vggAdaIn = vgg_AdaIn_adaptative(style_layers,vgg_mean_vars_values,final_layer='predictions',
+                vggAdaIn = vgg_AdaIn_adaptative(style_layers,vgg_mean_stds_values,final_layer='predictions',
                              HomeMadeBatchNorm=True)
             else:
-                vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_vars_values,final_layer='predictions',
+                vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_stds_values,final_layer='predictions',
                              HomeMadeBatchNorm=True)
             object_predction = vggAdaIn.predict(cat_image)
             object_decode = decode_predictions(object_predction)
@@ -736,10 +736,10 @@ def test_change_mean_std(adapt=False):
             if j ==len(list_imgs)-1:
                 print('=== means=0 and stds=1 ===')
                 if adapt:
-                    vggAdaIn = vgg_AdaIn_adaptative(style_layers,vgg_mean_vars_values_0_1,final_layer='predictions',
+                    vggAdaIn = vgg_AdaIn_adaptative(style_layers,vgg_mean_stds_values_0_1,final_layer='predictions',
                              HomeMadeBatchNorm=True)
                 else:
-                    vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_vars_values_0_1,final_layer='predictions',
+                    vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_stds_values_0_1,final_layer='predictions',
                              HomeMadeBatchNorm=True)
                 object_predction = vggAdaIn.predict(cat_image)
                 object_decode = decode_predictions(object_predction)
