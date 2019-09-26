@@ -12,9 +12,12 @@ In this script
 import tensorflow as tf
 from tensorflow.python.keras.preprocessing import image as kp_image
 from tensorflow.python.keras import models 
+from tensorflow.python.keras import activations
+from tensorflow.python.keras.layers import Activation
 from tensorflow.python.keras import layers
+from tensorflow.python.keras import utils
 from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.layers import Layer
+from tensorflow.python.keras.layers import Layer,GlobalMaxPooling2D,GlobalAveragePooling2D
 from tensorflow.python.keras.layers import concatenate
 from tensorflow.python.keras.backend import expand_dims
 from tensorflow.python.ops import math_ops
@@ -371,8 +374,8 @@ class Cov_Matrix_Layer(Layer):
         assert isinstance(input_shape, list)
         b,k1,k2,c = input_shape[0]
         return (b,c,c)
-    
-def get_VGGmodel_gram_mean_features(style_layers):
+### To get the Covariance matrices    
+def get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=False):
   """Helper function to compute the Gram matrix and mean of feature representations 
   from vgg.
   
@@ -389,20 +392,42 @@ def get_VGGmodel_gram_mean_features(style_layers):
   Returns:
     returns the features. 
   """
+  model = tf.keras.Sequential()
   vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
   vgg.trainable = False
+  vgg_layers = vgg.layers
   # Get output layers corresponding to style and content layers 
   list_stats = []
-  for name in style_layers:
-      output = vgg.get_layer(name).output
-      mean_layer = Mean_Matrix_Layer()(output)
-      cov_layer = Cov_Matrix_Layer()([output,mean_layer])
-      list_stats += [cov_layer,mean_layer]
+  i = 0
+  for layer in vgg_layers:
+      name_layer = layer.name
+      if name_layer==style_layers[i]:
+          if getBeforeReLU:
+              layer.activation = activations.linear # i.e. identity
+              
+          output = layer.output
+          mean_layer = Mean_Matrix_Layer()(output)
+          cov_layer = Cov_Matrix_Layer()([output,mean_layer])
+          list_stats += [cov_layer,mean_layer]
+          model.add(layer)
+          
+          if getBeforeReLU:
+              model.add(Activation('relu'))
+          
+          i+= 1
+          if i==len(style_layers): # No need to compute further
+              break
+      else:
+         model.add(layer)
   
-  return models.Model(vgg.input,list_stats)
+  model = models.Model(model.input,list_stats)
+  if getBeforeReLU: 
+      model = utils.apply_modifications(model) # TODO trouver comme faire cela avec tf keras
+#    
+  return(model)
 
 
-### VGG with features modifed
+
 
 def vgg_cut(final_layer,transformOnFinalLayer=None):
   """
@@ -425,22 +450,25 @@ def vgg_cut(final_layer,transformOnFinalLayer=None):
     if name_layer==final_layer:
       if not(transformOnFinalLayer is None or transformOnFinalLayer==''):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
-              model.add(layers.GlobalMaxPooling2D) # Truc chelou la
+              model.add(GlobalMaxPooling2D()) # Truc chelou la
 #          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
 #              model.add(GlobalMinPooling2D)
 #          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling
 #              model.add(GlobalMinPooling2D)
           elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
-              model.add(layers.GlobalAveragePooling2D)
+              model.add(GlobalAveragePooling2D())
       break
   model_outputs = model.output
   model.trainable = False
  
   return(models.Model(model.input, model_outputs)) 
-
-def vgg_AdaIn(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNorm=True):
+  
+### VGG with features modifed
+def vgg_InNorm(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNorm=True,
+              transformOnFinalLayer=None,getBeforeReLU=False):
   """
-  VGG with an AdaIn : Instance normalisation
+  VGG with an Instance normalisation : we impose the mean and std of reference 
+  instance per instance
   @param : final_layer final layer provide for feature extraction
   """
   model = tf.keras.Sequential()
@@ -448,9 +476,17 @@ def vgg_AdaIn(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNorm
   vgg_layers = vgg.layers
   vgg.trainable = False
   i = 0
+  
+  otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D','GlobalMinPooling2D']
+  if not(transformOnFinalLayer in otherOutputPorposed):
+      print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
+      raise(NotImplementedError)
+      
   for layer in vgg_layers:
     name_layer = layer.name
     if i < len(style_layers) and name_layer==style_layers[i]:
+      if getBeforeReLU:# remove the non linearity
+          layer.activation = activations.linear # i.e. identity
       model.add(layer)
       betas = list_mean_and_std[i][0] 
       # Offset of beta => beta = mean 
@@ -469,19 +505,35 @@ def vgg_AdaIn(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNorm
                                        gamma_initializer=gammas,\
                                        fused = False))
           # fused = True accelerated version
+          
+      if getBeforeReLU: # add back the non linearity
+          model.add(Activation('relu'))
       i += 1
     else:
       model.add(layer)
     if name_layer==final_layer:
+      if not(transformOnFinalLayer is None or transformOnFinalLayer==''):
+          if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+              model.add(GlobalMaxPooling2D()) # Truc chelou la
+#          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
+#              model.add(GlobalMinPooling2D)
+#          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling
+#              model.add(GlobalMinPooling2D)
+          elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+              model.add(GlobalAveragePooling2D())
       break
   
+  if getBeforeReLU:# refresh the non linearity 
+      model = utils.apply_modifications(model)
+    
   model_outputs = model.output
   model.trainable = False
  
   return(models.Model(model.input, model_outputs)) 
   
-def vgg_AdaIn_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
-                         HomeMadeBatchNorm=True):
+def vgg_InNorm_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
+                         HomeMadeBatchNorm=True,transformOnFinalLayer=None,
+                         getBeforeReLU=False):
   """
   VGG with an AdaIn : Instance normalisation but we only modify the features 
   that have a std lower than the reference one 
@@ -492,9 +544,18 @@ def vgg_AdaIn_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
   vgg_layers = vgg.layers
   vgg.trainable = False
   i = 0
+  
+  otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D','GlobalMinPooling2D']
+  if not(transformOnFinalLayer in otherOutputPorposed):
+      print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
+      raise(NotImplementedError)
+  
   for layer in vgg_layers:
     name_layer = layer.name
     if i < len(style_layers) and name_layer==style_layers[i]:
+      if getBeforeReLU: # remove the non linearity
+          layer.activation = activations.linear # i.e. identity
+        
       model.add(layer)
       betas = list_mean_and_std[i][0] 
       # Offset of beta => beta = mean 
@@ -513,13 +574,29 @@ def vgg_AdaIn_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
                                        gamma_initializer=gammas,\
                                        fused = False))
           # fused = True accelerated version
+     
+      if getBeforeReLU: # add back the non linearity
+          model.add(Activation('relu'))
+          
       i += 1
     else:
       model.add(layer)
     if name_layer==final_layer:
-      model_outputs = model.output
+      if not(transformOnFinalLayer is None or transformOnFinalLayer==''):
+          if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+              model.add(GlobalMaxPooling2D()) # Truc chelou la
+#          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
+#              model.add(GlobalMinPooling2D)
+#          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling
+#              model.add(GlobalMinPooling2D)
+          elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+              model.add(GlobalAveragePooling2D())
       break
-      
+  
+  if getBeforeReLU:# refresh the non linearity 
+      model = utils.apply_modifications(model)
+    
+  model_outputs = model.output   
   model.trainable = False
  
   return(models.Model(model.input, model_outputs)) 
@@ -609,9 +686,9 @@ def get_1st_2nd_moments_features(model,img_path):
     list_moments += [moments]
   return list_moments
 
-def unity_test_of_VGG_AdaIn():
+def unity_test_of_vgg_InNorm():
     """ In this function we compare the fc2 for VGG19 of a given image
-    and the fc2 of the VGG_adaIn with the parameters computed on the same image"""
+    and the fc2 of the vgg_InNorm with the parameters computed on the same image"""
     
 #    images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
 #    image_path =  os.path.join(images_path,'abd_aag_002276_624x544.jpg')
@@ -651,22 +728,22 @@ def unity_test_of_VGG_AdaIn():
         stds = np.sqrt(np.diag(cov))
         vgg_mean_vars_values += [[mean,stds]]
     
-    vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_vars_values,final_layer='fc2',
+    VGGInNorm = vgg_InNorm(style_layers,vgg_mean_vars_values,final_layer='fc2',
                          HomeMadeBatchNorm=True)
-    #print(vggAdaIn.summary())
+    #print(VGGInNorm.summary())
     #sess.run(tf.global_variables_initializer())
 #    sess.run(tf.local_variables_initializer())
     for i in range(2):
-        output_vggAdaIn = vggAdaIn.predict(init_image)
-        print(i,'First elts AdaIn run',output_vggAdaIn[0,0:5])
-#    output_vggAdaIn = sess.run(vgg_fc2_model(init_image))
-    print('output_vggAdaIn shape',output_vggAdaIn.shape)
+        output_VGGInNorm = VGGInNorm.predict(init_image)
+        print(i,'First elts AdaIn run',output_VGGInNorm[0,0:5])
+#    output_VGGInNorm = sess.run(vgg_fc2_model(init_image))
+    print('output_VGGInNorm shape',output_VGGInNorm.shape)
     
-    print('Equal fc2vgg  fc2vggAdaIn ? :',np.all(np.equal(output_vggAdaIn, fc2_original_vgg19)))
-    print('max abs(a-b)',np.max(np.abs(output_vggAdaIn - fc2_original_vgg19)))
-    print('max abs(a-b)/abs(a)',np.max(np.abs(output_vggAdaIn - fc2_original_vgg19)/np.abs(fc2_original_vgg19+10**(-16))))
-    print(' norm2(a-b)/norm2(a)',np.linalg.norm(output_vggAdaIn - fc2_original_vgg19)/np.linalg.norm(fc2_original_vgg19+10**(-16)))
-    print('First elts',output_vggAdaIn[0,0:5],fc2_original_vgg19[0,0:5])
+    print('Equal fc2vgg  fc2VGGInNorm ? :',np.all(np.equal(output_VGGInNorm, fc2_original_vgg19)))
+    print('max abs(a-b)',np.max(np.abs(output_VGGInNorm - fc2_original_vgg19)))
+    print('max abs(a-b)/abs(a)',np.max(np.abs(output_VGGInNorm - fc2_original_vgg19)/np.abs(fc2_original_vgg19+10**(-16))))
+    print(' norm2(a-b)/norm2(a)',np.linalg.norm(output_VGGInNorm - fc2_original_vgg19)/np.linalg.norm(fc2_original_vgg19+10**(-16)))
+    print('First elts',output_VGGInNorm[0,0:5],fc2_original_vgg19[0,0:5])
     
 def topn(x,n=5):
     return(x[np.argsort(x)[-n:]])
@@ -698,7 +775,7 @@ def test_change_mean_std(adapt=False):
                ]
 
     num_style_layers = len(style_layers)
-    # Todo a finir le vgg_AdaIn_adaptative avec gamma==std a l infini on modife 
+    # Todo a finir le vgg_InNorm_adaptative avec gamma==std a l infini on modife 
     # encore le reseau alors qu'on devrait pas
     list_imgs = ['bus','dog','flower','cat2']
 #    list_imgs = ['dog']
@@ -725,23 +802,23 @@ def test_change_mean_std(adapt=False):
                 if j ==len(list_imgs)-1:
                     vgg_mean_stds_values_0_1 += [[np.zeros_like(mean),np.ones_like(stds)]]
             if adapt:
-                vggAdaIn = vgg_AdaIn_adaptative(style_layers,vgg_mean_stds_values,final_layer='predictions',
+                VGGInNorm = vgg_InNorm_adaptative(style_layers,vgg_mean_stds_values,final_layer='predictions',
                              HomeMadeBatchNorm=True)
             else:
-                vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_stds_values,final_layer='predictions',
+                VGGInNorm = vgg_InNorm(style_layers,vgg_mean_stds_values,final_layer='predictions',
                              HomeMadeBatchNorm=True)
-            object_predction = vggAdaIn.predict(cat_image)
+            object_predction = VGGInNorm.predict(cat_image)
             object_decode = decode_predictions(object_predction)
             print(object_decode)
             if j ==len(list_imgs)-1:
                 print('=== means=0 and stds=1 ===')
                 if adapt:
-                    vggAdaIn = vgg_AdaIn_adaptative(style_layers,vgg_mean_stds_values_0_1,final_layer='predictions',
+                    VGGInNorm = vgg_InNorm_adaptative(style_layers,vgg_mean_stds_values_0_1,final_layer='predictions',
                              HomeMadeBatchNorm=True)
                 else:
-                    vggAdaIn = vgg_AdaIn(style_layers,vgg_mean_stds_values_0_1,final_layer='predictions',
+                    VGGInNorm = vgg_InNorm(style_layers,vgg_mean_stds_values_0_1,final_layer='predictions',
                              HomeMadeBatchNorm=True)
-                object_predction = vggAdaIn.predict(cat_image)
+                object_predction = VGGInNorm.predict(cat_image)
                 object_decode = decode_predictions(object_predction)
                 print(object_decode) 
         K.clear_session() # To clean memory
@@ -829,4 +906,4 @@ def unity_test_StatsCompute():
     
 if __name__ == '__main__':
 #  unity_test_StatsCompute()
-  unity_test_of_VGG_AdaIn()
+  unity_test_of_vgg_InNorm()

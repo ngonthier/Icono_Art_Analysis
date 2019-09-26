@@ -13,7 +13,7 @@ from trouver_classes_parmi_K import TrainClassif
 import numpy as np
 import os.path
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index
-from Stats_Fcts import vgg_cut,vgg_AdaIn_adaptative,vgg_AdaIn,load_crop_and_process_img
+from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,load_crop_and_process_img
 from IMDB import get_database
 import pickle
 import pathlib
@@ -50,7 +50,8 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
                                     'block4_conv1', 
                                     'block5_conv1'
                                    ],normalisation=False,gridSearch=True,ReDo=False,\
-                                   transformOnFinalLayer='',number_im_considered = 10000):
+                                   transformOnFinalLayer='',number_im_considered = 10000,
+                                   getBeforeReLU=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -59,8 +60,9 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
     @param : features : which features we will use
     TODO : fc2, fc1, max spatial, max et min spatial
     @param : constrNet the constrained net used
-    TODO : VGGAdaIn, VGGAdaInAdapt seulement sur les features qui répondent trop fort, VGGGram
+    TODO : VGGInNorm, VGGInNormAdapt seulement sur les features qui répondent trop fort, VGGGram
     @param : kind_method the type of methods we will use : TL or FT
+    @param : getBeforeReLU=False if True we will impose the statistics before the activation ReLU fct
     """
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset)
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
@@ -69,20 +71,6 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
     # Compute statistics on the source_dataset
     if source_dataset is None:
         constrNet='VGG'
-    elif constrNet=='VGG':
-        pass
-    else:
-        if constrNet=='VGGAdaIn' or constrNet=='VGGAdaInAdapt':
-            whatToload = 'varmean'
-            dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                   whatToload,saveformat='h5')
-            # Compute the reference statistics
-            vgg_mean_stds_values = compute_ref_stats(dict_stats,style_layers,type_ref='mean',\
-                                                 imageUsed='all',whatToload =whatToload,
-                                                 applySqrtOnVar=True)
-        else:
-            raise(NotImplementedError)
-        
         
     # Load info about dataset
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
@@ -92,7 +80,7 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
     if not(constrNet=='VGG'):
         name_base += source_dataset +str(number_im_considered)+ '_' + num_layers
     name_base +=  features 
-    if not(transformOnFinalLayer is None or transformOnFinalLayer==''):
+    if not((transformOnFinalLayer is None) or (transformOnFinalLayer=='')):
        name_base += '_'+     transformOnFinalLayer
     name_base += '_' + kind_method   
     
@@ -110,13 +98,30 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
             im_net = []
             # Load Network 
             if constrNet=='VGG':
-                network_features_extraction = vgg_cut(final_layer)
-            elif constrNet=='VGGAdaInAdapt':
-                network_features_extraction = vgg_AdaIn_adaptative(style_layers,vgg_mean_stds_values,final_layer=final_layer,
-                             HomeMadeBatchNorm=True)
-            elif constrNet=='VGGAdaIn':
-                network_features_extraction = vgg_AdaIn(style_layers,vgg_mean_stds_values,final_layer=final_layer,
-                             HomeMadeBatchNorm=True)
+                network_features_extraction = vgg_cut(final_layer,\
+                                                      transformOnFinalLayer=transformOnFinalLayer)
+            elif constrNet=='VGGInNorm' or constrNet=='VGGInNormAdapt':
+                whatToload = 'varmean'
+                dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU)
+                # Compute the reference statistics
+                vgg_mean_stds_values = compute_ref_stats(dict_stats,style_layers,type_ref='mean',\
+                                                     imageUsed='all',whatToload =whatToload,
+                                                     applySqrtOnVar=True)
+                if constrNet=='VGGInNormAdapt':
+                    network_features_extraction = vgg_InNorm_adaptative(style_layers,
+                                                                       vgg_mean_stds_values,
+                                                                       final_layer=final_layer,
+                                                                       transformOnFinalLayer=transformOnFinalLayer,
+                                                                       HomeMadeBatchNorm=True,getBeforeReLU=getBeforeReLU)
+                elif constrNet=='VGGInNorm':
+                    network_features_extraction = vgg_InNorm(style_layers,
+                                                            vgg_mean_stds_values,
+                                                            final_layer=final_layer,
+                                                            transformOnFinalLayer=transformOnFinalLayer,
+                                                            HomeMadeBatchNorm=True,getBeforeReLU=getBeforeReLU)
+            else:
+                raise(NotImplementedError)
             
             # Compute bottleneck features on the target dataset
             for i,name_img in  enumerate(df_label[item_name]):
@@ -230,13 +235,13 @@ def RunAllEvaluation(dataset='Paintings'):
     source_dataset = 'ImageNet'
     ## Run the baseline
     
-    
+    transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D']
     for normalisation in [False]:
         final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
         features_list = ['fc2','fc1','flatten'] # We want to do fc2, fc1, max spatial and concat max and min spatial
          # We want to do fc2, fc1, max spatial and concat max and min spatial
         # Normalisation and not normalise
-        net_tab = ['VGG','VGGAdaIn']
+        net_tab = ['VGG','VGGInNorm']
         kind_method = 'TL'
         style_layers = []
         
@@ -245,7 +250,15 @@ def RunAllEvaluation(dataset='Paintings'):
         for final_clf in final_clf_list:
             for features in features_list:
                 learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                           constrNet,kind_method,style_layers,gridSearch=False,normalisation=normalisation)
+                           constrNet,kind_method,style_layers,gridSearch=False,
+                           normalisation=normalisation,transformOnFinalLayer='')
+            
+            # Pooling on last conv block
+            for transformOnFinalLayer in transformOnFinalLayer_tab:
+                features = 'block5_pool'
+                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                           constrNet,kind_method,style_layers,gridSearch=False,
+                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
             
     #    constrNet = 'VGG'
     #    features = 'block5_pool'
@@ -256,13 +269,14 @@ def RunAllEvaluation(dataset='Paintings'):
     #                           constrNet,kind_method,style_layers,gridSearch=False,\
     #                           transformOnFinalLayer=transformOnFinalLayer) 
          
-        # With VGGAdaIn
+        # With VGGInNorm
         style_layers_tab = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
                          ['block1_conv1'],['block1_conv1','block2_conv1']]
         
         features_list = ['fc2','fc1','flatten']
-        net_tab = ['VGGAdaIn','VGGAdaInAdapt']
-        number_im_considered_tab = [1000,1]
+        features_list = ['fc2','fc1']
+        net_tab = ['VGGInNorm','VGGInNormAdapt']
+        number_im_considered_tab = [1000]
         for constrNet in net_tab:
             for final_clf in final_clf_list:
                 for style_layers in style_layers_tab:
@@ -271,6 +285,13 @@ def RunAllEvaluation(dataset='Paintings'):
                             learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                    constrNet,kind_method,style_layers,gridSearch=False,
                                    number_im_considered=number_im_considered,normalisation=normalisation)
+                     # Pooling on last conv block
+                    for transformOnFinalLayer in transformOnFinalLayer_tab:
+                        features = 'block5_pool'
+                        learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers,gridSearch=False,
+                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
+                    
                 
                        
                    
