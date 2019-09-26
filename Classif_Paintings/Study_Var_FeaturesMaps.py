@@ -43,7 +43,8 @@ def numeral_layers_index(style_layers):
     return(string)
 
 def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
-                        dataset='ImageNet',set='',saveformat='h5',whatToload='var'):
+                        dataset='ImageNet',set='',saveformat='h5',whatToload='var',
+                        getBeforeReLU=False):
     """
     In this function we precompute the mean and cov for certain dataset
     @param : whatToload mention what you want to load by default only return variances
@@ -95,7 +96,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
     dict_output = {}
     dict_var = {}
     
-    vgg_get_cov =  get_VGGmodel_gram_mean_features(style_layers)
+    vgg_get_cov =  get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
     
     for l,layer in enumerate(style_layers):
         dict_var[layer] = []
@@ -223,7 +224,7 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
     return(dict_var)
 
 def get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                   whatToload,saveformat='h5',set=''):
+                   whatToload,saveformat='h5',set='',getBeforeReLU=False):
     str_layers = numeral_layers_index(style_layers)
     filename = source_dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp')
@@ -235,6 +236,8 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
     pathlib.Path(output_path_full).mkdir(parents=True, exist_ok=True)  
     if not(set=='' or set is None):
         filename += '_'+set
+    if getBeforeReLU:
+        filename += '_BeforeReLU'
     if saveformat=='pkl':
         filename += '.pkl'
     if saveformat=='h5':
@@ -248,7 +251,8 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                                             saveformat=saveformat,whatToload=whatToload)
     return(dict_stats)
 
-def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None):
+def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None
+                        ,getBeforeReLU=False,printoutput='Var'):
     """
     In this function we will compute the Gram Matrix for two subsets
     a small part of ImageNet validation set 
@@ -256,7 +260,11 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
     @param : saveformat use h5 if you use more than 1000 images
     @param :number_im_considered number of image considered in the computation 
         if == np.inf we will use all the image in the folder of the dataset
+    @param : printoutput : print in a pdf the output Var or Mean
     """
+    if not(printoutput in ['Var','Mean']):
+        print(printoutput,"is unknown. It must be 'Var' or 'Mean'")
+        raise(NotImplementedError)
 
     if dataset_tab is None:
         dataset_tab = ['ImageNet','Paintings','watercolor','IconArt_v1','OIV5']
@@ -283,13 +291,18 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
 #    sess = tf.Session(config=config)
 #    sess.run(tf.global_variables_initializer())
 #    sess.run(tf.local_variables_initializer())
-    whatToload= 'var'
+    if printoutput=='Var':
+        whatToload= 'var'
+    elif printoutput=='Mean':
+        whatToload= 'mean' 
     for dataset in dataset_tab:
         print('===',dataset,'===')
         str_layers = numeral_layers_index(style_layers)
         filename = dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
         if not(set=='' or set is None):
             filename += '_'+set
+        if getBeforeReLU:
+            filename += '_BeforeReLU'
         if saveformat=='pkl':
             filename += '.pkl'
         if saveformat=='h5':
@@ -298,7 +311,8 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
         
         if not os.path.isfile(filename_path):
             dict_var = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
-                                           dataset=dataset,set=set,saveformat=saveformat,whatToload=whatToload)
+                                           dataset=dataset,set=set,saveformat=saveformat,
+                                           whatToload=whatToload,getBeforeReLU=getBeforeReLU)
             dict_of_dict[dataset] = dict_var
         else:
             print('We will load the features ')
@@ -308,7 +322,7 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
     
     print('Start plotting')
     # Plot the histograms (one per kernel for the different layers and save all in a pdf file)
-    pltname = 'Hist_of_Var_fm_'
+    pltname = 'Hist_of_'+printoutput+'_fm_'
     labels = []
     for dataset in dataset_tab:
         pltname +=  dataset+'_'
@@ -323,6 +337,8 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
         elif dataset == 'OIV5':
             labels += ['OIV5']
     pltname +=  str(number_im_considered)
+    if getBeforeReLU:
+        pltname+= '_BeforeReLU'
         
     pltname +='.pdf'
     pltname= os.path.join(output_path,pltname)
@@ -380,9 +396,12 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
     plt.clf()
     
 if __name__ == '__main__':         
-    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
-    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
-    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+    #Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
+    #Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
+    #Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,
+                        dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'],
+                        getBeforeReLU=True)
     #Var_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     
