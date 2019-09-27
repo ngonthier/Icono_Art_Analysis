@@ -288,6 +288,44 @@ class Cov_Mean_Matrix_Layer(Layer):
         print('in compute output shape',(b,c, c+1))
         return (b,c, c+1)
     
+class Global_Prescrib_Mean_Std(Layer):
+    """
+    This Layer modify the mean and std  of the features  computed on the full dataset 
+        with a precomputed mean and std of an other dataset
+    """
+
+    def __init__(self,mean_src,std_src,mean_tgt,std_tgt,epsilon = 0.00001, **kwargs):
+        self.mean_src= mean_src # offset ie new mean
+        self.mean_tgt= mean_tgt 
+        self.std_src = std_src # New std
+        self.std_tgt = std_tgt 
+        self.epsilon = epsilon # Small float added to variance to avoid dividing by zero.
+        super(Global_Prescrib_Mean_Std, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(Global_Prescrib_Mean_Std, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        print(self.mean_tgt.shape,self.mean_src.shape,self.std_tgt.shape,self.std_src.shape)
+        print(x)
+        #   AttributeError: '_ListWrapper' object has no attribute 'shape'
+        output =  (((x - self.mean_tgt) * self.std_src  )/ (self.std_tgt+self.epsilon))  + self.mean_src 
+        return output
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        return input_shape
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(Global_Prescrib_Mean_Std, self).get_config()
+        config['mean_src'] = self.mean_src
+        config['mean_tgt'] = self.mean_tgt
+        config['std_src'] = self.std_src
+        config['std_tgt'] = self.std_tgt
+        config['epsilon'] = self.epsilon
+        return(config)
+        
 class HomeMade_BatchNormalisation(Layer):
 
     def __init__(self,beta,gamma,epsilon = 0.00001, **kwargs):
@@ -492,6 +530,8 @@ def vgg_InNorm(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNor
   VGG with an Instance normalisation : we impose the mean and std of reference 
   instance per instance
   @param : final_layer final layer provide for feature extraction
+  @param : transformOnFinalLayer : on va modifier la derniere couche du réseau
+  @param : getBeforeReLU if True we modify the features before the ReLU
   """
   model = tf.keras.Sequential()
   vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
@@ -562,9 +602,11 @@ def vgg_InNorm_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
                          HomeMadeBatchNorm=True,transformOnFinalLayer=None,
                          getBeforeReLU=False):
   """
-  VGG with an AdaIn : Instance normalisation but we only modify the features 
-  that have a std lower than the reference one 
+  VGG with an Instance normalisation but we only modify the features 
+      that have a std lower than the reference one= Adaptative
   @param : final_layer final layer provide for feature extraction
+  @param : transformOnFinalLayer : on va modifier la derniere couche du réseau
+  @param : getBeforeReLU if True we modify the features before the ReLU
   """
   model = tf.keras.Sequential()
   vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
@@ -632,6 +674,69 @@ def vgg_InNorm_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
   Model_final.trainable = False
  
   return(Model_final) 
+
+def vgg_BaseNorm(style_layers,list_mean_and_std_source,list_mean_and_std_target,\
+                 final_layer='fc2',transformOnFinalLayer=None,getBeforeReLU=False):
+  """
+  VGG with an Instance normalisation : we impose the mean and std of reference 
+  instance per instance
+  @param : final_layer final layer provide for feature extraction
+  @param : transformOnFinalLayer : on va modifier la derniere couche du réseau
+  @param : getBeforeReLU if True we modify the features before the ReLU
+  """
+  model = tf.keras.Sequential()
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
+  vgg_layers = vgg.layers
+  vgg.trainable = False
+  i = 0
+  
+  if getBeforeReLU: 
+      custom_objects = {}
+      custom_objects['Global_Prescrib_Mean_Std']= Global_Prescrib_Mean_Std
+  
+  otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D','GlobalMinPooling2D']
+  if not(transformOnFinalLayer in otherOutputPorposed):
+      print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
+      raise(NotImplementedError)
+      
+  for layer in vgg_layers:
+    name_layer = layer.name
+    if i < len(style_layers) and name_layer==style_layers[i]:
+      if getBeforeReLU:# remove the non linearity
+          layer.activation = activations.linear # i.e. identity
+      model.add(layer)
+      mean_src = list_mean_and_std_source[i][0] 
+      mean_tgt = list_mean_and_std_target[i][0] 
+      std_src = list_mean_and_std_source[i][1] 
+      std_tgt = list_mean_and_std_target[i][1] 
+      model.add(Global_Prescrib_Mean_Std(mean_src,std_src,mean_tgt,std_tgt))
+      
+      if getBeforeReLU: # add back the non linearity
+          model.add(Activation('relu'))
+      i += 1
+    else:
+      model.add(layer)
+    if name_layer==final_layer:
+      if not(transformOnFinalLayer is None or transformOnFinalLayer==''):
+          if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+              model.add(GlobalMaxPooling2D()) # Truc chelou la
+#          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
+#              model.add(GlobalMinPooling2D)
+#          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling
+#              model.add(GlobalMinPooling2D)
+          elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+              model.add(GlobalAveragePooling2D())
+      break
+  
+  model_outputs = model.output
+  Model_final = models.Model(model.input, model_outputs)
+  if getBeforeReLU:# refresh the non linearity 
+       Model_final = utils_keras.apply_modifications(Model_final,custom_objects=custom_objects,include_optimizer=False)
+  
+  Model_final.trainable = False
+ 
+  return(Model_final)   
+  
 
 
 
@@ -782,6 +887,68 @@ def unity_test_of_vgg_InNorm(adapt=False):
         print('max abs(a-b)/abs(a)',np.max(np.abs(output_VGGInNorm - fc2_original_vgg19)/np.abs(fc2_original_vgg19+10**(-16))))
         print(' norm2(a-b)/norm2(a)',np.linalg.norm(output_VGGInNorm - fc2_original_vgg19)/np.linalg.norm(fc2_original_vgg19+10**(-16)))
         print('First elts of VGGInNorm and original net',output_VGGInNorm[0,0:5],fc2_original_vgg19[0,0:5])
+    
+def unity_test_of_vgg_BaseNorm(getBeforeReLU=False):
+    """ In this function we compare the fc2 for VGG19 of a given image
+    and the fc2 of the vgg_BaseNorm with the parameters computed on the same image
+    @param : if adapt == True we will test the adaptative model
+    """
+    
+#    images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
+#    image_path =  os.path.join(images_path,'abd_aag_002276_624x544.jpg')
+    image_path =  os.path.join('data','Q23898.jpg')
+    #init_image = tf.convert_to_tensor(load_crop_and_process_img(image_path))
+    init_image = load_crop_and_process_img(image_path)
+    # Fc2 of VGG
+    # Add a layer where input is the output of the  second last layer 
+    vgg_full = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
+#    print(vgg_full.layers)
+    fc2_layer = vgg_full.layers[-2].output
+    
+    #Then create the corresponding model 
+    vgg_fc2_model = tf.keras.Model(inputs=vgg_full.input, outputs=fc2_layer)
+    vgg_fc2_model.trainable=False
+    fc2_original_vgg19 = vgg_fc2_model.predict(init_image)
+    print('fc2 shape',fc2_original_vgg19.shape)
+    
+    style_layers = ['block1_conv1',
+                'block2_conv1',
+                'block3_conv1', 
+                'block4_conv1', 
+                'block5_conv1'
+               ]
+    
+    for getBeforeReLU in [True]:
+        print('=== getBeforeReLU :',getBeforeReLU,' ===')
+        # Load the model that compute cov matrices and mean
+        vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
+        vgg_cov_mean = vgg_get_cov.predict(init_image, batch_size=1)
+        vgg_mean_vars_values = []
+        for l,layer in enumerate(style_layers):
+            cov = vgg_cov_mean[2*l]
+            cov = np.squeeze(cov,axis=0) 
+            mean = vgg_cov_mean[2*l+1]
+            mean = mean.reshape((mean.shape[1],))
+            stds = np.sqrt(np.diag(cov))
+            vgg_mean_vars_values += [[mean,stds]]
+        
+
+        VGGBaseNorm = vgg_BaseNorm(style_layers,vgg_mean_vars_values,vgg_mean_vars_values,final_layer='fc2',
+                                   getBeforeReLU=getBeforeReLU)
+        #print(VGGInNorm.summary())
+        #sess.run(tf.global_variables_initializer())
+    #    sess.run(tf.local_variables_initializer())
+        for i in range(2):
+            output_VGGBaseNorm = VGGBaseNorm.predict(init_image)
+            print(i,'First elts AdaIn run',output_VGGBaseNorm[0,0:5])
+    #    output_VGGInNorm = sess.run(vgg_fc2_model(init_image))
+        print('output_VGGInNorm shape',output_VGGBaseNorm.shape)
+        
+        print('Equal fc2vgg  fc2VGGInNorm ? :',np.all(np.equal(output_VGGBaseNorm, fc2_original_vgg19)))
+        print('max abs(a-b)',np.max(np.abs(output_VGGBaseNorm - fc2_original_vgg19)))
+        print('max abs(a-b)/abs(a)',np.max(np.abs(output_VGGBaseNorm - fc2_original_vgg19)/np.abs(fc2_original_vgg19+10**(-16))))
+        print(' norm2(a-b)/norm2(a)',np.linalg.norm(output_VGGBaseNorm - fc2_original_vgg19)/np.linalg.norm(fc2_original_vgg19+10**(-16)))
+        print('First elts of VGGInNorm and original net',output_VGGBaseNorm[0,0:5],fc2_original_vgg19[0,0:5])
     
 def topn(x,n=5):
     return(x[np.argsort(x)[-n:]])

@@ -30,6 +30,18 @@ from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
     load_crop_and_process_img,get_VGGmodel_gram_mean_features
 
+
+### To copy only the image from the dataset
+#dataset='watercolor'
+#item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+#path_data,Not_on_NicolasPC = get_database(dataset)
+#images_in_set = df_label[item_name].values
+#import shutil
+#for name_img in images_in_set:
+#    src = os.path.join(os.sep,'media','gonthier','HDD','data','cross-domain-detection','datasets','watercolor','JPEGImagesAll',name_img+'.jpg')
+#    dst = os.path.join(images_path,name_img+'.jpg')
+#    shutil.copyfile(src, dst)
+
 keras_vgg_layers= ['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
                 'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
                 'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
@@ -42,21 +54,11 @@ def numeral_layers_index(style_layers):
         string+= str(keras_vgg_layers.index(elt))
     return(string)
 
-def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
-                        dataset='ImageNet',set='',saveformat='h5',whatToload='var',
-                        getBeforeReLU=False):
+
+def get_list_im(dataset,set=''):
     """
-    In this function we precompute the mean and cov for certain dataset
-    @param : whatToload mention what you want to load by default only return variances
-    """
-    if not(whatToload in ['var','cov','mean','covmean','varmean','all','']):
-        print(whatToload,'is not known')
-        raise(NotImplementedError)
-    
-    if saveformat=='h5':
-        # Create a storage file where data is to be stored
-        store = h5py.File(filename_path, 'a')
-    print('We will compute features')
+    Returns the list of images and the number of images
+    """    
     if dataset == 'ImageNet':
         ImageNet_val_path = os.path.join(os.sep,'media','gonthier','HDD2','data','IMAGENET','val')
         list_imgs = glob.glob(os.path.join(ImageNet_val_path,'*.JPEG'))
@@ -72,7 +74,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
     elif dataset == 'OIV5':
         images_path = os.path.join(os.sep,'media','gonthier','HDD2','data','OIV5','Images')
         list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
-    
+    # Attention si jamais tu fais pour les autres bases il faut verifier que tu n'as que les images du datasets dans le dossier en question
     if not(set is None or set==''):
         if dataset in ['ImageNet','OIV5']:
             print('Sorry we do not have the splitting information on ',dataset)
@@ -80,19 +82,45 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
         item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
         path_data,Not_on_NicolasPC = get_database(dataset)
         images_in_set = df_label[df_label['set']==set][item_name].values
+    else:
+        images_in_set = None
+    number_im_list = len(list_imgs)
+    return(list_imgs,images_in_set,number_im_list)
+    
+def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
+                        dataset='ImageNet',set='',saveformat='h5',whatToload='var',
+                        getBeforeReLU=False):
+    """
+    In this function we precompute the mean and cov for certain dataset
+    @param : whatToload mention what you want to load by default only return variances
+    """
+    if not(whatToload in ['var','cov','mean','covmean','varmean','all','']):
+        print(whatToload,'is not known')
+        raise(NotImplementedError)
+    
+    if saveformat=='h5':
+        # Create a storage file where data is to be stored
+        store = h5py.File(filename_path, 'a')
+    print('We will compute features')
+    list_imgs,images_in_set,number_im_list = get_list_im(dataset)
     
     # 6000 images pour IconArt
     # Un peu moins de 8700 images pour ArtUK
     # On devrait faire un test à 10000 
-    
-    if number_im_considered >= 10:
-        if not(np.isinf(number_im_considered)):
-            itera = number_im_considered//10
+    if not(number_im_considered is None):
+        if number_im_considered >= 10:
+            if not(np.isinf(number_im_considered)):
+                itera = number_im_considered//10
+            else:
+                itera =1000
         else:
-            itera =1000
+            itera=1
     else:
-        itera=1
-    print('Number of images :',len(list_imgs))
+        itera=1000
+    print('Number of images :',number_im_list)
+    if not(number_im_considered is None):
+        if number_im_considered >= number_im_list:
+            number_im_considered =None
     dict_output = {}
     dict_var = {}
     
@@ -101,7 +129,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
     for l,layer in enumerate(style_layers):
         dict_var[layer] = []
     for i,image_path in enumerate(list_imgs):
-        if not(number_im_considered is None) and i < number_im_considered:
+        if number_im_considered is None or i < number_im_considered:
             if i%itera==0: print(i,image_path)
             head, tail = os.path.split(image_path)
             short_name = '.'.join(tail.split('.')[0:-1])
@@ -288,6 +316,9 @@ def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
 #    vgg_inter =  get_intermediate_layers_vgg(style_layers) 
     
     set = None
+    
+    
+    
     dict_of_dict = {}
 #    config = tf.ConfigProto()
 #    config.gpu_options.allow_growth = True
@@ -295,36 +326,44 @@ def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
 #    sess = tf.Session(config=config)
 #    sess.run(tf.global_variables_initializer())
 #    sess.run(tf.local_variables_initializer())
-    if printoutput=='Var':
-        whatToload= 'var'
-    elif printoutput=='Mean':
-        whatToload= 'mean' 
-    for dataset in dataset_tab:
-        print('===',dataset,'===')
-        str_layers = numeral_layers_index(style_layers)
-        filename = dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
-        if not(set=='' or set is None):
-            filename += '_'+set
-        if getBeforeReLU:
-            filename += '_BeforeReLU'
-        if saveformat=='pkl':
-            filename += '.pkl'
-        if saveformat=='h5':
-            filename += '.h5'
-        filename_path= os.path.join(output_path,filename)
-        
-        if not os.path.isfile(filename_path):
-            dict_var = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
-                                           dataset=dataset,set=set,saveformat=saveformat,
-                                           whatToload=whatToload,getBeforeReLU=getBeforeReLU)
-            dict_of_dict[dataset] = dict_var
-        else:
-            print('We will load the features ')
-            dict_var =load_precomputed_mean_cov(filename_path,style_layers,dataset,
-                                                saveformat=saveformat,whatToload=whatToload)
-            dict_of_dict[dataset] = dict_var
-    
     for printoutput in list_printoutput:
+        if printoutput=='Var':
+            whatToload= 'var'
+        elif printoutput=='Mean':
+            whatToload= 'mean' 
+        for dataset in dataset_tab:
+            print('===',dataset,'===')
+            list_imgs,images_in_set,number_im_list = get_list_im(dataset,set='')
+            if not(number_im_considered is None):
+                if number_im_considered >= number_im_list:
+                    number_im_considered_tmp =None
+                else:
+                    number_im_considered_tmp=number_im_considered
+            str_layers = numeral_layers_index(style_layers)
+            filename = dataset + '_' + str(number_im_considered_tmp) + '_CovMean'+\
+                '_'+str_layers
+            if not(set=='' or set is None):
+                filename += '_'+set
+            if getBeforeReLU:
+                filename += '_BeforeReLU'
+            if saveformat=='pkl':
+                filename += '.pkl'
+            if saveformat=='h5':
+                filename += '.h5'
+            filename_path= os.path.join(output_path,filename)
+            
+            if not os.path.isfile(filename_path):
+                dict_var = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered_tmp,\
+                                               dataset=dataset,set=set,saveformat=saveformat,
+                                               whatToload=whatToload,getBeforeReLU=getBeforeReLU)
+                dict_of_dict[dataset] = dict_var
+            else:
+                print('We will load the features ')
+                dict_var =load_precomputed_mean_cov(filename_path,style_layers,dataset,
+                                                    saveformat=saveformat,whatToload=whatToload)
+                dict_of_dict[dataset] = dict_var
+    
+    
         print('Start plotting ',printoutput)
         # Plot the histograms (one per kernel for the different layers and save all in a pdf file)
         pltname = 'Hist_of_'+printoutput+'_fm_'
@@ -404,8 +443,8 @@ if __name__ == '__main__':
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
-    Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,
-                        dataset_tab= ['ImageNet','Paintings','watercolor','IconArt_v1'],
+    Mom_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+                        dataset_tab= ['Paintings','watercolor','IconArt_v1','ImageNet'],
                         getBeforeReLU=True,printoutput=['Mean','Var'])
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     

@@ -50,8 +50,8 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
                                     'block4_conv1', 
                                     'block5_conv1'
                                    ],normalisation=False,gridSearch=True,ReDo=False,\
-                                   transformOnFinalLayer='',number_im_considered = 10000,
-                                   getBeforeReLU=False):
+                                   transformOnFinalLayer='',number_im_considered = 1000,\
+                                   set='',getBeforeReLU=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -62,6 +62,7 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
     @param : constrNet the constrained net used
     TODO : VGGInNorm, VGGInNormAdapt seulement sur les features qui répondent trop fort, VGGGram
     @param : kind_method the type of methods we will use : TL or FT
+    @param : if we use a set to compute the statistics
     @param : getBeforeReLU=False if True we will impose the statistics before the activation ReLU fct
     """
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset)
@@ -79,6 +80,10 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
     name_base = constrNet + '_'  +target_dataset +'_'
     if not(constrNet=='VGG'):
         name_base += source_dataset +str(number_im_considered)+ '_' + num_layers
+    if not(set=='' or set is None):
+        name_base += '_'+set
+    if getBeforeReLU:
+        name_base += '_BeforeReLU'
     name_base +=  features 
     if not((transformOnFinalLayer is None) or (transformOnFinalLayer=='')):
        name_base += '_'+     transformOnFinalLayer
@@ -103,7 +108,7 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
             elif constrNet=='VGGInNorm' or constrNet=='VGGInNormAdapt':
                 whatToload = 'varmean'
                 dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU)
+                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
                 # Compute the reference statistics
                 vgg_mean_stds_values = compute_ref_stats(dict_stats,style_layers,type_ref='mean',\
                                                      imageUsed='all',whatToload =whatToload,
@@ -277,20 +282,23 @@ def RunAllEvaluation(dataset='Paintings'):
         features_list = ['fc2','fc1']
         net_tab = ['VGGInNorm','VGGInNormAdapt']
         number_im_considered_tab = [1000]
-        for constrNet in net_tab:
-            for final_clf in final_clf_list:
-                for style_layers in style_layers_tab:
-                    for features in features_list:
-                        for number_im_considered in number_im_considered_tab:
+        for getBeforeReLU in [True,False]:
+            for constrNet in net_tab:
+                for final_clf in final_clf_list:
+                    for style_layers in style_layers_tab:
+                        for features in features_list:
+                            for number_im_considered in number_im_considered_tab:
+                                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                       constrNet,kind_method,style_layers,gridSearch=False,
+                                       number_im_considered=number_im_considered,\
+                                       normalisation=normalisation,getBeforeReLU=getBeforeReLU)
+                         # Pooling on last conv block
+                        for transformOnFinalLayer in transformOnFinalLayer_tab:
+                            features = 'block5_pool'
                             learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers,gridSearch=False,
-                                   number_im_considered=number_im_considered,normalisation=normalisation)
-                     # Pooling on last conv block
-                    for transformOnFinalLayer in transformOnFinalLayer_tab:
-                        features = 'block5_pool'
-                        learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers,gridSearch=False,
-                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
+                                       constrNet,kind_method,style_layers,gridSearch=False,
+                                       normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+                                       transformOnFinalLayer=transformOnFinalLayer)
                     
                 
                        
