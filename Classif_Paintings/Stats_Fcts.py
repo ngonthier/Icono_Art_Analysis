@@ -23,7 +23,7 @@ from tensorflow.python.keras.layers import Layer,GlobalMaxPooling2D,GlobalAverag
 from tensorflow.python.keras.layers import concatenate
 from tensorflow.python.keras.backend import expand_dims
 from tensorflow.python.ops import math_ops
-from keras.applications.imagenet_utils import decode_predictions
+from tensorflow.python.keras.applications.imagenet_utils import decode_predictions
 
 #from custom_pooling import GlobalMinPooling2D
 
@@ -310,6 +310,13 @@ class HomeMade_BatchNormalisation(Layer):
         assert isinstance(input_shape, list)
         return input_shape
     
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(HomeMade_BatchNormalisation, self).get_config()
+        config['beta'] = self.beta
+        config['gamma'] = self.gamma
+        config['epsilon'] = self.epsilon
+        return(config)
+    
 class HomeMade_adapt_BatchNormalisation(Layer):
 
     def __init__(self,beta,gamma,epsilon = 0.00001, **kwargs):
@@ -325,7 +332,6 @@ class HomeMade_adapt_BatchNormalisation(Layer):
     def call(self, x):
         mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
         std = math_ops.sqrt(variance)
-#        comparison = tf.math.greater(std,self.gamma) # Returns the truth value of (x > y) element-wise.
         comparison = tf.greater_equal(std,tf.cast(self.gamma,tf.float32)) # Returns the truth value of (x > y) element-wise.
         float_comp = tf.cast(comparison,tf.float32)
         feature_maps_modified =  (((x - mean) * self.gamma  )/ (std+self.epsilon))  + self.beta
@@ -336,10 +342,16 @@ class HomeMade_adapt_BatchNormalisation(Layer):
         assert isinstance(input_shape, list)
         return input_shape
     
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(HomeMade_adapt_BatchNormalisation, self).get_config()
+        config['beta'] = self.beta
+        config['gamma'] = self.gamma
+        config['epsilon'] = self.epsilon
+        return(config)
+    
 class Mean_Matrix_Layer(Layer):
 
     def __init__(self, **kwargs):
-
         super(Mean_Matrix_Layer, self).__init__(**kwargs)
 
     def build(self,input_shape):
@@ -359,7 +371,6 @@ class Mean_Matrix_Layer(Layer):
 class Cov_Matrix_Layer(Layer):
 
     def __init__(self, **kwargs):
-
         super(Cov_Matrix_Layer, self).__init__(**kwargs)
 
     def build(self,input_shape):
@@ -376,6 +387,9 @@ class Cov_Matrix_Layer(Layer):
         assert isinstance(input_shape, list)
         b,k1,k2,c = input_shape[0]
         return (b,c,c)
+    
+    
+    
 ### To get the Covariance matrices    
 def get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=False):
   """Helper function to compute the Gram matrix and mean of feature representations 
@@ -485,6 +499,10 @@ def vgg_InNorm(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNor
   vgg.trainable = False
   i = 0
   
+  if getBeforeReLU: 
+      custom_objects = {}
+      custom_objects['HomeMade_BatchNormalisation']= HomeMade_BatchNormalisation
+  
   otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D','GlobalMinPooling2D']
   if not(transformOnFinalLayer in otherOutputPorposed):
       print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
@@ -531,13 +549,14 @@ def vgg_InNorm(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNor
               model.add(GlobalAveragePooling2D())
       break
   
-  if getBeforeReLU:# refresh the non linearity 
-      model = utils.apply_modifications(model)
-    
   model_outputs = model.output
-  model.trainable = False
+  Model_final = models.Model(model.input, model_outputs)
+  if getBeforeReLU:# refresh the non linearity 
+       Model_final = utils_keras.apply_modifications(Model_final,custom_objects=custom_objects,include_optimizer=False)
+  
+  Model_final.trainable = False
  
-  return(models.Model(model.input, model_outputs)) 
+  return(Model_final) 
   
 def vgg_InNorm_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
                          HomeMadeBatchNorm=True,transformOnFinalLayer=None,
@@ -552,6 +571,10 @@ def vgg_InNorm_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
   vgg_layers = vgg.layers
   vgg.trainable = False
   i = 0
+  
+  if getBeforeReLU: 
+      custom_objects = {}
+      custom_objects['HomeMade_adapt_BatchNormalisation']= HomeMade_adapt_BatchNormalisation
   
   otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D','GlobalMinPooling2D']
   if not(transformOnFinalLayer in otherOutputPorposed):
@@ -601,13 +624,14 @@ def vgg_InNorm_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
               model.add(GlobalAveragePooling2D())
       break
   
+  model_outputs = model.output
+  Model_final = models.Model(model.input, model_outputs)
   if getBeforeReLU:# refresh the non linearity 
-      model = utils.apply_modifications(model)
-    
-  model_outputs = model.output   
-  model.trainable = False
+      Model_final = utils_keras.apply_modifications(Model_final,custom_objects=custom_objects,include_optimizer=False)
+  
+  Model_final.trainable = False
  
-  return(models.Model(model.input, model_outputs)) 
+  return(Model_final) 
 
 
 
@@ -694,9 +718,11 @@ def get_1st_2nd_moments_features(model,img_path):
     list_moments += [moments]
   return list_moments
 
-def unity_test_of_vgg_InNorm():
+def unity_test_of_vgg_InNorm(adapt=False):
     """ In this function we compare the fc2 for VGG19 of a given image
-    and the fc2 of the vgg_InNorm with the parameters computed on the same image"""
+    and the fc2 of the vgg_InNorm with the parameters computed on the same image
+    @param : if adapt == True we will test the adaptative model
+    """
     
 #    images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
 #    image_path =  os.path.join(images_path,'abd_aag_002276_624x544.jpg')
@@ -721,37 +747,41 @@ def unity_test_of_vgg_InNorm():
                 'block4_conv1', 
                 'block5_conv1'
                ]
-
-    num_style_layers = len(style_layers)
     
-    # Load the model that compute cov matrices and mean
-    vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers)
-    vgg_cov_mean = vgg_get_cov.predict(init_image, batch_size=1)
-    vgg_mean_vars_values = []
-    for l,layer in enumerate(style_layers):
-        cov = vgg_cov_mean[2*l]
-        cov = np.squeeze(cov,axis=0) 
-        mean = vgg_cov_mean[2*l+1]
-        mean = mean.reshape((mean.shape[1],))
-        stds = np.sqrt(np.diag(cov))
-        vgg_mean_vars_values += [[mean,stds]]
-    
-    VGGInNorm = vgg_InNorm(style_layers,vgg_mean_vars_values,final_layer='fc2',
-                         HomeMadeBatchNorm=True)
-    #print(VGGInNorm.summary())
-    #sess.run(tf.global_variables_initializer())
-#    sess.run(tf.local_variables_initializer())
-    for i in range(2):
-        output_VGGInNorm = VGGInNorm.predict(init_image)
-        print(i,'First elts AdaIn run',output_VGGInNorm[0,0:5])
-#    output_VGGInNorm = sess.run(vgg_fc2_model(init_image))
-    print('output_VGGInNorm shape',output_VGGInNorm.shape)
-    
-    print('Equal fc2vgg  fc2VGGInNorm ? :',np.all(np.equal(output_VGGInNorm, fc2_original_vgg19)))
-    print('max abs(a-b)',np.max(np.abs(output_VGGInNorm - fc2_original_vgg19)))
-    print('max abs(a-b)/abs(a)',np.max(np.abs(output_VGGInNorm - fc2_original_vgg19)/np.abs(fc2_original_vgg19+10**(-16))))
-    print(' norm2(a-b)/norm2(a)',np.linalg.norm(output_VGGInNorm - fc2_original_vgg19)/np.linalg.norm(fc2_original_vgg19+10**(-16)))
-    print('First elts',output_VGGInNorm[0,0:5],fc2_original_vgg19[0,0:5])
+    for getBeforeReLU in [False,True]:
+        print('=== getBeforeReLU :',getBeforeReLU,' ===')
+        # Load the model that compute cov matrices and mean
+        vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
+        vgg_cov_mean = vgg_get_cov.predict(init_image, batch_size=1)
+        vgg_mean_vars_values = []
+        for l,layer in enumerate(style_layers):
+            cov = vgg_cov_mean[2*l]
+            cov = np.squeeze(cov,axis=0) 
+            mean = vgg_cov_mean[2*l+1]
+            mean = mean.reshape((mean.shape[1],))
+            stds = np.sqrt(np.diag(cov))
+            vgg_mean_vars_values += [[mean,stds]]
+        
+        if adapt:
+            VGGInNorm = vgg_InNorm_adaptative(style_layers,vgg_mean_vars_values,final_layer='fc2',
+                             HomeMadeBatchNorm=True,getBeforeReLU=getBeforeReLU)
+        else:
+            VGGInNorm = vgg_InNorm(style_layers,vgg_mean_vars_values,final_layer='fc2',
+                             HomeMadeBatchNorm=True,getBeforeReLU=getBeforeReLU)
+        #print(VGGInNorm.summary())
+        #sess.run(tf.global_variables_initializer())
+    #    sess.run(tf.local_variables_initializer())
+        for i in range(2):
+            output_VGGInNorm = VGGInNorm.predict(init_image)
+            print(i,'First elts AdaIn run',output_VGGInNorm[0,0:5])
+    #    output_VGGInNorm = sess.run(vgg_fc2_model(init_image))
+        print('output_VGGInNorm shape',output_VGGInNorm.shape)
+        
+        print('Equal fc2vgg  fc2VGGInNorm ? :',np.all(np.equal(output_VGGInNorm, fc2_original_vgg19)))
+        print('max abs(a-b)',np.max(np.abs(output_VGGInNorm - fc2_original_vgg19)))
+        print('max abs(a-b)/abs(a)',np.max(np.abs(output_VGGInNorm - fc2_original_vgg19)/np.abs(fc2_original_vgg19+10**(-16))))
+        print(' norm2(a-b)/norm2(a)',np.linalg.norm(output_VGGInNorm - fc2_original_vgg19)/np.linalg.norm(fc2_original_vgg19+10**(-16)))
+        print('First elts of VGGInNorm and original net',output_VGGInNorm[0,0:5],fc2_original_vgg19[0,0:5])
     
 def topn(x,n=5):
     return(x[np.argsort(x)[-n:]])

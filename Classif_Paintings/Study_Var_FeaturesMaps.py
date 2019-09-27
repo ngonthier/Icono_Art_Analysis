@@ -97,12 +97,6 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
     dict_var = {}
     
     vgg_get_cov =  get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
-    print(vgg_get_cov.summary())
-    
-    for layer in vgg_get_cov.layers:
-        print(layer.name)
-        if 'conv' in layer.name:
-            print('activ',layer.activation)
     
     for l,layer in enumerate(style_layers):
         dict_var[layer] = []
@@ -268,9 +262,13 @@ def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
         if == np.inf we will use all the image in the folder of the dataset
     @param : printoutput : print in a pdf the output Var or Mean
     """
-    if not(printoutput in ['Var','Mean']):
-        print(printoutput,"is unknown. It must be 'Var' or 'Mean'")
+    if not(printoutput in ['Var','Mean',['Mean','Var']]):
+        print(printoutput,"is unknown. It must be 'Var' or 'Mean' or this of those two terms.")
         raise(NotImplementedError)
+    if type(printoutput)==list:
+        list_printoutput = printoutput
+    else:
+        list_printoutput = [printoutput]
 
     if dataset_tab is None:
         dataset_tab = ['ImageNet','Paintings','watercolor','IconArt_v1','OIV5']
@@ -326,88 +324,89 @@ def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
                                                 saveformat=saveformat,whatToload=whatToload)
             dict_of_dict[dataset] = dict_var
     
-    print('Start plotting ',printoutput)
-    # Plot the histograms (one per kernel for the different layers and save all in a pdf file)
-    pltname = 'Hist_of_'+printoutput+'_fm_'
-    labels = []
-    for dataset in dataset_tab:
-        pltname +=  dataset+'_'
-        if dataset == 'ImageNet':
-            labels += ['ImNet']
-        elif dataset == 'Paintings':
-            labels += ['ArtUK']
-        elif dataset == 'watercolor':
-            labels += ['w2k']
-        elif dataset == 'IconArt_v1':
-            labels += ['icon']
-        elif dataset == 'OIV5':
-            labels += ['OIV5']
-    pltname +=  str(number_im_considered)
-    if getBeforeReLU:
-        pltname+= '_BeforeReLU'
-        
-    pltname +='.pdf'
-    pltname= os.path.join(output_path,pltname)
-    pp = PdfPages(pltname)
-    
-    alpha=0.7
-    n_bins = 100
-    colors_full = ['red','green','blue','purple','orange']
-    colors = colors_full[0:len(dataset_tab)]
-    
-#    style_layers = [style_layers[0]]
-    
-    # Turn interactive plotting off
-    plt.ioff()
-    
-    for l,layer in enumerate(style_layers):
-        print("Layer",layer)
-        tab_vars = []
-        for dataset in dataset_tab: 
-            vars_ = dict_of_dict[dataset][layer]
-            num_images,num_features = vars_.shape
-            print('num_images,num_features ',num_images,num_features )
-            tab_vars +=[vars_]
- 
-        number_img_w = 4
-        number_img_h= 4
-        num_pages = num_features//(number_img_w*number_img_h)
-        for p in range(num_pages):
-            #f = plt.figure()  # Do I need this ?
-            axes = []
-            gs00 = gridspec.GridSpec(number_img_h, number_img_w)
-            for j in range(number_img_w*number_img_h):
-                ax = plt.subplot(gs00[j])
-                axes += [ax]
-            for k,ax in enumerate(axes):
-                f_k = k + p*number_img_w*number_img_h
-                xtab = []
-                for l in range(len(dataset_tab)):
-#                    x = np.vstack([tab_vars[0][:,f_k],tab_vars[1][:,f_k]])# Each line is a dataset 
-#                    x = x.reshape((-1,2))
-                    vars_values = tab_vars[l][:,f_k].reshape((-1,))
-                    xtab += [vars_values]
-                im = ax.hist(xtab,n_bins, density=True, histtype='step',color=colors,\
-                             stacked=False,alpha=alpha,label=labels)
-                ax.tick_params(axis='both', which='major', labelsize=3)
-                ax.tick_params(axis='both', which='minor', labelsize=3)
-                ax.legend(loc='upper right', prop={'size': 2})
-            titre = layer +' ' +str(p)
-            plt.suptitle(titre)
+    for printoutput in list_printoutput:
+        print('Start plotting ',printoutput)
+        # Plot the histograms (one per kernel for the different layers and save all in a pdf file)
+        pltname = 'Hist_of_'+printoutput+'_fm_'
+        labels = []
+        for dataset in dataset_tab:
+            pltname +=  dataset+'_'
+            if dataset == 'ImageNet':
+                labels += ['ImNet']
+            elif dataset == 'Paintings':
+                labels += ['ArtUK']
+            elif dataset == 'watercolor':
+                labels += ['w2k']
+            elif dataset == 'IconArt_v1':
+                labels += ['icon']
+            elif dataset == 'OIV5':
+                labels += ['OIV5']
+        pltname +=  str(number_im_considered)
+        if getBeforeReLU:
+            pltname+= '_BeforeReLU'
             
-            #gs0.tight_layout(f)
-            plt.savefig(pp, format='pdf')
-            plt.close()
-    pp.close()
-    plt.clf()
+        pltname +='.pdf'
+        pltname= os.path.join(output_path,pltname)
+        pp = PdfPages(pltname)
+        
+        alpha=0.7
+        n_bins = 100
+        colors_full = ['red','green','blue','purple','orange']
+        colors = colors_full[0:len(dataset_tab)]
+        
+    #    style_layers = [style_layers[0]]
+        
+        # Turn interactive plotting off
+        plt.ioff()
+        
+        for l,layer in enumerate(style_layers):
+            print("Layer",layer)
+            tab_vars = []
+            for dataset in dataset_tab: 
+                vars_ = dict_of_dict[dataset][layer]
+                num_images,num_features = vars_.shape
+                print('num_images,num_features ',num_images,num_features )
+                tab_vars +=[vars_]
+     
+            number_img_w = 4
+            number_img_h= 4
+            num_pages = num_features//(number_img_w*number_img_h)
+            for p in range(num_pages):
+                #f = plt.figure()  # Do I need this ?
+                axes = []
+                gs00 = gridspec.GridSpec(number_img_h, number_img_w)
+                for j in range(number_img_w*number_img_h):
+                    ax = plt.subplot(gs00[j])
+                    axes += [ax]
+                for k,ax in enumerate(axes):
+                    f_k = k + p*number_img_w*number_img_h
+                    xtab = []
+                    for l in range(len(dataset_tab)):
+    #                    x = np.vstack([tab_vars[0][:,f_k],tab_vars[1][:,f_k]])# Each line is a dataset 
+    #                    x = x.reshape((-1,2))
+                        vars_values = tab_vars[l][:,f_k].reshape((-1,))
+                        xtab += [vars_values]
+                    im = ax.hist(xtab,n_bins, density=True, histtype='step',color=colors,\
+                                 stacked=False,alpha=alpha,label=labels)
+                    ax.tick_params(axis='both', which='major', labelsize=3)
+                    ax.tick_params(axis='both', which='minor', labelsize=3)
+                    ax.legend(loc='upper right', prop={'size': 2})
+                titre = layer +' ' +str(p)
+                plt.suptitle(titre)
+                
+                #gs0.tight_layout(f)
+                plt.savefig(pp, format='pdf')
+                plt.close()
+        pp.close()
+        plt.clf()
     
 if __name__ == '__main__':         
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
-    Mom_of_featuresMaps(saveformat='h5',number_im_considered =100,
-                        dataset_tab=  ['ImageNet'],
-                        getBeforeReLU=True,printoutput='Mean')
+    Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,
+                        dataset_tab= ['ImageNet','Paintings','watercolor','IconArt_v1'],
+                        getBeforeReLU=True,printoutput=['Mean','Var'])
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     
