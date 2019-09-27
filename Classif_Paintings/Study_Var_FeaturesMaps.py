@@ -97,6 +97,12 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
     dict_var = {}
     
     vgg_get_cov =  get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
+    print(vgg_get_cov.summary())
+    
+    for layer in vgg_get_cov.layers:
+        print(layer.name)
+        if 'conv' in layer.name:
+            print('activ',layer.activation)
     
     for l,layer in enumerate(style_layers):
         dict_var[layer] = []
@@ -251,10 +257,10 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                                             saveformat=saveformat,whatToload=whatToload)
     return(dict_stats)
 
-def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None
+def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None
                         ,getBeforeReLU=False,printoutput='Var'):
     """
-    In this function we will compute the Gram Matrix for two subsets
+    In this function we will compute the first or second moments for two subsets
     a small part of ImageNet validation set 
     Paintings datasets
     @param : saveformat use h5 if you use more than 1000 images
@@ -320,7 +326,7 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
                                                 saveformat=saveformat,whatToload=whatToload)
             dict_of_dict[dataset] = dict_var
     
-    print('Start plotting')
+    print('Start plotting ',printoutput)
     # Plot the histograms (one per kernel for the different layers and save all in a pdf file)
     pltname = 'Hist_of_'+printoutput+'_fm_'
     labels = []
@@ -396,13 +402,13 @@ def Var_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
     plt.clf()
     
 if __name__ == '__main__':         
-    #Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
-    #Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
-    #Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
-    Var_of_featuresMaps(saveformat='h5',number_im_considered =1000,
-                        dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'],
-                        getBeforeReLU=True)
-    #Var_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+    #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
+    #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
+    #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+    Mom_of_featuresMaps(saveformat='h5',number_im_considered =100,
+                        dataset_tab=  ['ImageNet'],
+                        getBeforeReLU=True,printoutput='Mean')
+    #Mom_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     
         

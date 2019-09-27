@@ -16,6 +16,8 @@ from tensorflow.python.keras import activations
 from tensorflow.python.keras.layers import Activation
 from tensorflow.python.keras import layers
 from tensorflow.python.keras import utils
+import utils_keras
+from tensorflow.python.keras import Model
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.layers import Layer,GlobalMaxPooling2D,GlobalAveragePooling2D
 from tensorflow.python.keras.layers import concatenate
@@ -399,17 +401,23 @@ def get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=False):
   # Get output layers corresponding to style and content layers 
   list_stats = []
   i = 0
+  
+  if getBeforeReLU: 
+      custom_objects = {}
+      custom_objects['Mean_Matrix_Layer']= Mean_Matrix_Layer
+      custom_objects['Cov_Matrix_Layer']= Cov_Matrix_Layer
+  
   for layer in vgg_layers:
       name_layer = layer.name
       if name_layer==style_layers[i]:
           if getBeforeReLU:
               layer.activation = activations.linear # i.e. identity
-              
-          output = layer.output
+          model.add(layer)
+            
+          output = model.output
           mean_layer = Mean_Matrix_Layer()(output)
           cov_layer = Cov_Matrix_Layer()([output,mean_layer])
           list_stats += [cov_layer,mean_layer]
-          model.add(layer)
           
           if getBeforeReLU:
               model.add(Activation('relu'))
@@ -421,9 +429,9 @@ def get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=False):
          model.add(layer)
   
   model = models.Model(model.input,list_stats)
-  if getBeforeReLU: 
-      model = utils.apply_modifications(model) # TODO trouver comme faire cela avec tf keras
-#    
+  model.trainable = False
+  if getBeforeReLU:
+      model = utils_keras.apply_modifications(model,custom_objects=custom_objects,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
   return(model)
 
 
