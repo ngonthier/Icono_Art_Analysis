@@ -444,7 +444,7 @@ if __name__ == '__main__':
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     Mom_of_featuresMaps(saveformat='h5',number_im_considered =10000,
-                        dataset_tab= ['Paintings','watercolor','IconArt_v1','ImageNet'],
+                        dataset_tab= ['ImageNet','Paintings','watercolor','IconArt_v1'],
                         getBeforeReLU=True,printoutput=['Mean','Var'])
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     

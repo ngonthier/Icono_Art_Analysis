@@ -99,6 +99,7 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
         name_pkl_values = os.path.join(output_path,name_pkl_values)
         
         if not os.path.isfile(name_pkl_values):
+            print('== We will compute the reference statistics ==')
             features_net = None
             im_net = []
             # Load Network 
@@ -128,6 +129,7 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
             else:
                 raise(NotImplementedError)
             
+            print('== We will compute the bottleneck features ==')
             # Compute bottleneck features on the target dataset
             for i,name_img in  enumerate(df_label[item_name]):
                 im_path =  os.path.join(path_to_img,name_img+'.jpg')
@@ -203,7 +205,7 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
     AP_per_class,P_per_class,R_per_class,P20_per_class = metrics
     
     print(target_dataset,source_dataset,number_im_considered,final_clf,features,transformOnFinalLayer,\
-          constrNet,kind_method,'GS',gridSearch,'norm',normalisation)
+          constrNet,kind_method,'GS',gridSearch,'norm',normalisation,'getBeforeReLU',getBeforeReLU)
     print(style_layers)
     print(arrayToLatex(AP_per_class,per=True))
     
@@ -306,4 +308,4 @@ def RunAllEvaluation(dataset='Paintings'):
     
 if __name__ == '__main__': 
     # Ce que l'on 
-    learn_and_eval()
+    RunAllEvaluation()
