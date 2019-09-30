@@ -13,7 +13,7 @@ from trouver_classes_parmi_K import TrainClassif
 import numpy as np
 import os.path
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index
-from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,load_crop_and_process_img
+from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,load_crop_and_process_img
 from IMDB import get_database
 import pickle
 import pathlib
@@ -42,6 +42,52 @@ def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatTolo
                     vgg_stats_values += [[mean_of_means,mean_of_vars]]
                     # To return vgg_mean_vars_values
     return(vgg_stats_values)
+
+def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
+                                    style_layers,\
+                                    list_mean_and_std_source,whatToload,saveformat='h5',\
+                                    getBeforeReLU=False,target_set='trainval',applySqrtOnVar=True):
+    """
+    The goal of this function is to compute a version of the statistics of the 
+    features of the VGG 
+    """
+    dict_stats_coherent = {} 
+    for i_layer,layer_name in enumerate(style_layers):
+        #print(i_layer,layer_name)
+        if i_layer==0:
+            style_layers_firstLayer = [layer_name]
+            dict_stats_target0 = get_dict_stats(target_dataset,target_number_im_considered,\
+                                                style_layers_firstLayer,\
+                                                whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,\
+                                                set=target_set)
+            dict_stats_coherent[layer_name] = dict_stats_target0[layer_name]
+            list_mean_and_std_target_i_m1 = compute_ref_stats(dict_stats_target0,\
+                                            style_layers_firstLayer,type_ref='mean',\
+                                            imageUsed='all',whatToload=whatToload,\
+                                            applySqrtOnVar=applySqrtOnVar)
+            current_list_mean_and_std_target = list_mean_and_std_target_i_m1
+        else:
+            list_mean_and_std_source_i = list_mean_and_std_source[0:i_layer]
+            style_layers_imposed = style_layers[0:i_layer]
+            style_layers_exported = [style_layers[i_layer]]
+            list_mean_and_std_source_i = list_mean_and_std_source[0:i_layer]
+            
+            dict_stats_target_i = get_dict_stats(target_dataset,target_number_im_considered,\
+                                                 style_layers=style_layers_exported,whatToload=whatToload,\
+                                                 saveformat='h5',getBeforeReLU=getBeforeReLU,\
+                                                 set=target_set,Net='VGGBaseNormCoherent',\
+                                                 style_layers_imposed=style_layers_imposed,\
+                                                 list_mean_and_std_source=list_mean_and_std_source_i,\
+                                                 list_mean_and_std_target=current_list_mean_and_std_target)
+            dict_stats_coherent[layer_name] = dict_stats_target_i[layer_name]
+            # Compute the next statistics 
+            list_mean_and_std_target_i = compute_ref_stats(dict_stats_target_i,\
+                                            style_layers_exported,type_ref='mean',\
+                                            imageUsed='all',whatToload=whatToload,\
+                                            applySqrtOnVar=applySqrtOnVar)
+            current_list_mean_and_std_target += [list_mean_and_std_target_i[-1]]
+            
+    return(dict_stats_coherent,current_list_mean_and_std_target)
 
 def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,kind_method,
                    style_layers = ['block1_conv1',
@@ -100,6 +146,7 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
         
         if not os.path.isfile(name_pkl_values):
             print('== We will compute the reference statistics ==')
+            print('Saved in ',name_pkl_values)
             features_net = None
             im_net = []
             # Load Network 
@@ -126,6 +173,50 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
                                                             final_layer=final_layer,
                                                             transformOnFinalLayer=transformOnFinalLayer,
                                                             HomeMadeBatchNorm=True,getBeforeReLU=getBeforeReLU)
+            elif constrNet=='VGGBaseNorm':
+                whatToload = 'varmean'
+                dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
+                # Compute the reference statistics
+                list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
+                                                     imageUsed='all',whatToload =whatToload,
+                                                     applySqrtOnVar=True)
+                target_number_im_considered = None
+                target_set = 'trainval' # Todo ici
+                dict_stats_target = get_dict_stats(target_dataset,target_number_im_considered,style_layers,\
+                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=target_set)
+                # Compute the reference statistics
+                list_mean_and_std_target = compute_ref_stats(dict_stats_target,style_layers,type_ref='mean',\
+                                                     imageUsed='all',whatToload =whatToload,
+                                                     applySqrtOnVar=True)
+#                
+#                
+                network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
+                    list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
+                    getBeforeReLU=getBeforeReLU)
+                
+            elif constrNet=='VGGBaseNormCoherent':
+                # A more coherent way to compute the VGGBaseNormalisation
+                # We will pass the dataset several time through the net modify bit after bit to 
+                # get the coherent mean and std of the target domain
+                whatToload = 'varmean'
+                dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
+                # Compute the reference statistics
+                list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
+                                                     imageUsed='all',whatToload =whatToload,
+                                                     applySqrtOnVar=True)
+                target_number_im_considered = None
+                target_set = 'trainval'
+                dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
+                       style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
+                       getBeforeReLU=getBeforeReLU,target_set=target_set,\
+                       applySqrtOnVar=True) # It also computes the reference statistics (mean,var)
+                
+                network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
+                    list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
+                    getBeforeReLU=getBeforeReLU)
+            
             else:
                 raise(NotImplementedError)
             
@@ -248,24 +339,23 @@ def RunAllEvaluation(dataset='Paintings'):
         features_list = ['fc2','fc1','flatten'] # We want to do fc2, fc1, max spatial and concat max and min spatial
          # We want to do fc2, fc1, max spatial and concat max and min spatial
         # Normalisation and not normalise
-        net_tab = ['VGG','VGGInNorm']
         kind_method = 'TL'
         style_layers = []
         
         # Baseline with just VGG
-        constrNet = 'VGG'
-        for final_clf in final_clf_list:
-            for features in features_list:
-                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                           constrNet,kind_method,style_layers,gridSearch=False,
-                           normalisation=normalisation,transformOnFinalLayer='')
-            
-            # Pooling on last conv block
-            for transformOnFinalLayer in transformOnFinalLayer_tab:
-                features = 'block5_pool'
-                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                           constrNet,kind_method,style_layers,gridSearch=False,
-                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
+#        constrNet = 'VGG'
+#        for final_clf in final_clf_list:
+#            for features in features_list:
+#                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+#                           constrNet,kind_method,style_layers,gridSearch=False,
+#                           normalisation=normalisation,transformOnFinalLayer='')
+#            
+#            # Pooling on last conv block
+#            for transformOnFinalLayer in transformOnFinalLayer_tab:
+#                features = 'block5_pool'
+#                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+#                           constrNet,kind_method,style_layers,gridSearch=False,
+#                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
             
     #    constrNet = 'VGG'
     #    features = 'block5_pool'
@@ -279,10 +369,12 @@ def RunAllEvaluation(dataset='Paintings'):
         # With VGGInNorm
         style_layers_tab = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
                          ['block1_conv1'],['block1_conv1','block2_conv1']]
+        style_layers_tab = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                         ['block1_conv1','block2_conv1']]
         
         features_list = ['fc2','fc1','flatten']
         features_list = ['fc2','fc1']
-        net_tab = ['VGGInNorm','VGGInNormAdapt']
+        net_tab = ['VGGBaseNormCoherent','VGGBaseNorm','VGGInNorm','VGGInNormAdapt']
         number_im_considered_tab = [1000]
         for getBeforeReLU in [True,False]:
             for constrNet in net_tab:
@@ -290,15 +382,20 @@ def RunAllEvaluation(dataset='Paintings'):
                     for style_layers in style_layers_tab:
                         for features in features_list:
                             for number_im_considered in number_im_considered_tab:
+                                print('=== getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,'features',features,'number_im_considered',number_im_considered,'style_layers',style_layers)
                                 learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                        constrNet,kind_method,style_layers,gridSearch=False,
                                        number_im_considered=number_im_considered,\
                                        normalisation=normalisation,getBeforeReLU=getBeforeReLU)
-                         # Pooling on last conv block
+                       
+                        number_im_considered = 1000
+                        # Pooling on last conv block
                         for transformOnFinalLayer in transformOnFinalLayer_tab:
+                            print('=== getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,'features',features,'number_im_considered',number_im_considered,'style_layers',style_layers,'transformOnFinalLayer',transformOnFinalLayer)
                             features = 'block5_pool'
                             learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                        constrNet,kind_method,style_layers,gridSearch=False,
+                                       number_im_considered=number_im_considered,
                                        normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
                                        transformOnFinalLayer=transformOnFinalLayer)
                     

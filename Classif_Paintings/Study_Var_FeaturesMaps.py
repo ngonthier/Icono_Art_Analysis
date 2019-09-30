@@ -28,7 +28,7 @@ import h5py
 import tensorflow as tf
 from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
-    load_crop_and_process_img,get_VGGmodel_gram_mean_features
+    load_crop_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features
 
 
 ### To copy only the image from the dataset
@@ -81,15 +81,19 @@ def get_list_im(dataset,set=''):
             raise(NotImplementedError)
         item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
         path_data,Not_on_NicolasPC = get_database(dataset)
-        images_in_set = df_label[df_label['set']==set][item_name].values
+        if set=='trainval' or set=='trainvalidation':
+            images_in_set = np.concatenate([df_label[df_label['set']=='train'][item_name].values,df_label[df_label['set']==str_val][item_name].values])
+        else:
+            images_in_set = df_label[df_label['set']==set][item_name].values
     else:
         images_in_set = None
     number_im_list = len(list_imgs)
     return(list_imgs,images_in_set,number_im_list)
     
 def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
-                        dataset='ImageNet',set='',saveformat='h5',whatToload='var',
-                        getBeforeReLU=False):
+                        dataset='ImageNet',set='',saveformat='h5',whatToload='var',\
+                        getBeforeReLU=False,Net='VGG',style_layers_imposed=[],\
+                        list_mean_and_std_source=[],list_mean_and_std_target=[]):
     """
     In this function we precompute the mean and cov for certain dataset
     @param : whatToload mention what you want to load by default only return variances
@@ -102,7 +106,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
         # Create a storage file where data is to be stored
         store = h5py.File(filename_path, 'a')
     print('We will compute features')
-    list_imgs,images_in_set,number_im_list = get_list_im(dataset)
+    list_imgs,images_in_set,number_im_list = get_list_im(dataset,set=set)
     
     # 6000 images pour IconArt
     # Un peu moins de 8700 images pour ArtUK
@@ -124,7 +128,16 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
     dict_output = {}
     dict_var = {}
     
-    vgg_get_cov =  get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
+    if Net=='VGG':
+        vgg_get_cov =  get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
+    elif Net=='VGGBaseNorm' or Net=='VGGBaseNormCoherent':
+        style_layers_exported = style_layers
+        vgg_get_cov = get_BaseNorm_gram_mean_features(style_layers_exported,\
+                        style_layers_imposed,list_mean_and_std_source,list_mean_and_std_target,\
+                        getBeforeReLU=getBeforeReLU)
+    else:
+        print(Net,'is inknown')
+        raise(NotImplementedError)
     
     for l,layer in enumerate(style_layers):
         dict_var[layer] = []
@@ -252,9 +265,13 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
     return(dict_var)
 
 def get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                   whatToload,saveformat='h5',set='',getBeforeReLU=False):
+                   whatToload,saveformat='h5',set='',getBeforeReLU=False,\
+                   Net='VGG',style_layers_imposed=[],\
+                   list_mean_and_std_source=[],list_mean_and_std_target=[]):
     str_layers = numeral_layers_index(style_layers)
     filename = source_dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
+    if not(Net=='VGG'):
+        filename += '_'+Net + numeral_layers_index(style_layers_imposed)
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp')
     
     if os.path.isdir(output_path):
@@ -272,10 +289,14 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
         filename += '.h5'
     filename_path= os.path.join(output_path_full,filename)
     if not os.path.isfile(filename_path):
+        print('Need to compute :',filename_path)
         dict_stats = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
-                                       dataset=source_dataset,set=set,saveformat=saveformat,whatToload=whatToload)
+                                       dataset=source_dataset,set=set,saveformat=saveformat,\
+                                       whatToload=whatToload,Net=Net,style_layers_imposed=style_layers_imposed,\
+                                       list_mean_and_std_source=list_mean_and_std_source,\
+                                       list_mean_and_std_target=list_mean_and_std_target)
     else:
-        dict_stats = load_precomputed_mean_cov(filename_path,style_layers,source_dataset,
+        dict_stats = load_precomputed_mean_cov(filename_path,style_layers,source_dataset,\
                                             saveformat=saveformat,whatToload=whatToload)
     return(dict_stats)
 

@@ -270,8 +270,6 @@ class Cov_Mean_Matrix_Layer(Layer):
 
     def build(self,input_shape):
 #        input_shape = input_shape.as_list()
-        print(type(input_shape))
-        print(input_shape)
 #        assert isinstance(input_shape, list)
         super(Cov_Mean_Matrix_Layer, self).build(input_shape)  
         # Be sure to call this at the end
@@ -285,7 +283,7 @@ class Cov_Mean_Matrix_Layer(Layer):
     def compute_output_shape(self, input_shape):
         assert isinstance(input_shape, list)
         b,k1,k2,c = input_shape
-        print('in compute output shape',(b,c, c+1))
+#        print('in compute output shape',(b,c, c+1))
         return (b,c, c+1)
     
 class Global_Prescrib_Mean_Std(Layer):
@@ -296,9 +294,9 @@ class Global_Prescrib_Mean_Std(Layer):
 
     def __init__(self,mean_src,std_src,mean_tgt,std_tgt,epsilon = 0.00001, **kwargs):
         self.mean_src= mean_src # offset ie new mean
-        self.mean_tgt= mean_tgt 
+        self.mean_tgt= mean_tgt
         self.std_src = std_src # New std
-        self.std_tgt = std_tgt 
+        self.std_tgt = std_tgt
         self.epsilon = epsilon # Small float added to variance to avoid dividing by zero.
         super(Global_Prescrib_Mean_Std, self).__init__(**kwargs)
 
@@ -307,10 +305,8 @@ class Global_Prescrib_Mean_Std(Layer):
         # Be sure to call this at the end
 
     def call(self, x):
-        print(self.mean_tgt.shape,self.mean_src.shape,self.std_tgt.shape,self.std_src.shape)
-        print(x)
-        #   AttributeError: '_ListWrapper' object has no attribute 'shape'
-        output =  (((x - self.mean_tgt) * self.std_src  )/ (self.std_tgt+self.epsilon))  + self.mean_src 
+        std_tgt_plus_eps = tf.add(self.std_tgt,self.epsilon) 
+        output =  tf.add(tf.divide(tf.multiply(tf.add(x,tf.multiply(self.mean_tgt,-1.0)),self.std_src),(std_tgt_plus_eps)), self.mean_src)
         return output
 
     def compute_output_shape(self, input_shape):
@@ -486,7 +482,66 @@ def get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=False):
       model = utils_keras.apply_modifications(model,custom_objects=custom_objects,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
   return(model)
 
+def get_BaseNorm_gram_mean_features(style_layers_exported,style_layers_imposed,list_mean_and_std_source,\
+                                    list_mean_and_std_target,getBeforeReLU=False):
+  """Helper function to compute the Gram matrix and mean of feature representations 
+  from a modified VGG that have the features maps modified
+  
+  The gram matrices are computed 
 
+  This function will simply load and preprocess the images from their path. 
+  Then it will feed them through the network to obtain
+  the outputs of the intermediate layers. 
+  
+  Arguments:
+    model: The model that we are using.
+    img_path: The path to the image.
+    
+  Returns:
+    returns the features. 
+  """
+  model = tf.keras.Sequential()
+  VGGBaseNorm = vgg_BaseNorm(style_layers_imposed,list_mean_and_std_source,\
+                                   list_mean_and_std_target,final_layer='fc2',
+                                   getBeforeReLU=getBeforeReLU)
+  VGGBaseNorm.trainable = False
+  vgg_layers = VGGBaseNorm.layers
+  # Get output layers corresponding to style and content layers 
+  list_stats = []
+  i = 0
+  
+  if getBeforeReLU: 
+      custom_objects = {}
+      custom_objects['Mean_Matrix_Layer']= Mean_Matrix_Layer
+      custom_objects['Cov_Matrix_Layer']= Cov_Matrix_Layer
+      custom_objects['Global_Prescrib_Mean_Std']= Global_Prescrib_Mean_Std
+  
+  for layer in vgg_layers:
+      name_layer = layer.name
+      if name_layer==style_layers_exported[i]:
+          if getBeforeReLU:
+              layer.activation = activations.linear # i.e. identity
+          model.add(layer)
+            
+          output = model.output
+          mean_layer = Mean_Matrix_Layer()(output)
+          cov_layer = Cov_Matrix_Layer()([output,mean_layer])
+          list_stats += [cov_layer,mean_layer]
+          
+          if getBeforeReLU:
+              model.add(Activation('relu'))
+          
+          i+= 1
+          if i==len(style_layers_exported): # No need to compute further
+              break
+      else:
+         model.add(layer)
+  
+  model = models.Model(model.input,list_stats)
+  model.trainable = False
+  if getBeforeReLU:
+      model = utils_keras.apply_modifications(model,custom_objects=custom_objects,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
+  return(model)
 
 
 def vgg_cut(final_layer,transformOnFinalLayer=None):
@@ -893,9 +948,6 @@ def unity_test_of_vgg_BaseNorm(getBeforeReLU=False):
     and the fc2 of the vgg_BaseNorm with the parameters computed on the same image
     @param : if adapt == True we will test the adaptative model
     """
-    
-#    images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
-#    image_path =  os.path.join(images_path,'abd_aag_002276_624x544.jpg')
     image_path =  os.path.join('data','Q23898.jpg')
     #init_image = tf.convert_to_tensor(load_crop_and_process_img(image_path))
     init_image = load_crop_and_process_img(image_path)
@@ -923,17 +975,17 @@ def unity_test_of_vgg_BaseNorm(getBeforeReLU=False):
         # Load the model that compute cov matrices and mean
         vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
         vgg_cov_mean = vgg_get_cov.predict(init_image, batch_size=1)
-        vgg_mean_vars_values = []
+        vgg_mean_stds_values = []
         for l,layer in enumerate(style_layers):
             cov = vgg_cov_mean[2*l]
             cov = np.squeeze(cov,axis=0) 
             mean = vgg_cov_mean[2*l+1]
             mean = mean.reshape((mean.shape[1],))
             stds = np.sqrt(np.diag(cov))
-            vgg_mean_vars_values += [[mean,stds]]
+            vgg_mean_stds_values += [[mean,stds]]
         
 
-        VGGBaseNorm = vgg_BaseNorm(style_layers,vgg_mean_vars_values,vgg_mean_vars_values,final_layer='fc2',
+        VGGBaseNorm = vgg_BaseNorm(style_layers,vgg_mean_stds_values,vgg_mean_stds_values,final_layer='fc2',
                                    getBeforeReLU=getBeforeReLU)
         #print(VGGInNorm.summary())
         #sess.run(tf.global_variables_initializer())
