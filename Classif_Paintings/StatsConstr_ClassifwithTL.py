@@ -13,16 +13,20 @@ from trouver_classes_parmi_K import TrainClassif
 import numpy as np
 import os.path
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index
-from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,load_crop_and_process_img
+from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
+    load_crop_and_process_img,VGG_baseline_model,vgg_AdaIn
 from IMDB import get_database
 import pickle
 import pathlib
 from Classifier_On_Features import TrainClassifierOnAllClass,PredictOnTestSet
-from sklearn.metrics import average_precision_score,recall_score,make_scorer,precision_score,label_ranking_average_precision_score,classification_report
+from sklearn.metrics import average_precision_score,recall_score,make_scorer,\
+    precision_score,label_ranking_average_precision_score,classification_report
 from sklearn.metrics import matthews_corrcoef,f1_score
 from sklearn.preprocessing import StandardScaler
 from Custom_Metrics import ranking_precision_score
 from LatexOuput import arrayToLatex
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
 
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
@@ -89,7 +93,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
             
     return(dict_stats_coherent,current_list_mean_and_std_target)
 
-def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,kind_method,
+def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='fc2',constrNet='VGG',kind_method='FT',
                    style_layers = ['block1_conv1',
                                     'block2_conv1',
                                     'block3_conv1', 
@@ -97,7 +101,8 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
                                     'block5_conv1'
                                    ],normalisation=False,gridSearch=True,ReDo=False,\
                                    transformOnFinalLayer='',number_im_considered = 1000,\
-                                   set='',getBeforeReLU=False):
+                                   set='',getBeforeReLU=False,forLatex=False,epochs=20,\
+                                   pretrainingModif=True):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -110,6 +115,9 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
     @param : kind_method the type of methods we will use : TL or FT
     @param : if we use a set to compute the statistics
     @param : getBeforeReLU=False if True we will impose the statistics before the activation ReLU fct
+    @param : forLatex : only plot performance score to print them in latex
+    @param : epochs number of epochs for the finetuning (FT case)
+    @param : pretrainingModif : we modify the pretrained net for the case FT + VGG
     """
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset)
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
@@ -128,11 +136,16 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
         name_base += source_dataset +str(number_im_considered)+ '_' + num_layers
     if not(set=='' or set is None):
         name_base += '_'+set
+    if constrNet=='VGG':
+        getBeforeReLU  = False
+    if constrNet=='VGG' and kind_method=='FT':
+        if pretrainingModif==False:
+            name_base +=  '_wholePretrainedNetFreeze'
     if getBeforeReLU:
         name_base += '_BeforeReLU'
     name_base +=  features 
     if not((transformOnFinalLayer is None) or (transformOnFinalLayer=='')):
-       name_base += '_'+     transformOnFinalLayer
+       name_base += '_'+ transformOnFinalLayer
     name_base += '_' + kind_method   
     
     # features can be 'flatten' with will output a 25088 dimension vectors = 7*7*512 features
@@ -145,8 +158,9 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
         name_pkl_values = os.path.join(output_path,name_pkl_values)
         
         if not os.path.isfile(name_pkl_values):
-            print('== We will compute the reference statistics ==')
-            print('Saved in ',name_pkl_values)
+            if not(forLatex):
+                print('== We will compute the reference statistics ==')
+                print('Saved in ',name_pkl_values)
             features_net = None
             im_net = []
             # Load Network 
@@ -219,8 +233,8 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
             
             else:
                 raise(NotImplementedError)
-            
-            print('== We will compute the bottleneck features ==')
+            if not(forLatex):
+                print('== We will compute the bottleneck features ==')
             # Compute bottleneck features on the target dataset
             for i,name_img in  enumerate(df_label[item_name]):
                 im_path =  os.path.join(path_to_img,name_img+'.jpg')
@@ -245,15 +259,18 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
                 im_net = pickle.load(pkl)
     
     AP_file  = name_base+'_'+final_clf
-    if normalisation:
-       AP_file +=  '_Norm' 
-    if gridSearch:
-       AP_file += '_GS'
+    if kind_method=='TL':
+        if normalisation:
+            AP_file +=  '_Norm' 
+            if gridSearch:
+                AP_file += '_GS'
+    elif kind_method=='FT':
+       AP_file +=  '_'+str(epochs)
     AP_file +='_AP.pkl'
     APfilePath =  os.path.join(output_path,AP_file)
     
     if not(os.path.isfile(APfilePath)) or ReDo:
-        # Get Train set in form of numpy array
+        
         if target_dataset=='Paintings':
             sLength = len(df_label[item_name])
             classes_vectors = np.zeros((sLength,num_classes))
@@ -261,48 +278,162 @@ def learn_and_eval(target_dataset,source_dataset,final_clf,features,constrNet,ki
                 for j in range(num_classes):
                     if( classes[j] in df_label['classe'][i]):
                         classes_vectors[i,j] = 1
+            if kind_method=='FT':
+                df_copy = df_label.copy()
+                for j,c in enumerate(classes):
+                    df_copy[c] = classes_vectors[:,j].astype(int)
+                    #df_copy[c] = df_copy[c].apply(lambda x : bool(x))
+                df_label = df_copy
+                df_label_test = df_label[df_label['set']=='test']
+                y_test = classes_vectors[df_label['set']=='test',:]
         else:
             raise(NotImplementedError)
+    
+        if kind_method=='TL':
+            # Get Train set in form of numpy array
+            index_train = df_label['set']=='train'
+            if not(forLatex):
+                print('classes_vectors.shape',classes_vectors.shape)
+                print('features_net.shape',features_net.shape)
+            X_train = features_net[index_train,:]
+            y_train = classes_vectors[df_label['set']=='train',:]
+            
+            X_test= features_net[df_label['set']=='test',:]
+            
+            X_val = features_net[df_label['set']==str_val,:]
+            y_val = classes_vectors[df_label['set']==str_val,:]
+            
+            Xtrainval = np.vstack([X_train,X_val])
+            ytrainval = np.vstack([y_train,y_val])
+            
+            if normalisation:
+                scaler = StandardScaler()
+                Xtrainval = scaler.fit_transform(Xtrainval)
+                X_test = scaler.transform(X_test)
+            
+            dico_clf=TrainClassifierOnAllClass(Xtrainval,ytrainval,clf=final_clf,gridSearch=gridSearch)
+            # Prediction
+            dico_pred = PredictOnTestSet(X_test,dico_clf,clf=final_clf)
+            metrics = evaluationScoreDict(y_test,dico_pred)
+            
+            Latex_str = constrNet 
+            if style_layers==['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1']:
+                Latex_str += ' Block1-5\_conv1'
+            elif style_layers==['block1_conv1','block2_conv1']:
+                Latex_str += ' Block1-2\_conv1' 
+            elif style_layers==['block1_conv1']:
+                Latex_str += ' Block1\_conv1' 
+            else:
+                for layer in style_layers:
+                    Latex_str += layer
+            Latex_str += ' ' +features.replace('_','\_')
+            Latex_str += ' ' + transformOnFinalLayer
+            Latex_str += ' '+final_clf
+            if gridSearch:
+                Latex_str += 'GS'
+            else:
+                Latex_str += ' no GS'
+            if getBeforeReLU:
+                Latex_str += ' BFReLU'
+            
+        elif kind_method=='FT':
+            # We fineTune a VGG
+            if constrNet=='VGG':
+                getBeforeReLU = False
+                model = VGG_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif)
+                
+            elif constrNet=='VGGAdaIn':
+                model = vgg_AdaIn(style_layers,num_of_classes=num_classes,
+                          transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU)
+            else:
+                print(constrNet,'is unkwon in the context of TL')
+                raise(NotImplementedError)
+            
+            model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
+                                    x_col=item_name,y_col=classes,path_im=path_to_img,\
+                                    str_val=str_val,num_classes=len(classes),epochs=epochs)
+            # Prediction
+            predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
+                                           y_col=classes,path_im=path_to_img)
+            metrics = evaluationScore(y_test,predictions)    
+            
+            Latex_str = constrNet  + ' ' +str(epochs)
+            if getBeforeReLU:
+                Latex_str += ' BFReLU'
         
-        print('classes_vectors.shape',classes_vectors.shape)
-        index_train = df_label['set']=='train'
-        print('features_net.shape',features_net.shape)
-        X_train = features_net[index_train,:]
-        y_train = classes_vectors[df_label['set']=='train',:]
-        
-        X_test= features_net[df_label['set']=='test',:]
-        y_test = classes_vectors[df_label['set']=='test',:]
-        
-        X_val = features_net[df_label['set']==str_val,:]
-        y_val = classes_vectors[df_label['set']==str_val,:]
-        
-        Xtrainval = np.vstack([X_train,X_val])
-        ytrainval = np.vstack([y_train,y_val])
-        
-        if normalisation:
-            scaler = StandardScaler()
-            Xtrainval = scaler.fit_transform(Xtrainval)
-            X_test = scaler.transform(X_test)
-        
-        dico_clf=TrainClassifierOnAllClass(Xtrainval,ytrainval,clf=final_clf,gridSearch=gridSearch)
-        dico_pred = PredictOnTestSet(X_test,dico_clf,clf=final_clf)
-        
-        metrics = evaluationScore(y_test,dico_pred)
         with open(APfilePath, 'wb') as pkl:
             pickle.dump(metrics,pkl)
+                
+            
     else:
         with open(APfilePath, 'rb') as pkl:
             metrics = pickle.load(pkl)
     AP_per_class,P_per_class,R_per_class,P20_per_class = metrics
     
-    print(target_dataset,source_dataset,number_im_considered,final_clf,features,transformOnFinalLayer,\
-          constrNet,kind_method,'GS',gridSearch,'norm',normalisation,'getBeforeReLU',getBeforeReLU)
-    print(style_layers)
-    print(arrayToLatex(AP_per_class,per=True))
+    if not(forLatex):
+        print(target_dataset,source_dataset,number_im_considered,final_clf,features,transformOnFinalLayer,\
+              constrNet,kind_method,'GS',gridSearch,'norm',normalisation,'getBeforeReLU',getBeforeReLU)
+        print(style_layers)
+    
+    
+#    print(Latex_str)
+    #VGGInNorm Block1-5\_conv1 fc2 LinearSVC no GS BFReLU
+    str_part2 = arrayToLatex(AP_per_class,per=True)
+    Latex_str += str_part2
+    Latex_str = Latex_str.replace('\hline','')
+    print(Latex_str)
     
     return(AP_per_class,P_per_class,R_per_class,P20_per_class)
 
-def evaluationScore(y_gt,dico_pred,verbose=False,k = 20):
+def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20):
+    """
+    @param x_col : name of images
+    @param y_col : classes
+    @param path_im : path to images
+    """
+    df_train = df[df['set']=='train']
+    df_val = df[df['set']==str_val]
+    df_train[x_col] = df_train[x_col].apply(lambda x : x + '.jpg')
+    df_val[x_col] = df_val[x_col].apply(lambda x : x + '.jpg')
+    if len(df_val)==0:
+        df = df[not(df['set']=='test')]
+        df_train, df_val = train_test_split(df, test_size=0.33)
+        
+    datagen= tf.keras.preprocessing.image.ImageDataGenerator()
+    train_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
+                                                x_col=x_col,y_col=y_col,\
+                                                class_mode="other", \
+                                                target_size=(224,224), batch_size=32,\
+                                                shuffle=True,\
+                                                preprocessing_function=tf.keras.applications.vgg19.preprocess_input)
+    valid_generator=datagen.flow_from_dataframe(dataframe=df_val, directory=path_im,\
+                                                x_col=x_col,y_col=y_col,\
+                                                class_mode="other", \
+                                                target_size=(224,224), batch_size=32,\
+                                                preprocessing_function=tf.keras.applications.vgg19.preprocess_input)
+    STEP_SIZE_TRAIN=train_generator.n//train_generator.batch_size
+    STEP_SIZE_VALID=valid_generator.n//valid_generator.batch_size
+    
+    model.fit_generator(generator=train_generator,
+                    steps_per_epoch=STEP_SIZE_TRAIN,
+                    validation_data=valid_generator,
+                    validation_steps=STEP_SIZE_VALID,
+                    epochs=epochs)
+    return(model)
+    
+def predictionFT_net(model,df_test,x_col,y_col,path_im):
+    df_test[x_col] = df_test[x_col].apply(lambda x : x + '.jpg')
+    datagen= tf.keras.preprocessing.image.ImageDataGenerator()
+    
+    test_generator=datagen.flow_from_dataframe(dataframe=df_test, directory=path_im,\
+                                                x_col=x_col,\
+                                                class_mode=None,shuffle=False,\
+                                                target_size=(224,224), batch_size=1,
+                                                preprocessing_function=tf.keras.applications.vgg19.preprocess_input)
+    predictions = model.predict_generator(test_generator)
+    return(predictions)
+    
+def evaluationScoreDict(y_gt,dico_pred,verbose=False,k = 20):
     """
     @param k for precision at rank k
     """
@@ -328,7 +459,36 @@ def evaluationScore(y_gt,dico_pred,verbose=False,k = 20):
         if verbose: print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}, precision a rank k=20  = {3:.2f}.".format(test_precision,test_recall,F1,precision_at_k))
     return(AP_per_class,P_per_class,R_per_class,P20_per_class)
     
-def RunAllEvaluation(dataset='Paintings'):
+def evaluationScore(y_gt,y_pred,verbose=False,k = 20):
+    """
+    y_gt must be between 0 or 1
+    y_predmust be between 0 and 1
+    @param k for precision at rank k
+    """
+    num_samples,num_classes = y_gt.shape
+    AP_per_class = []
+    P_per_class = []
+    R_per_class = []
+    P20_per_class = []
+    for c in range(num_classes):
+        y_gt_c = y_gt[:,c]
+        y_predict_confidence_score = y_pred[:,c]
+        y_predict_test = (y_predict_confidence_score>0.5).astype(int)
+        AP = average_precision_score(y_gt_c,y_predict_confidence_score,average=None)
+        if verbose: print("Average Precision on all the data for classe",c," = ",AP)  
+        AP_per_class += [AP] 
+        test_precision = precision_score(y_gt_c,y_predict_test)
+        test_recall = recall_score(y_gt_c,y_predict_test)
+        R_per_class += [test_recall]
+        P_per_class += [test_precision]
+        F1 = f1_score(y_gt_c,y_predict_test)
+        
+        precision_at_k = ranking_precision_score(np.array(y_gt_c), y_predict_confidence_score,k)
+        P20_per_class += [precision_at_k]
+        if verbose: print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}, precision a rank k=20  = {3:.2f}.".format(test_precision,test_recall,F1,precision_at_k))
+    return(AP_per_class,P_per_class,R_per_class,P20_per_class)
+    
+def RunAllEvaluation(dataset='Paintings',forLatex=False):
     target_dataset='Paintings'
     source_dataset = 'ImageNet'
     ## Run the baseline
@@ -343,66 +503,63 @@ def RunAllEvaluation(dataset='Paintings'):
         style_layers = []
         
         # Baseline with just VGG
-#        constrNet = 'VGG'
-#        for final_clf in final_clf_list:
-#            for features in features_list:
-#                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-#                           constrNet,kind_method,style_layers,gridSearch=False,
-#                           normalisation=normalisation,transformOnFinalLayer='')
-#            
-#            # Pooling on last conv block
-#            for transformOnFinalLayer in transformOnFinalLayer_tab:
-#                features = 'block5_pool'
-#                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-#                           constrNet,kind_method,style_layers,gridSearch=False,
-#                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
+        constrNet = 'VGG'
+        for final_clf in final_clf_list:
+            for features in features_list:
+                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                           constrNet,kind_method,style_layers,gridSearch=False,
+                           normalisation=normalisation,transformOnFinalLayer='')
             
-    #    constrNet = 'VGG'
-    #    features = 'block5_pool'
-    #    transformOnFinalLayer_list = ['GlobalMaxPool2D']
-    #    for final_clf in final_clf_list:
-    #        for transformOnFinalLayer in transformOnFinalLayer_list:
-    #            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-    #                           constrNet,kind_method,style_layers,gridSearch=False,\
-    #                           transformOnFinalLayer=transformOnFinalLayer) 
+            # Pooling on last conv block
+            for transformOnFinalLayer in transformOnFinalLayer_tab:
+                features = 'block5_pool'
+                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                           constrNet,kind_method,style_layers,gridSearch=False,
+                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,\
+                           forLatex=forLatex)
          
         # With VGGInNorm
-        style_layers_tab = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                         ['block1_conv1'],['block1_conv1','block2_conv1']]
-        style_layers_tab = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+        style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                         ['block1_conv1','block2_conv1'],['block1_conv1']]
+        style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
                          ['block1_conv1','block2_conv1']]
         
         features_list = ['fc2','fc1','flatten']
         features_list = ['fc2','fc1']
-        net_tab = ['VGGBaseNormCoherent','VGGBaseNorm','VGGInNorm','VGGInNormAdapt']
+        net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
         number_im_considered_tab = [1000]
         for getBeforeReLU in [True,False]:
             for constrNet in net_tab:
+                if constrNet=='VGGBaseNormCoherent':
+                    style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
+                else:
+                    style_layers_tab = style_layers_tab_forOther
                 for final_clf in final_clf_list:
                     for style_layers in style_layers_tab:
                         for features in features_list:
                             for number_im_considered in number_im_considered_tab:
-                                print('=== getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,'features',features,'number_im_considered',number_im_considered,'style_layers',style_layers)
+                                if not(forLatex): print('=== getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,'features',features,'number_im_considered',number_im_considered,'style_layers',style_layers)
                                 learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                        constrNet,kind_method,style_layers,gridSearch=False,
                                        number_im_considered=number_im_considered,\
-                                       normalisation=normalisation,getBeforeReLU=getBeforeReLU)
+                                       normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+                                       forLatex=forLatex)
                        
                         number_im_considered = 1000
                         # Pooling on last conv block
                         for transformOnFinalLayer in transformOnFinalLayer_tab:
-                            print('=== getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,'features',features,'number_im_considered',number_im_considered,'style_layers',style_layers,'transformOnFinalLayer',transformOnFinalLayer)
+                            if not(forLatex):  print('=== getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,'features',features,'number_im_considered',number_im_considered,'style_layers',style_layers,'transformOnFinalLayer',transformOnFinalLayer)
                             features = 'block5_pool'
                             learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                        constrNet,kind_method,style_layers,gridSearch=False,
                                        number_im_considered=number_im_considered,
                                        normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
-                                       transformOnFinalLayer=transformOnFinalLayer)
+                                       transformOnFinalLayer=transformOnFinalLayer,\
+                                       forLatex=forLatex)
                     
-                
-                       
-                   
-    
 if __name__ == '__main__': 
     # Ce que l'on 
-    RunAllEvaluation()
+    #RunAllEvaluation()
+    learn_and_eval(target_dataset='Paintings',constrNet='VGG',kind_method='FT',epochs=20)
+    learn_and_eval(target_dataset='Paintings',constrNet='VGG',kind_method='FT',epochs=20,pretrainingModif=False)
+    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalMaxPooling2D')

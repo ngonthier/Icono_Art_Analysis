@@ -13,7 +13,7 @@ import tensorflow as tf
 from tensorflow.python.keras.preprocessing import image as kp_image
 from tensorflow.python.keras import models 
 from tensorflow.python.keras import activations
-from tensorflow.python.keras.layers import Activation
+from tensorflow.python.keras.layers import Activation,Dense,Flatten
 from tensorflow.python.keras import layers
 from tensorflow.python.keras import utils
 import utils_keras
@@ -34,6 +34,90 @@ import os
 import os.path
 #import time
 #import functools
+
+### To fine Tune a VGG
+def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',pretrainingModif=True,verbose=False): 
+  # create model
+  model =  tf.keras.Sequential()
+  pre_model = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
+  pre_model.trainable = pretrainingModif
+#  last = pre_model.output
+#
+#  x = Flatten()(last)
+#  x = Dense(256, input_shape=(25088,), activation='relu')(x)
+#  preds = Dense(num_of_classes, activation='sigmoid')(x)
+#
+#  model = Model(pre_model.input, preds)
+  
+  for layer in pre_model.layers:
+     model.add(layer)
+  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+      model.add(GlobalMaxPooling2D()) 
+  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+      model.add(GlobalAveragePooling2D())
+  
+  model.add(Dense(256, activation='relu'))
+  model.add(Dense(num_of_classes, activation='sigmoid'))
+  # Compile model
+  model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+  if verbose: print(model.summary())
+  return model
+
+def vgg_AdaIn(style_layers,num_of_classes=10,
+              transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=True):
+  """
+  VGG with an Instance normalisation learn only those are the only learnable parameters
+  with the last 2 dense layer 
+  """
+  model = tf.keras.Sequential()
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
+  vgg_layers = vgg.layers
+  vgg.trainable = False
+  i = 0
+  
+  if getBeforeReLU: 
+      custom_objects = {}
+      custom_objects['HomeMade_BatchNormalisation']= HomeMade_BatchNormalisation
+  
+  otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D','GlobalMinPooling2D']
+  if not(transformOnFinalLayer in otherOutputPorposed):
+      print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
+      raise(NotImplementedError)
+      
+  for layer in vgg_layers:
+    name_layer = layer.name
+    if i < len(style_layers) and name_layer==style_layers[i]:
+      if getBeforeReLU:# remove the non linearity
+          layer.activation = activations.linear # i.e. identity
+      model.add(layer)
+      model.add(layers.BatchNormalization(axis=-1, center=True, scale=True))
+        
+      if getBeforeReLU: # add back the non linearity
+          model.add(Activation('relu'))
+      i += 1
+    else:
+      model.add(layer)
+
+  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+      model.add(GlobalMaxPooling2D())
+#          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
+#              model.add(GlobalMinPooling2D)
+#          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling
+#              model.add(GlobalMinPooling2D)
+  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+      model.add(GlobalAveragePooling2D())
+  
+  model.add(Dense(256, activation='relu'))
+  model.add(Dense(num_of_classes, activation='sigmoid'))
+  # Compile model
+  model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+  
+  if getBeforeReLU:# refresh the non linearity 
+       model = utils_keras.apply_modifications(model,include_optimizer=True)
+  
+  if verbose: print(model.summary())
+  return model
+
 
 def load_crop(path_to_img,max_dim = 224):
   img = Image.open(path_to_img)
@@ -565,7 +649,7 @@ def vgg_cut(final_layer,transformOnFinalLayer=None):
     if name_layer==final_layer:
       if not(transformOnFinalLayer is None or transformOnFinalLayer==''):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
-              model.add(GlobalMaxPooling2D()) # Truc chelou la
+              model.add(GlobalMaxPooling2D()) 
 #          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
 #              model.add(GlobalMinPooling2D)
 #          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling
@@ -635,7 +719,7 @@ def vgg_InNorm(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNor
     if name_layer==final_layer:
       if not(transformOnFinalLayer is None or transformOnFinalLayer==''):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
-              model.add(GlobalMaxPooling2D()) # Truc chelou la
+              model.add(GlobalMaxPooling2D())
 #          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
 #              model.add(GlobalMinPooling2D)
 #          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling
@@ -712,7 +796,7 @@ def vgg_InNorm_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
     if name_layer==final_layer:
       if not(transformOnFinalLayer is None or transformOnFinalLayer==''):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
-              model.add(GlobalMaxPooling2D()) # Truc chelou la
+              model.add(GlobalMaxPooling2D())
 #          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
 #              model.add(GlobalMinPooling2D)
 #          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling
@@ -774,7 +858,7 @@ def vgg_BaseNorm(style_layers,list_mean_and_std_source,list_mean_and_std_target,
     if name_layer==final_layer:
       if not(transformOnFinalLayer is None or transformOnFinalLayer==''):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
-              model.add(GlobalMaxPooling2D()) # Truc chelou la
+              model.add(GlobalMaxPooling2D()) 
 #          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
 #              model.add(GlobalMinPooling2D)
 #          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling

@@ -289,7 +289,6 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
         filename += '.h5'
     filename_path= os.path.join(output_path_full,filename)
     if not os.path.isfile(filename_path):
-        print('Need to compute :',filename_path)
         dict_stats = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                                        dataset=source_dataset,set=set,saveformat=saveformat,\
                                        whatToload=whatToload,Net=Net,style_layers_imposed=style_layers_imposed,\
