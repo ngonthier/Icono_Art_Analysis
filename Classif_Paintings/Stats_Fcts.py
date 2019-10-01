@@ -109,11 +109,12 @@ def vgg_AdaIn(style_layers,num_of_classes=10,
   
   model.add(Dense(256, activation='relu'))
   model.add(Dense(num_of_classes, activation='sigmoid'))
+
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-  
+
   if getBeforeReLU:# refresh the non linearity 
-       model = utils_keras.apply_modifications(model,include_optimizer=True)
+      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
   
   if verbose: print(model.summary())
   return model

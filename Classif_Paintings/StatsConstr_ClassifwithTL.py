@@ -269,6 +269,33 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     AP_file +='_AP.pkl'
     APfilePath =  os.path.join(output_path,AP_file)
     
+    if kind_method=='TL':
+        Latex_str = constrNet 
+        if style_layers==['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1']:
+            Latex_str += ' Block1-5\_conv1'
+        elif style_layers==['block1_conv1','block2_conv1']:
+            Latex_str += ' Block1-2\_conv1' 
+        elif style_layers==['block1_conv1']:
+            Latex_str += ' Block1\_conv1' 
+        else:
+            for layer in style_layers:
+                Latex_str += layer
+        Latex_str += ' ' +features.replace('_','\_')
+        Latex_str += ' ' + transformOnFinalLayer
+        Latex_str += ' '+final_clf
+        if gridSearch:
+            Latex_str += 'GS'
+        else:
+            Latex_str += ' no GS'
+        if getBeforeReLU:
+            Latex_str += ' BFReLU'
+    elif kind_method=='FT':
+        Latex_str = constrNet +' '+transformOnFinalLayer  + ' ep :' +str(epochs)
+        if not(pretrainingModif):
+            Latex_str += ' All Freeze'
+        if getBeforeReLU:
+            Latex_str += ' BFReLU'
+    
     if not(os.path.isfile(APfilePath)) or ReDo:
         
         if target_dataset=='Paintings':
@@ -316,31 +343,12 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
             dico_pred = PredictOnTestSet(X_test,dico_clf,clf=final_clf)
             metrics = evaluationScoreDict(y_test,dico_pred)
             
-            Latex_str = constrNet 
-            if style_layers==['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1']:
-                Latex_str += ' Block1-5\_conv1'
-            elif style_layers==['block1_conv1','block2_conv1']:
-                Latex_str += ' Block1-2\_conv1' 
-            elif style_layers==['block1_conv1']:
-                Latex_str += ' Block1\_conv1' 
-            else:
-                for layer in style_layers:
-                    Latex_str += layer
-            Latex_str += ' ' +features.replace('_','\_')
-            Latex_str += ' ' + transformOnFinalLayer
-            Latex_str += ' '+final_clf
-            if gridSearch:
-                Latex_str += 'GS'
-            else:
-                Latex_str += ' no GS'
-            if getBeforeReLU:
-                Latex_str += ' BFReLU'
-            
         elif kind_method=='FT':
             # We fineTune a VGG
             if constrNet=='VGG':
                 getBeforeReLU = False
-                model = VGG_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif)
+                model = VGG_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
+                                           transformOnFinalLayer=transformOnFinalLayer)
                 
             elif constrNet=='VGGAdaIn':
                 model = vgg_AdaIn(style_layers,num_of_classes=num_classes,
@@ -357,15 +365,12 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                                            y_col=classes,path_im=path_to_img)
             metrics = evaluationScore(y_test,predictions)    
             
-            Latex_str = constrNet  + ' ' +str(epochs)
-            if getBeforeReLU:
-                Latex_str += ' BFReLU'
-        
         with open(APfilePath, 'wb') as pkl:
             pickle.dump(metrics,pkl)
                 
             
     else:
+
         with open(APfilePath, 'rb') as pkl:
             metrics = pickle.load(pkl)
     AP_per_class,P_per_class,R_per_class,P20_per_class = metrics
@@ -560,6 +565,15 @@ def RunAllEvaluation(dataset='Paintings',forLatex=False):
 if __name__ == '__main__': 
     # Ce que l'on 
     #RunAllEvaluation()
-    learn_and_eval(target_dataset='Paintings',constrNet='VGG',kind_method='FT',epochs=20)
-    learn_and_eval(target_dataset='Paintings',constrNet='VGG',kind_method='FT',epochs=20,pretrainingModif=False)
-    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalMaxPooling2D')
+#    learn_and_eval(target_dataset='Paintings',constrNet='VGG',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalMaxPooling2D')
+#    learn_and_eval(target_dataset='Paintings',constrNet='VGG',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalAveragePooling2D')
+#    learn_and_eval(target_dataset='Paintings',constrNet='VGG',kind_method='FT',epochs=20,pretrainingModif=False,transformOnFinalLayer='GlobalAveragePooling2D')
+#    learn_and_eval(target_dataset='Paintings',constrNet='VGG',kind_method='FT',epochs=20,pretrainingModif=False,transformOnFinalLayer='GlobalMaxPooling2D')
+#    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',kind_method='FT',\
+#                   epochs=20,transformOnFinalLayer='GlobalMaxPooling2D')
+#    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',kind_method='FT',\
+#                   epochs=20,transformOnFinalLayer='GlobalAveragePooling2D')
+    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',\
+                   kind_method='FT',getBeforeReLU=True,epochs=20,transformOnFinalLayer='GlobalMaxPooling2D')
+    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',\
+                   kind_method='FT',getBeforeReLU=True,epochs=20,transformOnFinalLayer='GlobalAveragePooling2D')
