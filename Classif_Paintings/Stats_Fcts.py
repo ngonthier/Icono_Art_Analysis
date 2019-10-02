@@ -13,7 +13,7 @@ import tensorflow as tf
 from tensorflow.python.keras.preprocessing import image as kp_image
 from tensorflow.python.keras import models 
 from tensorflow.python.keras import activations
-from tensorflow.python.keras.layers import Activation,Dense,Flatten
+from tensorflow.python.keras.layers import Activation,Dense,Flatten,Input
 from tensorflow.python.keras import layers
 from tensorflow.python.keras import utils
 import utils_keras
@@ -24,8 +24,10 @@ from tensorflow.python.keras.layers import concatenate
 from tensorflow.python.keras.backend import expand_dims
 from tensorflow.python.ops import math_ops
 from tensorflow.python.keras.applications.imagenet_utils import decode_predictions
+from tensorflow.keras.optimizers import SGD
 
 #from custom_pooling import GlobalMinPooling2D
+from lr_multiplier import LearningRateMultiplier
 
 # Others libraries
 import numpy as np
@@ -36,11 +38,29 @@ import os.path
 #import functools
 
 ### To fine Tune a VGG
-def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',pretrainingModif=True,verbose=False): 
+def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
+                       pretrainingModif=True,verbose=False,weights='imagenet',optimizer='adam',\
+                       opt_option=[0.01]): 
+  """
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  """
   # create model
   model =  tf.keras.Sequential()
-  pre_model = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
+  pre_model = tf.keras.applications.vgg19.VGG19(include_top=False, weights=weights)
   pre_model.trainable = pretrainingModif
+  
+  lr_multiple = False
+  if optimizer=='SGD':
+      if len(opt_option)==2:
+          multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+          multipliers = {}
+          lr_multiple = True
+      if len(opt_option)==1:
+          lr = opt_option[0]
+          opt = SGD(learning_rate=lr,momentum=0.9)
+  else:
+      opt=optimizer
+  
 #  last = pre_model.output
 #
 #  x = Flatten()(last)
@@ -51,26 +71,93 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   
   for layer in pre_model.layers:
      model.add(layer)
+     if lr_multiple:
+         multipliers[layer.name] = multiply_lrp
   if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
       model.add(GlobalMaxPooling2D()) 
   elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
       model.add(GlobalAveragePooling2D())
   
   model.add(Dense(256, activation='relu'))
+  verbose = True
+  if lr_multiple:
+      multipliers[model.layers[-1].name] = None
   model.add(Dense(num_of_classes, activation='sigmoid'))
+  if lr_multiple:
+      multipliers[model.layers[-1].name] = None
+      opt = LearningRateMultiplier(SGD, lr_multipliers=multipliers, lr=lr, momentum=0.9)
   # Compile model
-  model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  if verbose: print(model.summary())
+  return model
+
+def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
+                             pretrainingModif=True,verbose=True,weights='imagenet',res_num_layers=50,\
+                             optimizer='adam',opt_option=[0.01]): 
+  """
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  """
+  # create model
+#  input_tensor = Input(shape=(224, 224, 3)) 
+  model =  tf.keras.Sequential()
+  if res_num_layers==50:
+      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights)
+  else:
+      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
+      raise(NotImplementedError)
+  pre_model.trainable = pretrainingModif
+  
+  lr_multiple = False
+  if optimizer=='SGD' and len(opt_option)==2:
+      if len(opt_option)==2:
+          multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+          multipliers = {}
+          lr_multiple = True
+      if len(opt_option)==1:
+          lr = opt_option[0]
+          opt = SGD(learning_rate=lr,momentum=0.9)
+  else:
+      opt=optimizer
+  
+  x = pre_model.output
+  if lr_multiple:
+      for layer in pre_model.layers:  
+         multipliers[layer.name] = multiply_lrp
+#  for layer in pre_model.layers:
+#     print(layer)
+#     model.add(layer)
+  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+      #model.add(GlobalMaxPooling2D()) 
+     x = GlobalMaxPooling2D()(x)
+  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+      #model.add(GlobalAveragePooling2D())
+      x = GlobalAveragePooling2D()(x)
+  
+  x = Dense(256, activation='relu')(x)
+  predictions = Dense(num_of_classes, activation='sigmoid')(x)
+  if lr_multiple:
+      multipliers[layer.name] = lr
+  model = Model(inputs=pre_model.input, outputs=predictions)
+  if lr_multiple:
+      multipliers[model.layers[-2].name] = None
+      multipliers[model.layers[-1].name] = None
+      opt = LearningRateMultiplier(SGD, lr_multipliers=multipliers, lr=lr, momentum=0.9)
+  #model.add(Dense(num_of_classes, activation='sigmoid'))
+  # Compile model
+  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   if verbose: print(model.summary())
   return model
 
 def vgg_AdaIn(style_layers,num_of_classes=10,
-              transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=True):
+              transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
+              weights='imagenet'):
   """
   VGG with an Instance normalisation learn only those are the only learnable parameters
   with the last 2 dense layer 
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
   model = tf.keras.Sequential()
-  vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights=weights)
   vgg_layers = vgg.layers
   vgg.trainable = False
   i = 0
