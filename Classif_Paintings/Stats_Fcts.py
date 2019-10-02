@@ -40,15 +40,20 @@ import os.path
 ### To fine Tune a VGG
 def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
                        pretrainingModif=True,verbose=False,weights='imagenet',optimizer='adam',\
-                       opt_option=[0.01]): 
+                       opt_option=[0.01],freezingType='FromTop'): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
   # create model
   model =  tf.keras.Sequential()
   pre_model = tf.keras.applications.vgg19.VGG19(include_top=False, weights=weights)
-  pre_model.trainable = pretrainingModif
-  
+  SomePartFreezed = False
+  if type(pretrainingModif)==bool:
+      pre_model.trainable = pretrainingModif
+  else:
+      SomePartFreezed = True # We will unfreeze pretrainingModif==int layers from the end of the net
+      number_of_trainable_layers =  16
+      assert(number_of_trainable_layers >= pretrainingModif)
   lr_multiple = False
   if optimizer=='SGD':
       if len(opt_option)==2:
@@ -69,8 +74,31 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
 #
 #  model = Model(pre_model.input, preds)
   
+  ilayer = 0
   for layer in pre_model.layers:
-     model.add(layer)
+     if SomePartFreezed and 'conv' in layer.name:
+         if freezingType=='FromTop':
+             if ilayer >= number_of_trainable_layers - pretrainingModif:
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         elif freezingType=='FromBottom':
+             if ilayer < pretrainingModif:
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         elif freezingType=='Alter':
+             pretrainingModif_bottom = pretrainingModif//2
+             pretrainingModif_top = pretrainingModif//2 + pretrainingModif%2
+             if (ilayer < pretrainingModif_bottom) or\
+                 (ilayer >= number_of_trainable_layers - pretrainingModif_top):
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         ilayer += 1
+         model.add(layer)
+     else:
+         model.add(layer)
      if lr_multiple:
          multipliers[layer.name] = multiply_lrp
   if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling

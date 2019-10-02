@@ -103,7 +103,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                                    transformOnFinalLayer='',number_im_considered = 1000,\
                                    set='',getBeforeReLU=False,forLatex=False,epochs=20,\
                                    pretrainingModif=True,weights='imagenet',opt_option=[0.01],\
-                                   optimizer='adam'):
+                                   optimizer='adam',freezingType='FromTop'):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -118,9 +118,13 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     @param : getBeforeReLU=False if True we will impose the statistics before the activation ReLU fct
     @param : forLatex : only plot performance score to print them in latex
     @param : epochs number of epochs for the finetuning (FT case)
-    @param : pretrainingModif : we modify the pretrained net for the case FT + VGG
+    @param : pretrainingModif : we modify the pretrained net for the case FT + VGG 
+        it can be a boolean True of False or a 
     @param : opt_option : learning rate different for the SGD
+    @param : freezingType : the way we unfreeze the pretained network : 'FromBottom','FromTop','Alter'
     """
+    assert(freezingType in ['FromBottom','FromTop','Alter'])
+    
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset)
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     
@@ -153,8 +157,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     if constrNet=='VGG':
         getBeforeReLU  = False
     if constrNet in ['VGG','ResNet50'] and kind_method=='FT':
-        if pretrainingModif==False:
-            name_base +=  '_wholePretrainedNetFreeze'
+        if type(pretrainingModif)==bool:
+            if pretrainingModif==False:
+                name_base +=  '_wholePretrainedNetFreeze'
+        else:
+            if not(freezingType=='FromTop'):
+                name_base += '_'+freezingType
+            name_base += '_unfreeze'+str(pretrainingModif)
+            
     if getBeforeReLU:
         name_base += '_BeforeReLU'
     name_base +=  features 
@@ -306,8 +316,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
             Latex_str += ' BFReLU'
     elif kind_method=='FT':
         Latex_str = constrNet +' '+transformOnFinalLayer  + ' ep :' +str(epochs)
-        if not(pretrainingModif):
-            Latex_str += ' All Freeze'
+        if type(pretrainingModif)==bool:
+            if not(pretrainingModif):
+                Latex_str += ' All Freeze'
+        else:
+            Latex_str += ' Unfreeze '+str(pretrainingModif) + ' ' +freezingType
         if getBeforeReLU:
             Latex_str += ' BFReLU'
         if weights is None:
@@ -366,7 +379,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                 getBeforeReLU = False
                 model = VGG_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
                                            transformOnFinalLayer=transformOnFinalLayer,weights=weights,
-                                           optimizer=optimizer,opt_option=opt_option)
+                                           optimizer=optimizer,opt_option=opt_option,freezingType=freezingType)
             elif constrNet=='ResNet50':
                 getBeforeReLU = False
                 model = ResNet_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
