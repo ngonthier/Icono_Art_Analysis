@@ -127,6 +127,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset)
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    if kind_method=='FT':
+        model_output_path = os.path.join(output_path,'model')
+        pathlib.Path(model_output_path).mkdir(parents=True, exist_ok=True) 
     
     num_layers = numeral_layers_index(style_layers)
     # Compute statistics on the source_dataset
@@ -290,9 +293,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                 AP_file += '_GS'
     elif kind_method=='FT':
        AP_file +=  '_'+str(epochs)
-        
-    AP_file +='_AP.pkl'
-    APfilePath =  os.path.join(output_path,AP_file)
+    
+    AP_file_base =  AP_file
+    AP_file_pkl =AP_file_base+'_AP.pkl'
+    APfilePath =  os.path.join(output_path,AP_file_pkl)
     
     if kind_method=='TL':
         Latex_str = constrNet 
@@ -397,9 +401,13 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                                     x_col=item_name,y_col=classes,path_im=path_to_img,\
                                     str_val=str_val,num_classes=len(classes),epochs=epochs,\
                                     Net=constrNet)
+            model_path = os.path.join(model_output_path,AP_file_base+'.h5')
+            model.save(model_path,include_optimizer=True)
             # Prediction
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
                                            y_col=classes,path_im=path_to_img,Net=constrNet)
+            print(predictions.shape)
+            print(y_test.shape)
             metrics = evaluationScore(y_test,predictions)    
             
         with open(APfilePath, 'wb') as pkl:
@@ -410,7 +418,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
 
         with open(APfilePath, 'rb') as pkl:
             metrics = pickle.load(pkl)
-    AP_per_class,P_per_class,R_per_class,P20_per_class = metrics
+    AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
     
     if not(forLatex):
         print(target_dataset,source_dataset,number_im_considered,final_clf,features,transformOnFinalLayer,\
@@ -425,7 +433,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     Latex_str = Latex_str.replace('\hline','')
     print(Latex_str)
     
-    return(AP_per_class,P_per_class,R_per_class,P20_per_class)
+    return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
 
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,Net='VGG'):
     """
@@ -490,14 +498,16 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG'):
     predictions = model.predict_generator(test_generator)
     return(predictions)
     
-def evaluationScoreDict(y_gt,dico_pred,verbose=False,k = 20):
+def evaluationScoreDict(y_gt,dico_pred,verbose=False,k = 20,seuil=0.5):
     """
     @param k for precision at rank k
+    @param the seuil can change a lot of things on the F1 score
     """
     num_samples,num_classes = y_gt.shape
     AP_per_class = []
     P_per_class = []
     R_per_class = []
+    F1_per_class = []
     P20_per_class = []
     for c in range(num_classes):
         y_gt_c = y_gt[:,c]
@@ -510,27 +520,29 @@ def evaluationScoreDict(y_gt,dico_pred,verbose=False,k = 20):
         R_per_class += [test_recall]
         P_per_class += [test_precision]
         F1 = f1_score(y_gt_c,y_predict_test)
-        
+        F1_per_class +=[F1]
         precision_at_k = ranking_precision_score(np.array(y_gt_c), y_predict_confidence_score,k)
         P20_per_class += [precision_at_k]
         if verbose: print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}, precision a rank k=20  = {3:.2f}.".format(test_precision,test_recall,F1,precision_at_k))
-    return(AP_per_class,P_per_class,R_per_class,P20_per_class)
+    return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
     
-def evaluationScore(y_gt,y_pred,verbose=False,k = 20):
+def evaluationScore(y_gt,y_pred,verbose=False,k = 20,seuil=0.5):
     """
     y_gt must be between 0 or 1
     y_predmust be between 0 and 1
     @param k for precision at rank k
+    @param the seuil can change a lot of things
     """
     num_samples,num_classes = y_gt.shape
     AP_per_class = []
     P_per_class = []
+    F1_per_class = []
     R_per_class = []
     P20_per_class = []
     for c in range(num_classes):
         y_gt_c = y_gt[:,c]
         y_predict_confidence_score = y_pred[:,c]
-        y_predict_test = (y_predict_confidence_score>0.5).astype(int)
+        y_predict_test = (y_predict_confidence_score>seuil).astype(int)
         AP = average_precision_score(y_gt_c,y_predict_confidence_score,average=None)
         if verbose: print("Average Precision on all the data for classe",c," = ",AP)  
         AP_per_class += [AP] 
@@ -539,11 +551,29 @@ def evaluationScore(y_gt,y_pred,verbose=False,k = 20):
         R_per_class += [test_recall]
         P_per_class += [test_precision]
         F1 = f1_score(y_gt_c,y_predict_test)
-        
+        F1_per_class +=[F1]
         precision_at_k = ranking_precision_score(np.array(y_gt_c), y_predict_confidence_score,k)
         P20_per_class += [precision_at_k]
         if verbose: print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}, precision a rank k=20  = {3:.2f}.".format(test_precision,test_recall,F1,precision_at_k))
-    return(AP_per_class,P_per_class,R_per_class,P20_per_class)
+    return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
+
+def RunUnfreezeLayerPerformanceVGG():
+    """
+    The goal is to unfreeze only some part of the network
+    """
+    list_freezingType = ['FromTop','FromBottom','Alter']
+    
+    transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D']
+    for optimizer,opt_option in zip(['adam','SGD'],[[0.01],[0.1,0.01]]):
+        for transformOnFinalLayer in transformOnFinalLayer_tab:
+            for freezingType in list_freezingType:
+                for pretrainingModif in range(1,17):
+                    metrics = learn_and_eval(target_dataset='Paintings',constrNet='VGG',\
+                                             kind_method='FT',epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
+                                             pretrainingModif=pretrainingModif,freezingType=freezingType,
+                                             optimizer=optimizer,opt_option=opt_option)
+        
+                    AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
     
 def RunAllEvaluation(dataset='Paintings',forLatex=False):
     target_dataset='Paintings'
@@ -616,16 +646,17 @@ def RunAllEvaluation(dataset='Paintings',forLatex=False):
                     
 if __name__ == '__main__': 
     # Ce que l'on 
+    RunUnfreezeLayerPerformanceVGG()
     #RunAllEvaluation()
 #    learn_and_eval(target_dataset='Paintings',constrNet='VGG',kind_method='FT',weights=None,epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
-    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
-    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
-    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
-    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,pretrainingModif=False,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
-    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,pretrainingModif=False,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
+#    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
+#    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
+#    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
+#    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,pretrainingModif=False,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
+#    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,pretrainingModif=False,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
+###    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',kind_method='FT',\
+##                   epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
 ##    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',kind_method='FT',\
-#                   epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
-#    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',kind_method='FT',\
 #                   epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
 #    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',weights=None,\
 #                   kind_method='FT',getBeforeReLU=True,epochs=20,\

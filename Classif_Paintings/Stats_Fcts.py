@@ -107,7 +107,6 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
       model.add(GlobalAveragePooling2D())
   
   model.add(Dense(256, activation='relu'))
-  verbose = True
   if lr_multiple:
       multipliers[model.layers[-1].name] = None
   model.add(Dense(num_of_classes, activation='sigmoid'))

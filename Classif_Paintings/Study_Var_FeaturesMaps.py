@@ -62,6 +62,9 @@ def get_list_im(dataset,set=''):
     if dataset == 'ImageNet':
         ImageNet_val_path = os.path.join(os.sep,'media','gonthier','HDD2','data','IMAGENET','val')
         list_imgs = glob.glob(os.path.join(ImageNet_val_path,'*.JPEG'))
+    if dataset == 'ImageNetTest':
+        ImageNet_val_path = os.path.join(os.sep,'media','gonthier','HDD2','data','IMAGENET','test')
+        list_imgs = glob.glob(os.path.join(ImageNet_val_path,'*.JPEG'))
     elif dataset == 'Paintings':
         images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
         list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
@@ -76,7 +79,7 @@ def get_list_im(dataset,set=''):
         list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
     # Attention si jamais tu fais pour les autres bases il faut verifier que tu n'as que les images du datasets dans le dossier en question
     if not(set is None or set==''):
-        if dataset in ['ImageNet','OIV5']:
+        if dataset in ['ImageNet','OIV5','ImageNetTest']:
             print('Sorry we do not have the splitting information on ',dataset)
             raise(NotImplementedError)
         item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
@@ -392,6 +395,8 @@ def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
             pltname +=  dataset+'_'
             if dataset == 'ImageNet':
                 labels += ['ImNet']
+            if dataset == 'ImageNetTest':
+                labels += ['ImNetT']
             elif dataset == 'Paintings':
                 labels += ['ArtUK']
             elif dataset == 'watercolor':
@@ -410,7 +415,7 @@ def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
         
         alpha=0.7
         n_bins = 100
-        colors_full = ['red','green','blue','purple','orange']
+        colors_full = ['red','green','blue','purple','orange','pink']
         colors = colors_full[0:len(dataset_tab)]
         
     #    style_layers = [style_layers[0]]
@@ -463,9 +468,15 @@ if __name__ == '__main__':
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+#    Mom_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+#                        dataset_tab= ['ImageNet','Paintings','watercolor','IconArt_v1'],
+#                        getBeforeReLU=True,printoutput=['Mean','Var'])
     Mom_of_featuresMaps(saveformat='h5',number_im_considered =10000,
-                        dataset_tab= ['ImageNet','Paintings','watercolor','IconArt_v1'],
+                        dataset_tab= ['ImageNetTest','ImageNet'],
                         getBeforeReLU=True,printoutput=['Mean','Var'])
+    Mom_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+                        dataset_tab= ['ImageNetTest','ImageNet'],
+                        getBeforeReLU=False,printoutput=['Mean','Var'])
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     
