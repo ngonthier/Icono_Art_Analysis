@@ -105,6 +105,8 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
       model.add(GlobalMaxPooling2D()) 
   elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
       model.add(GlobalAveragePooling2D())
+  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+      model.add(Flatten())
   
   model.add(Dense(256, activation='relu'))
   if lr_multiple:
@@ -159,6 +161,9 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
   elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
       #model.add(GlobalAveragePooling2D())
       x = GlobalAveragePooling2D()(x)
+  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+#      model.add(Flatten())
+      x= Flatten()(x)
   
   x = Dense(256, activation='relu')(x)
   predictions = Dense(num_of_classes, activation='sigmoid')(x)
@@ -193,7 +198,7 @@ def vgg_AdaIn(style_layers,num_of_classes=10,
       custom_objects = {}
       custom_objects['HomeMade_BatchNormalisation']= HomeMade_BatchNormalisation
   
-  otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D','GlobalMinPooling2D']
+  otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
   if not(transformOnFinalLayer in otherOutputPorposed):
       print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
       raise(NotImplementedError)
@@ -214,12 +219,10 @@ def vgg_AdaIn(style_layers,num_of_classes=10,
 
   if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
       model.add(GlobalMaxPooling2D())
-#          elif transformOnFinalLayer =='GlobalMinPooling2D': # IE spatial max pooling
-#              model.add(GlobalMinPooling2D)
-#          elif transformOnFinalLayer =='GlobalMaxMinPooling2D': # IE spatial max pooling
-#              model.add(GlobalMinPooling2D)
   elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
       model.add(GlobalAveragePooling2D())
+  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+      model.add(Flatten())
   
   model.add(Dense(256, activation='relu'))
   model.add(Dense(num_of_classes, activation='sigmoid'))

@@ -563,7 +563,7 @@ def RunUnfreezeLayerPerformanceVGG():
     """
     list_freezingType = ['FromTop','FromBottom','Alter']
     
-    transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D']
+    transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D','']
     for optimizer,opt_option in zip(['adam','SGD'],[[0.01],[0.1,0.01]]):
         for transformOnFinalLayer in transformOnFinalLayer_tab:
             for freezingType in list_freezingType:
