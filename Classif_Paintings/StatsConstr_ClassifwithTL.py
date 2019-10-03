@@ -14,7 +14,8 @@ import numpy as np
 import os.path
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index
 from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
-    load_crop_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model
+    load_crop_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
+    MLP_model
 from IMDB import get_database
 import pickle
 import pathlib
@@ -105,14 +106,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                                    transformOnFinalLayer='',number_im_considered = 1000,\
                                    set='',getBeforeReLU=False,forLatex=False,epochs=20,\
                                    pretrainingModif=True,weights='imagenet',opt_option=[0.01],\
-                                   optimizer='adam',freezingType='FromTop'):
+                                   optimizer='adam',freezingType='FromTop',verbose=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
     @param : final_clf : the final classifier can be
-    TODO : linear SVM - MLP - perceptron - MLP one per class - MLP with finetuning of the net
+        - linear SVM 'LinearSVC' or two layers NN 'MLP2'
     @param : features : which features we will use
-    TODO : fc2, fc1, max spatial, max et min spatial
+        - fc2, fc1, flatten block5_pool (need a transformation)
     @param : constrNet the constrained net used
     TODO : VGGInNorm, VGGInNormAdapt seulement sur les features qui répondent trop fort, VGGGram
     @param : kind_method the type of methods we will use : TL or FT
@@ -289,6 +290,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     
     AP_file  = name_base+'_'+final_clf
     if kind_method=='TL':
+        if final_clf=='MLP2':
+            AP_file += '_'+str(epochs)+'_'+optimizer
+            lr = opt_option[-1]
+            if optimizer=='SGD':
+                AP_file += '_lr' +str(lr) 
         if normalisation:
             AP_file +=  '_Norm' 
             if gridSearch:
@@ -299,7 +305,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     AP_file_base =  AP_file
     AP_file_pkl =AP_file_base+'_AP.pkl'
     APfilePath =  os.path.join(output_path,AP_file_pkl)
-    
+    if verbose: print(APfilePath)
     if kind_method=='TL':
         Latex_str = constrNet 
         if style_layers==['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1']:
@@ -314,10 +320,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
         Latex_str += ' ' +features.replace('_','\_')
         Latex_str += ' ' + transformOnFinalLayer
         Latex_str += ' '+final_clf
-        if gridSearch:
-            Latex_str += 'GS'
-        else:
-            Latex_str += ' no GS'
+        if final_clf=='LinearSVC': 
+            if gridSearch:
+                Latex_str += 'GS'
+            else:
+                Latex_str += ' no GS'
         if getBeforeReLU:
             Latex_str += ' BFReLU'
     elif kind_method=='FT':
@@ -348,7 +355,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                     #df_copy[c] = df_copy[c].apply(lambda x : bool(x))
                 df_label = df_copy
                 df_label_test = df_label[df_label['set']=='test']
-                y_test = classes_vectors[df_label['set']=='test',:]
+            y_test = classes_vectors[df_label['set']=='test',:]
         else:
             raise(NotImplementedError)
     
@@ -374,11 +381,17 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                 Xtrainval = scaler.fit_transform(Xtrainval)
                 X_test = scaler.transform(X_test)
             
-            dico_clf=TrainClassifierOnAllClass(Xtrainval,ytrainval,clf=final_clf,gridSearch=gridSearch)
-            # Prediction
-            dico_pred = PredictOnTestSet(X_test,dico_clf,clf=final_clf)
-            metrics = evaluationScoreDict(y_test,dico_pred)
-            
+            if final_clf=='LinearSVC':
+                dico_clf=TrainClassifierOnAllClass(Xtrainval,ytrainval,clf=final_clf,gridSearch=gridSearch)
+                # Prediction
+                dico_pred = PredictOnTestSet(X_test,dico_clf,clf=final_clf)
+                metrics = evaluationScoreDict(y_test,dico_pred)
+            elif final_clf=='MLP2':
+                model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr)
+                history = model.fit(X_train, y_train,batch_size=32,epochs=epochs,validation_data=(X_val, y_val))
+                predictions = model.predict(X_test, batch_size=128)
+                metrics = evaluationScore(y_test,predictions)  
+                
         elif kind_method=='FT':
             # We fineTune a VGG
             if constrNet=='VGG':
@@ -408,8 +421,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
             # Prediction
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
                                            y_col=classes,path_im=path_to_img,Net=constrNet)
-            print(predictions.shape)
-            print(y_test.shape)
+
             metrics = evaluationScore(y_test,predictions)    
             
         with open(APfilePath, 'wb') as pkl:
@@ -441,8 +453,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     
     # To clean GPU memory
     K.clear_session()
-    cuda.select_device(0)
-    cuda.close()
+    #cuda.select_device(0)
+    #cuda.close()
     
     return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
 
@@ -482,6 +494,11 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                                                 preprocessing_function=preprocessing_function)
     STEP_SIZE_TRAIN=train_generator.n//train_generator.batch_size
     STEP_SIZE_VALID=valid_generator.n//valid_generator.batch_size
+    
+    # TODO you should add an early stoppping 
+    #earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
+    #mcp_save = ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
+    #reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
     
     model.fit_generator(generator=train_generator,
                     steps_per_epoch=STEP_SIZE_TRAIN,
@@ -586,6 +603,17 @@ def RunUnfreezeLayerPerformanceVGG():
 
         
                     AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
+def RunEval_MLP_onConvBlock():
+    transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D','']
+    for optimizer,opt_option in zip(['adam','SGD'],[[0.01],[0.01]]):
+        for transformOnFinalLayer in transformOnFinalLayer_tab:
+            if transformOnFinalLayer=='':
+                feature='flatten'
+            else:
+                feature='block5_pool'
+            metrics = learn_and_eval(target_dataset='Paintings',constrNet='VGG',features=feature,\
+                                     kind_method='TL',epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
+                                     optimizer=optimizer,opt_option=opt_option,final_clf='MLP2')
     
 def RunAllEvaluation(dataset='Paintings',forLatex=False):
     target_dataset='Paintings'
@@ -594,8 +622,9 @@ def RunAllEvaluation(dataset='Paintings',forLatex=False):
     
     transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D']
     for normalisation in [False]:
-        final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
+        final_clf_list = ['MLP2','LinearSVC'] # LinearSVC but also MLP
         features_list = ['fc2','fc1','flatten'] # We want to do fc2, fc1, max spatial and concat max and min spatial
+        features_list = [] # We want to do fc2, fc1, max spatial and concat max and min spatial
          # We want to do fc2, fc1, max spatial and concat max and min spatial
         # Normalisation and not normalise
         kind_method = 'TL'
@@ -625,6 +654,7 @@ def RunAllEvaluation(dataset='Paintings',forLatex=False):
         
         features_list = ['fc2','fc1','flatten']
         features_list = ['fc2','fc1']
+        features_list = []
         net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
         number_im_considered_tab = [1000]
         for getBeforeReLU in [True,False]:
@@ -659,7 +689,8 @@ def RunAllEvaluation(dataset='Paintings',forLatex=False):
 if __name__ == '__main__': 
     # Ce que l'on 
     RunUnfreezeLayerPerformanceVGG()
-    #RunAllEvaluation()
+    RunEval_MLP_onConvBlock()
+    RunAllEvaluation()
 #    learn_and_eval(target_dataset='Paintings',constrNet='VGG',kind_method='FT',weights=None,epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
 #    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
 #    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
@@ -686,3 +717,5 @@ if __name__ == '__main__':
 #                                  'block5_conv1','block5_conv2','block5_conv3','block5_conv4'])
 #    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',\
 #                   kind_method='FT',getBeforeReLU=True,epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
+    learn_and_eval(target_dataset='Paintings',constrNet='VGG',pretrainingModif=False,\
+                   kind_method='FT',epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)

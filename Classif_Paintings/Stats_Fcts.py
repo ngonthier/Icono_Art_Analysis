@@ -37,6 +37,20 @@ import os.path
 #import time
 #import functools
 
+### Multi Layer perceptron
+def MLP_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False):
+  if optimizer=='SGD':
+      opt = SGD(learning_rate=lr,momentum=0.9)
+  else:
+      opt=optimizer
+  model =  tf.keras.Sequential()
+  model.add(Dense(256, activation='relu'))
+  model.add(Dense(num_of_classes, activation='sigmoid'))
+  # Compile model
+  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  if verbose: print(model.summary())
+  return(model)
+
 ### To fine Tune a VGG
 def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
                        pretrainingModif=True,verbose=False,weights='imagenet',optimizer='adam',\
