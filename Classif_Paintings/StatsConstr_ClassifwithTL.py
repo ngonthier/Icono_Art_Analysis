@@ -27,6 +27,8 @@ from Custom_Metrics import ranking_precision_score
 from LatexOuput import arrayToLatex
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
+from tensorflow.python.keras import backend as K
+from numba import cuda
 
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
@@ -418,7 +420,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
 
         with open(APfilePath, 'rb') as pkl:
             metrics = pickle.load(pkl)
-    AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
+    if len(metrics)==5:
+        AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
+    if len(metrics)==4:
+        AP_per_class,P_per_class,R_per_class,P20_per_class = metrics
+        F1_per_class = None
     
     if not(forLatex):
         print(target_dataset,source_dataset,number_im_considered,final_clf,features,transformOnFinalLayer,\
@@ -432,6 +438,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     Latex_str += str_part2
     Latex_str = Latex_str.replace('\hline','')
     print(Latex_str)
+    
+    # To clean GPU memory
+    K.clear_session()
+    cuda.select_device(0)
+    cuda.close()
     
     return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
 
@@ -572,6 +583,7 @@ def RunUnfreezeLayerPerformanceVGG():
                                              kind_method='FT',epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
                                              pretrainingModif=pretrainingModif,freezingType=freezingType,
                                              optimizer=optimizer,opt_option=opt_option)
+
         
                     AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
     
