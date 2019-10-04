@@ -48,7 +48,6 @@ def MLP_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False):
   model.add(Dense(num_of_classes, activation='sigmoid'))
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
-  if verbose: print(model.summary())
   return(model)
 
 ### To fine Tune a VGG
@@ -122,6 +121,8 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
       model.add(Flatten())
   
+  model.add(tf.keras.layers.Lambda(lambda x :  tf.Print(x, [x,tf.shape(x)])))
+    
   model.add(Dense(256, activation='relu'))
   if lr_multiple:
       multipliers[model.layers[-1].name] = None

@@ -30,6 +30,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from tensorflow.python.keras import backend as K
 from numba import cuda
+import matplotlib.pyplot as plt
 
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
@@ -96,7 +97,8 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
             
     return(dict_stats_coherent,current_list_mean_and_std_target)
 
-def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='fc2',constrNet='VGG',kind_method='FT',
+def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='fc2',\
+                   constrNet='VGG',kind_method='FT',\
                    style_layers = ['block1_conv1',
                                     'block2_conv1',
                                     'block3_conv1', 
@@ -106,7 +108,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                                    transformOnFinalLayer='',number_im_considered = 1000,\
                                    set='',getBeforeReLU=False,forLatex=False,epochs=20,\
                                    pretrainingModif=True,weights='imagenet',opt_option=[0.01],\
-                                   optimizer='adam',freezingType='FromTop',verbose=False):
+                                   optimizer='adam',freezingType='FromTop',verbose=False,\
+                                   plotConv=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -125,6 +128,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
         it can be a boolean True of False or a 
     @param : opt_option : learning rate different for the SGD
     @param : freezingType : the way we unfreeze the pretained network : 'FromBottom','FromTop','Alter'
+    @param : ReDo : we erase the output performance file
+    @param : plotConv : plot the loss function in train and va
     """
     assert(freezingType in ['FromBottom','FromTop','Alter'])
     
@@ -133,6 +138,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     if kind_method=='FT':
         model_output_path = os.path.join(output_path,'model')
         pathlib.Path(model_output_path).mkdir(parents=True, exist_ok=True) 
+    
+    if kind_method=='TL':
+        if not (transformOnFinalLayer is None or transformOnFinalLayer=='') and features in ['fc2','fc1','flatten']:
+            print('Incompatible feature layer and transformation applied to this layer')
+            raise(NotImplementedError)
     
     num_layers = numeral_layers_index(style_layers)
     # Compute statistics on the source_dataset
@@ -186,7 +196,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
         name_pkl_values  = name_base+ '_Features.pkl'
         name_pkl_im = os.path.join(output_path,name_pkl_im)
         name_pkl_values = os.path.join(output_path,name_pkl_values)
-        
+
         if not os.path.isfile(name_pkl_values):
             if not(forLatex):
                 print('== We will compute the reference statistics ==')
@@ -288,8 +298,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
             with open(name_pkl_im, 'rb') as pkl:
                 im_net = pickle.load(pkl)
     
-    AP_file  = name_base+'_'+final_clf
+    AP_file  = name_base
     if kind_method=='TL':
+        AP_file += '_'+final_clf
         if final_clf=='MLP2':
             AP_file += '_'+str(epochs)+'_'+optimizer
             lr = opt_option[-1]
@@ -300,11 +311,12 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
             if gridSearch:
                 AP_file += '_GS'
     elif kind_method=='FT':
-       AP_file +=  '_'+str(epochs)
+       AP_file += '_'+str(epochs)
     
     AP_file_base =  AP_file
     AP_file_pkl =AP_file_base+'_AP.pkl'
     APfilePath =  os.path.join(output_path,AP_file_pkl)
+    print(APfilePath)
     if verbose: print(APfilePath)
     if kind_method=='TL':
         Latex_str = constrNet 
@@ -388,8 +400,21 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                 metrics = evaluationScoreDict(y_test,dico_pred)
             elif final_clf=='MLP2':
                 model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr)
-                history = model.fit(X_train, y_train,batch_size=32,epochs=epochs,validation_data=(X_val, y_val))
-                predictions = model.predict(X_test, batch_size=128)
+                batch_size = 32
+                STEP_SIZE_TRAIN=len(X_train)//batch_size
+                STEP_SIZE_VALID=len(X_val)//batch_size
+                history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
+                                    validation_data=(X_val, y_val),\
+                                    steps_per_epoch=STEP_SIZE_TRAIN,\
+                                    validation_steps=STEP_SIZE_VALID,\
+                                    use_multiprocessing=True,workers=3,\
+                                    shuffle=True)
+                if verbose: print(model.summary())
+                
+                if plotConv:
+                    plotKerasHistory(history)
+                
+                predictions = model.predict(X_test, batch_size=1)
                 metrics = evaluationScore(y_test,predictions)  
                 
         elif kind_method=='FT':
@@ -415,7 +440,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
             model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                                     x_col=item_name,y_col=classes,path_im=path_to_img,\
                                     str_val=str_val,num_classes=len(classes),epochs=epochs,\
-                                    Net=constrNet)
+                                    Net=constrNet,plotConv=plotConv)
             model_path = os.path.join(model_output_path,AP_file_base+'.h5')
             model.save(model_path,include_optimizer=True)
             # Prediction
@@ -458,7 +483,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     
     return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
 
-def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,Net='VGG'):
+def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
+                  Net='VGG',batch_size = 32,plotConv=False):
     """
     @param x_col : name of images
     @param y_col : classes
@@ -481,31 +507,62 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         raise(NotImplementedError)
         
     datagen= tf.keras.preprocessing.image.ImageDataGenerator()
+    
     train_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
                                                 x_col=x_col,y_col=y_col,\
                                                 class_mode="other", \
-                                                target_size=(224,224), batch_size=32,\
-                                                shuffle=True,\
+                                                target_size=(224,224), batch_size=batch_size,\
+                                                shuffle=False,\
                                                 preprocessing_function=preprocessing_function)
     valid_generator=datagen.flow_from_dataframe(dataframe=df_val, directory=path_im,\
                                                 x_col=x_col,y_col=y_col,\
                                                 class_mode="other", \
-                                                target_size=(224,224), batch_size=32,\
+                                                target_size=(224,224), batch_size=batch_size,\
                                                 preprocessing_function=preprocessing_function)
+#    train_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
+#                                                x_col=x_col,y_col=y_col,\
+#                                                class_mode="other", \
+#                                                target_size=(224,224), batch_size=32,\
+#                                                shuffle=True,\
+#                                                preprocessing_function=preprocessing_function)
+#    valid_generator=datagen.flow_from_dataframe(dataframe=df_val, directory=path_im,\
+#                                                x_col=x_col,y_col=y_col,\
+#                                                class_mode="other", \
+#                                                target_size=(224,224), batch_size=32,\
+#                                                preprocessing_function=preprocessing_function)
     STEP_SIZE_TRAIN=train_generator.n//train_generator.batch_size
     STEP_SIZE_VALID=valid_generator.n//valid_generator.batch_size
-    
     # TODO you should add an early stoppping 
-    #earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
-    #mcp_save = ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
-    #reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
-    
-    model.fit_generator(generator=train_generator,
+#    earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
+#    mcp_save = ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
+#    reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
+#    
+    history = model.fit_generator(generator=train_generator,
                     steps_per_epoch=STEP_SIZE_TRAIN,
                     validation_data=valid_generator,
                     validation_steps=STEP_SIZE_VALID,
-                    epochs=epochs)
+                    epochs=epochs,use_multiprocessing=True,
+                    workers=3)
+    
+    if plotConv:
+       plotKerasHistory(history) 
+    
     return(model)
+
+def plotKerasHistory(history):
+    plt.ion()
+    plt.figure()
+    plt.plot(history.history['loss'], label='train')
+    plt.plot(history.history['val_loss'], label='val')
+    plt.title('Loss')
+    plt.legend()
+    plt.figure()
+    plt.plot(history.history['acc'], label='train')
+    plt.plot(history.history['val_acc'], label='val')
+    plt.title('Acc')
+    plt.legend()
+    plt.draw()
+    plt.pause(0.001)
     
 def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG'):
     df_test[x_col] = df_test[x_col].apply(lambda x : x + '.jpg')
@@ -585,24 +642,48 @@ def evaluationScore(y_gt,y_pred,verbose=False,k = 20,seuil=0.5):
         if verbose: print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}, precision a rank k=20  = {3:.2f}.".format(test_precision,test_recall,F1,precision_at_k))
     return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
 
-def RunUnfreezeLayerPerformanceVGG():
+def RunUnfreezeLayerPerformanceVGG(plot=False):
     """
     The goal is to unfreeze only some part of the network
     """
     list_freezingType = ['FromTop','FromBottom','Alter']
     
     transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D','']
-    for optimizer,opt_option in zip(['adam','SGD'],[[0.01],[0.1,0.01]]):
+    optimizer_tab = ['adam','SGD']
+    opt_option_tab = [[0.01],[0.1,0.01]]
+    range_l = range(0,17)
+    target_dataset = 'Paintings'
+    for optimizer,opt_option in zip(optimizer_tab,opt_option_tab):
         for transformOnFinalLayer in transformOnFinalLayer_tab:
+            if plot: plt.figure()
+            list_perf = [] 
+            j = 0
             for freezingType in list_freezingType:
-                for pretrainingModif in range(1,17):
-                    metrics = learn_and_eval(target_dataset='Paintings',constrNet='VGG',\
+                list_perf += [[]]  
+                for pretrainingModif in range_l:
+                    metrics = learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
                                              kind_method='FT',epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
                                              pretrainingModif=pretrainingModif,freezingType=freezingType,
                                              optimizer=optimizer,opt_option=opt_option)
 
         
                     AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
+                    list_perf[j] += [np.mean(AP_per_class)]
+                if plot: plt.plot(list(range_l),list_perf[j],label=freezingType)
+                j += 1
+            if plot:
+                title = optimizer + ' ' + transformOnFinalLayer
+                plt.xlabel('Number of layers retrained')
+                plt.ylabel('mAP ArtUK')
+                plt.title(title)
+                plt.legend(loc='best')
+                output_path = os.join.path(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
+                pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
+                fname = os.join.path(output_path,target_dataset+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png')
+                plt.show() 
+                plt.savefig(fname)
+                plt.close()
+                    
 def RunEval_MLP_onConvBlock():
     transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D','']
     for optimizer,opt_option in zip(['adam','SGD'],[[0.01],[0.01]]):
@@ -685,12 +766,32 @@ def RunAllEvaluation(dataset='Paintings',forLatex=False):
                                        normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
                                        transformOnFinalLayer=transformOnFinalLayer,\
                                        forLatex=forLatex)
-                    
+ 
+def TrucBizarre():
+    # Ces deux manieres de faire devrait retourner les memes performances et ce n'est pas le cas....
+    
+    # Ici cas du transfert learning avec extraction de features puis entrainement d'un MLP2
+    metrics = learn_and_eval(target_dataset='Paintings',constrNet='VGG',pretrainingModif=False,\
+                   kind_method='TL',epochs=1,transformOnFinalLayer='GlobalAveragePooling2D',\
+                   final_clf='MLP2',forLatex=True,features='block5_pool',ReDo=True,plotConv=True,\
+                   optimizer='adam')
+    AP_TL = metrics[0]
+    print('TL',AP_TL)
+    
+    # Ici fine-tuning du réseau mais avec l'ensemble du réseau pretained qui est freeze /
+    # fixe / non trainable : on rajoute juste un MLP2 a la fin
+    metrics2 = learn_and_eval(target_dataset='Paintings',constrNet='VGG',pretrainingModif=False,\
+                   kind_method='FT',epochs=1,transformOnFinalLayer='GlobalAveragePooling2D',\
+                   final_clf='MLP2',forLatex=True,ReDo=True,plotConv=True,optimizer='adam')
+    AP_FT = metrics2[0]
+    print('FT',AP_FT)
+                   
 if __name__ == '__main__': 
     # Ce que l'on 
+    #RunAllEvaluation()
     RunUnfreezeLayerPerformanceVGG()
     RunEval_MLP_onConvBlock()
-    RunAllEvaluation()
+    
 #    learn_and_eval(target_dataset='Paintings',constrNet='VGG',kind_method='FT',weights=None,epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
 #    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
 #    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
@@ -717,5 +818,5 @@ if __name__ == '__main__':
 #                                  'block5_conv1','block5_conv2','block5_conv3','block5_conv4'])
 #    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',\
 #                   kind_method='FT',getBeforeReLU=True,epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
-    learn_and_eval(target_dataset='Paintings',constrNet='VGG',pretrainingModif=False,\
-                   kind_method='FT',epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
+#    learn_and_eval(target_dataset='Paintings',constrNet='VGG',pretrainingModif=False,\
+#                   kind_method='FT',epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)

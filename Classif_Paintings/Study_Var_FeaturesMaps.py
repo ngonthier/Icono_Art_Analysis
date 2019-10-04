@@ -59,11 +59,14 @@ def get_list_im(dataset,set=''):
     """
     Returns the list of images and the number of images
     """    
-    if dataset == 'ImageNet':
+    if dataset == 'ImageNet': # It is the validation set
         ImageNet_val_path = os.path.join(os.sep,'media','gonthier','HDD2','data','IMAGENET','val')
         list_imgs = glob.glob(os.path.join(ImageNet_val_path,'*.JPEG'))
     if dataset == 'ImageNetTest':
         ImageNet_val_path = os.path.join(os.sep,'media','gonthier','HDD2','data','IMAGENET','test')
+        list_imgs = glob.glob(os.path.join(ImageNet_val_path,'*.JPEG'))
+    if dataset == 'ImageNetTrain':
+        ImageNet_val_path = os.path.join(os.sep,'media','gonthier','HDD2','data','IMAGENET','train')
         list_imgs = glob.glob(os.path.join(ImageNet_val_path,'*.JPEG'))
     elif dataset == 'Paintings':
         images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
@@ -74,12 +77,15 @@ def get_list_im(dataset,set=''):
     elif dataset == 'IconArt_v1':
         images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Wikidata_Paintings','IconArt_v1','JPEGImages')
         list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
+    elif dataset == 'T':
+        images_path = os.path.join(os.sep,'media','gonthier','HDD','data','T')
+        list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
     elif dataset == 'OIV5':
         images_path = os.path.join(os.sep,'media','gonthier','HDD2','data','OIV5','Images')
         list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
     # Attention si jamais tu fais pour les autres bases il faut verifier que tu n'as que les images du datasets dans le dossier en question
     if not(set is None or set==''):
-        if dataset in ['ImageNet','OIV5','ImageNetTest']:
+        if dataset in ['ImageNet','OIV5','ImageNetTest','ImageNetTrain']:
             print('Sorry we do not have the splitting information on ',dataset)
             raise(NotImplementedError)
         item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
@@ -396,7 +402,9 @@ def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
             if dataset == 'ImageNet':
                 labels += ['ImNet']
             if dataset == 'ImageNetTest':
-                labels += ['ImNetT']
+                labels += ['ImNetTest']
+            if dataset == 'ImageNetTrain':
+                labels += ['ImNetTrain']
             elif dataset == 'Paintings':
                 labels += ['ArtUK']
             elif dataset == 'watercolor':
@@ -472,10 +480,10 @@ if __name__ == '__main__':
 #                        dataset_tab= ['ImageNet','Paintings','watercolor','IconArt_v1'],
 #                        getBeforeReLU=True,printoutput=['Mean','Var'])
     Mom_of_featuresMaps(saveformat='h5',number_im_considered =10000,
-                        dataset_tab= ['ImageNetTest','ImageNet'],
+                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet'],
                         getBeforeReLU=True,printoutput=['Mean','Var'])
     Mom_of_featuresMaps(saveformat='h5',number_im_considered =10000,
-                        dataset_tab= ['ImageNetTest','ImageNet'],
+                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet'],
                         getBeforeReLU=False,printoutput=['Mean','Var'])
     #Mom_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
