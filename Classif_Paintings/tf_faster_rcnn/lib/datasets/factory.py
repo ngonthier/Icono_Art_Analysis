@@ -48,7 +48,8 @@ def get_sets(data_path='/media/gonthier/HDD/data/'):
   for db in ['CASPApaintings']:
     for split in ['train', 'test']:
         name = '{}_{}'.format(db,split)
-        __sets[name] = (lambda split=split, db=db: CrossMod_db(db,split,devkit_path=data_path,test_ext=True))
+        data_path_local = data_path.replace('HDD','HDD2')
+        __sets[name] = (lambda split=split, db=db: CrossMod_db(db,split,devkit_path=data_path_local,test_ext=True))
  
   for db in ['WikiTenLabels']:
     for split in ['test']:
@@ -80,6 +81,7 @@ def get_imdb(name,data_path='/media/gonthier/HDD/data/',ext=None):
   """
   if not(os.path.exists(data_path)):
     data_path = 'data/'
+  
   __sets = get_sets(data_path=data_path)
   
   if name not in __sets or not(ext is None):

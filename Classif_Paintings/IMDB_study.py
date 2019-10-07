@@ -17,6 +17,8 @@ Faster RCNN : Test_GT_inProposals
 
 4/ A quoi ressemble l'ensemble des points en TSNE ?
 
+Dans ce fichier nous avons calcule le recall des boxes pour Faster RCNN et EdgeBoxes
+
 @author: gonthier
 """
 
@@ -514,8 +516,7 @@ def draw_random_bbbox(h,w):
     return bbox
 
 def Recall_all_databases():
-    #for database in ['IconArt_v1','watercolor','PeopleArt']:
-    for database in ['PeopleArt','watercolor']:
+    for database in ['IconArt_v1','watercolor','PeopleArt','comic','clipart','CASPApaintings']:
         for metamodel,demonet in zip(['FasterRCNN','EdgeBoxes'],['res152_COCO','res152']):
             eval_Recall_Boxes(database,metamodel,demonet)
 
@@ -533,9 +534,21 @@ def eval_Recall_Boxes(database='IconArt_v1',metamodel='FasterRCNN',demonet='res1
     elif database=='watercolor':
         imdb = get_imdb('watercolor_test')
         list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
+    elif database=='comic':
+        imdb = get_imdb('comic_test')
+        list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
+    elif database=='clipart':
+        imdb = get_imdb('clipart_test')
+        list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
+    elif database=='CASPApaintings':
+        imdb = get_imdb('CASPApaintings_test')
+        list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
     elif database=='PeopleArt':
         imdb = get_imdb('PeopleArt_test')
         list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
+    else:
+        print(database,'is unkown in this function')
+        raise(NotImplementedError)
         
         
     dict_name_file = getDictFeaturesPrecomputed(database,k_per_bag=k_per_bag,\

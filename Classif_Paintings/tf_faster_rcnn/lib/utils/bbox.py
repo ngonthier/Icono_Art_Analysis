@@ -19,6 +19,10 @@ def bbox_overlaps(boxes,query_boxes):
     -------
     overlaps: (N, K) ndarray of overlap between boxes and query_boxes
     """
+    N = len(boxes)
+    K = len(query_boxes)
+    # Ce code est inachévé
+    raise(NotImplementedError)
     for k in range(K):
         box_area = (
             (query_boxes[k, 2] - query_boxes[k, 0] + 1) *

@@ -24,3 +24,10 @@ Pillow
 matplotlib
 pandas
 sklearn
+numba
+easydict
+pyyaml
+keras
+cython
+cython-bbox
+
