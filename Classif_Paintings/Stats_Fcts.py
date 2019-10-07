@@ -121,7 +121,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
       model.add(Flatten())
   
-  model.add(tf.keras.layers.Lambda(lambda x :  tf.Print(x, [x,tf.shape(x)])))
+  #model.add(tf.keras.layers.Lambda(lambda x :  tf.Print(x, [x,tf.shape(x)])))
     
   model.add(Dense(256, activation='relu'))
   if lr_multiple:

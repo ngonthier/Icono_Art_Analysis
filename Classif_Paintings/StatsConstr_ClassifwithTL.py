@@ -653,8 +653,8 @@ def RunUnfreezeLayerPerformanceVGG(plot=False):
     opt_option_tab = [[0.01],[0.1,0.01]]
     range_l = range(0,17)
     target_dataset = 'Paintings'
-    for optimizer,opt_option in zip(optimizer_tab,opt_option_tab):
-        for transformOnFinalLayer in transformOnFinalLayer_tab:
+    for transformOnFinalLayer in transformOnFinalLayer_tab:
+        for optimizer,opt_option in zip(optimizer_tab,opt_option_tab):
             if plot: plt.figure()
             list_perf = [] 
             j = 0
