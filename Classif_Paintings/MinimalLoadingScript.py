@@ -133,3 +133,5 @@ def LoadAllDatasets(whatToload= 'var',data_path='data'):
             print(dataset,layer,'num_images,num_features ',num_images,num_features )
             tab_vars +=[stats_]
             
+    return(dict_of_dict)
+            
