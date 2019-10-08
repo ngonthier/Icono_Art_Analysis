@@ -372,6 +372,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                 df_label = df_copy
                 df_label_test = df_label[df_label['set']=='test']
             y_test = classes_vectors[df_label['set']=='test',:]
+        elif target_dataset=='IconArt_v1':
+            sLength = len(df_label[item_name])
+            classes_vectors =  df_label[classes].values
+            df_label_test = df_label[df_label['set']=='test']
+            y_test = classes_vectors[df_label['set']=='test',:]
         else:
             raise(NotImplementedError)
     
@@ -406,13 +411,20 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                 model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr)
                 batch_size = 32
                 STEP_SIZE_TRAIN=len(X_train)//batch_size
-                STEP_SIZE_VALID=len(X_val)//batch_size
-                history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
-                                    validation_data=(X_val, y_val),\
-                                    steps_per_epoch=STEP_SIZE_TRAIN,\
-                                    validation_steps=STEP_SIZE_VALID,\
-                                    use_multiprocessing=True,workers=3,\
-                                    shuffle=True)
+                if not(len(X_val)==0):
+                    STEP_SIZE_VALID=len(X_val)//batch_size
+                    history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
+                                        validation_data=(X_val, y_val),\
+                                        steps_per_epoch=STEP_SIZE_TRAIN,\
+                                        validation_steps=STEP_SIZE_VALID,\
+                                        use_multiprocessing=True,workers=3,\
+                                        shuffle=True)
+                else: # No validation set provided
+                    history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
+                                        validation_split=0.15,\
+                                        steps_per_epoch=STEP_SIZE_TRAIN,\
+                                        use_multiprocessing=True,workers=3,\
+                                        shuffle=True)
                 if verbose: print(model.summary())
                 
                 if plotConv:
@@ -482,13 +494,13 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     
     # To clean GPU memory
     K.clear_session()
-    cuda.select_device(0)
-    cuda.close()
+    #cuda.select_device(0)
+    #cuda.close()
     
     return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
 
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
-                  Net='VGG',batch_size = 32,plotConv=False):
+                  Net='VGG',batch_size = 32,plotConv=False,test_size=0.15):
     """
     @param x_col : name of images
     @param y_col : classes
@@ -499,8 +511,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     df_train[x_col] = df_train[x_col].apply(lambda x : x + '.jpg')
     df_val[x_col] = df_val[x_col].apply(lambda x : x + '.jpg')
     if len(df_val)==0:
-        df = df[not(df['set']=='test')]
-        df_train, df_val = train_test_split(df, test_size=0.33)
+        df_train, df_val = train_test_split(df_train, test_size=test_size)
         
     if Net=='VGG' or Net=='VGGAdaIn':
         preprocessing_function = tf.keras.applications.vgg19.preprocess_input
@@ -509,7 +520,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     else:
         print(Net,'is unknwon')
         raise(NotImplementedError)
-        
+
     datagen= tf.keras.preprocessing.image.ImageDataGenerator()
     
     train_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
@@ -919,11 +930,11 @@ def RunAllEvaluation(dataset='Paintings',forLatex=False):
                                        transformOnFinalLayer=transformOnFinalLayer,\
                                        forLatex=forLatex)
  
-def TrucBizarre():
+def TrucBizarre(target_dataset='Paintings'):
     # Ces deux manieres de faire devrait retourner les memes performances et ce n'est pas le cas....
     
     # Ici cas du transfert learning avec extraction de features puis entrainement d'un MLP2
-    metrics = learn_and_eval(target_dataset='Paintings',constrNet='VGG',pretrainingModif=False,\
+    metrics = learn_and_eval(target_dataset=target_dataset,constrNet='VGG',pretrainingModif=False,\
                    kind_method='TL',epochs=1,transformOnFinalLayer='GlobalAveragePooling2D',\
                    final_clf='MLP2',forLatex=True,features='block5_pool',ReDo=True,plotConv=True,\
                    optimizer='adam')
@@ -932,7 +943,7 @@ def TrucBizarre():
     
     # Ici fine-tuning du réseau mais avec l'ensemble du réseau pretained qui est freeze /
     # fixe / non trainable : on rajoute juste un MLP2 a la fin
-    metrics2 = learn_and_eval(target_dataset='Paintings',constrNet='VGG',pretrainingModif=False,\
+    metrics2 = learn_and_eval(target_dataset=target_dataset,constrNet='VGG',pretrainingModif=False,\
                    kind_method='FT',epochs=1,transformOnFinalLayer='GlobalAveragePooling2D',\
                    final_clf='MLP2',forLatex=True,ReDo=True,plotConv=True,optimizer='adam')
     AP_FT = metrics2[0]

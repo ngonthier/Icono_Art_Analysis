@@ -209,9 +209,6 @@ def vgg_AdaIn(style_layers,num_of_classes=10,
   vgg.trainable = False
   i = 0
   
-  if getBeforeReLU: 
-      custom_objects = {}
-  
   otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
   if not(transformOnFinalLayer in otherOutputPorposed):
       print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
