@@ -211,7 +211,6 @@ def vgg_AdaIn(style_layers,num_of_classes=10,
   
   if getBeforeReLU: 
       custom_objects = {}
-      custom_objects['HomeMade_BatchNormalisation']= HomeMade_BatchNormalisation
   
   otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
   if not(transformOnFinalLayer in otherOutputPorposed):

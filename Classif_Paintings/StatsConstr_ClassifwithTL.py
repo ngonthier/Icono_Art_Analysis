@@ -31,6 +31,8 @@ import tensorflow as tf
 from tensorflow.python.keras import backend as K
 from numba import cuda
 import matplotlib.pyplot as plt
+import matplotlib.cm as mplcm
+import matplotlib.colors as colors
 
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
@@ -183,7 +185,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
             
     if getBeforeReLU:
         name_base += '_BeforeReLU'
-    name_base +=  features 
+    if not(kind_method=='FT' and constrNet=='VGGAdaIn'):
+        name_base +=  features 
     if not((transformOnFinalLayer is None) or (transformOnFinalLayer=='')):
        name_base += '_'+ transformOnFinalLayer
     name_base += '_' + kind_method   
@@ -316,8 +319,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     AP_file_base =  AP_file
     AP_file_pkl =AP_file_base+'_AP.pkl'
     APfilePath =  os.path.join(output_path,AP_file_pkl)
-    print(APfilePath)
     if verbose: print(APfilePath)
+    
+    # TL or FT method
     if kind_method=='TL':
         Latex_str = constrNet 
         if style_layers==['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1']:
@@ -478,8 +482,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     
     # To clean GPU memory
     K.clear_session()
-    #cuda.select_device(0)
-    #cuda.close()
+    cuda.select_device(0)
+    cuda.close()
     
     return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
 
@@ -677,12 +681,160 @@ def RunUnfreezeLayerPerformanceVGG(plot=False):
                 plt.ylabel('mAP ArtUK')
                 plt.title(title)
                 plt.legend(loc='best')
-                output_path = os.join.path(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
+                output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
                 pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
-                fname = os.join.path(output_path,target_dataset+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png')
+                fname =  os.path.join(output_path,target_dataset+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png')
                 plt.show() 
                 plt.savefig(fname)
                 plt.close()
+                
+def PlotSomePerformanceVGG(metricploted='mAP'):
+    """
+    Plot some mAP  on ArtUK Paintings dataset with different model just to see
+    if we can say someting
+    """
+    # Normally metric = AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class but sometimes F1 is missing
+    if metricploted=='mAP':
+        metricploted_index = 0
+    elif metricploted=='Precision':
+        metricploted_index = 1
+    elif metricploted=='Recall':
+        metricploted_index = 2
+    else:
+        print(metricploted,' is unknown')
+        raise(NotImplementedError)
+        
+    list_markers = ['o','s','X','*','v','^','<','>','d','1','2','3','4','8','h','H','p','d','$f$','P']
+    # Les 3 frozen : 'o','s','X'
+    # VGG : '*'
+    
+    NUM_COLORS = 20
+    color_number_for_frozen = [0,NUM_COLORS//2,NUM_COLORS-1]
+    cm = plt.get_cmap('gist_rainbow')
+    cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
+    scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)
+    list_freezingType = ['FromTop','FromBottom','Alter']
+    
+    transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D'] # Not the flatten case for the moment
+    optimizer_tab = ['adam','SGD']
+    opt_option_tab = [[0.01],[0.1,0.01]]
+    range_l = range(0,17)
+    opt_option = [0.01]
+    optimizer = 'adam'
+    target_dataset = 'Paintings'
+    for transformOnFinalLayer in transformOnFinalLayer_tab:
+        fig_i = 0
+        plt.figure()
+        list_perf = [] 
+        j = 0
+        # Plot the value with a certain number of freeze or unfreeze layer
+        for freezingType in list_freezingType:
+            list_perf += [[]]  
+            for pretrainingModif in range_l:
+                metrics = learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
+                                         kind_method='FT',epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
+                                         pretrainingModif=pretrainingModif,freezingType=freezingType,
+                                         optimizer=optimizer,opt_option=opt_option)
+
+    
+                metricI_per_class = metrics[metricploted_index]
+                list_perf[j] += [np.mean(metricI_per_class)]
+            plt.plot(list(range_l),list_perf[j],label=freezingType,color=scalarMap.to_rgba(color_number_for_frozen[fig_i]),\
+                     marker=list_markers[fig_i],linestyle=':')
+            fig_i += 1
+            j += 1
+        
+        # Plot other proposed solution
+        features = 'block5_pool'
+        net_tab = ['VGG','VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
+        style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                         ['block1_conv1','block2_conv1'],['block1_conv1']]
+        style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                         ['block1_conv1','block2_conv1']]
+        number_im_considered = 1000
+        final_clf = 'MLP2'
+        source_dataset = 'ImageNet'
+        kind_method = 'TL'
+        normalisation = False
+        getBeforeReLU = True
+        forLatex = True
+        fig_i = 0
+        for constrNet in net_tab:
+            print(constrNet)
+            if constrNet=='VGGBaseNormCoherent':
+                style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
+            elif constrNet=='VGG':
+                style_layers_tab = [[]]
+            else:
+                style_layers_tab = style_layers_tab_forOther
+            for style_layers in style_layers_tab:
+                labelstr = constrNet 
+                if not(constrNet=='VGG'):
+                    labelstr += '_'+ numeral_layers_index(style_layers)
+                metrics = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers,gridSearch=False,
+                                   number_im_considered=number_im_considered,
+                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+                                   transformOnFinalLayer=transformOnFinalLayer,\
+                                   forLatex=forLatex)
+                metricI_per_class = metrics[metricploted_index]
+                mMetric = np.mean(metricI_per_class)
+                if fig_i in color_number_for_frozen:
+                    fig_i_c = fig_i +1 
+                    fig_i_m = fig_i
+                    fig_i += 1
+                else:
+                    fig_i_c = fig_i
+                    fig_i_m = fig_i
+                plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
+                         marker=list_markers[fig_i_m],linestyle='')
+                fig_i += 1
+        
+        # Case of the fine tuning with batch normalization 
+        constrNet = 'VGGAdaIn'
+        style_layers_tab_VGGAdaIn = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                    'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                    'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                    'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
+                                                    ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                                                    ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
+        for style_layers in style_layers_tab_VGGAdaIn:
+#            print(constrNet,style_layers)
+            metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
+                                      epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
+                                      final_clf='MLP2',forLatex=True,optimizer='adam',\
+                                      style_layers=style_layers,getBeforeReLU=getBeforeReLU)
+            metricI_per_class = metrics[metricploted_index]
+            mMetric = np.mean(metricI_per_class)
+            if fig_i in color_number_for_frozen:
+                fig_i_c = fig_i +1 
+                fig_i_m = fig_i
+                fig_i += 1
+            else:
+                fig_i_c = fig_i
+                fig_i_m = fig_i
+            labelstr = constrNet 
+            if not(constrNet=='VGG'):
+                labelstr += '_'+ numeral_layers_index(style_layers)
+            plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
+                     marker=list_markers[fig_i_m],linestyle='')
+            fig_i += 1
+            
+        title = optimizer + ' ' + transformOnFinalLayer + ' ' + metricploted
+        plt.ion()
+        plt.xlabel('Number of layers retrained')
+        plt.ylabel(metricploted+' ArtUK')
+        plt.title(title)
+        plt.legend(loc='best')
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
+        pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
+        name_of_the_figure = 'Summary_'+ target_dataset+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png'
+        fname = os.path.join(output_path,name_of_the_figure)
+        plt.show() 
+        plt.pause(0.001)
+#        input('Press to close')
+        plt.savefig(fname)
+#        plt.close()
                     
 def RunEval_MLP_onConvBlock():
     transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D','']
@@ -789,6 +941,7 @@ def TrucBizarre():
 if __name__ == '__main__': 
     # Ce que l'on 
     #RunAllEvaluation()
+    PlotSomePerformanceVGG()
     RunUnfreezeLayerPerformanceVGG()
     RunEval_MLP_onConvBlock()
     
