@@ -695,6 +695,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
         roi_test = {}
         name_test = {}
         key_test = 0
+        t1d = time.time()
         for i,name_img in  enumerate(df_label[item_name]):
             if i%1000==0 and not(i==0):
                 if verbose: print(i,name_img)
@@ -879,8 +880,8 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
             
             pkl = open(det_name_fileAP, 'wb')
             pickle.dump(results_pkl,pkl)
-        t2 = time.time()
-        print("--- Testing duration :",str(t2-t1),' s')
+        t2d = time.time()
+        print("--- Testing duration :",str(t2d-t1d),' s')
 
 
     except KeyboardInterrupt:
@@ -929,6 +930,7 @@ def stack_elt_from_object_list(all_boxes_order,i,imdb):
     else:
         stack = []
     return(stack)
+    
 def RunTest():
     """ Run severals baseline model on two datasets
     """
