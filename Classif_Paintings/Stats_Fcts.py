@@ -49,17 +49,30 @@ def MLP_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False):
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   return(model)
+  
+### one Layer perceptron
+def Perceptron_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False):
+  if optimizer=='SGD':
+      opt = SGD(learning_rate=lr,momentum=0.9)
+  else:
+      opt=optimizer
+  model =  tf.keras.Sequential()
+  model.add(Dense(num_of_classes, activation='sigmoid'))
+  # Compile model
+  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  return(model)
 
 ### To fine Tune a VGG
 def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
                        pretrainingModif=True,verbose=False,weights='imagenet',optimizer='adam',\
-                       opt_option=[0.01],freezingType='FromTop'): 
+                       opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',
+                       final_layer='block5_pool'): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
   # create model
   model =  tf.keras.Sequential()
-  pre_model = tf.keras.applications.vgg19.VGG19(include_top=False, weights=weights)
+  pre_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
   SomePartFreezed = False
   if type(pretrainingModif)==bool:
       pre_model.trainable = pretrainingModif
@@ -78,15 +91,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
           opt = SGD(learning_rate=lr,momentum=0.9)
   else:
       opt=optimizer
-  
-#  last = pre_model.output
-#
-#  x = Flatten()(last)
-#  x = Dense(256, input_shape=(25088,), activation='relu')(x)
-#  preds = Dense(num_of_classes, activation='sigmoid')(x)
-#
-#  model = Model(pre_model.input, preds)
-  
+
   ilayer = 0
   for layer in pre_model.layers:
      if SomePartFreezed and 'conv' in layer.name:
@@ -114,22 +119,27 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
          model.add(layer)
      if lr_multiple:
          multipliers[layer.name] = multiply_lrp
-  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
-      model.add(GlobalMaxPooling2D()) 
-  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
-      model.add(GlobalAveragePooling2D())
-  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
-      model.add(Flatten())
+     if layer.name==final_layer:
+         if not(final_layer in  ['fc2','fc1','flatten']):
+              if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+                  model.add(GlobalMaxPooling2D()) 
+              elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+                  model.add(GlobalAveragePooling2D())
+              elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+                  model.add(Flatten())
+         break
   
   #model.add(tf.keras.layers.Lambda(lambda x :  tf.Print(x, [x,tf.shape(x)])))
     
-  model.add(Dense(256, activation='relu'))
-  if lr_multiple:
-      multipliers[model.layers[-1].name] = None
-  model.add(Dense(num_of_classes, activation='sigmoid'))
-  if lr_multiple:
-      multipliers[model.layers[-1].name] = None
-      opt = LearningRateMultiplier(SGD, lr_multipliers=multipliers, lr=lr, momentum=0.9)
+  if final_clf=='MLP2':
+      model.add(Dense(256, activation='relu'))
+      if lr_multiple:
+          multipliers[model.layers[-1].name] = None
+  if final_clf=='MLP2' or final_clf=='MLP1':
+      model.add(Dense(num_of_classes, activation='sigmoid'))
+      if lr_multiple:
+          multipliers[model.layers[-1].name] = None
+          opt = LearningRateMultiplier(SGD, lr_multipliers=multipliers, lr=lr, momentum=0.9)    
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   if verbose: print(model.summary())
@@ -137,7 +147,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
 
 def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
                              pretrainingModif=True,verbose=True,weights='imagenet',res_num_layers=50,\
-                             optimizer='adam',opt_option=[0.01],freezingType='FromTop'): 
+                             optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2'): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
@@ -203,8 +213,10 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
   elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
       x= Flatten()(x)
   
-  x = Dense(256, activation='relu')(x)
-  predictions = Dense(num_of_classes, activation='sigmoid')(x)
+  if final_clf=='MLP2':
+      x = Dense(256, activation='relu')(x)
+  if final_clf=='MLP2' or final_clf=='MLP1':
+      predictions = Dense(num_of_classes, activation='sigmoid')(x)
   model = Model(inputs=pre_model.input, outputs=predictions)
   if lr_multiple:
       multipliers[model.layers[-2].name] = None
@@ -217,14 +229,14 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
 
 def vgg_AdaIn(style_layers,num_of_classes=10,
               transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
-              weights='imagenet'):
+              weights='imagenet',final_clf='MLP2',final_layer='block5_pool'):
   """
   VGG with an Instance normalisation learn only those are the only learnable parameters
   with the last 2 dense layer 
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
   model = tf.keras.Sequential()
-  vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights=weights)
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
   vgg_layers = vgg.layers
   vgg.trainable = False
   i = 0
@@ -247,16 +259,20 @@ def vgg_AdaIn(style_layers,num_of_classes=10,
       i += 1
     else:
       model.add(layer)
-
-  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
-      model.add(GlobalMaxPooling2D())
-  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
-      model.add(GlobalAveragePooling2D())
-  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
-      model.add(Flatten())
+    if layer.name==final_layer:
+      if not(final_layer in  ['fc2','fc1','flatten']):
+          if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+              model.add(GlobalMaxPooling2D()) 
+          elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+              model.add(GlobalAveragePooling2D())
+          elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+              model.add(Flatten())
+      break
   
-  model.add(Dense(256, activation='relu'))
-  model.add(Dense(num_of_classes, activation='sigmoid'))
+  if final_clf=='MLP2':
+      model.add(Dense(256, activation='relu'))
+  if final_clf=='MLP2' or final_clf=='MLP1':
+      model.add(Dense(num_of_classes, activation='sigmoid'))
 
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
