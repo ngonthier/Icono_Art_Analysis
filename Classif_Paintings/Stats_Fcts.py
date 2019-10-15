@@ -62,15 +62,40 @@ def Perceptron_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False):
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   return(model)
 
+def get_regularizers(regulOnNewLayer=None,regulOnNewLayerParam=[]):
+  if not(regulOnNewLayer is None):
+      if regulOnNewLayer=='l1':
+          if len(regulOnNewLayerParam)==0: 
+              regularizers = tf.keras.regularizers.l1(0.01)
+          else:
+              regularizers = tf.keras.regularizers.l1(regulOnNewLayerParam[0])
+      elif regulOnNewLayer=='l2':
+          if len(regulOnNewLayerParam)==0: 
+              regularizers = tf.keras.regularizers.l2(0.01)
+          else:
+              regularizers = tf.keras.regularizers.l2(regulOnNewLayerParam[0])
+      elif regulOnNewLayer=='l1_l2':
+          if len(regulOnNewLayerParam)==1:
+              regularizers = tf.keras.regularizers.l1_l2(l1=0.01, l2=0.01)
+          elif len(regulOnNewLayerParam)==1:
+              regularizers = tf.keras.regularizers.l1_l2(l1=regulOnNewLayerParam[0], l2=regulOnNewLayerParam[0])
+          else:
+              regularizers = tf.keras.regularizers.l1_l2(l1=regulOnNewLayerParam[0], l2=regulOnNewLayerParam[1])
+  else:
+      regularizers = None
+  return(regularizers)
+
 ### To fine Tune a VGG
 def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
                        pretrainingModif=True,verbose=False,weights='imagenet',optimizer='adam',\
                        opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',
-                       final_layer='block5_pool'): 
+                       final_layer='block5_pool',regulOnNewLayer=None,regulOnNewLayerParam=[]): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
   # create model
+  #regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+  
   model =  tf.keras.Sequential()
   pre_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
   SomePartFreezed = False
@@ -87,7 +112,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
           multipliers = {}
           lr_multiple = True
       if len(opt_option)==1:
-          lr = opt_option[0]
+          lr = opt_option[-1]
           opt = SGD(learning_rate=lr,momentum=0.9)
   else:
       opt=optimizer
@@ -134,11 +159,11 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   if final_clf=='MLP2':
       model.add(Dense(256, activation='relu'))
       if lr_multiple:
-          multipliers[model.layers[-1].name] = None
+          multipliers[model.layers[-1].name] = 1.0
   if final_clf=='MLP2' or final_clf=='MLP1':
       model.add(Dense(num_of_classes, activation='sigmoid'))
       if lr_multiple:
-          multipliers[model.layers[-1].name] = None
+          multipliers[model.layers[-1].name] = 1.0
           opt = LearningRateMultiplier(SGD, lr_multipliers=multipliers, lr=lr, momentum=0.9)    
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])

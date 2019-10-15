@@ -186,8 +186,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
             
     if getBeforeReLU:
         name_base += '_BeforeReLU'
-    if not(kind_method=='FT' and constrNet=='VGGAdaIn'):
-        name_base +=  features 
+#    if not(kind_method=='FT' and constrNet=='VGGAdaIn'):
+#        name_base +=  features 
     if kind_method=='FT':
         if constrNet in  ['VGG','VGGAdaIn']: # VGG kind family
             if features in  ['fc2','fc1','flatten']:
@@ -352,6 +352,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     AP_file_pkl =AP_file_base+'_AP.pkl'
     APfilePath =  os.path.join(output_path,AP_file_pkl)
     if verbose: print(APfilePath)
+    print(APfilePath)
     
     # TL or FT method
     if kind_method=='TL':
@@ -685,8 +686,12 @@ def evaluationScore(y_gt,y_pred,verbose=False,k = 20,seuil=0.5):
         y_gt_c = y_gt[:,c]
         y_predict_confidence_score = y_pred[:,c]
         y_predict_test = (y_predict_confidence_score>seuil).astype(int)
+        if verbose:
+            print('classe num',c)
+            print('GT',y_gt_c)
+            print('Pred',y_predict_confidence_score)
         AP = average_precision_score(y_gt_c,y_predict_confidence_score,average=None)
-        if verbose: print("Average Precision on all the data for classe",c," = ",AP)  
+        if verbose: print("Average Precision ofpickn all the data for classe",c," = ",AP)  
         AP_per_class += [AP] 
         test_precision = precision_score(y_gt_c,y_predict_test)
         test_recall = recall_score(y_gt_c,y_predict_test)
@@ -741,7 +746,7 @@ def RunUnfreezeLayerPerformanceVGG(plot=False):
                 plt.savefig(fname)
                 plt.close()
                 
-def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings'):
+def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short=False):
     """
     Plot some mAP  on ArtUK Paintings dataset with different model just to see
     if we can say someting
@@ -767,13 +772,21 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings'):
     cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
     scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)
     list_freezingType = ['FromTop','FromBottom','Alter']
-    list_freezingType = ['FromTop']
     
     transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D'] # Not the flatten case for the moment
-    transformOnFinalLayer_tab = ['GlobalMaxPooling2D'] # Not the flatten case for the moment
-    optimizer_tab = ['adam','SGD']
-    opt_option_tab = [[0.01],[0.1,0.01]]
+     # Not the flatten case for the moment
+#    optimizer_tab = ['SGD','SGD','adam']
+#    opt_option_tab = [[0.1,0.01],[0.1,0.001],[0.01]]
+    optimizer_tab = ['SGD','adam']
+    opt_option_tab = [[0.1,0.001],[0.01]]
     range_l = range(0,17)
+    
+    if short:
+        transformOnFinalLayer_tab = ['GlobalMaxPooling2D']
+        range_l = range(0,6)
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,0.001]]
+        list_freezingType = ['FromTop']
 #    opt_option_tab = [[0.1,0.01]]
 #    optimizer_tab = ['SGD']
     for optimizer,opt_option in zip(optimizer_tab,opt_option_tab): 
@@ -789,7 +802,8 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings'):
                     metrics = learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
                                              kind_method='FT',epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
                                              pretrainingModif=pretrainingModif,freezingType=freezingType,
-                                             optimizer=optimizer,opt_option=opt_option)
+                                             optimizer=optimizer,opt_option=opt_option
+                                             ,final_clf='MLP2',features='block5_pool')
     
         
                     metricI_per_class = metrics[metricploted_index]
@@ -799,6 +813,8 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings'):
                 fig_i += 1
                 j += 1
             
+            if short:
+                continue
             # Plot other proposed solution
             features = 'block5_pool'
             net_tab = ['VGG','VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
@@ -814,6 +830,8 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings'):
             getBeforeReLU = True
             forLatex = True
             fig_i = 0
+            if optimizer in ['SGD','adam']:
+                opt_option_local = [0.01]
             for constrNet in net_tab:
                 print(constrNet)
                 if constrNet=='VGGBaseNormCoherent':
@@ -826,11 +844,12 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings'):
                     labelstr = constrNet 
                     if not(constrNet=='VGG'):
                         labelstr += '_'+ numeral_layers_index(style_layers)
-                    metrics = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                       constrNet,kind_method,style_layers,gridSearch=False,
+                    metrics = learn_and_eval(target_dataset,source_dataset,final_clf=final_clf,features='block5_pool',\
+                                       constrNet=constrNet,kind_method=kind_method,style_layers=style_layers,gridSearch=False,
                                        number_im_considered=number_im_considered,
                                        normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
                                        transformOnFinalLayer=transformOnFinalLayer,\
+                                       optimizer=optimizer,opt_option=opt_option_local,
                                        forLatex=forLatex)
                     metricI_per_class = metrics[metricploted_index]
                     mMetric = np.mean(metricI_per_class)
@@ -857,8 +876,10 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings'):
     #            print(constrNet,style_layers)
                 metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
                                           epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
-                                          final_clf='MLP2',forLatex=True,optimizer='adam',\
-                                          style_layers=style_layers,getBeforeReLU=getBeforeReLU)
+                                          forLatex=True,optimizer=optimizer,\
+                                          opt_option=opt_option_local,\
+                                          style_layers=style_layers,getBeforeReLU=getBeforeReLU
+                                          ,final_clf=final_clf,features='block5_pool')
                 metricI_per_class = metrics[metricploted_index]
                 mMetric = np.mean(metricI_per_class)
                 if fig_i in color_number_for_frozen:
@@ -884,6 +905,8 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings'):
             output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
             pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
             name_of_the_figure = 'Summary_'+ target_dataset+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png'
+            if short:
+                name_of_the_figure = 'Short_'+name_of_the_figure
             fname = os.path.join(output_path,name_of_the_figure)
             plt.show() 
             plt.pause(0.001)
@@ -921,9 +944,8 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings'):
     list_freezingType = ['FromTop','FromBottom','Alter']
     
     transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D'] # Not the flatten case for the moment
-    transformOnFinalLayer_tab = ['GlobalMaxPooling2D'] # Not the flatten case for the moment
-    optimizer_tab = ['adam','SGD']
-    opt_option_tab = [[0.01],[0.1,0.01]]
+    optimizer_tab = ['SGD','adam']
+    opt_option_tab = [[0.1,0.001],[0.01]]
     range_l = [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96, 102,106] # For Resnet50
 #    opt_option = [0.01]
 #    optimizer = 'adam'
@@ -940,8 +962,9 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings'):
                     metrics = learn_and_eval(target_dataset=target_dataset,constrNet=network,\
                                              kind_method='FT',epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
                                              pretrainingModif=pretrainingModif,freezingType=freezingType,
-                                             optimizer=optimizer,opt_option=opt_option,batch_size=16)
-    
+                                             optimizer=optimizer,opt_option=opt_option,batch_size=16
+                                             ,final_clf='MLP2',features='avg_pool')
+                                            # il faudra checker cela avec le ResNet 
         
                     metricI_per_class = metrics[metricploted_index]
                     list_perf[j] += [np.mean(metricI_per_class)]
@@ -949,7 +972,7 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings'):
                          marker=list_markers[fig_i],linestyle=':')
                 fig_i += 1
                 j += 1
-        
+        ## TODO il va falloir gerer les optimizers la !
     #        # Plot other proposed solution
     #        features = 'block5_pool'
     #        net_tab = ['VGG','VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
@@ -1143,14 +1166,20 @@ def TrucBizarre(target_dataset='Paintings'):
                    final_clf='MLP2',forLatex=True,ReDo=True,plotConv=True,optimizer='adam')
     AP_FT = metrics2[0]
     print('FT',AP_FT)
-                   
+ 
+# What we could add to improbe the model performance : 
+# change the learning rate
+# data augmentation
+# dropout
+# use of L1 and L2 regularization (also known as "weight decay")
+                  
 if __name__ == '__main__': 
     # Ce que l'on 
     #RunAllEvaluation()
     ### TODO !!!!! Need to add a unbalanced way to deal with the dataset
-    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings')
-    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1')
-    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings')
+#    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings')
+    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',short=True)
+#    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings')
 #    PlotSomePerformanceVGG()
 #    RunUnfreezeLayerPerformanceVGG()
 #    RunEval_MLP_onConvBlock()
