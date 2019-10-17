@@ -34,6 +34,9 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as mplcm
 import matplotlib.colors as colors
 import gc 
+import tempfile
+from tensorflow.python.keras.callbacks import ModelCheckpoint
+from tensorflow.python.keras.models import load_model
 
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
@@ -112,7 +115,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                                    set='',getBeforeReLU=False,forLatex=False,epochs=20,\
                                    pretrainingModif=True,weights='imagenet',opt_option=[0.01],\
                                    optimizer='adam',freezingType='FromTop',verbose=False,\
-                                   plotConv=False,batch_size=32):
+                                   plotConv=False,batch_size=32,regulOnNewLayer=None,\
+                                   regulOnNewLayerParam=[],return_best_model=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -132,7 +136,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     @param : opt_option : learning rate different for the SGD
     @param : freezingType : the way we unfreeze the pretained network : 'FromBottom','FromTop','Alter'
     @param : ReDo : we erase the output performance file
-    @param : plotConv : plot the loss function in train and va
+    @param : plotConv : plot the loss function in train and val
+    @param : regulOnNewLayer : Noone l1 l2 or l1_l2
+    @param : regulOnNewLayerParam the weight on the regularizer
+    @param : return_best_model if True we will load and return the best model
     """
     assert(freezingType in ['FromBottom','FromTop','Alter'])
     
@@ -339,6 +346,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
             lr = opt_option[-1]
             if optimizer=='SGD':
                 AP_file += '_lr' +str(lr) 
+        if return_best_model:
+            AP_file += '_BestOnVal'
         if normalisation:
             AP_file +=  '_Norm' 
             if gridSearch:
@@ -347,6 +356,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
        AP_file += '_'+str(epochs)+batch_size_str
        if not(optimizer=='adam'):
            AP_file += '_'+optimizer
+       if not(regulOnNewLayer is None):
+           AP_file += '_'+regulOnNewLayer
+           if len(regulOnNewLayerParam)>0:
+               if regulOnNewLayer=='l1' or  regulOnNewLayer=='l1':
+                   AP_file += '_'+  regulOnNewLayerParam[0]
+               elif regulOnNewLayer=='l1_l2':
+                   AP_file += '_'+  regulOnNewLayerParam[0]+'_'+ regulOnNewLayerParam[1]
+       if return_best_model:
+            AP_file += '_BestOnVal'
     
     AP_file_base =  AP_file
     AP_file_pkl =AP_file_base+'_AP.pkl'
@@ -445,26 +463,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                     model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr)
                 elif final_clf=='MLP1':
                     model = Perceptron_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr)
-                STEP_SIZE_TRAIN=len(X_train)//batch_size
-                if not(len(X_val)==0):
-                    STEP_SIZE_VALID=len(X_val)//batch_size
-                    history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
-                                        validation_data=(X_val, y_val),\
-                                        steps_per_epoch=STEP_SIZE_TRAIN,\
-                                        validation_steps=STEP_SIZE_VALID,\
-                                        use_multiprocessing=True,workers=3,\
-                                        shuffle=True)
-                else: # No validation set provided
-                    history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
-                                        validation_split=0.15,\
-                                        steps_per_epoch=STEP_SIZE_TRAIN,\
-                                        use_multiprocessing=True,workers=3,\
-                                        shuffle=True)
-                if verbose: print(model.summary())
                 
-                if plotConv:
-                    plotKerasHistory(history)
-                
+                model = TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,\
+                                 verbose=verbose,plotConv=plotConv,return_best_model=return_best_model)
                 predictions = model.predict(X_test, batch_size=1)
                 metrics = evaluationScore(y_test,predictions)  
                 
@@ -475,7 +476,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                 model = VGG_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
                                            transformOnFinalLayer=transformOnFinalLayer,weights=weights,
                                            optimizer=optimizer,opt_option=opt_option,freezingType=freezingType,
-                                           final_clf=final_clf,final_layer=features,verbose=verbose)
+                                           final_clf=final_clf,final_layer=features,verbose=verbose,
+                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
             elif constrNet=='ResNet50':
                 getBeforeReLU = False
                 model = ResNet_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
@@ -536,18 +538,20 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     
     # To clean GPU memory
     K.clear_session()
-    gc.collect()
+    print('gc.collect()',gc.collect())
     #cuda.select_device(0)
     #cuda.close()
     
     return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
 
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
-                  Net='VGG',batch_size = 32,plotConv=False,test_size=0.15):
+                  Net='VGG',batch_size = 32,plotConv=False,test_size=0.15,\
+                  return_best_model=False):
     """
     @param x_col : name of images
     @param y_col : classes
     @param path_im : path to images
+    @param : return_best_model : return the best model on the val_loss
     """
     df_train = df[df['set']=='train']
     df_val = df[df['set']==str_val]
@@ -595,12 +599,21 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
 #    mcp_save = ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
 #    reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
 #    
+    callbacks = []
+    if return_best_model:
+        tmp_model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
+        mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor='val_loss', mode='min')
+        callbacks += [mcp_save]
     history = model.fit_generator(generator=train_generator,
                     steps_per_epoch=STEP_SIZE_TRAIN,
                     validation_data=valid_generator,
                     validation_steps=STEP_SIZE_VALID,
                     epochs=epochs,use_multiprocessing=True,
-                    workers=3)
+                    workers=3,callbacks=callbacks)
+    
+    if return_best_model: # We need to load back the best model !
+        # https://github.com/keras-team/keras/issues/2768
+        model = load_model(tmp_model_path) 
     
     if plotConv:
        plotKerasHistory(history) 
@@ -621,6 +634,36 @@ def plotKerasHistory(history):
     plt.legend()
     plt.draw()
     plt.pause(0.001)
+   
+    
+def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
+             plotConv=False,return_best_model=False):
+    
+    callbacks = []
+    if return_best_model:
+        tmp_model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
+        mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor='val_loss',\
+                                   mode='min')
+        callbacks += [mcp_save]
+    
+    STEP_SIZE_TRAIN=len(X_train)//batch_size
+    if not(len(X_val)==0):
+        STEP_SIZE_VALID=len(X_val)//batch_size
+        history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
+                            validation_data=(X_val, y_val),\
+                            steps_per_epoch=STEP_SIZE_TRAIN,\
+                            validation_steps=STEP_SIZE_VALID,\
+                            use_multiprocessing=False,workers=3,\
+                            shuffle=True,callbacks=callbacks)
+    else: # No validation set provided
+        history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
+                            validation_split=0.15,\
+                            steps_per_epoch=STEP_SIZE_TRAIN,\
+                            use_multiprocessing=False,workers=3,\
+                            shuffle=True,callbacks=callbacks)
+        plotKerasHistory(history)
+        
+    return(model)
     
 def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG'):
     df_test[x_col] = df_test[x_col].apply(lambda x : x + '.jpg')
@@ -746,7 +789,8 @@ def RunUnfreezeLayerPerformanceVGG(plot=False):
                 plt.savefig(fname)
                 plt.close()
                 
-def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short=False):
+def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short=False,
+                           scenario=0):
     """
     Plot some mAP  on ArtUK Paintings dataset with different model just to see
     if we can say someting
@@ -774,11 +818,32 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
     list_freezingType = ['FromTop','FromBottom','Alter']
     
     transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D'] # Not the flatten case for the moment
-     # Not the flatten case for the moment
+    
+    if scenario==0:
+        final_clf = 'MLP2'
+        epochs = 20
+        optimizer_tab = ['SGD','adam']
+        opt_option_tab = [[0.1,0.001],[0.01]] # Soit 0=10**-3
+        return_best_model = False
+    elif scenario==1:
+        final_clf = 'MLP1'
+        epochs = 20
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,10**(-4)]]
+        return_best_model = True
+    elif scenario==2:
+        final_clf = 'MLP1'
+        epochs = 100
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,10**(-5)]]
+        return_best_model = True
+        # Really small learning rate 10**(-5)
+    
+    # Not the flatten case for the moment
 #    optimizer_tab = ['SGD','SGD','adam']
 #    opt_option_tab = [[0.1,0.01],[0.1,0.001],[0.01]]
     optimizer_tab = ['SGD','adam']
-    opt_option_tab = [[0.1,0.001],[0.01]]
+    
     range_l = range(0,17)
     
     if short:
@@ -800,10 +865,11 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                 list_perf += [[]]  
                 for pretrainingModif in range_l:
                     metrics = learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
-                                             kind_method='FT',epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
+                                             kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                              pretrainingModif=pretrainingModif,freezingType=freezingType,
                                              optimizer=optimizer,opt_option=opt_option
-                                             ,final_clf='MLP2',features='block5_pool')
+                                             ,final_clf=final_clf,features='block5_pool',\
+                                             return_best_model=return_best_model)
     
         
                     metricI_per_class = metrics[metricploted_index]
@@ -823,7 +889,6 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
             style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
                              ['block1_conv1','block2_conv1']]
             number_im_considered = 1000
-            final_clf = 'MLP2'
             source_dataset = 'ImageNet'
             kind_method = 'TL'
             normalisation = False
@@ -850,7 +915,7 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                                        normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
                                        transformOnFinalLayer=transformOnFinalLayer,\
                                        optimizer=optimizer,opt_option=opt_option_local,
-                                       forLatex=forLatex)
+                                       forLatex=forLatex,epochs=epochs,return_best_model=return_best_model)
                     metricI_per_class = metrics[metricploted_index]
                     mMetric = np.mean(metricI_per_class)
                     if fig_i in color_number_for_frozen:
@@ -875,11 +940,11 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
             for style_layers in style_layers_tab_VGGAdaIn:
     #            print(constrNet,style_layers)
                 metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
-                                          epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
+                                          epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                           forLatex=True,optimizer=optimizer,\
                                           opt_option=opt_option_local,\
                                           style_layers=style_layers,getBeforeReLU=getBeforeReLU
-                                          ,final_clf=final_clf,features='block5_pool')
+                                          ,final_clf=final_clf,features='block5_pool',return_best_model=return_best_model)
                 metricI_per_class = metrics[metricploted_index]
                 mMetric = np.mean(metricI_per_class)
                 if fig_i in color_number_for_frozen:
@@ -960,7 +1025,7 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings'):
                 list_perf += [[]]  
                 for pretrainingModif in range_l:
                     metrics = learn_and_eval(target_dataset=target_dataset,constrNet=network,\
-                                             kind_method='FT',epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
+                                             kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                              pretrainingModif=pretrainingModif,freezingType=freezingType,
                                              optimizer=optimizer,opt_option=opt_option,batch_size=16
                                              ,final_clf='MLP2',features='avg_pool')
@@ -1166,8 +1231,26 @@ def TrucBizarre(target_dataset='Paintings'):
                    final_clf='MLP2',forLatex=True,ReDo=True,plotConv=True,optimizer='adam')
     AP_FT = metrics2[0]
     print('FT',AP_FT)
- 
-# What we could add to improbe the model performance : 
+
+def Test_Apropos_DuRebond():
+    
+    # il semblerait que dans certains cas on arrive a faire du 57% dans certains cas
+    tab_AP =[]
+    for i in range(3):
+        AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class\
+        =learn_and_eval(target_dataset='IconArt_v1',final_clf='MLP2',\
+                        kind_method='FT',epochs=20,ReDo=True,optimizer='SGD',\
+                        opt_option=[0.1,0.001],features='block5_pool',\
+                        batch_size=32,constrNet='VGG',freezingType='FromTop',\
+                        pretrainingModif=3,plotConv=False)
+        print(i,np.mean(AP_per_class))
+        tab_AP += [np.mean(AP_per_class)]
+        
+# TODO :
+# Train the layer i and use it as initialization for training layer i+1 
+# Test RASTA
+        
+### What we could add to improve the model performance : 
 # change the learning rate
 # data augmentation
 # dropout
@@ -1177,8 +1260,8 @@ if __name__ == '__main__':
     # Ce que l'on 
     #RunAllEvaluation()
     ### TODO !!!!! Need to add a unbalanced way to deal with the dataset
-#    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings')
-    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',short=True)
+    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=3)
+    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=3)
 #    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings')
 #    PlotSomePerformanceVGG()
 #    RunUnfreezeLayerPerformanceVGG()
@@ -1212,6 +1295,7 @@ if __name__ == '__main__':
 #                   kind_method='FT',getBeforeReLU=True,epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
 #    learn_and_eval(target_dataset='Paintings',constrNet='VGG',pretrainingModif=False,\
 #                   kind_method='FT',epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
+
 ## Pour tester le MLP1 sur IconArt v1
 #    learn_and_eval(target_dataset='IconArt_v1',constrNet='VGG',kind_method='FT',weights='imagenet',epochs=5,final_clf='MLP1',features='fc2')
 #    learn_and_eval(target_dataset='IconArt_v1',constrNet='VGG',kind_method='FT',weights='imagenet',epochs=5,final_clf='MLP1',features='block5_pool')
@@ -1220,3 +1304,15 @@ if __name__ == '__main__':
 #    learn_and_eval(target_dataset='IconArt_v1',constrNet='VGGAdaIn',kind_method='FT',weights='imagenet',epochs=5,final_clf='MLP1',features='fc2')
 #    learn_and_eval(target_dataset='IconArt_v1',constrNet='VGGAdaIn',kind_method='FT',weights='imagenet',epochs=5,final_clf='MLP1',features='block5_pool')
 #    learn_and_eval(target_dataset='IconArt_v1',constrNet='VGG',kind_method='FT',weights='imagenet',epochs=5,final_clf='MLP1',features='fc2',pretrainingModif=6)
+
+## To test return_best_model in FT mode and FT mode
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                        kind_method='FT',epochs=3,ReDo=True,optimizer='adam',\
+#                        opt_option=[0.01],features='block5_pool',\
+#                        batch_size=32,constrNet='VGG',freezingType='FromTop',\
+#                        pretrainingModif=6,plotConv=True,transformOnFinalLayer='GlobalAveragePooling2D',return_best_model=True)
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                        kind_method='TL',epochs=3,ReDo=True,optimizer='adam',\
+#                        opt_option=[0.01],features='block5_pool',\
+#                        batch_size=32,constrNet='VGG',plotConv=True,\
+#                        transformOnFinalLayer='GlobalAveragePooling2D',return_best_model=True)

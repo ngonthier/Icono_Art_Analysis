@@ -75,7 +75,7 @@ def get_regularizers(regulOnNewLayer=None,regulOnNewLayerParam=[]):
           else:
               regularizers = tf.keras.regularizers.l2(regulOnNewLayerParam[0])
       elif regulOnNewLayer=='l1_l2':
-          if len(regulOnNewLayerParam)==1:
+          if len(regulOnNewLayerParam)==0:
               regularizers = tf.keras.regularizers.l1_l2(l1=0.01, l2=0.01)
           elif len(regulOnNewLayerParam)==1:
               regularizers = tf.keras.regularizers.l1_l2(l1=regulOnNewLayerParam[0], l2=regulOnNewLayerParam[0])
@@ -92,9 +92,10 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
                        final_layer='block5_pool',regulOnNewLayer=None,regulOnNewLayerParam=[]): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  @param : regulOnNewLayer used on kernel_regularizer 
   """
   # create model
-  #regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
   
   model =  tf.keras.Sequential()
   pre_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
@@ -157,11 +158,11 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   #model.add(tf.keras.layers.Lambda(lambda x :  tf.Print(x, [x,tf.shape(x)])))
     
   if final_clf=='MLP2':
-      model.add(Dense(256, activation='relu'))
+      model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
       if lr_multiple:
           multipliers[model.layers[-1].name] = 1.0
   if final_clf=='MLP2' or final_clf=='MLP1':
-      model.add(Dense(num_of_classes, activation='sigmoid'))
+      model.add(Dense(num_of_classes, activation='sigmoid',kernel_regularizer=regularizers))
       if lr_multiple:
           multipliers[model.layers[-1].name] = 1.0
           opt = LearningRateMultiplier(SGD, lr_multipliers=multipliers, lr=lr, momentum=0.9)    

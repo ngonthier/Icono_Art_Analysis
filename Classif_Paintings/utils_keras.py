@@ -30,7 +30,7 @@ def apply_modifications(model,include_optimizer=True, custom_objects=None,needFi
         
         if needFix: # It is just a workaround, not a solution https://github.com/keras-team/keras/issues/10417
             fix_layer0(model_path, [None, 224, 224,3], 'float32')  
-        return load_model(model_path, custom_objects=custom_objects)
+        return load_model(model_path, custom_objects=custom_objects) # load_model return the model
     finally:
         os.remove(model_path)
 
