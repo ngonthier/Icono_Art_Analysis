@@ -15,7 +15,7 @@ import os.path
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index
 from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     load_crop_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
-    MLP_model,Perceptron_model
+    MLP_model,Perceptron_model,vgg_adaDBN
 from IMDB import get_database
 import pickle
 import pathlib
@@ -117,7 +117,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                                    optimizer='adam',freezingType='FromTop',verbose=False,\
                                    plotConv=False,batch_size=32,regulOnNewLayer=None,\
                                    regulOnNewLayerParam=[],return_best_model=False,\
-                                   onlyReturnResult=False):
+                                   onlyReturnResult=False,dbn_affine=True,m_per_group=16):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -142,6 +142,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     @param : regulOnNewLayerParam the weight on the regularizer
     @param : return_best_model if True we will load and return the best model
     @param : onlyReturnResult : only return the results if True and nothing computed will return None
+    @param : dbn_affine : use of Affine decorrelated BN in  VGGAdaDBN model
+    @param : m_per_group : number of group for the VGGAdaDBN model (with decorrelated BN)
     """
     assert(freezingType in ['FromBottom','FromTop','Alter'])
     
@@ -166,7 +168,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     path_data,Not_on_NicolasPC = get_database(target_dataset)
         
     name_base = constrNet + '_'  +target_dataset +'_'
-    if not(constrNet=='VGG'):
+    if not(constrNet=='VGG') or not(constrNet=='ResNet50'):
         if kind_method=='TL':
             name_base += source_dataset +str(number_im_considered)
         name_base +=  '_' + num_layers
@@ -175,13 +177,18 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     if kind_method=='FT':
         if not(optimizer=='adam'):
             name_base += '_'+optimizer
-        if not(optimizer=='adam' and opt_option[0]==0.01):
-            if len(opt_option)==2:
-                multiply_lrp, lr = opt_option
-                name_base += '_lrp'+str(multiply_lrp)+'_lr'+str(lr)
-            if len(opt_option)==1:
-                lr = opt_option[0]
-                name_base += '_lr'+str(lr)
+        if len(opt_option)==2:
+            multiply_lrp, lr = opt_option
+            name_base += '_lrp'+str(multiply_lrp)+'_lr'+str(lr)
+        if len(opt_option)==1:
+            lr = opt_option[0]
+            name_base += '_lr'+str(lr)
+        # Default value used
+        if constrNet=='VGGAdaDBN':
+            name_base += '_MPG'+str(m_per_group)
+            if dbn_affine:
+                name_base += '_Affine'
+            
     if not(set=='' or set is None):
         name_base += '_'+set
     if constrNet=='VGG':
@@ -200,7 +207,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
 #    if not(kind_method=='FT' and constrNet=='VGGAdaIn'):
 #        name_base +=  features 
     if kind_method=='FT':
-        if constrNet in  ['VGG','VGGAdaIn']: # VGG kind family
+        if constrNet in  ['VGG','VGGAdaIn','VGGAdaDBN']: # VGG kind family
             if features in  ['fc2','fc1','flatten']:
                 name_base += '_' + features
             else:
@@ -349,8 +356,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
         if final_clf=='MLP2' or final_clf=='MLP1':
             AP_file += '_'+str(epochs)+batch_size_str+'_'+optimizer
             lr = opt_option[-1]
-            if optimizer=='SGD':
-                AP_file += '_lr' +str(lr) 
+            AP_file += '_lr' +str(lr) 
         if return_best_model:
             AP_file += '_BestOnVal'
         if normalisation:
@@ -495,6 +501,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                           final_clf=final_clf,final_layer=features,verbose=verbose,\
                           optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                           regulOnNewLayerParam=regulOnNewLayerParam)
+                
+            elif constrNet=='VGGAdaDBN':
+                model = vgg_adaDBN(style_layers,num_of_classes=num_classes,\
+                          transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,verbose=verbose,\
+                          weights=weights,final_layer=features,final_clf=final_clf,\
+                          optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
+                          regulOnNewLayerParam=regulOnNewLayerParam,\
+                          dbn_affine=dbn_affine,m_per_group=m_per_group)
             else:
                 print(constrNet,'is unkwon in the context of TL')
                 raise(NotImplementedError)
@@ -571,7 +585,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     if len(df_val)==0:
         df_train, df_val = train_test_split(df_train, test_size=test_size)
         
-    if Net=='VGG' or Net=='VGGAdaIn':
+    if Net=='VGG' or Net=='VGGAdaIn' or Net=='VGGAdaDBN':
         preprocessing_function = tf.keras.applications.vgg19.preprocess_input
     elif Net=='ResNet50':
         preprocessing_function = tf.keras.applications.resnet50.preprocess_input
@@ -585,7 +599,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                                                 x_col=x_col,y_col=y_col,\
                                                 class_mode="other", \
                                                 target_size=(224,224), batch_size=batch_size,\
-                                                shuffle=False,\
+                                                shuffle=True,\
                                                 preprocessing_function=preprocessing_function)
     valid_generator=datagen.flow_from_dataframe(dataframe=df_val, directory=path_im,\
                                                 x_col=x_col,y_col=y_col,\
@@ -664,13 +678,13 @@ def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
                             validation_data=(X_val, y_val),\
                             steps_per_epoch=STEP_SIZE_TRAIN,\
                             validation_steps=STEP_SIZE_VALID,\
-                            use_multiprocessing=False,workers=3,\
+                            use_multiprocessing=True,workers=3,\
                             shuffle=True,callbacks=callbacks)
     else: # No validation set provided
         history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
                             validation_split=0.15,\
                             steps_per_epoch=STEP_SIZE_TRAIN,\
-                            use_multiprocessing=False,workers=3,\
+                            use_multiprocessing=True,workers=3,\
                             shuffle=True,callbacks=callbacks)
         plotKerasHistory(history)
         
@@ -680,7 +694,7 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG'):
     df_test[x_col] = df_test[x_col].apply(lambda x : x + '.jpg')
     datagen= tf.keras.preprocessing.image.ImageDataGenerator()
     
-    if Net=='VGG' or Net=='VGGAdaIn':
+    if Net=='VGG' or Net=='VGGAdaIn' or Net=='VGGAdaDBN':
         preprocessing_function = tf.keras.applications.vgg19.preprocess_input
     elif Net=='ResNet50':
         preprocessing_function = tf.keras.applications.resnet50.preprocess_input
@@ -691,7 +705,8 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG'):
                                                 x_col=x_col,\
                                                 class_mode=None,shuffle=False,\
                                                 target_size=(224,224), batch_size=1,
-                                                preprocessing_function=preprocessing_function)
+                                                preprocessing_function=preprocessing_function,
+                                                use_multiprocessing=True,workers=3)
     predictions = model.predict_generator(test_generator)
     return(predictions)
     
@@ -827,8 +842,10 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
     cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
     scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)
     list_freezingType = ['FromTop','FromBottom','Alter']
+    list_freezingType = ['FromTop']
     
     transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D'] # Not the flatten case for the moment
+    transformOnFinalLayer_tab = ['GlobalMaxPooling2D'] # Not the flatten case for the moment
     
     if scenario==0:
         final_clf = 'MLP2'
@@ -905,58 +922,56 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
             
             if short:
                 continue
-            # Plot other proposed solution
-            features = 'block5_pool'
-            net_tab = ['VGG','VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
-            style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                             ['block1_conv1','block2_conv1'],['block1_conv1']]
-            style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                             ['block1_conv1','block2_conv1']]
-            number_im_considered = 1000
-            source_dataset = 'ImageNet'
-            kind_method = 'TL'
-            normalisation = False
+#            # Plot other proposed solution
+#            features = 'block5_pool'
+#            net_tab = ['VGG','VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
+#            style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+#                             ['block1_conv1','block2_conv1'],['block1_conv1']]
+#            style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+#                             ['block1_conv1','block2_conv1']]
+#            number_im_considered = 1000
+#            source_dataset = 'ImageNet'
+#            kind_method = 'TL'
+#            normalisation = False
             getBeforeReLU = True
-            forLatex = True
-            fig_i = 0
-            if optimizer in ['SGD','adam']:
-                opt_option_local = [0.01]
-            for constrNet in net_tab:
-                print(constrNet)
-                if constrNet=='VGGBaseNormCoherent':
-                    style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
-                elif constrNet=='VGG':
-                    style_layers_tab = [[]]
-                else:
-                    style_layers_tab = style_layers_tab_forOther
-                for style_layers in style_layers_tab:
-                    labelstr = constrNet 
-                    if not(constrNet=='VGG'):
-                        labelstr += '_'+ numeral_layers_index(style_layers)
-                    metrics = learn_and_eval(target_dataset,source_dataset,final_clf=final_clf,features='block5_pool',\
-                                       constrNet=constrNet,kind_method=kind_method,style_layers=style_layers,gridSearch=False,
-                                       number_im_considered=number_im_considered,
-                                       normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
-                                       transformOnFinalLayer=transformOnFinalLayer,\
-                                       optimizer=optimizer,opt_option=opt_option_local,\
-                                       forLatex=forLatex,epochs=epochs,return_best_model=return_best_model,\
-                                       onlyReturnResult=onlyPlot)
-                    
-                    if metrics is None:
-                        continue
-                    
-                    metricI_per_class = metrics[metricploted_index]
-                    mMetric = np.mean(metricI_per_class)
-                    if fig_i in color_number_for_frozen:
-                        fig_i_c = fig_i +1 
-                        fig_i_m = fig_i
-                        fig_i += 1
-                    else:
-                        fig_i_c = fig_i
-                        fig_i_m = fig_i
-                    plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
-                             marker=list_markers[fig_i_m],linestyle='')
-                    fig_i += 1
+#            forLatex = True
+#            fig_i = 0
+#            for constrNet in net_tab:
+#                print(constrNet)
+#                if constrNet=='VGGBaseNormCoherent':
+#                    style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
+#                elif constrNet=='VGG':
+#                    style_layers_tab = [[]]
+#                else:
+#                    style_layers_tab = style_layers_tab_forOther
+#                for style_layers in style_layers_tab:
+#                    labelstr = constrNet 
+#                    if not(constrNet=='VGG'):
+#                        labelstr += '_'+ numeral_layers_index(style_layers)
+#                    metrics = learn_and_eval(target_dataset,source_dataset,final_clf=final_clf,features='block5_pool',\
+#                                       constrNet=constrNet,kind_method=kind_method,style_layers=style_layers,gridSearch=False,
+#                                       number_im_considered=number_im_considered,
+#                                       normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+#                                       transformOnFinalLayer=transformOnFinalLayer,\
+#                                       optimizer=optimizer,opt_option=[opt_option[-1]],\
+#                                       forLatex=forLatex,epochs=epochs,return_best_model=return_best_model,\
+#                                       onlyReturnResult=onlyPlot)
+#                    
+#                    if metrics is None:
+#                        continue
+#                    
+#                    metricI_per_class = metrics[metricploted_index]
+#                    mMetric = np.mean(metricI_per_class)
+#                    if fig_i in color_number_for_frozen:
+#                        fig_i_c = fig_i +1 
+#                        fig_i_m = fig_i
+#                        fig_i += 1
+#                    else:
+#                        fig_i_c = fig_i
+#                        fig_i_m = fig_i
+#                    plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
+#                             marker=list_markers[fig_i_m],linestyle='')
+#                    fig_i += 1
             
             # Case of the fine tuning with batch normalization 
             constrNet = 'VGGAdaIn'
@@ -971,10 +986,47 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                 metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
                                           epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                           forLatex=True,optimizer=optimizer,\
-                                          opt_option=opt_option_local,\
+                                          opt_option=[opt_option[-1]],\
                                           style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
                                           final_clf=final_clf,features='block5_pool',return_best_model=return_best_model,\
                                           onlyReturnResult=onlyPlot)
+                
+                if metrics is None:
+                    continue
+                
+                metricI_per_class = metrics[metricploted_index]
+                mMetric = np.mean(metricI_per_class)
+                if fig_i in color_number_for_frozen:
+                    fig_i_c = fig_i +1 
+                    fig_i_m = fig_i
+                    fig_i += 1
+                else:
+                    fig_i_c = fig_i
+                    fig_i_m = fig_i
+                labelstr = constrNet 
+                if not(constrNet=='VGG'):
+                    labelstr += '_'+ numeral_layers_index(style_layers)
+                plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
+                         marker=list_markers[fig_i_m],linestyle='')
+                fig_i += 1
+                
+            # Case of the fine tuning with decorellated batch normalization 
+            constrNet = 'VGGAdaDBN'
+            style_layers_tab_VGGAdaDBN = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
+                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
+            for style_layers in style_layers_tab_VGGAdaDBN:
+    #            print(constrNet,style_layers)
+                metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
+                                          epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                                          forLatex=True,optimizer=optimizer,\
+                                          opt_option=[opt_option[-1]],\
+                                          style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
+                                          final_clf=final_clf,features='block5_pool',return_best_model=return_best_model,\
+                                          onlyReturnResult=onlyPlot,dbn_affine=True,m_per_group=16)
                 
                 if metrics is None:
                     continue
@@ -1295,7 +1347,7 @@ if __name__ == '__main__':
     #RunAllEvaluation()
     ### TODO !!!!! Need to add a unbalanced way to deal with the dataset
     #PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=3,onlyPlot=True)
-    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=3)
+#    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=3)
 #    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings')
 #    PlotSomePerformanceVGG()
 #    RunUnfreezeLayerPerformanceVGG()

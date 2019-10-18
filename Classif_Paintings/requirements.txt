@@ -30,4 +30,5 @@ pyyaml
 keras
 cython
 cython-bbox
+seaborn
 

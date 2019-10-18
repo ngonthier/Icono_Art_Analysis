@@ -28,6 +28,7 @@ from tensorflow.keras.optimizers import SGD,Adam
 
 #from custom_pooling import GlobalMinPooling2D
 from lr_multiplier import LearningRateMultiplier
+from common.layers import DecorrelatedBN
 
 # Others libraries
 import numpy as np
@@ -41,8 +42,8 @@ import os.path
 def MLP_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False):
   if optimizer=='SGD':
       opt = SGD(learning_rate=lr,momentum=0.9)
-  else:
-      opt=optimizer
+  elif optimizer=='adam':
+      opt= Adam(learning_rate=lr)
   model =  tf.keras.Sequential()
   model.add(Dense(256, activation='relu'))
   model.add(Dense(num_of_classes, activation='sigmoid'))
@@ -293,9 +294,9 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
   else:
       lr = 0.01
   if optimizer=='SGD': 
-      opt = SGD(learning_rate=lr,momentum=0.9)
+      opt = SGD
   elif optimizer=='adam': 
-      opt = Adam(learning_rate=lr)
+      opt = Adam
   else:
       opt = optimizer
   
@@ -311,6 +312,88 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
           layer.activation = activations.linear # i.e. identity
       model.add(layer)
       model.add(layers.BatchNormalization(axis=-1, center=True, scale=True))
+        
+      if getBeforeReLU: # add back the non linearity
+          model.add(Activation('relu'))
+      i += 1
+    else:
+      model.add(layer)
+    if layer.name==final_layer:
+      if not(final_layer in  ['fc2','fc1','flatten']):
+          if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+              model.add(GlobalMaxPooling2D()) 
+          elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+              model.add(GlobalAveragePooling2D())
+          elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+              model.add(Flatten())
+      break
+  
+  if final_clf=='MLP2':
+      model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
+      if lr_multiple:
+          multipliers[model.layers[-1].name] = 1.0
+  if final_clf=='MLP2' or final_clf=='MLP1':
+      model.add(Dense(num_of_classes, activation='sigmoid',kernel_regularizer=regularizers))
+      if lr_multiple:
+          multipliers[model.layers[-1].name] = 1.0
+          opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)    
+      else:
+          opt = opt(learning_rate=lr)
+  # Compile model
+  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+
+  if getBeforeReLU:# refresh the non linearity 
+      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
+  
+  if verbose: print(model.summary())
+  return model
+
+def vgg_adaDBN(style_layers,num_of_classes=10,\
+              transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
+              weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
+              optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
+              dbn_affine=True,m_per_group=16):
+  """
+  VGG with some decorrelated  learn only those are the only learnable parameters
+  with a 2 dense layer MLP or one layer MLP according to the final_clf parameters
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  """
+  model = tf.keras.Sequential()
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
+  vgg_layers = vgg.layers
+  vgg.trainable = False
+  i = 0
+  
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+
+  lr_multiple = False
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      multipliers = {}
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
+  else:
+      lr = 0.01
+  if optimizer=='SGD': 
+      opt = SGD
+  elif optimizer=='adam': 
+      opt = Adam
+  else:
+      opt = optimizer
+  
+  otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
+  if not(transformOnFinalLayer in otherOutputPorposed):
+      print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
+      raise(NotImplementedError)
+      
+  for layer in vgg_layers:
+    name_layer = layer.name
+    if i < len(style_layers) and name_layer==style_layers[i]:
+      if getBeforeReLU:# remove the non linearity
+          layer.activation = activations.linear # i.e. identity
+      model.add(layer)
+      model.add(DecorrelatedBN(m_per_group=m_per_group, affine=dbn_affine))
         
       if getBeforeReLU: # add back the non linearity
           model.add(Activation('relu'))
