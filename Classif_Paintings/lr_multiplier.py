@@ -29,6 +29,7 @@ class LearningRateMultiplier(Optimizer):
     """
     def __init__(self, optimizer, lr_multipliers=None, **kwargs):
         self._class = optimizer
+        print(optimizer)
         self._optimizer = optimizer(**kwargs)
         self._lr_multipliers = lr_multipliers or {}
 

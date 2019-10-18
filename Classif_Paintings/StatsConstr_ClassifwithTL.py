@@ -116,7 +116,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                                    pretrainingModif=True,weights='imagenet',opt_option=[0.01],\
                                    optimizer='adam',freezingType='FromTop',verbose=False,\
                                    plotConv=False,batch_size=32,regulOnNewLayer=None,\
-                                   regulOnNewLayerParam=[],return_best_model=False):
+                                   regulOnNewLayerParam=[],return_best_model=False,\
+                                   onlyReturnResult=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -140,6 +141,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
     @param : regulOnNewLayer : Noone l1 l2 or l1_l2
     @param : regulOnNewLayerParam the weight on the regularizer
     @param : return_best_model if True we will load and return the best model
+    @param : onlyReturnResult : only return the results if True and nothing computed will return None
     """
     assert(freezingType in ['FromBottom','FromTop','Alter'])
     
@@ -170,14 +172,16 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
         name_base +=  '_' + num_layers
     if kind_method=='FT' and (weights is None):
         name_base += '_RandInit' # Random initialisation 
-    if kind_method=='FT' and not(optimizer=='adam'):
-        name_base += '_'+optimizer
-        if len(opt_option)==2:
-            multiply_lrp, lr = opt_option
-            name_base += '_lrp'+str(multiply_lrp)+'_lr'+str(lr)
-        if len(opt_option)==1:
-            lr = opt_option[0]
-            name_base += '_lr'+str(lr)
+    if kind_method=='FT':
+        if not(optimizer=='adam'):
+            name_base += '_'+optimizer
+        if not(optimizer=='adam' and opt_option[0]==0.01):
+            if len(opt_option)==2:
+                multiply_lrp, lr = opt_option
+                name_base += '_lrp'+str(multiply_lrp)+'_lr'+str(lr)
+            if len(opt_option)==1:
+                lr = opt_option[0]
+                name_base += '_lr'+str(lr)
     if not(set=='' or set is None):
         name_base += '_'+set
     if constrNet=='VGG':
@@ -233,106 +237,107 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
         name_pkl_im = os.path.join(output_path,name_pkl_im)
         name_pkl_values = os.path.join(output_path,name_pkl_values)
 
-        if not os.path.isfile(name_pkl_values):
-            if not(forLatex):
-                print('== We will compute the reference statistics ==')
-                print('Saved in ',name_pkl_values)
-            features_net = None
-            im_net = []
-            # Load Network 
-            if constrNet=='VGG':
-                network_features_extraction = vgg_cut(final_layer,\
-                                                      transformOnFinalLayer=transformOnFinalLayer)
-            elif constrNet=='VGGInNorm' or constrNet=='VGGInNormAdapt':
-                whatToload = 'varmean'
-                dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
-                # Compute the reference statistics
-                vgg_mean_stds_values = compute_ref_stats(dict_stats,style_layers,type_ref='mean',\
-                                                     imageUsed='all',whatToload =whatToload,
-                                                     applySqrtOnVar=True)
-                if constrNet=='VGGInNormAdapt':
-                    network_features_extraction = vgg_InNorm_adaptative(style_layers,
-                                                                       vgg_mean_stds_values,
-                                                                       final_layer=final_layer,
-                                                                       transformOnFinalLayer=transformOnFinalLayer,
-                                                                       HomeMadeBatchNorm=True,getBeforeReLU=getBeforeReLU)
-                elif constrNet=='VGGInNorm':
-                    network_features_extraction = vgg_InNorm(style_layers,
-                                                            vgg_mean_stds_values,
-                                                            final_layer=final_layer,
-                                                            transformOnFinalLayer=transformOnFinalLayer,
-                                                            HomeMadeBatchNorm=True,getBeforeReLU=getBeforeReLU)
-            elif constrNet=='VGGBaseNorm':
-                whatToload = 'varmean'
-                dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
-                # Compute the reference statistics
-                list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
-                                                     imageUsed='all',whatToload =whatToload,
-                                                     applySqrtOnVar=True)
-                target_number_im_considered = None
-                target_set = 'trainval' # Todo ici
-                dict_stats_target = get_dict_stats(target_dataset,target_number_im_considered,style_layers,\
-                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=target_set)
-                # Compute the reference statistics
-                list_mean_and_std_target = compute_ref_stats(dict_stats_target,style_layers,type_ref='mean',\
-                                                     imageUsed='all',whatToload =whatToload,
-                                                     applySqrtOnVar=True)
-#                
-#                
-                network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
-                    list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
-                    getBeforeReLU=getBeforeReLU)
+        if  not(onlyReturnResult):
+            if not os.path.isfile(name_pkl_values):
+                if not(forLatex):
+                    print('== We will compute the reference statistics ==')
+                    print('Saved in ',name_pkl_values)
+                features_net = None
+                im_net = []
+                # Load Network 
+                if constrNet=='VGG':
+                    network_features_extraction = vgg_cut(final_layer,\
+                                                          transformOnFinalLayer=transformOnFinalLayer)
+                elif constrNet=='VGGInNorm' or constrNet=='VGGInNormAdapt':
+                    whatToload = 'varmean'
+                    dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
+                    # Compute the reference statistics
+                    vgg_mean_stds_values = compute_ref_stats(dict_stats,style_layers,type_ref='mean',\
+                                                         imageUsed='all',whatToload =whatToload,
+                                                         applySqrtOnVar=True)
+                    if constrNet=='VGGInNormAdapt':
+                        network_features_extraction = vgg_InNorm_adaptative(style_layers,
+                                                                           vgg_mean_stds_values,
+                                                                           final_layer=final_layer,
+                                                                           transformOnFinalLayer=transformOnFinalLayer,
+                                                                           HomeMadeBatchNorm=True,getBeforeReLU=getBeforeReLU)
+                    elif constrNet=='VGGInNorm':
+                        network_features_extraction = vgg_InNorm(style_layers,
+                                                                vgg_mean_stds_values,
+                                                                final_layer=final_layer,
+                                                                transformOnFinalLayer=transformOnFinalLayer,
+                                                                HomeMadeBatchNorm=True,getBeforeReLU=getBeforeReLU)
+                elif constrNet=='VGGBaseNorm':
+                    whatToload = 'varmean'
+                    dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
+                    # Compute the reference statistics
+                    list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
+                                                         imageUsed='all',whatToload =whatToload,
+                                                         applySqrtOnVar=True)
+                    target_number_im_considered = None
+                    target_set = 'trainval' # Todo ici
+                    dict_stats_target = get_dict_stats(target_dataset,target_number_im_considered,style_layers,\
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=target_set)
+                    # Compute the reference statistics
+                    list_mean_and_std_target = compute_ref_stats(dict_stats_target,style_layers,type_ref='mean',\
+                                                         imageUsed='all',whatToload =whatToload,
+                                                         applySqrtOnVar=True)
+    #                
+    #                
+                    network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
+                        list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
+                        getBeforeReLU=getBeforeReLU)
+                    
+                elif constrNet=='VGGBaseNormCoherent':
+                    # A more coherent way to compute the VGGBaseNormalisation
+                    # We will pass the dataset several time through the net modify bit after bit to 
+                    # get the coherent mean and std of the target domain
+                    whatToload = 'varmean'
+                    dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
+                    # Compute the reference statistics
+                    list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
+                                                         imageUsed='all',whatToload =whatToload,
+                                                         applySqrtOnVar=True)
+                    target_number_im_considered = None
+                    target_set = 'trainval'
+                    dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
+                           style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
+                           getBeforeReLU=getBeforeReLU,target_set=target_set,\
+                           applySqrtOnVar=True) # It also computes the reference statistics (mean,var)
+                    
+                    network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
+                        list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
+                        getBeforeReLU=getBeforeReLU)
                 
-            elif constrNet=='VGGBaseNormCoherent':
-                # A more coherent way to compute the VGGBaseNormalisation
-                # We will pass the dataset several time through the net modify bit after bit to 
-                # get the coherent mean and std of the target domain
-                whatToload = 'varmean'
-                dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
-                # Compute the reference statistics
-                list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
-                                                     imageUsed='all',whatToload =whatToload,
-                                                     applySqrtOnVar=True)
-                target_number_im_considered = None
-                target_set = 'trainval'
-                dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
-                       style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
-                       getBeforeReLU=getBeforeReLU,target_set=target_set,\
-                       applySqrtOnVar=True) # It also computes the reference statistics (mean,var)
-                
-                network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
-                    list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
-                    getBeforeReLU=getBeforeReLU)
-            
-            else:
-                raise(NotImplementedError)
-            if not(forLatex):
-                print('== We will compute the bottleneck features ==')
-            # Compute bottleneck features on the target dataset
-            for i,name_img in  enumerate(df_label[item_name]):
-                im_path =  os.path.join(path_to_img,name_img+'.jpg')
-                image = load_crop_and_process_img(im_path)
-                features_im = network_features_extraction.predict(image)
-                if features_net is not None:
-                    features_net = np.vstack((features_net,np.array(features_im)))
-                    im_net += [name_img]
                 else:
-                    features_net =np.array(features_im)
-                    im_net = [name_img]
-            with open(name_pkl_values, 'wb') as pkl:
-                pickle.dump(features_net,pkl)
-            
-            with open(name_pkl_im, 'wb') as pkl:
-                pickle.dump(im_net,pkl)
-        else: # Load the precomputed data
-            with open(name_pkl_values, 'rb') as pkl:
-                features_net = pickle.load(pkl)
-            
-            with open(name_pkl_im, 'rb') as pkl:
-                im_net = pickle.load(pkl)
+                    raise(NotImplementedError)
+                if not(forLatex):
+                    print('== We will compute the bottleneck features ==')
+                # Compute bottleneck features on the target dataset
+                for i,name_img in  enumerate(df_label[item_name]):
+                    im_path =  os.path.join(path_to_img,name_img+'.jpg')
+                    image = load_crop_and_process_img(im_path)
+                    features_im = network_features_extraction.predict(image)
+                    if features_net is not None:
+                        features_net = np.vstack((features_net,np.array(features_im)))
+                        im_net += [name_img]
+                    else:
+                        features_net =np.array(features_im)
+                        im_net = [name_img]
+                with open(name_pkl_values, 'wb') as pkl:
+                    pickle.dump(features_net,pkl)
+                
+                with open(name_pkl_im, 'wb') as pkl:
+                    pickle.dump(im_net,pkl)
+            else: # Load the precomputed data
+                with open(name_pkl_values, 'rb') as pkl:
+                    features_net = pickle.load(pkl)
+                
+                with open(name_pkl_im, 'rb') as pkl:
+                    im_net = pickle.load(pkl)
                 
     if not(batch_size==32):
         batch_size_str =''
@@ -406,7 +411,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
         if weights is None:
             Latex_str += ' RandInit'
     
-    if not(os.path.isfile(APfilePath)) or ReDo:
+    if (not(os.path.isfile(APfilePath)) or ReDo) and not(onlyReturnResult):
         
         if target_dataset=='Paintings':
             sLength = len(df_label[item_name])
@@ -485,9 +490,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                                            res_num_layers=50,final_clf=final_clf,verbose=verbose)
                 
             elif constrNet=='VGGAdaIn':
-                model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,
-                          transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,
-                          final_clf=final_clf,final_layer=features,verbose=verbose)
+                model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
+                          transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
+                          final_clf=final_clf,final_layer=features,verbose=verbose,\
+                          optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
+                          regulOnNewLayerParam=regulOnNewLayerParam)
             else:
                 print(constrNet,'is unkwon in the context of TL')
                 raise(NotImplementedError)
@@ -497,10 +504,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                                     str_val=str_val,num_classes=len(classes),epochs=epochs,\
                                     Net=constrNet,plotConv=plotConv,batch_size=batch_size)
             model_path = os.path.join(model_output_path,AP_file_base+'.h5')
-            if optimizer=='SGD':
-                include_optimizer= False
-            else:
-                include_optimizer=True
+            include_optimizer=False
             model.save(model_path,include_optimizer=include_optimizer)
             # Prediction
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
@@ -514,9 +518,16 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC
                 
             
     else:
-
-        with open(APfilePath, 'rb') as pkl:
-            metrics = pickle.load(pkl)
+        try:
+            with open(APfilePath, 'rb') as pkl:
+                metrics = pickle.load(pkl)
+        except FileNotFoundError as e:
+            if onlyReturnResult:
+                metrics = None
+                return(metrics)
+            else:
+                raise(e)
+                
     if len(metrics)==5:
         AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
     if len(metrics)==4:
@@ -790,7 +801,7 @@ def RunUnfreezeLayerPerformanceVGG(plot=False):
                 plt.close()
                 
 def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short=False,
-                           scenario=0):
+                           scenario=0,onlyPlot=False):
     """
     Plot some mAP  on ArtUK Paintings dataset with different model just to see
     if we can say someting
@@ -838,11 +849,18 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
         opt_option_tab = [[0.1,10**(-5)]]
         return_best_model = True
         # Really small learning rate 10**(-5)
+    elif scenario==3:
+        final_clf = 'MLP1'
+        epochs = 5
+        optimizer_tab = ['adam']
+        opt_option_tab = [[0.1,10**(-3)]]
+        return_best_model = True
+        # Really small learning rate 10**(-5)
     
     # Not the flatten case for the moment
 #    optimizer_tab = ['SGD','SGD','adam']
 #    opt_option_tab = [[0.1,0.01],[0.1,0.001],[0.01]]
-    optimizer_tab = ['SGD','adam']
+#    optimizer_tab = ['SGD','adam']
     
     range_l = range(0,17)
     
@@ -869,12 +887,18 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                                              pretrainingModif=pretrainingModif,freezingType=freezingType,
                                              optimizer=optimizer,opt_option=opt_option
                                              ,final_clf=final_clf,features='block5_pool',\
-                                             return_best_model=return_best_model)
+                                             return_best_model=return_best_model,onlyReturnResult=onlyPlot)
     
-        
+                    if metrics is None:
+                        continue
                     metricI_per_class = metrics[metricploted_index]
                     list_perf[j] += [np.mean(metricI_per_class)]
-                plt.plot(list(range_l),list_perf[j],label=freezingType,color=scalarMap.to_rgba(color_number_for_frozen[fig_i]),\
+                if not(len(list(range_l))==len(list_perf[j])):
+                    layers_j = list(range_l)[0:len(list_perf[j])]
+                else:
+                    layers_j = list(range_l)
+
+                plt.plot(layers_j,list_perf[j],label=freezingType,color=scalarMap.to_rgba(color_number_for_frozen[fig_i]),\
                          marker=list_markers[fig_i],linestyle=':')
                 fig_i += 1
                 j += 1
@@ -914,8 +938,13 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                                        number_im_considered=number_im_considered,
                                        normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
                                        transformOnFinalLayer=transformOnFinalLayer,\
-                                       optimizer=optimizer,opt_option=opt_option_local,
-                                       forLatex=forLatex,epochs=epochs,return_best_model=return_best_model)
+                                       optimizer=optimizer,opt_option=opt_option_local,\
+                                       forLatex=forLatex,epochs=epochs,return_best_model=return_best_model,\
+                                       onlyReturnResult=onlyPlot)
+                    
+                    if metrics is None:
+                        continue
+                    
                     metricI_per_class = metrics[metricploted_index]
                     mMetric = np.mean(metricI_per_class)
                     if fig_i in color_number_for_frozen:
@@ -943,8 +972,13 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                                           epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                           forLatex=True,optimizer=optimizer,\
                                           opt_option=opt_option_local,\
-                                          style_layers=style_layers,getBeforeReLU=getBeforeReLU
-                                          ,final_clf=final_clf,features='block5_pool',return_best_model=return_best_model)
+                                          style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
+                                          final_clf=final_clf,features='block5_pool',return_best_model=return_best_model,\
+                                          onlyReturnResult=onlyPlot)
+                
+                if metrics is None:
+                    continue
+                
                 metricI_per_class = metrics[metricploted_index]
                 mMetric = np.mean(metricI_per_class)
                 if fig_i in color_number_for_frozen:
@@ -961,7 +995,7 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                          marker=list_markers[fig_i_m],linestyle='')
                 fig_i += 1
                 
-            title = optimizer + ' ' + transformOnFinalLayer + ' ' + metricploted
+            title = optimizer + ' ' + transformOnFinalLayer + ' ' + metricploted + ' ' + final_clf
             plt.ion()
             plt.xlabel('Number of layers retrained')
             plt.ylabel(metricploted+' ArtUK')
@@ -969,14 +1003,14 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
             plt.legend(loc='best')
             output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
             pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
-            name_of_the_figure = 'Summary_'+ target_dataset+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png'
+            name_of_the_figure = 'Summary_'+ target_dataset+'_'+final_clf+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png'
             if short:
                 name_of_the_figure = 'Short_'+name_of_the_figure
             fname = os.path.join(output_path,name_of_the_figure)
-            plt.show() 
-            plt.pause(0.001)
-    #        input('Press to close')
-            plt.savefig(fname)
+    plt.show() 
+    plt.pause(0.001)
+#        input('Press to close')
+    plt.savefig(fname)
 #        plt.close()
         
 def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings'):
@@ -1260,7 +1294,7 @@ if __name__ == '__main__':
     # Ce que l'on 
     #RunAllEvaluation()
     ### TODO !!!!! Need to add a unbalanced way to deal with the dataset
-    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=3)
+    #PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=3,onlyPlot=True)
     PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=3)
 #    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings')
 #    PlotSomePerformanceVGG()

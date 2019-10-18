@@ -24,7 +24,7 @@ from tensorflow.python.keras.layers import concatenate
 from tensorflow.python.keras.backend import expand_dims
 from tensorflow.python.ops import math_ops
 from tensorflow.python.keras.applications.imagenet_utils import decode_predictions
-from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.optimizers import SGD,Adam
 
 #from custom_pooling import GlobalMinPooling2D
 from lr_multiplier import LearningRateMultiplier
@@ -54,8 +54,8 @@ def MLP_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False):
 def Perceptron_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False):
   if optimizer=='SGD':
       opt = SGD(learning_rate=lr,momentum=0.9)
-  else:
-      opt=optimizer
+  elif optimizer=='adam': 
+      opt = Adam(learning_rate=lr)
   model =  tf.keras.Sequential()
   model.add(Dense(num_of_classes, activation='sigmoid'))
   # Compile model
@@ -107,16 +107,20 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
       number_of_trainable_layers =  16
       assert(number_of_trainable_layers >= pretrainingModif)
   lr_multiple = False
-  if optimizer=='SGD':
-      if len(opt_option)==2:
-          multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
-          multipliers = {}
-          lr_multiple = True
-      if len(opt_option)==1:
-          lr = opt_option[-1]
-          opt = SGD(learning_rate=lr,momentum=0.9)
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      multipliers = {}
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
   else:
-      opt=optimizer
+      lr = 0.01
+  if optimizer=='SGD': 
+      opt = SGD
+  elif optimizer=='adam': 
+      opt = Adam
+  else:
+      opt = optimizer
 
   ilayer = 0
   for layer in pre_model.layers:
@@ -165,7 +169,9 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
       model.add(Dense(num_of_classes, activation='sigmoid',kernel_regularizer=regularizers))
       if lr_multiple:
           multipliers[model.layers[-1].name] = 1.0
-          opt = LearningRateMultiplier(SGD, lr_multipliers=multipliers, lr=lr, momentum=0.9)    
+          opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)  
+      else:
+          opt = opt(learning_rate=lr)
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   if verbose: print(model.summary())
@@ -194,17 +200,21 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
       assert(number_of_trainable_layers >= pretrainingModif)
   
   lr_multiple = False
-  if optimizer=='SGD' and len(opt_option)==2:
-      if len(opt_option)==2:
-          multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
-          multipliers = {}
-          lr_multiple = True
-      if len(opt_option)==1:
-          lr = opt_option[0]
-          opt = SGD(learning_rate=lr,momentum=0.9)
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      multipliers = {}
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
   else:
-      opt=optimizer
-
+      lr = 0.01
+  if optimizer=='SGD': 
+      opt = SGD(learning_rate=lr,momentum=0.9)
+  elif optimizer=='adam': 
+      opt = Adam(learning_rate=lr)
+  else:
+      opt = optimizer
+      
   ilayer = 0
   for layer in pre_model.layers:
       if SomePartFreezed and layer.count_params() > 0:
@@ -247,15 +257,18 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
   if lr_multiple:
       multipliers[model.layers[-2].name] = None
       multipliers[model.layers[-1].name] = None
-      opt = LearningRateMultiplier(SGD, lr_multipliers=multipliers, lr=lr, momentum=0.9)
+      opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
+  else:
+      opt = opt(learning_rate=lr)
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   if verbose: print(model.summary())
   return model
 
-def vgg_AdaIn(style_layers,num_of_classes=10,
+def vgg_AdaIn(style_layers,num_of_classes=10,\
               transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
-              weights='imagenet',final_clf='MLP2',final_layer='block5_pool'):
+              weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
+              optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[]):
   """
   VGG with an Instance normalisation learn only those are the only learnable parameters
   with the last 2 dense layer 
@@ -266,6 +279,25 @@ def vgg_AdaIn(style_layers,num_of_classes=10,
   vgg_layers = vgg.layers
   vgg.trainable = False
   i = 0
+  
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+
+  
+  lr_multiple = False
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      multipliers = {}
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
+  else:
+      lr = 0.01
+  if optimizer=='SGD': 
+      opt = SGD(learning_rate=lr,momentum=0.9)
+  elif optimizer=='adam': 
+      opt = Adam(learning_rate=lr)
+  else:
+      opt = optimizer
   
   otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
   if not(transformOnFinalLayer in otherOutputPorposed):
@@ -296,12 +328,18 @@ def vgg_AdaIn(style_layers,num_of_classes=10,
       break
   
   if final_clf=='MLP2':
-      model.add(Dense(256, activation='relu'))
+      model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
+      if lr_multiple:
+          multipliers[model.layers[-1].name] = 1.0
   if final_clf=='MLP2' or final_clf=='MLP1':
-      model.add(Dense(num_of_classes, activation='sigmoid'))
-
+      model.add(Dense(num_of_classes, activation='sigmoid',kernel_regularizer=regularizers))
+      if lr_multiple:
+          multipliers[model.layers[-1].name] = 1.0
+          opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)    
+      else:
+          opt = opt(learning_rate=lr)
   # Compile model
-  model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
 
   if getBeforeReLU:# refresh the non linearity 
       model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
