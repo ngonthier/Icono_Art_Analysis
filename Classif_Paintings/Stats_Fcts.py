@@ -178,93 +178,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   if verbose: print(model.summary())
   return model
 
-def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
-                             pretrainingModif=True,verbose=True,weights='imagenet',res_num_layers=50,\
-                             optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2'): 
-  """
-  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
-  """
-  # create model
-#  input_tensor = Input(shape=(224, 224, 3)) 
-  if res_num_layers==50:
-      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
-                                                          input_shape= (224, 224, 3))
-      number_of_trainable_layers = 106
-  else:
-      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
-      raise(NotImplementedError)
-  SomePartFreezed = False
-  if type(pretrainingModif)==bool:
-      pre_model.trainable = pretrainingModif
-  else:
-      SomePartFreezed = True # We will unfreeze pretrainingModif==int layers from the end of the net
-      assert(number_of_trainable_layers >= pretrainingModif)
-  
-  lr_multiple = False
-  if len(opt_option)==2:
-      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
-      multipliers = {}
-      lr_multiple = True
-  elif len(opt_option)==1:
-      lr = opt_option[-1]
-  else:
-      lr = 0.01
-  if optimizer=='SGD': 
-      opt = SGD(learning_rate=lr,momentum=0.9)
-  elif optimizer=='adam': 
-      opt = Adam(learning_rate=lr)
-  else:
-      opt = optimizer
-      
-  ilayer = 0
-  for layer in pre_model.layers:
-      if SomePartFreezed and layer.count_params() > 0:
-         if freezingType=='FromTop':
-             if ilayer >= number_of_trainable_layers - pretrainingModif:
-                 layer.trainable = True
-             else:
-                 layer.trainable = False
-         elif freezingType=='FromBottom':
-             if ilayer < pretrainingModif:
-                 layer.trainable = True
-             else:
-                 layer.trainable = False
-         elif freezingType=='Alter':
-             pretrainingModif_bottom = pretrainingModif//2
-             pretrainingModif_top = pretrainingModif//2 + pretrainingModif%2
-             if (ilayer < pretrainingModif_bottom) or\
-                 (ilayer >= number_of_trainable_layers - pretrainingModif_top):
-                 layer.trainable = True
-             else:
-                 layer.trainable = False
-#         print(ilayer,layer.name,layer.trainable)
-         ilayer += 1
-      if lr_multiple: 
-          multipliers[layer.name] = multiply_lrp
-
-  x = pre_model.output
-  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
-     x = GlobalMaxPooling2D()(x)
-  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
-      x = GlobalAveragePooling2D()(x)
-  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
-      x= Flatten()(x)
-  
-  if final_clf=='MLP2':
-      x = Dense(256, activation='relu')(x)
-  if final_clf=='MLP2' or final_clf=='MLP1':
-      predictions = Dense(num_of_classes, activation='sigmoid')(x)
-  model = Model(inputs=pre_model.input, outputs=predictions)
-  if lr_multiple:
-      multipliers[model.layers[-2].name] = None
-      multipliers[model.layers[-1].name] = None
-      opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
-  else:
-      opt = opt(learning_rate=lr)
-  # Compile model
-  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
-  if verbose: print(model.summary())
-  return model
+### VGG adaptation for new dataset
 
 def vgg_AdaIn(style_layers,num_of_classes=10,\
               transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
@@ -430,6 +344,167 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
   if verbose: print(model.summary())
   return model
 
+
+### ResNet baseline
+  
+def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
+                             pretrainingModif=True,verbose=True,weights='imagenet',res_num_layers=50,\
+                             optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2'): 
+  """
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  """
+  # create model
+#  input_tensor = Input(shape=(224, 224, 3)) 
+  if res_num_layers==50:
+      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+                                                          input_shape= (224, 224, 3))
+      number_of_trainable_layers = 106
+  else:
+      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
+      raise(NotImplementedError)
+  SomePartFreezed = False
+  if type(pretrainingModif)==bool:
+      pre_model.trainable = pretrainingModif
+  else:
+      SomePartFreezed = True # We will unfreeze pretrainingModif==int layers from the end of the net
+      assert(number_of_trainable_layers >= pretrainingModif)
+  
+  lr_multiple = False
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      multipliers = {}
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
+  else:
+      lr = 0.01
+  if optimizer=='SGD': 
+      opt = SGD
+  elif optimizer=='adam': 
+      opt = Adam
+  else:
+      opt = optimizer
+      
+  ilayer = 0
+  for layer in pre_model.layers:
+      if SomePartFreezed and layer.count_params() > 0:
+         if freezingType=='FromTop':
+             if ilayer >= number_of_trainable_layers - pretrainingModif:
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         elif freezingType=='FromBottom':
+             if ilayer < pretrainingModif:
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         elif freezingType=='Alter':
+             pretrainingModif_bottom = pretrainingModif//2
+             pretrainingModif_top = pretrainingModif//2 + pretrainingModif%2
+             if (ilayer < pretrainingModif_bottom) or\
+                 (ilayer >= number_of_trainable_layers - pretrainingModif_top):
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+#         print(ilayer,layer.name,layer.trainable)
+         ilayer += 1
+      if lr_multiple: 
+          multipliers[layer.name] = multiply_lrp
+
+  x = pre_model.output
+  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+     x = GlobalMaxPooling2D()(x)
+  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+      x = GlobalAveragePooling2D()(x)
+  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+      x= Flatten()(x)
+  
+  if final_clf=='MLP2':
+      x = Dense(256, activation='relu')(x)
+  if final_clf=='MLP2' or final_clf=='MLP1':
+      predictions = Dense(num_of_classes, activation='sigmoid')(x)
+  model = Model(inputs=pre_model.input, outputs=predictions)
+  if lr_multiple:
+      multipliers[model.layers[-2].name] = None
+      multipliers[model.layers[-1].name] = None
+      opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
+  else:
+      opt = opt(learning_rate=lr)
+  # Compile model
+  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  if verbose: print(model.summary())
+  return model
+
+### Resnet adaptative layers 
+
+def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
+                             verbose=True,weights='imagenet',\
+                             res_num_layers=50,\
+                             optimizer='adam',opt_option=[0.01],\
+                             final_clf='MLP2'): 
+  """
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  We only allow to train the layer in the style_layers listt
+  """
+  # create model
+#  input_tensor = Input(shape=(224, 224, 3)) 
+  if res_num_layers==50:
+      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+                                                          input_shape= (224, 224, 3))
+      number_of_trainable_layers = 106
+  else:
+      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
+      raise(NotImplementedError)
+  
+  lr_multiple = False
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      multipliers = {}
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
+  else:
+      lr = 0.01
+  if optimizer=='SGD': 
+      opt = SGD
+  elif optimizer=='adam': 
+      opt = Adam
+  else:
+      opt = optimizer
+
+  for layer in pre_model.layers:
+      if layer.name in style_layers:
+          layer.trainable = True
+          if lr_multiple: 
+              multipliers[layer.name] = multiply_lrp
+      else:
+          layer.trainable = False
+
+  x = pre_model.output
+  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+     x = GlobalMaxPooling2D()(x)
+  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+      x = GlobalAveragePooling2D()(x)
+  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+      x= Flatten()(x)
+  
+  if final_clf=='MLP2':
+      x = Dense(256, activation='relu')(x)
+  if final_clf=='MLP2' or final_clf=='MLP1':
+      predictions = Dense(num_of_classes, activation='sigmoid')(x)
+  model = Model(inputs=pre_model.input, outputs=predictions)
+  if lr_multiple:
+      multipliers[model.layers[-2].name] = None
+      multipliers[model.layers[-1].name] = None
+      opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
+  else:
+      opt = opt(learning_rate=lr)
+  # Compile model
+  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  if verbose: print(model.summary())
+  return model
+
+### Preprocessing functions 
 
 def load_crop(path_to_img,max_dim = 224):
   img = Image.open(path_to_img)
