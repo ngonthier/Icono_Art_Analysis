@@ -292,7 +292,8 @@ def main():
 
 
 def PrintResults(database_tab=['IconArt_v1','watercolor','PeopleArt','CASPApaintings','comic','clipart'],
-                 pm_only_on_mean=True,list_print=['MImax','EdgeBoxes','miModel','MaxOfMax','HL','Minet']):
+                 pm_only_on_mean=True,
+                 list_print=['MImax','EdgeBoxes','miModel','MaxOfMax','HL','Minet']):
     """
     @param : pm_only_on_mean : only print the pm std for the mean over the classes
     """
