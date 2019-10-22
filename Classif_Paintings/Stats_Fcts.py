@@ -29,6 +29,7 @@ from tensorflow.keras.optimizers import SGD,Adam
 #from custom_pooling import GlobalMinPooling2D
 from lr_multiplier import LearningRateMultiplier
 from common.layers import DecorrelatedBN
+from keras_resnet_utils import getBNlayersResNet50
 
 # Others libraries
 import numpy as np
@@ -503,6 +504,188 @@ def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMa
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   if verbose: print(model.summary())
   return model
+
+### Resnet Refinement of the batch normalisation statistics 
+
+class HomeMade_BatchNormalisation_Refinement(Layer):
+
+    def __init__(self,batchnorm_layer,momentum, **kwargs):
+        self.moving_mean = batchnorm_layer.non_trainable_variables[0]
+        self.moving_variance = batchnorm_layer.non_trainable_variables[1]
+        batchnorm_layer.trainable = False
+        self.batchnorm_layer=batchnorm_layer
+        self.momentum = momentum 
+        super(HomeMade_BatchNormalisation_Refinement, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(HomeMade_BatchNormalisation_Refinement, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        output = self.batchnorm_layer(x)
+        mean,variance = tf.nn.moments(x,axes=(0,1,2),keep_dims=False)
+        update_moving_mean = tf.keras.backend.moving_average_update(x=self.moving_mean,
+                                               value=mean,
+                                               momentum=self.momentum)# Returns An Operation to update the variable.
+        update_moving_variance = tf.keras.backend.moving_average_update(x=self.moving_variance,
+                                               value=variance,
+                                               momentum=self.momentum)# Returns An Operation to update the variable.
+        self.add_update((self.moving_mean, update_moving_mean), x)
+        self.add_update((self.moving_variance, update_moving_variance), x)
+        
+        return output
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        return input_shape
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(HomeMade_BatchNormalisation_Refinement, self).get_config()
+        config['moving_mean'] = self.moving_mean
+        config['moving_variance'] = self.moving_variance
+        config['batchnorm_layer'] = self.batchnorm_layer
+        config['momentum'] = self.momentum
+        return(config) 
+
+import re
+
+def layers_unique(liste):
+    new_liste= []
+    new_liste_name= []
+    for elt in liste:
+        if elt.name in new_liste_name:
+            continue
+        else:
+            new_liste_name += [elt.name]
+            new_liste += [elt]
+        
+    return(new_liste)
+
+def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
+                        insert_layer_name=None, position='after'):
+
+    # Auxiliary dictionary to describe the network graph
+    network_dict = {'input_layers_of': {}, 'new_output_tensor_of': {}}
+
+    # Set the input layers of each layer
+    for layer in model.layers:
+        for node in layer.outbound_nodes:
+            layer_name = node.outbound_layer.name
+            if layer_name not in network_dict['input_layers_of']:
+                network_dict['input_layers_of'].update(
+                        {layer_name: [layer.name]})
+            else:
+                network_dict['input_layers_of'][layer_name].append(layer.name)
+
+    # Set the output tensor of the input layer
+    network_dict['new_output_tensor_of'].update(
+            {model.layers[0].name: model.input})
+
+    # Iterate over all layers after the input
+    for layer in model.layers[1:]:
+
+        # Determine input tensors
+        layer_input = [network_dict['new_output_tensor_of'][layer_aux] 
+                for layer_aux in network_dict['input_layers_of'][layer.name]]
+
+        if len(layer_input) >1:
+            layer_input = layers_unique(layer_input)
+        if len(layer_input) == 1:
+            layer_input = layer_input[0]
+
+        # Insert layer if name matches the regular expression
+        if re.match(layer_regex, layer.name):
+            if position == 'replace':
+                x = layer_input
+            elif position == 'after':
+                x = layer(layer_input)
+            elif position == 'before':
+                pass
+            else:
+                raise ValueError('position must be: before, after or replace')
+
+            new_layer = insert_layer_factory
+            #new_layer = insert_layer_factory() # Change by Nicolas Gonthier
+#            if insert_layer_name:
+#                new_layer.name = insert_layer_name
+#            else:
+#                new_layer.name = '{}_{}'.format(layer.name, 
+#                                                new_layer.name)
+            x = new_layer(x)
+#            print('Layer {} inserted after layer {}'.format(new_layer.name,
+#                                                            layer.name))
+            if position == 'before':
+                x = layer(x)
+        else:
+            x = layer(layer_input)
+
+        # Set new output tensor (the original one, or the one of the inserted
+        # layer)
+        network_dict['new_output_tensor_of'].update({layer.name: x})
+
+    return Model(inputs=model.inputs, outputs=x)
+
+def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
+                             verbose=True,weights='imagenet',\
+                             res_num_layers=50,momentum=0.9,kind_method='TL'): 
+  """
+  ResNet with BN statistics refinement and then features extraction TL
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  @param : momentum in the updating of the statistics of BN 
+  """
+  # create model
+#  input_tensor = Input(shape=(224, 224, 3)) 
+  if res_num_layers==50:
+      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+                                                          input_shape= (224, 224, 3))
+      bn_layers = getBNlayersResNet50()
+      number_of_trainable_layers = 106
+  else:
+      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
+      raise(NotImplementedError)
+
+  for layer in pre_model.layers:
+      layer.trainable = False
+      if layer.name in bn_layers:
+          new_bn = HomeMade_BatchNormalisation_Refinement(layer,momentum)
+          layer_regex = layer.name
+          insert_layer_name =  layer.name +'_rf'
+          pre_model = insert_layer_nonseq(pre_model, layer_regex, new_bn,
+                        insert_layer_name=insert_layer_name, position='replace')
+          
+#          
+#      
+#      if layer.name in style_layers:
+#          layer.trainable = True
+#          if lr_multiple: 
+#              multipliers[layer.name] = multiply_lrp
+#      else:
+#          layer.trainable = False
+#
+  x = pre_model.output
+  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+     x = GlobalMaxPooling2D()(x)
+  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+      x = GlobalAveragePooling2D()(x)
+  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+      x= Flatten()(x)
+#  
+#  if final_clf=='MLP2':
+#      x = Dense(256, activation='relu')(x)
+#  if final_clf=='MLP2' or final_clf=='MLP1':
+#      predictions = Dense(num_of_classes, activation='sigmoid')(x)
+#  model = Model(inputs=pre_model.input, outputs=predictions)
+#  if lr_multiple:
+#      multipliers[model.layers[-2].name] = None
+#      multipliers[model.layers[-1].name] = None
+#      opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
+#  else:
+#      opt = opt(learning_rate=lr)
+  # Compile model
+  print(pre_model.summary())
+  #pre_model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  if verbose: print(pre_model.summary())
+  return pre_model
 
 ### Preprocessing functions 
 

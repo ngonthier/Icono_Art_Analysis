@@ -250,5 +250,8 @@ def getResNetLayersNumeral(style_layers,num_layers=50):
         raise(NotImplementedError)
     string = ''
     for elt in style_layers:
-        string+= str(keras_resnet_layers.index(elt))
+        try:
+            string+= str(keras_resnet_layers.index(elt))
+        except ValueError as e:
+            print(e)
     return(string)

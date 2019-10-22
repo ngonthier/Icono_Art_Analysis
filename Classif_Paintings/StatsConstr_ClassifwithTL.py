@@ -15,7 +15,7 @@ import os.path
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index
 from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     load_crop_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
-    MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn
+    MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor
 from IMDB import get_database
 import pickle
 import pathlib
@@ -118,7 +118,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    optimizer='adam',freezingType='FromTop',verbose=False,\
                                    plotConv=False,batch_size=32,regulOnNewLayer=None,\
                                    regulOnNewLayerParam=[],return_best_model=False,\
-                                   onlyReturnResult=False,dbn_affine=True,m_per_group=16):
+                                   onlyReturnResult=False,dbn_affine=True,m_per_group=16,
+                                   momentum=0.9,batch_size_RF=32):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -194,6 +195,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             name_base += '_MPG'+str(m_per_group)
             if dbn_affine:
                 name_base += '_Affine'
+                
+    if kind_method=='TL':
+        if constrNet=='ResNet50_BNRF': # BN Refinement
+            name_base += '_m'+str(momentum)+'_bsRF'+str(batch_size_RF)
             
     if not(set=='' or set is None):
         name_base += '_'+set
@@ -324,6 +329,19 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
                         list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
                         getBeforeReLU=getBeforeReLU)
+                    
+                elif constrNet=='ResNet50_BNRF':
+                    res_num_layers = 50
+                    return(df_label,item_name,path_to_img,str_val,classes,constrNet,\
+                       weights,res_num_layers,transformOnFinalLayer,kind_method)
+                    network_features_extraction= get_ResNet_BNRefin(df=df_label,\
+                                    x_col=item_name,path_im=path_to_img,\
+                                    str_val=str_val,num_of_classes=len(classes),Net=constrNet,\
+                                    weights=weights,res_num_layers=res_num_layers,\
+                                    transformOnFinalLayer=transformOnFinalLayer,\
+                                    kind_method=kind_method,\
+                                    batch_size=batch_size_RF,momentum=momentum)
+                    
                 
                 else:
                     raise(NotImplementedError)
@@ -582,6 +600,59 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     
     return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
 
+def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
+                       weights,res_num_layers,transformOnFinalLayer,kind_method,\
+                       batch_size=32,momentum=0.9,num_epochs_BN=5):
+   
+    if 'ResNet50' in Net:
+        preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+    else:
+        print(Net,'is unknwon')
+        raise(NotImplementedError)
+
+    df_train = df[df['set']=='train']
+    df_val = df[df['set']==str_val]
+    df_train[x_col] = df_train[x_col].apply(lambda x : x + '.jpg')
+    df_val[x_col] = df_val[x_col].apply(lambda x : x + '.jpg')
+    if not(len(df_val)==0):
+        df_train = df_train.append(df_val)
+        
+    datagen= tf.keras.preprocessing.image.ImageDataGenerator()
+    trainval_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
+                                                x_col=x_col,y_col=None,\
+                                                class_mode=None, \
+                                                target_size=(224,224), batch_size=batch_size,\
+                                                shuffle=True,\
+                                                preprocessing_function=preprocessing_function)
+    
+#    for z in trainval_generator:
+#        print(z)
+#        x = z[0]
+#        print(x)
+    
+    model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
+                                                transformOnFinalLayer =transformOnFinalLayer,\
+                                                verbose=True,weights=weights,\
+                                                res_num_layers=res_num_layers,momentum=momentum,\
+                                                kind_method=kind_method)
+    
+    model.compile()
+    STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
+    history = model.fit_generator(generator=trainval_generator,
+                    steps_per_epoch=STEP_SIZE_TRAIN,
+                    epochs=num_epochs_BN,use_multiprocessing=True,
+                    workers=3)
+    
+    print(history)
+    # TODO need to find how to do it without the for loop and on the GPU !
+    for e in range(num_epochs_BN):
+        for x in trainval_generator:
+            model.get_updates_for(tf.convert_to_tensor(x))
+        
+    return(model)
+    
+    
+
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 32,plotConv=False,test_size=0.15,\
                   return_best_model=False):
@@ -600,7 +671,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         
     if Net=='VGG' or Net=='VGGAdaIn' or Net=='VGGAdaDBN':
         preprocessing_function = tf.keras.applications.vgg19.preprocess_input
-    elif 'ResNet' in Net:
+    elif 'ResNet50' in Net:
         preprocessing_function = tf.keras.applications.resnet50.preprocess_input
     else:
         print(Net,'is unknwon')
@@ -1113,11 +1184,11 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
     cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
     scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)
     list_freezingType = ['FromTop','FromBottom','Alter']
-    list_freezingType = ['FromTop']
+    #list_freezingType = ['FromTop']
     
     transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D'] # Not the flatten case for the moment
-    transformOnFinalLayer_tab = ['GlobalMaxPooling2D'] # Not the flatten case for the moment
-
+    #transformOnFinalLayer_tab = ['GlobalMaxPooling2D'] # Not the flatten case for the moment
+    style_layers = ['bn_conv1']
     if scenario==0:
         final_clf = 'MLP2'
         epochs = 20
@@ -1150,6 +1221,14 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
         optimizer_tab = ['SGD']
         opt_option_tab = [[0.1,10**(-4)]]
         return_best_model = True
+    elif scenario==5:
+        final_clf = 'MLP1'
+        epochs = 20
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,0.01]] # WILDACT
+        return_best_model = True
+        # In WILDCAT we have lrp = 0.1, lp = 0.01 loss = MultiLabelSoftMarginLoss, Net = ResNet101
+        # MultiLabelSoftMarginLoss seems to be the use of sigmoid on the outpur of the model and then the sum over classes of the binary cross entropy loss
 
     range_l = [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96, 102,106] # For Resnet50
 
@@ -1168,7 +1247,7 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                                              pretrainingModif=pretrainingModif,freezingType=freezingType,\
                                              optimizer=optimizer,opt_option=opt_option,batch_size=16\
                                              ,final_clf=final_clf,features='avg_pool',return_best_model=return_best_model,\
-                                             onlyReturnResult=onlyPlot)
+                                             onlyReturnResult=onlyPlot,style_layers=style_layers)
                                             # il faudra checker cela avec le ResNet 
         
                     if metrics is None:
@@ -1232,7 +1311,8 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
     #        
     #        # Case of the fine tuning with batch normalization 
             constrNet = 'ResNet50AdaIn'
-            style_layers_tab_ResNet50AdaIn = [['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
+            getBeforeReLU = True
+            style_layers_tab_ResNet50AdaIn = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
                                          getBNlayersResNet50()]
             for style_layers in style_layers_tab_ResNet50AdaIn:
     #            print(constrNet,style_layers)
@@ -1252,20 +1332,28 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                     fig_i_m = fig_i
                 labelstr = constrNet 
                 if not(constrNet=='VGG'):
-                    labelstr += '_'+ numeral_layers_index(style_layers)
+                    labelstr += '_'+  getResNetLayersNumeral(style_layers)
                 plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
                          marker=list_markers[fig_i_m],linestyle='')
                 fig_i += 1
     #            
-            title = optimizer + ' ' + transformOnFinalLayer + ' ' + metricploted
+            optstr  = ''        
+            for o in opt_option:     
+                optstr += ' ' +str(o)
+            optstr_ = optstr.replace(' ','_')
+            title = optimizer+ optstr + ' ' + transformOnFinalLayer + ' ' +final_clf + ' ' + metricploted
             plt.ion()
             plt.xlabel('Number of layers retrained')
-            plt.ylabel(metricploted+' ArtUK')
+            if target_dataset=='Paintings':
+                target_dataset_str = 'ArtUK'
+            else:
+                target_dataset_str  = target_dataset
+            plt.ylabel(metricploted+' '+target_dataset_str)
             plt.title(title)
             plt.legend(loc='best')
             output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
             pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
-            name_of_the_figure = 'Summary_'+ target_dataset+network+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png'
+            name_of_the_figure = 'Summary_'+ target_dataset+network+'_Unfreezed_'+ optimizer+optstr_+'_'+transformOnFinalLayer+final_clf+target_dataset_str+'.png'
             fname = os.path.join(output_path,name_of_the_figure)
             plt.show() 
             plt.pause(0.001)
@@ -1405,7 +1493,12 @@ if __name__ == '__main__':
     ### TODO !!!!! Need to add a unbalanced way to deal with the dataset
     #PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=0,onlyPlot=True)
     #PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=0,onlyPlot=True)
-#    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=4)
+    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=4)
+    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=5)
+    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=4)
+    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=5)
+#    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=4)
+#    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=4)
 #    PlotSomePerformanceVGG()
 #    RunUnfreezeLayerPerformanceVGG()
 #    RunEval_MLP_onConvBlock()
@@ -1416,7 +1509,7 @@ if __name__ == '__main__':
 #    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
 #    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,pretrainingModif=False,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
 #    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,pretrainingModif=False,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
-    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50AdaIn',kind_method='FT',epochs=2,style_layers=['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
+#    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50AdaIn',kind_method='FT',epochs=2,style_layers=['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
 ###    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',kind_method='FT',\
 ##                   epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
 ##    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',kind_method='FT',\
@@ -1460,3 +1553,9 @@ if __name__ == '__main__':
 #                        opt_option=[0.01],features='block5_pool',\
 #                        batch_size=32,constrNet='VGG',plotConv=True,\
 #                        transformOnFinalLayer='GlobalAveragePooling2D',return_best_model=True)
+
+## Test BN Refinement of ResNet50
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                        kind_method='TL',epochs=3,batch_size=32,\
+#                        optimizer='SGD',opt_option=[10**(-4)],\
+#                        constrNet='ResNet50_BNRF',momentum=0.9,batch_size_RF=32)
