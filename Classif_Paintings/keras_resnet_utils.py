@@ -11,7 +11,8 @@ import warnings
 import tensorflow as tf
 import tensorflow.python.keras.utils as Sequence
 from tensorflow.python.keras import utils
- 
+from tensorflow.python.keras import backend as K
+
 def getResNet50layersName():
     liste = ['input_1',
      'conv1_pad',
@@ -301,10 +302,11 @@ def fit_generator_ForRefineParameters(model,
                   initial_epoch=0):
     """ The goal of this function is to run the generator to update the parameters 
     of the batch normalisation"""
-    
+    sess = K.get_session()
     train_fn = K.function(inputs=[model.input], \
         outputs=[model.output], updates=model.updates)
-    
+    init = tf.global_variables_initializer()
+    sess.run(init)
     epoch = initial_epoch
 
 #    do_validation = bool(validation_data)
@@ -312,9 +314,9 @@ def fit_generator_ForRefineParameters(model,
 #    if do_validation:
 #        model._make_test_function()
 #    use_sequence_api = True
-    print('generator',generator)
+#    print('generator',generator)
     use_sequence_api = is_sequence(generator)
-    print('use_sequence_api',use_sequence_api)
+#    print('use_sequence_api',use_sequence_api)
     if not use_sequence_api and use_multiprocessing and workers > 1:
         warnings.warn(
             UserWarning('Using a generator with `use_multiprocessing=True`'
@@ -489,7 +491,7 @@ def fit_generator_ForRefineParameters(model,
                 else:
                     batch_size = x.shape[0]
                 # build batch logs
-                batch_logs = {'batch': batch_index, 'size': batch_size}
+#                batch_logs = {'batch': batch_index, 'size': batch_size}
 #                callbacks.on_batch_begin(batch_index, batch_logs)
                 
                 

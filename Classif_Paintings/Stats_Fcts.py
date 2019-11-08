@@ -36,6 +36,7 @@ import numpy as np
 from PIL import Image
 import os
 import os.path
+import re
 #import time
 #import functools
 
@@ -509,7 +510,8 @@ def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMa
 
 class HomeMade_BatchNormalisation_Refinement(Layer):
     """
-    HomeMade Batch Normalisation function that only update the whitening / normalizing parameters
+    HomeMade Batch Normalisation function that only update the whitening / 
+    normalizing parameters
     """
 
     def __init__(self,batchnorm_layer,momentum, **kwargs):
@@ -529,20 +531,18 @@ class HomeMade_BatchNormalisation_Refinement(Layer):
         mean,variance = tf.nn.moments(x,axes=(0,1,2),keep_dims=False)
         update_moving_mean = tf.keras.backend.moving_average_update(x=self.moving_mean,\
                                                value=mean,\
-                                               momentum=self.momentum)# Returns An Operation to update the variable.
+                                               momentum=self.momentum) # Returns An Operation to update the variable.
         update_moving_variance = tf.keras.backend.moving_average_update(x=self.moving_variance,\
                                                value=variance,\
-                                               momentum=self.momentum)# Returns An Operation to update the variable.
-#        print('update_moving_mean',update_moving_mean)
-#        print('update_moving_variance',update_moving_variance)
+                                               momentum=self.momentum) # Returns An Operation to update the variable.
         self.add_update((self.moving_mean, update_moving_mean), x)
         self.add_update((self.moving_variance, update_moving_variance), x)
         
-        return output
+        return(output)
 
     def compute_output_shape(self, input_shape):
         assert isinstance(input_shape, list)
-        return input_shape
+        return(input_shape)
     
     def get_config(self): # Need this to save correctly the model with this kind of layer
         config = super(HomeMade_BatchNormalisation_Refinement, self).get_config()
@@ -551,8 +551,6 @@ class HomeMade_BatchNormalisation_Refinement(Layer):
         config['batchnorm_layer'] = self.batchnorm_layer
         config['momentum'] = self.momentum
         return(config) 
-
-import re
 
 def layers_unique(liste):
     new_liste= []
@@ -610,7 +608,8 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
                 raise ValueError('position must be: before, after or replace')
 
             new_layer = insert_layer_factory
-            #new_layer = insert_layer_factory() # Change by Nicolas Gonthier
+            # new_layer = insert_layer_factory() 
+            # Change by Nicolas Gonthier
 #            if insert_layer_name:
 #                new_layer.name = insert_layer_name
 #            else:
@@ -656,8 +655,7 @@ def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer 
           layer_regex = layer.name
           insert_layer_name =  layer.name +'_rf'
           pre_model = insert_layer_nonseq(pre_model, layer_regex, new_bn,
-                        insert_layer_name=insert_layer_name, position='replace')
-          
+                        insert_layer_name=insert_layer_name, position='replace')          
 #          
 #      
 #      if layer.name in style_layers:

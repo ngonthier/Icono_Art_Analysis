@@ -37,7 +37,7 @@ import gc
 import tempfile
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 from tensorflow.python.keras.models import load_model
-from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral
+from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,fit_generator_ForRefineParameters
 
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
@@ -332,8 +332,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     
                 elif constrNet=='ResNet50_BNRF':
                     res_num_layers = 50
-                    return(df_label,item_name,path_to_img,str_val,classes,constrNet,\
-                       weights,res_num_layers,transformOnFinalLayer,kind_method)
+#                    return(df_label,item_name,path_to_img,str_val,classes,constrNet,\
+#                       weights,res_num_layers,transformOnFinalLayer,kind_method)
                     network_features_extraction= get_ResNet_BNRefin(df=df_label,\
                                     x_col=item_name,path_im=path_to_img,\
                                     str_val=str_val,num_of_classes=len(classes),Net=constrNet,\
@@ -341,6 +341,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     transformOnFinalLayer=transformOnFinalLayer,\
                                     kind_method=kind_method,\
                                     batch_size=batch_size_RF,momentum=momentum)
+#                    return(network_features_extraction)
+                    print('End ResNet50_BNRF loading !!!!!!!!!!!!!!!!')
                     
                 
                 else:
@@ -405,7 +407,6 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     AP_file_pkl =AP_file_base+'_AP.pkl'
     APfilePath =  os.path.join(output_path,AP_file_pkl)
     if verbose: print(APfilePath)
-    print(APfilePath)
     
     # TL or FT method
     if kind_method=='TL':
@@ -624,6 +625,7 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                                                 target_size=(224,224), batch_size=batch_size,\
                                                 shuffle=True,\
                                                 preprocessing_function=preprocessing_function)
+    STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
     
 #    for z in trainval_generator:
 #        print(z)
@@ -636,22 +638,46 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                                                 res_num_layers=res_num_layers,momentum=momentum,\
                                                 kind_method=kind_method)
     
-    model.compile()
-    STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
-    history = model.fit_generator(generator=trainval_generator,
-                    steps_per_epoch=STEP_SIZE_TRAIN,
-                    epochs=num_epochs_BN,use_multiprocessing=True,
-                    workers=3)
+    model =  fit_generator_ForRefineParameters(model,
+                  trainval_generator,
+                  steps_per_epoch=STEP_SIZE_TRAIN,
+                  epochs=num_epochs_BN,
+                  verbose=1,
+#                  callbacks=None,
+#                  validation_data=None,
+#                  validation_steps=None,
+#                  validation_freq=1,
+#                  class_weight=None,
+                  max_queue_size=10,
+                  workers=3,
+                  use_multiprocessing=True,
+                  shuffle=True)
     
-    print(history)
-    # TODO need to find how to do it without the for loop and on the GPU !
-    for e in range(num_epochs_BN):
-        for x in trainval_generator:
-            model.get_updates_for(tf.convert_to_tensor(x))
+#    return(model)
+#    
+##    model.compile(optimizer='sgd',loss='binary_crossentropy')
+##    STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
+##    history = model.fit_generator(generator=trainval_generator,
+##                    steps_per_epoch=STEP_SIZE_TRAIN,
+##                    epochs=num_epochs_BN,use_multiprocessing=True,
+##                    workers=3)
+##    
+##    print(history)
+#    # TODO need to find how to do it without the for loop and on the GPU !
+#    import time
+#    # ici on a 0.2s par image soit 5h si on fait 4900 images et 20  epochs
+#    for e in range(num_epochs_BN):
+#        print('epcoch',e)
+#        i = 0
+#        for x in trainval_generator:
+#            print(i)
+#            t0 = time.time()
+#            model.get_updates_for(tf.convert_to_tensor(x))
+#            i += 1
+#            t1 = time.time()
+#            print("Duration : ",t1-t0)
         
     return(model)
-    
-    
 
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 32,plotConv=False,test_size=0.15,\
@@ -1332,7 +1358,10 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                     fig_i_m = fig_i
                 labelstr = constrNet 
                 if not(constrNet=='VGG'):
-                    labelstr += '_'+  getResNetLayersNumeral(style_layers)
+                    if getResNetLayersNumeral(style_layers) == getResNetLayersNumeral(getBNlayersResNet50()):
+                        labelstr += '_all'
+                    else:
+                        labelstr += '_'+  getResNetLayersNumeral(style_layers)
                 plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
                          marker=list_markers[fig_i_m],linestyle='')
                 fig_i += 1
@@ -1340,6 +1369,7 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
             optstr  = ''        
             for o in opt_option:     
                 optstr += ' ' +str(o)
+            optstr += ' ' +str(epochs)
             optstr_ = optstr.replace(' ','_')
             title = optimizer+ optstr + ' ' + transformOnFinalLayer + ' ' +final_clf + ' ' + metricploted
             plt.ion()
@@ -1493,10 +1523,8 @@ if __name__ == '__main__':
     ### TODO !!!!! Need to add a unbalanced way to deal with the dataset
     #PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=0,onlyPlot=True)
     #PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=0,onlyPlot=True)
-    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=4)
-    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=5)
-    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=4)
-    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=5)
+    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=3)
+    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=3)
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=4)
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=4)
 #    PlotSomePerformanceVGG()
@@ -1555,7 +1583,8 @@ if __name__ == '__main__':
 #                        transformOnFinalLayer='GlobalAveragePooling2D',return_best_model=True)
 
 ## Test BN Refinement of ResNet50
-#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-#                        kind_method='TL',epochs=3,batch_size=32,\
-#                        optimizer='SGD',opt_option=[10**(-4)],\
-#                        constrNet='ResNet50_BNRF',momentum=0.9,batch_size_RF=32)
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                        kind_method='TL',epochs=3,batch_size=32,\
+                        optimizer='SGD',opt_option=[10**(-4)],\
+                        constrNet='ResNet50_BNRF',momentum=0.9,batch_size_RF=32,\
+                        style_layers=['bn_conv1'],verbose=True)
