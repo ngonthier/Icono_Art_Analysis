@@ -508,6 +508,9 @@ def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMa
 ### Resnet Refinement of the batch normalisation statistics 
 
 class HomeMade_BatchNormalisation_Refinement(Layer):
+    """
+    HomeMade Batch Normalisation function that only update the whitening / normalizing parameters
+    """
 
     def __init__(self,batchnorm_layer,momentum, **kwargs):
         self.moving_mean = batchnorm_layer.non_trainable_variables[0]
@@ -524,12 +527,14 @@ class HomeMade_BatchNormalisation_Refinement(Layer):
     def call(self, x):
         output = self.batchnorm_layer(x)
         mean,variance = tf.nn.moments(x,axes=(0,1,2),keep_dims=False)
-        update_moving_mean = tf.keras.backend.moving_average_update(x=self.moving_mean,
-                                               value=mean,
+        update_moving_mean = tf.keras.backend.moving_average_update(x=self.moving_mean,\
+                                               value=mean,\
                                                momentum=self.momentum)# Returns An Operation to update the variable.
-        update_moving_variance = tf.keras.backend.moving_average_update(x=self.moving_variance,
-                                               value=variance,
+        update_moving_variance = tf.keras.backend.moving_average_update(x=self.moving_variance,\
+                                               value=variance,\
                                                momentum=self.momentum)# Returns An Operation to update the variable.
+#        print('update_moving_mean',update_moving_mean)
+#        print('update_moving_variance',update_moving_variance)
         self.add_update((self.moving_mean, update_moving_mean), x)
         self.add_update((self.moving_variance, update_moving_variance), x)
         
@@ -1813,8 +1818,98 @@ def unity_test_StatsCompute():
 
     sess.close()   
             
-            
+def Test_BatchNormRefinement():
     
+    ### Peut etre que cela ne ùarche pas a cause de ca : 
+    # https://pgaleone.eu/tensorflow/keras/2019/01/19/keras-not-yet-interface-to-tensorflow/
+    from tensorflow.python.keras.layers import BatchNormalization,Conv2D
+    from tensorflow.python.keras import Model,Sequential
+    from tensorflow.python.keras import backend as K
+    
+    bs = 64
+    features_size = 24
+    a = Input(shape=(features_size,features_size,3))
+    b = Conv2D(filters=features_size,kernel_size=3,padding='same')(a)
+    c = BatchNormalization(axis=1,name='bn')(b)
+    pre_model = Model(inputs=a, outputs=c)  
+#    pre_model = Sequential([b,c])
+#    pre_model = Model(inputs=b, outputs=c) 
+#    pre_model.build(input_shape=(bs,features_size,features_size,3))
+    bn_layers = ['bn']
+    momentum = 0.9
+    print("Model before anything")
+    print(pre_model.summary())    
+    batchnorm_layer = pre_model.get_layer('bn')
+    moving_mean = batchnorm_layer.non_trainable_variables[0]
+    moving_variance = batchnorm_layer.non_trainable_variables[1]
+    print('moving_mean',tf.keras.backend.eval(moving_mean))
+    print('moving_variance',tf.keras.backend.eval(moving_variance))
+    
+    for layer in pre_model.layers:
+      layer.trainable = False
+      if layer.name in bn_layers:
+          new_bn = HomeMade_BatchNormalisation_Refinement(layer,momentum)
+          layer_regex = layer.name
+          insert_layer_name =  layer.name +'_rf'
+          pre_model = insert_layer_nonseq(pre_model, layer_regex, new_bn,
+                        insert_layer_name=insert_layer_name, position='replace')   
+    
+    for layer in pre_model.layers:
+        print(layer.name)
+    #tf.keras.backend.set_learning_phase(True)
+    print("Model after modification")
+    print(pre_model.summary())    
+    batchnorm_layer = pre_model.get_layer('home_made__batch_normalisation__refinement')
+    moving_mean = batchnorm_layer.trainable_variables[0]
+    moving_variance = batchnorm_layer.trainable_variables[1]
+    print('moving_mean',tf.keras.backend.eval(moving_mean))
+    print('moving_variance',tf.keras.backend.eval(moving_variance))
+      
+    epochs = 5
+    sess = K.get_session()
+    train_fn = K.function(inputs=[pre_model.input], \
+            outputs=[pre_model.output], updates=pre_model.updates)
+    init = tf.global_variables_initializer()
+    sess.run(init)
+    for n  in range(epochs):
+        x = 1.+np.random.rand(bs,features_size,features_size,3)
+        x = x.astype(np.float32)
+        #pre_model.predict(x)
+        #print(pre_model.updates)
+        train_fn(x)
+        #train_fn(tf.convert_to_tensor(x))
+        #sess.run(train_fn(tf.convert_to_tensor(x)))
+#        trainable_weights = pre_model.trainable_weights
+#        print(tf.keras.backend.eval(trainable_weights))
+#        trainable_variables = pre_model.trainable_variables
+#        print(tf.keras.backend.eval(trainable_variables))
+    
+    print("Model after epochs")   
+    batchnorm_layer = pre_model.get_layer('home_made__batch_normalisation__refinement')
+    moving_mean = batchnorm_layer.trainable_variables[0]
+    moving_variance = batchnorm_layer.trainable_variables[1]
+    print('moving_mean',tf.keras.backend.eval(moving_mean))
+    print('moving_variance',tf.keras.backend.eval(moving_variance))  
+    print("End the moving average application")
+    
+    # Now we want to predict without  changing the parameters
+    for n  in range(epochs):
+        x = 10.+np.random.rand(bs,features_size,features_size,3)
+        x = x.astype(np.float32)
+        #pre_model.predict(x)
+    print("Model predictions epochs")   
+    batchnorm_layer = pre_model.get_layer('home_made__batch_normalisation__refinement')
+    moving_mean = batchnorm_layer.trainable_variables[0]
+    moving_variance = batchnorm_layer.trainable_variables[1]
+    print('moving_mean',tf.keras.backend.eval(moving_mean))
+    print('moving_variance',tf.keras.backend.eval(moving_variance))  
+    print("End") 
+    
+    sess.close()
+    return(pre_model)
+        
+        
 if __name__ == '__main__':
 #  unity_test_StatsCompute()
-  unity_test_of_vgg_InNorm()
+#  unity_test_of_vgg_InNorm()
+    Test_BatchNormRefinement()
