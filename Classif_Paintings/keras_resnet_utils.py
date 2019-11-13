@@ -258,7 +258,7 @@ def getResNetLayersNumeral(style_layers,num_layers=50):
     string = ''
     for elt in style_layers:
         try:
-            string+= str(keras_resnet_layers.index(elt))
+            string+= str(keras_resnet_layers.index(elt))+'_'
         except ValueError as e:
             print(e)
     return(string)
@@ -504,8 +504,9 @@ def fit_generator_ForRefineParameters(model,
 
                 # Here x is a numpy array because the datagenerator load numpy array
                 
+                print('BEfore train fn')
                 train_fn(x)  # updates property is updated after each call of the layer/model with an input, not before.
-                
+                print('after train fn')
 #                print(model.updates)
 #                training_updates = model.get_updates_for(tf.convert_to_tensor(x))
 #                print('training_updates',training_updates)

@@ -389,7 +389,8 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
       
   ilayer = 0
   for layer in pre_model.layers:
-      if SomePartFreezed and layer.count_params() > 0:
+      if SomePartFreezed and (layer.count_params() > 0):
+         print(layer,ilayer,number_of_trainable_layers - pretrainingModif)
          if freezingType=='FromTop':
              if ilayer >= number_of_trainable_layers - pretrainingModif:
                  layer.trainable = True
@@ -505,6 +506,70 @@ def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMa
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   if verbose: print(model.summary())
   return model
+
+def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_and_std_target,\
+                                                         final_layer,\
+                                   transformOnFinalLayer=None,res_num_layers=50,\
+                                   weights='imagenet'):
+  """
+  VGG with an Instance normalisation : we impose the mean and std of reference 
+  instance per instance
+  @param : final_layer final layer provide for feature extraction
+  @param : transformOnFinalLayer : on va modifier la derniere couche du réseau
+  @param : getBeforeReLU if True we modify the features before the ReLU
+  """
+  
+  if res_num_layers==50:
+      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+                                                          input_shape= (224, 224, 3))
+#      number_of_trainable_layers = 106
+  else:
+      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
+      raise(NotImplementedError)
+  
+#  lr_multiple = False
+#  if len(opt_option)==2:
+#      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+#      multipliers = {}
+#      lr_multiple = True
+#  elif len(opt_option)==1:
+#      lr = opt_option[-1]
+#  else:
+#      lr = 0.01
+#  if optimizer=='SGD': 
+#      opt = SGD
+#  elif optimizer=='adam': 
+#      opt = Adam
+#  else:
+#      opt = optimizer
+      
+  i = 0
+  sess = K.get_session()
+  for layer in pre_model.layers:
+      name_layer = layer.name
+      if i < len(style_layers) and name_layer==style_layers[i]:
+          mean_src = list_mean_and_std_target[i][0] 
+          std_src = list_mean_and_std_target[i][1] 
+          # replace the statictics used for normalisation in the batch normalisation
+          sess.run(layer.moving_mean.assign(mean_src))
+          sess.run(layer.moving_variance.assign(std_src**2))
+          i += 1
+
+      if name_layer==final_layer:  
+          x = pre_model.output
+          if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+             x = GlobalMaxPooling2D()(x)
+          elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+              x = GlobalAveragePooling2D()(x)
+          elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+              x= Flatten()(x)
+          break
+  pre_model.trainable = False
+
+  model = Model(inputs=pre_model.input, outputs=x)
+ 
+  return model
+  
 
 ### Resnet Refinement of the batch normalisation statistics 
 
@@ -685,11 +750,171 @@ def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer 
 #  else:
 #      opt = opt(learning_rate=lr)
   # Compile model
-  print(pre_model.summary())
   #pre_model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   if verbose: print(pre_model.summary())
   return pre_model
 
+### ResNet with Batch normalisation splitted 
+def ResNet_Split_batchNormalisation(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
+                             verbose=True,weights='imagenet',\
+                             res_num_layers=50,momentum=0.9,kind_method='TL'): 
+  """
+  ResNet with BN statistics refinement and then features extraction TL
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  @param : momentum in the updating of the statistics of BN 
+  """
+  # create model
+#  input_tensor = Input(shape=(224, 224, 3)) 
+  if res_num_layers==50:
+      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+                                                          input_shape= (224, 224, 3))
+      bn_layers = getBNlayersResNet50()
+      number_of_trainable_layers = 106
+  else:
+      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
+      raise(NotImplementedError)
+
+  for layer in pre_model.layers:
+      layer.trainable = False
+      if layer.name in bn_layers:
+          new_bn = HomeMade_BatchNormalisation_Refinement(layer,momentum)
+          layer_regex = layer.name
+          insert_layer_name =  layer.name +'_rf'
+          pre_model = insert_layer_nonseq(pre_model, layer_regex, new_bn,
+                        insert_layer_name=insert_layer_name, position='replace')          
+#          
+#      
+#      if layer.name in style_layers:
+#          layer.trainable = True
+#          if lr_multiple: 
+#              multipliers[layer.name] = multiply_lrp
+#      else:
+#          layer.trainable = False
+#
+  x = pre_model.output
+  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+     x = GlobalMaxPooling2D()(x)
+  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+      x = GlobalAveragePooling2D()(x)
+  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+      x= Flatten()(x)
+#  
+#  if final_clf=='MLP2':
+#      x = Dense(256, activation='relu')(x)
+#  if final_clf=='MLP2' or final_clf=='MLP1':
+#      predictions = Dense(num_of_classes, activation='sigmoid')(x)
+#  model = Model(inputs=pre_model.input, outputs=predictions)
+#  if lr_multiple:
+#      multipliers[model.layers[-2].name] = None
+#      multipliers[model.layers[-1].name] = None
+#      opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
+#  else:
+#      opt = opt(learning_rate=lr)
+  # Compile model
+
+  #pre_model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  if verbose: print(pre_model.summary())
+  return pre_model
+
+### Get features gram matrix and mean of features before the layer in the style layers list 
+def get_ResNetmodel_gram_mean_features_layerBefore(style_layers,res_num_layers=50,weights='imagenet'):
+  """Helper function to compute the Gram matrix and mean of feature representations 
+  from resnet50.
+  
+  Get features gram matrix and mean of features before the layer in the style layers list 
+
+  This function will simply load and preprocess the images from their path. 
+  Then it will feed them through the network to obtain
+  the outputs of the intermediate layers. 
+  
+  Arguments:
+    model: The model that we are using.
+    img_path: The path to the image.
+    
+  Returns:
+    returns the model that return the features !
+  """
+  if res_num_layers==50:
+      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+                                                          input_shape= (224, 224, 3))
+#      bn_layers = getBNlayersResNet50()
+#      number_of_trainable_layers = 106
+  else:
+      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
+      raise(NotImplementedError)
+
+  list_stats = []
+  last_layer = None
+  for layer in pre_model.layers:
+      if layer.name in style_layers:
+          if not(last_layer is None):
+              output = last_layer.output
+          else: 
+              output = pre_model.input
+          mean_layer = Mean_Matrix_Layer()(output)
+          cov_layer = Cov_Matrix_Layer()([output,mean_layer])
+          list_stats += [cov_layer,mean_layer]
+      else:
+          last_layer = layer
+  
+  model = models.Model(pre_model.input,list_stats)
+  model.trainable = False
+  return(model)
+  
+def get_ResNet_ROWD_gram_mean_features(style_layers_exported,style_layers_imposed,\
+                                    list_mean_and_std_target,transformOnFinalLayer=None,res_num_layers=50,
+                                    weights='imagenet'):
+  """Helper function to compute the Gram matrix and mean of feature representations 
+  from a modified resnet50. that have the features maps modified
+  
+  The gram matrices are computed 
+
+  This function will simply load and preprocess the images from their path. 
+  Then it will feed them through the network to obtain
+  the outputs of the intermediate layers. 
+  
+  Arguments:
+    model: The model that we are using.
+    img_path: The path to the image.
+    
+  Returns:
+    returns the model that return the features ! 
+  """
+  
+  pre_model = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers=style_layers_imposed,\
+                                   list_mean_and_std_target=list_mean_and_std_target,\
+                                   final_layer=style_layers_exported[-1],\
+                                   transformOnFinalLayer=transformOnFinalLayer,res_num_layers=res_num_layers,\
+                                   weights=weights)
+  pre_model.trainable = False
+
+  # Get output layers corresponding to style and content layers 
+  list_stats = []
+  i = 0
+  last_layer = None
+  for layer in pre_model.layers:
+      name_layer = layer.name
+      #print(name_layer)
+      if name_layer==style_layers_exported[i]:
+          if not(last_layer is None):
+              output = last_layer.output
+          else: 
+              output = pre_model.input
+          #print(output)
+          mean_layer = Mean_Matrix_Layer()(output)
+          cov_layer = Cov_Matrix_Layer()([output,mean_layer])
+          list_stats += [cov_layer,mean_layer]
+          i+= 1
+      else:
+          last_layer = layer
+      
+      if i==len(style_layers_exported): # No need to compute further
+          break
+  
+  model = models.Model(pre_model.input,list_stats)
+  model.trainable = False
+  return(model)
+  
 ### Preprocessing functions 
 
 def load_crop(path_to_img,max_dim = 224):
@@ -1097,7 +1322,7 @@ def get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=False):
     img_path: The path to the image.
     
   Returns:
-    returns the features. 
+    returns the keras model that return the features . 
   """
   model = tf.keras.Sequential()
   vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
@@ -1155,7 +1380,7 @@ def get_BaseNorm_gram_mean_features(style_layers_exported,style_layers_imposed,l
     img_path: The path to the image.
     
   Returns:
-    returns the features. 
+    returns the model that return the features !
   """
   model = tf.keras.Sequential()
   VGGBaseNorm = vgg_BaseNorm(style_layers_imposed,list_mean_and_std_source,\
@@ -1390,7 +1615,7 @@ def vgg_InNorm_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
 def vgg_BaseNorm(style_layers,list_mean_and_std_source,list_mean_and_std_target,\
                  final_layer='fc2',transformOnFinalLayer=None,getBeforeReLU=False):
   """
-  VGG with an Instance normalisation : we impose the mean and std of reference 
+  VGG with an whole Base normalisation : we impose the mean and std of reference 
   instance per instance
   @param : final_layer final layer provide for feature extraction
   @param : transformOnFinalLayer : on va modifier la derniere couche du réseau
@@ -1875,6 +2100,12 @@ def Test_BatchNormRefinement():
         #pre_model.predict(x)
         #print(pre_model.updates)
         train_fn(x)
+        print('pre_model.updates',pre_model.updates)
+        batchnorm_layer = pre_model.get_layer('home_made__batch_normalisation__refinement')
+        moving_mean = batchnorm_layer.trainable_variables[0]
+        moving_variance = batchnorm_layer.trainable_variables[1]
+        print('moving_mean',tf.keras.backend.eval(moving_mean))
+        print('moving_variance',tf.keras.backend.eval(moving_variance))  
         #train_fn(tf.convert_to_tensor(x))
         #sess.run(train_fn(tf.convert_to_tensor(x)))
 #        trainable_weights = pre_model.trainable_weights
@@ -1894,7 +2125,7 @@ def Test_BatchNormRefinement():
     for n  in range(epochs):
         x = 10.+np.random.rand(bs,features_size,features_size,3)
         x = x.astype(np.float32)
-        #pre_model.predict(x)
+        pre_model.predict(x)
     print("Model predictions epochs")   
     batchnorm_layer = pre_model.get_layer('home_made__batch_normalisation__refinement')
     moving_mean = batchnorm_layer.trainable_variables[0]
@@ -1905,7 +2136,8 @@ def Test_BatchNormRefinement():
     
     sess.close()
     return(pre_model)
-        
+
+       
         
 if __name__ == '__main__':
 #  unity_test_StatsCompute()

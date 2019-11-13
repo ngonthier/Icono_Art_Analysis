@@ -28,8 +28,9 @@ import h5py
 import tensorflow as tf
 from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
-    load_crop_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features
-
+    load_crop_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\
+    get_ResNet_ROWD_gram_mean_features
+from keras_resnet_utils import getResNetLayersNumeral
 
 ### To copy only the image from the dataset
 #dataset='watercolor'
@@ -51,7 +52,7 @@ keras_vgg_layers= ['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
 def numeral_layers_index(style_layers):
     string = ''
     for elt in style_layers:
-        string+= str(keras_vgg_layers.index(elt))
+        string+= str(keras_vgg_layers.index(elt))+'_'
     return(string)
 
 
@@ -138,12 +139,17 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
     dict_var = {}
     
     if Net=='VGG':
-        vgg_get_cov =  get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
+        net_get_cov =  get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
     elif Net=='VGGBaseNorm' or Net=='VGGBaseNormCoherent':
         style_layers_exported = style_layers
-        vgg_get_cov = get_BaseNorm_gram_mean_features(style_layers_exported,\
+        net_get_cov = get_BaseNorm_gram_mean_features(style_layers_exported,\
                         style_layers_imposed,list_mean_and_std_source,list_mean_and_std_target,\
                         getBeforeReLU=getBeforeReLU)
+    elif Net=='ResNet50_ROWD': # Base coherent here also but only update the batch normalisation
+        style_layers_exported = style_layers
+        net_get_cov = get_ResNet_ROWD_gram_mean_features(style_layers_exported,style_layers_imposed,\
+                                    list_mean_and_std_target,transformOnFinalLayer=None,
+                                    res_num_layers=50,weights='imagenet')
     else:
         print(Net,'is inknown')
         raise(NotImplementedError)
@@ -163,7 +169,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             try:
                 #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
                 image_array = load_crop_and_process_img(image_path)
-                vgg_cov_mean = vgg_get_cov.predict(image_array, batch_size=1)
+                net_cov_mean = net_get_cov.predict(image_array, batch_size=1)
             except IndexError as e:
                 print(e)
                 print(i,image_path)
@@ -172,19 +178,19 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             if saveformat=='h5':
                 grp = store.create_group(short_name)
                 for l,layer in enumerate(style_layers):
-                    cov = vgg_cov_mean[2*l]
-                    mean = vgg_cov_mean[2*l+1]
+                    cov = net_cov_mean[2*l]
+                    mean = net_cov_mean[2*l+1]
                     cov_str = layer + '_cov'
                     mean_str = layer + '_mean'
                     grp.create_dataset(cov_str,data=cov) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
                     grp.create_dataset(mean_str,data=mean) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
             elif saveformat=='pkl':
-                dict_output[short_name] = vgg_cov_mean
+                dict_output[short_name] = net_cov_mean
                 
             for l,layer in enumerate(style_layers):
 #                        [cov,mean] = vgg_cov_mean[l]
-                cov = vgg_cov_mean[2*l][0,:,:]
-                mean = vgg_cov_mean[2*l+1][0,:] # car batch size == 1
+                cov = net_cov_mean[2*l][0,:,:]
+                mean = net_cov_mean[2*l+1][0,:] # car batch size == 1
                 # Here we only get a tensor we need to run the session !!! 
                 if whatToload=='var':
                     dict_var[layer] += [np.diag(cov)]
@@ -277,10 +283,21 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    whatToload,saveformat='h5',set='',getBeforeReLU=False,\
                    Net='VGG',style_layers_imposed=[],\
                    list_mean_and_std_source=[],list_mean_and_std_target=[]):
-    str_layers = numeral_layers_index(style_layers)
+    if 'VGG' in Net:
+        str_layers = numeral_layers_index(style_layers)
+    elif 'ResNet50' in Net:
+        str_layers = getResNetLayersNumeral(style_layers,num_layers=50)
+    else:
+        raise(NotImplementedError)
     filename = source_dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
+    
     if not(Net=='VGG'):
-        filename += '_'+Net + numeral_layers_index(style_layers_imposed)
+        filename += '_'+Net
+            filename += '_'+Net + numeral_layers_index(style_layers_imposed)
+        elif 'ResNet50' in Net:
+            filename += '_'+Net + getResNetLayersNumeral(style_layers_imposed,num_layers=50)
+        else:
+            raise(NotImplementedError)
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp')
     
     if os.path.isdir(output_path):

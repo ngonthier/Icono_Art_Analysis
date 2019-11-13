@@ -15,7 +15,8 @@ import os.path
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index
 from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     load_crop_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
-    MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor
+    MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
+    ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction
 from IMDB import get_database
 import pickle
 import pathlib
@@ -61,10 +62,11 @@ def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatTolo
 def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
                                     style_layers,\
                                     list_mean_and_std_source,whatToload,saveformat='h5',\
-                                    getBeforeReLU=False,target_set='trainval',applySqrtOnVar=True):
+                                    getBeforeReLU=False,target_set='trainval',applySqrtOnVar=True,\
+                                    Net='VGG'):
     """
     The goal of this function is to compute a version of the statistics of the 
-    features of the VGG 
+    features of the VGG or ResNet50
     """
     dict_stats_coherent = {} 
     for i_layer,layer_name in enumerate(style_layers):
@@ -74,7 +76,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
             dict_stats_target0 = get_dict_stats(target_dataset,target_number_im_considered,\
                                                 style_layers_firstLayer,\
                                                 whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,\
-                                                set=target_set)
+                                                set=target_set,Net=Net)
             dict_stats_coherent[layer_name] = dict_stats_target0[layer_name]
             list_mean_and_std_target_i_m1 = compute_ref_stats(dict_stats_target0,\
                                             style_layers_firstLayer,type_ref='mean',\
@@ -82,15 +84,18 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                                             applySqrtOnVar=applySqrtOnVar)
             current_list_mean_and_std_target = list_mean_and_std_target_i_m1
         else:
-            list_mean_and_std_source_i = list_mean_and_std_source[0:i_layer]
             style_layers_imposed = style_layers[0:i_layer]
             style_layers_exported = [style_layers[i_layer]]
-            list_mean_and_std_source_i = list_mean_and_std_source[0:i_layer]
+            
+            if Net=='ResNet50_ROWD' or list_mean_and_std_source is None:
+                list_mean_and_std_source_i = None
+            else:
+                list_mean_and_std_source_i = list_mean_and_std_source[0:i_layer]
             
             dict_stats_target_i = get_dict_stats(target_dataset,target_number_im_considered,\
                                                  style_layers=style_layers_exported,whatToload=whatToload,\
                                                  saveformat='h5',getBeforeReLU=getBeforeReLU,\
-                                                 set=target_set,Net='VGGBaseNormCoherent',\
+                                                 set=target_set,Net=Net,\
                                                  style_layers_imposed=style_layers_imposed,\
                                                  list_mean_and_std_source=list_mean_and_std_source_i,\
                                                  list_mean_and_std_target=current_list_mean_and_std_target)
@@ -269,7 +274,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 elif constrNet=='VGGInNorm' or constrNet=='VGGInNormAdapt':
                     whatToload = 'varmean'
                     dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG')
                     # Compute the reference statistics
                     vgg_mean_stds_values = compute_ref_stats(dict_stats,style_layers,type_ref='mean',\
                                                          imageUsed='all',whatToload =whatToload,
@@ -289,7 +294,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 elif constrNet=='VGGBaseNorm':
                     whatToload = 'varmean'
                     dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG')
                     # Compute the reference statistics
                     list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
                                                          imageUsed='all',whatToload =whatToload,
@@ -314,7 +319,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     # get the coherent mean and std of the target domain
                     whatToload = 'varmean'
                     dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set)
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG')
                     # Compute the reference statistics
                     list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
                                                          imageUsed='all',whatToload =whatToload,
@@ -329,6 +334,24 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
                         list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
                         getBeforeReLU=getBeforeReLU)
+                
+                elif constrNet=='ResNet50_ROWD':
+                    # Refinement the batch normalisation : normalisation statistics
+                    # Once on the Whole train val Dataset on new dataset
+                    list_mean_and_std_source = None
+                    target_number_im_considered = None
+                    whatToload = 'varmean'
+                    target_set = 'trainval'
+                    dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(
+                            target_dataset,source_dataset,target_number_im_considered,\
+                            style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
+                            getBeforeReLU=getBeforeReLU,target_set=target_set,\
+                            applySqrtOnVar=True,Net=constrNet) # It also computes the reference statistics (mean,var)
+                    
+                    network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
+                                   style_layers,list_mean_and_std_target=list_mean_and_std_target,\
+                                   transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
+                                   weights='imagenet')
                     
                 elif constrNet=='ResNet50_BNRF':
                     res_num_layers = 50
@@ -1493,6 +1516,24 @@ def TrucBizarre(target_dataset='Paintings'):
     AP_FT = metrics2[0]
     print('FT',AP_FT)
 
+def Test_Unfrozen_ResNet():
+    print('=== From Top ===')
+    metrics = learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',\
+                         kind_method='FT',epochs=1,transformOnFinalLayer='GlobalMaxPooling2D',\
+                         pretrainingModif=3,freezingType='FromTop',\
+                         optimizer='adam',opt_option=[0.001],batch_size=16\
+                         ,final_clf='MLP2',features='avg_pool',return_best_model=True,\
+                         onlyReturnResult=False,style_layers=['bn_conv1'],verbose=True)
+    
+    
+    print('=== From Bottom ===')
+    metrics = learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',\
+                         kind_method='FT',epochs=1,transformOnFinalLayer='GlobalMaxPooling2D',\
+                         pretrainingModif=3,freezingType='FromBottom',\
+                         optimizer='adam',opt_option=[0.001],batch_size=16\
+                         ,final_clf='MLP2',features='avg_pool',return_best_model=True,\
+                         onlyReturnResult=False,style_layers=['bn_conv1'],verbose=True)
+
 def Test_Apropos_DuRebond():
     
     # il semblerait que dans certains cas on arrive a faire du 57% dans certains cas
@@ -1518,13 +1559,14 @@ def Test_Apropos_DuRebond():
 # use of L1 and L2 regularization (also known as "weight decay")
                   
 if __name__ == '__main__': 
+    Test_Unfrozen_ResNet()
     # Ce que l'on 
     #RunAllEvaluation()
     ### TODO !!!!! Need to add a unbalanced way to deal with the dataset
     #PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=0,onlyPlot=True)
     #PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=0,onlyPlot=True)
-    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=3)
-    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=3)
+#    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=3)
+#    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=3)
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=4)
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=4)
 #    PlotSomePerformanceVGG()
@@ -1583,8 +1625,14 @@ if __name__ == '__main__':
 #                        transformOnFinalLayer='GlobalAveragePooling2D',return_best_model=True)
 
 ## Test BN Refinement of ResNet50
-    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-                        kind_method='TL',epochs=3,batch_size=32,\
-                        optimizer='SGD',opt_option=[10**(-4)],\
-                        constrNet='ResNet50_BNRF',momentum=0.9,batch_size_RF=32,\
-                        style_layers=['bn_conv1'],verbose=True)
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                        kind_method='TL',epochs=3,batch_size=16,\
+#                        optimizer='SGD',opt_option=[10**(-4)],\
+#                        constrNet='ResNet50_BNRF',momentum=0.9,batch_size_RF=16,\
+#                        style_layers=['bn_conv1'],verbose=True)
+## Test BN Refinement Once on the Whole Dataset of ResNet50
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                        kind_method='TL',epochs=3,batch_size=16,\
+#                        optimizer='SGD',opt_option=[10**(-4)],\
+#                        constrNet='ResNet50_ROWD',
+#                        style_layers=getBNlayersResNet50(),verbose=True)
