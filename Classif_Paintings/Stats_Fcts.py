@@ -583,8 +583,10 @@ class HomeMade_BatchNormalisation_Refinement(Layer):
     """
 
     def __init__(self,batchnorm_layer,momentum, **kwargs):
-        self.moving_mean = batchnorm_layer.non_trainable_variables[0]
-        self.moving_variance = batchnorm_layer.non_trainable_variables[1]
+        #self.moving_mean = batchnorm_layer.non_trainable_variables[0]
+        self.moving_mean = batchnorm_layer.moving_mean
+        #self.moving_variance = batchnorm_layer.non_trainable_variables[1]
+        self.moving_variance = batchnorm_layer.moving_variance
         batchnorm_layer.trainable = False
         self.batchnorm_layer=batchnorm_layer
         self.momentum = momentum 
@@ -603,8 +605,10 @@ class HomeMade_BatchNormalisation_Refinement(Layer):
         update_moving_variance = tf.keras.backend.moving_average_update(x=self.moving_variance,\
                                                value=variance,\
                                                momentum=self.momentum) # Returns An Operation to update the variable.
-        self.add_update((self.moving_mean, update_moving_mean), x)
-        self.add_update((self.moving_variance, update_moving_variance), x)
+        self.add_update(update_moving_mean)
+        self.add_update(update_moving_variance)
+        #self.add_update((self.moving_mean, update_moving_mean), x)
+        #self.add_update((self.moving_variance, update_moving_variance), x)
         
         return(output)
 
@@ -2086,8 +2090,8 @@ def Test_BatchNormRefinement():
     print("Model after modification")
     print(pre_model.summary())    
     batchnorm_layer = pre_model.get_layer('home_made__batch_normalisation__refinement')
-    moving_mean = batchnorm_layer.trainable_variables[0]
-    moving_variance = batchnorm_layer.trainable_variables[1]
+    moving_mean = batchnorm_layer.moving_mean
+    moving_variance = batchnorm_layer.moving_variance
     print('moving_mean',tf.keras.backend.eval(moving_mean))
     print('moving_variance',tf.keras.backend.eval(moving_variance))
       
@@ -2105,8 +2109,8 @@ def Test_BatchNormRefinement():
         train_fn(x)
         print('pre_model.updates',pre_model.updates)
         batchnorm_layer = pre_model.get_layer('home_made__batch_normalisation__refinement')
-        moving_mean = batchnorm_layer.trainable_variables[0]
-        moving_variance = batchnorm_layer.trainable_variables[1]
+        moving_mean = batchnorm_layer.moving_mean
+        moving_variance = batchnorm_layer.moving_variance
         print('moving_mean',tf.keras.backend.eval(moving_mean))
         print('moving_variance',tf.keras.backend.eval(moving_variance))  
         #train_fn(tf.convert_to_tensor(x))
@@ -2118,8 +2122,8 @@ def Test_BatchNormRefinement():
     
     print("Model after epochs")   
     batchnorm_layer = pre_model.get_layer('home_made__batch_normalisation__refinement')
-    moving_mean = batchnorm_layer.trainable_variables[0]
-    moving_variance = batchnorm_layer.trainable_variables[1]
+    moving_mean = batchnorm_layer.moving_mean
+    moving_variance = batchnorm_layer.moving_variance
     print('moving_mean',tf.keras.backend.eval(moving_mean))
     print('moving_variance',tf.keras.backend.eval(moving_variance))  
     print("End the moving average application")
@@ -2131,8 +2135,8 @@ def Test_BatchNormRefinement():
         pre_model.predict(x)
     print("Model predictions epochs")   
     batchnorm_layer = pre_model.get_layer('home_made__batch_normalisation__refinement')
-    moving_mean = batchnorm_layer.trainable_variables[0]
-    moving_variance = batchnorm_layer.trainable_variables[1]
+    moving_mean = batchnorm_layer.moving_mean
+    moving_variance = batchnorm_layer.moving_variance
     print('moving_mean',tf.keras.backend.eval(moving_mean))
     print('moving_variance',tf.keras.backend.eval(moving_variance))  
     print("End") 

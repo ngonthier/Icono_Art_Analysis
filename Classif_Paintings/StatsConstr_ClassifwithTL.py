@@ -355,6 +355,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     
                 elif constrNet=='ResNet50_BNRF':
                     res_num_layers = 50
+                    # TODO finir ici
 #                    return(df_label,item_name,path_to_img,str_val,classes,constrNet,\
 #                       weights,res_num_layers,transformOnFinalLayer,kind_method)
                     network_features_extraction= get_ResNet_BNRefin(df=df_label,\
@@ -662,6 +663,7 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                                                 res_num_layers=res_num_layers,momentum=momentum,\
                                                 kind_method=kind_method)
     
+    #trainval_generator=  tf.keras.utils.Sequence(trainval_generator)
     model =  fit_generator_ForRefineParameters(model,
                   trainval_generator,
                   steps_per_epoch=STEP_SIZE_TRAIN,
@@ -673,7 +675,7 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
 #                  validation_freq=1,
 #                  class_weight=None,
                   max_queue_size=10,
-                  workers=3,
+                  workers=8,
                   use_multiprocessing=True,
                   shuffle=True)
     
@@ -1560,7 +1562,6 @@ def Test_Apropos_DuRebond():
 # use of L1 and L2 regularization (also known as "weight decay")
                   
 if __name__ == '__main__': 
-    Test_Unfrozen_ResNet()
     # Ce que l'on 
     #RunAllEvaluation()
     ### TODO !!!!! Need to add a unbalanced way to deal with the dataset
@@ -1626,11 +1627,11 @@ if __name__ == '__main__':
 #                        transformOnFinalLayer='GlobalAveragePooling2D',return_best_model=True)
 
 ## Test BN Refinement of ResNet50
-#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-#                        kind_method='TL',epochs=3,batch_size=16,\
-#                        optimizer='SGD',opt_option=[10**(-4)],\
-#                        constrNet='ResNet50_BNRF',momentum=0.9,batch_size_RF=16,\
-#                        style_layers=['bn_conv1'],verbose=True)
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                        kind_method='TL',epochs=3,batch_size=16,\
+                        optimizer='SGD',opt_option=[10**(-4)],\
+                        constrNet='ResNet50_BNRF',momentum=0.9,batch_size_RF=16,\
+                        style_layers=['bn_conv1'],verbose=True)
 ## Test BN Refinement Once on the Whole Dataset of ResNet50
 #    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
 #                        kind_method='TL',epochs=3,batch_size=16,\

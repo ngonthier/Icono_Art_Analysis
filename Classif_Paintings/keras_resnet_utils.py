@@ -304,8 +304,9 @@ def fit_generator_ForRefineParameters(model,
     of the batch normalisation"""
     sess = K.get_session()
     train_fn = K.function(inputs=[model.input], \
-        outputs=[model.output], updates=model.updates)
-    init = tf.global_variables_initializer()
+        outputs=[model.output], updates=model.updates) # model.output
+    #init = tf.global_variables_initializer()
+    init = tf.compat.v1.global_variables_initializer()
     sess.run(init)
     epoch = initial_epoch
 
@@ -316,6 +317,7 @@ def fit_generator_ForRefineParameters(model,
 #    use_sequence_api = True
 #    print('generator',generator)
     use_sequence_api = is_sequence(generator)
+    print('use_sequence_api',use_sequence_api)
 #    print('use_sequence_api',use_sequence_api)
     if not use_sequence_api and use_multiprocessing and workers > 1:
         warnings.warn(
@@ -438,6 +440,7 @@ def fit_generator_ForRefineParameters(model,
                 enqueuer = utils.GeneratorEnqueuer(
                     generator,
                     use_multiprocessing=use_multiprocessing)
+            print('use_multiprocessing',workers,max_queue_size)
             enqueuer.start(workers=workers, max_queue_size=max_queue_size)
             output_generator = enqueuer.get()
         else:
@@ -450,19 +453,19 @@ def fit_generator_ForRefineParameters(model,
         # Construct epoch logs.
         epoch_logs = {}
         while epoch < epochs:
-            model.reset_metrics()
+            #model.reset_metrics()
 #            callbacks.on_epoch_begin(epoch)
             steps_done = 0
             batch_index = 0
             while steps_done < steps_per_epoch:
                 generator_output = next(output_generator)
 
-                if not hasattr(generator_output, '__len__'):
-                    raise ValueError('Output of generator should be '
-                                     'a tuple `(x, y, sample_weight)` '
-                                     'or `(x, y)`. Found: ' +
-                                     str(generator_output))
-
+#                if not hasattr(generator_output, '__len__'):
+#                    raise ValueError('Output of generator should be '
+#                                     'a tuple `(x, y, sample_weight)` '
+#                                     'or `(x, y)`. Found: ' +
+#                                     str(generator_output))
+#
                 if len(generator_output) == 1:
                     x = generator_output
                     y = None
@@ -504,9 +507,9 @@ def fit_generator_ForRefineParameters(model,
 
                 # Here x is a numpy array because the datagenerator load numpy array
                 
-                print('BEfore train fn')
+                #print(epoch,steps_done,'BEfore train fn')
                 train_fn(x)  # updates property is updated after each call of the layer/model with an input, not before.
-                print('after train fn')
+                #print('after train fn')
 #                print(model.updates)
 #                training_updates = model.get_updates_for(tf.convert_to_tensor(x))
 #                print('training_updates',training_updates)
@@ -519,8 +522,8 @@ def fit_generator_ForRefineParameters(model,
 #
 #                callbacks._call_batch_hook('train', 'end', batch_index, batch_logs)
 #
-#                batch_index += 1
-#                steps_done += 1
+                batch_index += 1
+                steps_done += 1
 #
 #                # Epoch finished.
 #                if (steps_done >= steps_per_epoch and
@@ -552,7 +555,7 @@ def fit_generator_ForRefineParameters(model,
 #                    break
 #
 #            callbacks.on_epoch_end(epoch, epoch_logs)
-#            epoch += 1
+            epoch += 1
 #            if callbacks.model.stop_training:
 #                break
 #
