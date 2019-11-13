@@ -557,7 +557,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 getBeforeReLU = False
                 model = ResNet_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
                                            transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
-                                           res_num_layers=50,final_clf=final_clf,verbose=verbose)
+                                           res_num_layers=50,final_clf=final_clf,verbose=verbose,\
+                                           freezingType=freezingType)
             elif constrNet=='ResNet50AdaIn':
                 getBeforeReLU = False
                 model = ResNet_AdaIn(style_layers,num_of_classes=num_classes,\
@@ -1519,7 +1520,7 @@ def TrucBizarre(target_dataset='Paintings'):
 def Test_Unfrozen_ResNet():
     print('=== From Top ===')
     metrics = learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',\
-                         kind_method='FT',epochs=1,transformOnFinalLayer='GlobalMaxPooling2D',\
+                         kind_method='FT',epochs=0,transformOnFinalLayer='GlobalMaxPooling2D',\
                          pretrainingModif=3,freezingType='FromTop',\
                          optimizer='adam',opt_option=[0.001],batch_size=16\
                          ,final_clf='MLP2',features='avg_pool',return_best_model=True,\
@@ -1528,7 +1529,7 @@ def Test_Unfrozen_ResNet():
     
     print('=== From Bottom ===')
     metrics = learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',\
-                         kind_method='FT',epochs=1,transformOnFinalLayer='GlobalMaxPooling2D',\
+                         kind_method='FT',epochs=0,transformOnFinalLayer='GlobalMaxPooling2D',\
                          pretrainingModif=3,freezingType='FromBottom',\
                          optimizer='adam',opt_option=[0.001],batch_size=16\
                          ,final_clf='MLP2',features='avg_pool',return_best_model=True,\

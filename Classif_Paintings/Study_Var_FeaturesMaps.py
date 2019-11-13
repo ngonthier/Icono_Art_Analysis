@@ -292,7 +292,7 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
     filename = source_dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
     
     if not(Net=='VGG'):
-        filename += '_'+Net
+        if 'VGG' in Net:
             filename += '_'+Net + numeral_layers_index(style_layers_imposed)
         elif 'ResNet50' in Net:
             filename += '_'+Net + getResNetLayersNumeral(style_layers_imposed,num_layers=50)

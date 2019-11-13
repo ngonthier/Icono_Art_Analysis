@@ -390,15 +390,17 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
   ilayer = 0
   for layer in pre_model.layers:
       if SomePartFreezed and (layer.count_params() > 0):
-         print(layer,ilayer,number_of_trainable_layers - pretrainingModif)
+         
          if freezingType=='FromTop':
              if ilayer >= number_of_trainable_layers - pretrainingModif:
                  layer.trainable = True
+                 #print('FromTop',layer.name,ilayer,pretrainingModif,number_of_trainable_layers - pretrainingModif)
              else:
                  layer.trainable = False
          elif freezingType=='FromBottom':
              if ilayer < pretrainingModif:
                  layer.trainable = True
+                 #print('FromBottom',layer.name,ilayer,pretrainingModif,number_of_trainable_layers - pretrainingModif)
              else:
                  layer.trainable = False
          elif freezingType=='Alter':
@@ -407,11 +409,12 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
              if (ilayer < pretrainingModif_bottom) or\
                  (ilayer >= number_of_trainable_layers - pretrainingModif_top):
                  layer.trainable = True
+                 #print('Alter',layer.name,ilayer,pretrainingModif_bottom,pretrainingModif_top)
              else:
                  layer.trainable = False
 #         print(ilayer,layer.name,layer.trainable)
          ilayer += 1
-      if lr_multiple: 
+      if lr_multiple and layer.trainable: 
           multipliers[layer.name] = multiply_lrp
 
   x = pre_model.output
