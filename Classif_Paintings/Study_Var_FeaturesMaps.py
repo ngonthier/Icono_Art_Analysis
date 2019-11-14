@@ -28,7 +28,7 @@ import h5py
 import tensorflow as tf
 from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
-    load_crop_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\
+    load_resize_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\
     get_ResNet_ROWD_gram_mean_features
 from keras_resnet_utils import getResNetLayersNumeral
 
@@ -168,7 +168,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             # Get the covairances matrixes and the means
             try:
                 #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
-                image_array = load_crop_and_process_img(image_path)
+                image_array = load_resize_and_process_img(image_path)
                 net_cov_mean = net_get_cov.predict(image_array, batch_size=1)
             except IndexError as e:
                 print(e)

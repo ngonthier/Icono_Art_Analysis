@@ -924,7 +924,7 @@ def get_ResNet_ROWD_gram_mean_features(style_layers_exported,style_layers_impose
   
 ### Preprocessing functions 
 
-def load_crop(path_to_img,max_dim = 224):
+def load_resize(path_to_img,max_dim = 224):
   img = Image.open(path_to_img)
   img = img.resize((max_dim, max_dim), Image.ANTIALIAS)
   
@@ -934,8 +934,8 @@ def load_crop(path_to_img,max_dim = 224):
   img = np.expand_dims(img, axis=0)
   return img
 
-def load_crop_and_process_img(path_to_img,max_dim = 224):
- # img = load_crop(path_to_img,max_dim=max_dim)
+def load_resize_and_process_img(path_to_img,max_dim = 224):
+ # img = load_resize(path_to_img,max_dim=max_dim)
  
   img = tf.keras.preprocessing.image.load_img(
     path_to_img,
@@ -1137,7 +1137,7 @@ def get_gram_mean_features(model,img_path):
     returns the features. 
   """
   # Load our images in 
-  image = load_crop_and_process_img(img_path)
+  image = load_resize_and_process_img(img_path)
   
   # Todo modification here needed !!!! 
   # if TF2.0  you can comment the following line 
@@ -1776,8 +1776,8 @@ def unity_test_of_vgg_InNorm(adapt=False):
 #    images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
 #    image_path =  os.path.join(images_path,'abd_aag_002276_624x544.jpg')
     image_path =  os.path.join('data','Q23898.jpg')
-    #init_image = tf.convert_to_tensor(load_crop_and_process_img(image_path))
-    init_image = load_crop_and_process_img(image_path)
+    #init_image = tf.convert_to_tensor(load_resize_and_process_img(image_path))
+    init_image = load_resize_and_process_img(image_path)
     # Fc2 of VGG
     # Add a layer where input is the output of the  second last layer 
     vgg_full = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
@@ -1838,8 +1838,8 @@ def unity_test_of_vgg_BaseNorm(getBeforeReLU=False):
     @param : if adapt == True we will test the adaptative model
     """
     image_path =  os.path.join('data','Q23898.jpg')
-    #init_image = tf.convert_to_tensor(load_crop_and_process_img(image_path))
-    init_image = load_crop_and_process_img(image_path)
+    #init_image = tf.convert_to_tensor(load_resize_and_process_img(image_path))
+    init_image = load_resize_and_process_img(image_path)
     # Fc2 of VGG
     # Add a layer where input is the output of the  second last layer 
     vgg_full = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
@@ -1902,8 +1902,8 @@ def test_change_mean_std(adapt=False):
 #    image_path =  os.path.join(images_path,'abd_aag_002276_624x544.jpg')
     cat_path =  os.path.join('data','cat.jpg')
 #    cat_path =  os.path.join('data','ny_yag_yorag_156_624x544.jpg')
-    #init_image = tf.convert_to_tensor(load_crop_and_process_img(image_path))
-    cat_image = load_crop_and_process_img(cat_path)
+    #init_image = tf.convert_to_tensor(load_resize_and_process_img(image_path))
+    cat_image = load_resize_and_process_img(cat_path)
     # Fc2 of VGG
     # Add a layer where input is the output of the  second last layer 
     vgg_full = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
@@ -1934,7 +1934,7 @@ def test_change_mean_std(adapt=False):
         for j,elt in enumerate(list_imgs):
             print('====',elt,'===')
             object_path =  os.path.join('data',elt+'.jpg')
-            object_image = load_crop_and_process_img(object_path)
+            object_image = load_resize_and_process_img(object_path)
             vgg_cov_mean = vgg_get_cov.predict(object_image, batch_size=1)
             vgg_mean_stds_values = []
             vgg_mean_stds_values_0_1 = []
@@ -1973,7 +1973,7 @@ def unity_test_StatsCompute():
     """ In this function we try to se if we have a stable and consistent computation
     of mean and variance of the features maps"""
     image_path =  os.path.join('data','Q23898.jpg')
-    init_image_original = load_crop_and_process_img(image_path)
+    init_image_original = load_resize_and_process_img(image_path)
     init_image = np.tile(init_image_original,(2,1,1,1))
 
     style_layers = ['block1_conv1','block2_conv1']

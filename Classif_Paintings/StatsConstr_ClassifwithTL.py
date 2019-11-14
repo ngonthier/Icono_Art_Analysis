@@ -14,7 +14,7 @@ import numpy as np
 import os.path
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index
 from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
-    load_crop_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
+    load_resize_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
     MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
     ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction
 from IMDB import get_database
@@ -124,7 +124,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    plotConv=False,batch_size=32,regulOnNewLayer=None,\
                                    regulOnNewLayerParam=[],return_best_model=False,\
                                    onlyReturnResult=False,dbn_affine=True,m_per_group=16,
-                                   momentum=0.9,batch_size_RF=32):
+                                   momentum=0.9,batch_size_RF=32,epochs_RF=20):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -203,7 +203,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 
     if kind_method=='TL':
         if constrNet=='ResNet50_BNRF': # BN Refinement
-            name_base += '_m'+str(momentum)+'_bsRF'+str(batch_size_RF)
+            name_base += '_m'+str(momentum)+'_bsRF'+str(batch_size_RF)+'_ep'+str(epochs_RF)
             
     if not(set=='' or set is None):
         name_base += '_'+set
@@ -263,8 +263,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if  not(onlyReturnResult):
             if not os.path.isfile(name_pkl_values):
                 if not(forLatex):
-                    print('== We will compute the reference statistics ==')
-                    print('Saved in ',name_pkl_values)
+                    print('== We will compute the reference statistics and / or the extraction features network ==')
+                    print('They will be saved in ',name_pkl_values)
                 features_net = None
                 im_net = []
                 # Load Network 
@@ -355,28 +355,24 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     
                 elif constrNet=='ResNet50_BNRF':
                     res_num_layers = 50
-                    # TODO finir ici
-#                    return(df_label,item_name,path_to_img,str_val,classes,constrNet,\
-#                       weights,res_num_layers,transformOnFinalLayer,kind_method)
                     network_features_extraction= get_ResNet_BNRefin(df=df_label,\
                                     x_col=item_name,path_im=path_to_img,\
                                     str_val=str_val,num_of_classes=len(classes),Net=constrNet,\
                                     weights=weights,res_num_layers=res_num_layers,\
                                     transformOnFinalLayer=transformOnFinalLayer,\
                                     kind_method=kind_method,\
-                                    batch_size=batch_size_RF,momentum=momentum)
-#                    return(network_features_extraction)
-                    print('End ResNet50_BNRF loading !!!!!!!!!!!!!!!!')
-                    
-                
+                                    batch_size=batch_size_RF,momentum=momentum,
+                                    num_epochs_BN=epochs_RF)
+
                 else:
                     raise(NotImplementedError)
+                    
                 if not(forLatex):
                     print('== We will compute the bottleneck features ==')
                 # Compute bottleneck features on the target dataset
                 for i,name_img in  enumerate(df_label[item_name]):
                     im_path =  os.path.join(path_to_img,name_img+'.jpg')
-                    image = load_crop_and_process_img(im_path)
+                    image = load_resize_and_process_img(im_path)
                     features_im = network_features_extraction.predict(image)
                     if features_net is not None:
                         features_net = np.vstack((features_net,np.array(features_im)))
@@ -628,81 +624,65 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
 
 def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                        weights,res_num_layers,transformOnFinalLayer,kind_method,\
-                       batch_size=32,momentum=0.9,num_epochs_BN=5):
-   
-    if 'ResNet50' in Net:
-        preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+                       batch_size=32,momentum=0.9,num_epochs_BN=5,output_path=''):
+    """
+    This function refine the normalisation statistics of the batch normalisation 
+    with an exponential moving average
+    """
+    
+    model_file_name = 'ResNet'+str(res_num_layers)+'_ROWD_'+str(weights)+'_'+transformOnFinalLayer+\
+        '_bs' +str(batch_size)+'_m'+str(momentum)+'_ep'+str(num_epochs_BN) 
+    model_file_name_path = model_file_name + '.h5'
+    model_file_name_path = os.path.join(output_path,model_file_name_path) 
+    
+    if os.path.isfile(model_file_name_path):
+        model = load_model(model_file_name_path)
     else:
-        print(Net,'is unknwon')
-        raise(NotImplementedError)
+        
+        if 'ResNet50' in Net:
+            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        else:
+            print(Net,'is unknwon')
+            raise(NotImplementedError)
+    
+        df_train = df[df['set']=='train']
+        df_val = df[df['set']==str_val]
+        df_train[x_col] = df_train[x_col].apply(lambda x : x + '.jpg')
+        df_val[x_col] = df_val[x_col].apply(lambda x : x + '.jpg')
+        if not(len(df_val)==0):
+            df_train = df_train.append(df_val)
+            
+        datagen= tf.keras.preprocessing.image.ImageDataGenerator()
+        trainval_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
+                                                    x_col=x_col,y_col=None,\
+                                                    class_mode=None, \
+                                                    target_size=(224,224), batch_size=batch_size,\
+                                                    shuffle=True,\
+                                                    preprocessing_function=preprocessing_function)
+        STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
+        
+        model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
+                                                    transformOnFinalLayer =transformOnFinalLayer,\
+                                                    verbose=True,weights=weights,\
+                                                    res_num_layers=res_num_layers,momentum=momentum,\
+                                                    kind_method=kind_method)
+        
+        model =  fit_generator_ForRefineParameters(model,
+                      trainval_generator,
+                      steps_per_epoch=STEP_SIZE_TRAIN,
+                      epochs=num_epochs_BN,
+                      verbose=1,
+    #                  callbacks=None,
+    #                  validation_data=None,
+    #                  validation_steps=None,
+    #                  validation_freq=1,
+    #                  class_weight=None,
+                      max_queue_size=10,
+                      workers=3,
+                      use_multiprocessing=True,
+                      shuffle=True)
+        model.save(model_file_name_path,include_optimizer=False)
 
-    df_train = df[df['set']=='train']
-    df_val = df[df['set']==str_val]
-    df_train[x_col] = df_train[x_col].apply(lambda x : x + '.jpg')
-    df_val[x_col] = df_val[x_col].apply(lambda x : x + '.jpg')
-    if not(len(df_val)==0):
-        df_train = df_train.append(df_val)
-        
-    datagen= tf.keras.preprocessing.image.ImageDataGenerator()
-    trainval_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
-                                                x_col=x_col,y_col=None,\
-                                                class_mode=None, \
-                                                target_size=(224,224), batch_size=batch_size,\
-                                                shuffle=True,\
-                                                preprocessing_function=preprocessing_function)
-    STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
-    
-#    for z in trainval_generator:
-#        print(z)
-#        x = z[0]
-#        print(x)
-    
-    model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
-                                                transformOnFinalLayer =transformOnFinalLayer,\
-                                                verbose=True,weights=weights,\
-                                                res_num_layers=res_num_layers,momentum=momentum,\
-                                                kind_method=kind_method)
-    
-    #trainval_generator=  tf.keras.utils.Sequence(trainval_generator)
-    model =  fit_generator_ForRefineParameters(model,
-                  trainval_generator,
-                  steps_per_epoch=STEP_SIZE_TRAIN,
-                  epochs=num_epochs_BN,
-                  verbose=1,
-#                  callbacks=None,
-#                  validation_data=None,
-#                  validation_steps=None,
-#                  validation_freq=1,
-#                  class_weight=None,
-                  max_queue_size=10,
-                  workers=8,
-                  use_multiprocessing=True,
-                  shuffle=True)
-    
-#    return(model)
-#    
-##    model.compile(optimizer='sgd',loss='binary_crossentropy')
-##    STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
-##    history = model.fit_generator(generator=trainval_generator,
-##                    steps_per_epoch=STEP_SIZE_TRAIN,
-##                    epochs=num_epochs_BN,use_multiprocessing=True,
-##                    workers=3)
-##    
-##    print(history)
-#    # TODO need to find how to do it without the for loop and on the GPU !
-#    import time
-#    # ici on a 0.2s par image soit 5h si on fait 4900 images et 20  epochs
-#    for e in range(num_epochs_BN):
-#        print('epcoch',e)
-#        i = 0
-#        for x in trainval_generator:
-#            print(i)
-#            t0 = time.time()
-#            model.get_updates_for(tf.convert_to_tensor(x))
-#            i += 1
-#            t1 = time.time()
-#            print("Duration : ",t1-t0)
-        
     return(model)
 
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
@@ -1281,6 +1261,10 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
         return_best_model = True
         # In WILDCAT we have lrp = 0.1, lp = 0.01 loss = MultiLabelSoftMarginLoss, Net = ResNet101
         # MultiLabelSoftMarginLoss seems to be the use of sigmoid on the outpur of the model and then the sum over classes of the binary cross entropy loss
+    elif scenario==6:
+        # In Recognizing Characters in Art History Using Deep Learning  -  Madhu 2019
+        raise(NotImplementedError)
+
 
     range_l = [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96, 102,106] # For Resnet50
 
@@ -1628,10 +1612,10 @@ if __name__ == '__main__':
 
 ## Test BN Refinement of ResNet50
     learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-                        kind_method='TL',epochs=3,batch_size=16,\
+                        kind_method='TL',epochs=20,batch_size=16,\
                         optimizer='SGD',opt_option=[10**(-4)],\
                         constrNet='ResNet50_BNRF',momentum=0.9,batch_size_RF=16,\
-                        style_layers=['bn_conv1'],verbose=True)
+                        style_layers=['bn_conv1'],verbose=True,epochs_RF=1)
 ## Test BN Refinement Once on the Whole Dataset of ResNet50
 #    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
 #                        kind_method='TL',epochs=3,batch_size=16,\
