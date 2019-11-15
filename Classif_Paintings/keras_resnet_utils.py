@@ -303,14 +303,14 @@ def fit_generator_ForRefineParameters(model,
     """ The goal of this function is to run the generator to update the parameters 
     of the batch normalisation"""
     
-    if controlGPUmemory:
-        config = tf.ConfigProto()
-        config.gpu_options.per_process_gpu_memory_fraction = 0.9
-        config.gpu_options.visible_device_list = "0"
-        sess = tf.Session(config=config)
-        K.set_session(sess)
-    else:
-        sess = K.get_session()
+#    if controlGPUmemory:
+#        config = tf.ConfigProto()
+#        config.gpu_options.per_process_gpu_memory_fraction = 0.9
+#        config.gpu_options.visible_device_list = "0"
+#        sess = tf.Session(config=config)
+#        K.set_session(sess)
+#    else:
+    sess = K.get_session()
     
     train_fn = K.function(inputs=[model.input], \
         outputs=[model.output], updates=model.updates) # model.output

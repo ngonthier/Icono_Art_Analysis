@@ -152,7 +152,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : dbn_affine : use of Affine decorrelated BN in  VGGAdaDBN model
     @param : m_per_group : number of group for the VGGAdaDBN model (with decorrelated BN)
     """
-    
+#    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
     assert(freezingType in ['FromBottom','FromTop','Alter'])
     
@@ -362,7 +362,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     transformOnFinalLayer=transformOnFinalLayer,\
                                     kind_method=kind_method,\
                                     batch_size=batch_size_RF,momentum=momentum,
-                                    num_epochs_BN=epochs_RF)
+                                    num_epochs_BN=epochs_RF,output_path=output_path)
 
                 else:
                     raise(NotImplementedError)
@@ -633,10 +633,19 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
     model_file_name = 'ResNet'+str(res_num_layers)+'_ROWD_'+str(weights)+'_'+transformOnFinalLayer+\
         '_bs' +str(batch_size)+'_m'+str(momentum)+'_ep'+str(num_epochs_BN) 
     model_file_name_path = model_file_name + '.h5'
-    model_file_name_path = os.path.join(output_path,model_file_name_path) 
+    model_file_name_path = os.path.join(output_path,'model',model_file_name_path) 
+    
+    print('model_file_name_path',model_file_name_path)
+    
+    model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
+                                            transformOnFinalLayer =transformOnFinalLayer,\
+                                            verbose=True,weights=weights,\
+                                            res_num_layers=res_num_layers,momentum=momentum,\
+                                            kind_method=kind_method)
     
     if os.path.isfile(model_file_name_path):
-        model = load_model(model_file_name_path)
+        #model = load_model(model_file_name_path)
+        model.load_weights(model_file_name_path)
     else:
         
         if 'ResNet50' in Net:
@@ -661,11 +670,7 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                                                     preprocessing_function=preprocessing_function)
         STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
         
-        model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
-                                                    transformOnFinalLayer =transformOnFinalLayer,\
-                                                    verbose=True,weights=weights,\
-                                                    res_num_layers=res_num_layers,momentum=momentum,\
-                                                    kind_method=kind_method)
+
         
         model =  fit_generator_ForRefineParameters(model,
                       trainval_generator,
@@ -681,7 +686,8 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                       workers=3,
                       use_multiprocessing=True,
                       shuffle=True)
-        model.save(model_file_name_path,include_optimizer=False)
+
+        model.save_weights(model_file_name_path)
 
     return(model)
 
@@ -1551,10 +1557,13 @@ if __name__ == '__main__':
     ### TODO !!!!! Need to add a unbalanced way to deal with the dataset
     #PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=0,onlyPlot=True)
     #PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=0,onlyPlot=True)
-#    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=3)
-#    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=3)
+
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=4)
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=4)
+#    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=5)
+#    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=5)
+#    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=3)
+#    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=3)
 #    PlotSomePerformanceVGG()
 #    RunUnfreezeLayerPerformanceVGG()
 #    RunEval_MLP_onConvBlock()
