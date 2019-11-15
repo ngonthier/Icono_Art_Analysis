@@ -441,6 +441,40 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
   if verbose: print(model.summary())
   return model
 
+def ResNet_cut(final_layer='activation_48',transformOnFinalLayer ='GlobalMaxPooling2D',\
+                             verbose=False,weights='imagenet',res_num_layers=50): 
+  """
+  To use the Resnet as a features extractor
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+ 
+  Return a keras model that can be use for features extraction  
+  """
+  # create model
+#  input_tensor = Input(shape=(224, 224, 3)) 
+  if res_num_layers==50:
+      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+                                                          input_shape= (224, 224, 3))
+  else:
+      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
+      raise(NotImplementedError)
+
+  pre_model .trainable = False
+  for layer in pre_model.layers:
+      if layer.name==final_layer:
+          x = layer.output
+
+  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+     x = GlobalMaxPooling2D()(x)
+  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+      x = GlobalAveragePooling2D()(x)
+  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+      x= Flatten()(x)
+  
+  model = Model(inputs=pre_model.input, outputs=x)
+ 
+  if verbose: print(model.summary())
+  return model
+
 ### Resnet adaptative layers 
 
 def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
@@ -1447,12 +1481,12 @@ def get_BaseNorm_gram_mean_features(style_layers_exported,style_layers_imposed,l
   return(model)
 
 
-def vgg_cut(final_layer,transformOnFinalLayer=None):
+def vgg_cut(final_layer,transformOnFinalLayer=None,weights='imagenet'):
   """
   Return VGG output up to final_layer
   """
   model = tf.keras.Sequential()
-  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet')
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
   vgg_layers = vgg.layers
   vgg.trainable = False
 
