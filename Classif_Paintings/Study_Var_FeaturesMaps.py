@@ -31,6 +31,7 @@ from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
     load_resize_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\
     get_ResNet_ROWD_gram_mean_features
 from keras_resnet_utils import getResNetLayersNumeral
+from preprocess_crop import load_and_crop_img
 
 ### To copy only the image from the dataset
 #dataset='watercolor'
@@ -103,7 +104,7 @@ def get_list_im(dataset,set=''):
 def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                         dataset='ImageNet',set='',saveformat='h5',whatToload='var',\
                         getBeforeReLU=False,Net='VGG',style_layers_imposed=[],\
-                        list_mean_and_std_source=[],list_mean_and_std_target=[]):
+                        list_mean_and_std_source=[],list_mean_and_std_target=[],cropCenter=False):
     """
     In this function we precompute the mean and cov for certain dataset
     @param : whatToload mention what you want to load by default only return variances
@@ -168,7 +169,12 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             # Get the covairances matrixes and the means
             try:
                 #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
-                image_array = load_resize_and_process_img(image_path)
+                if cropCenter:
+                    image_array= load_and_crop_img(path=image_path,Net=Net,target_smallest_size=256,
+                                            crop_size=224,interpolation='nearest:crop')
+                          # For VGG or ResNet size == 224
+                else:
+                    image_array = load_resize_and_process_img(image_path,Net=Net)
                 net_cov_mean = net_get_cov.predict(image_array, batch_size=1)
             except IndexError as e:
                 print(e)
@@ -282,7 +288,8 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
 def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    whatToload,saveformat='h5',set='',getBeforeReLU=False,\
                    Net='VGG',style_layers_imposed=[],\
-                   list_mean_and_std_source=[],list_mean_and_std_target=[]):
+                   list_mean_and_std_source=[],list_mean_and_std_target=[],\
+                   cropCenter=False):
     if 'VGG' in Net:
         str_layers = numeral_layers_index(style_layers)
     elif 'ResNet50' in Net:
@@ -319,14 +326,14 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                                        dataset=source_dataset,set=set,saveformat=saveformat,\
                                        whatToload=whatToload,Net=Net,style_layers_imposed=style_layers_imposed,\
                                        list_mean_and_std_source=list_mean_and_std_source,\
-                                       list_mean_and_std_target=list_mean_and_std_target)
+                                       list_mean_and_std_target=list_mean_and_std_target,cropCenter=cropCenter)
     else:
         dict_stats = load_precomputed_mean_cov(filename_path,style_layers,source_dataset,\
                                             saveformat=saveformat,whatToload=whatToload)
     return(dict_stats)
 
 def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None
-                        ,getBeforeReLU=False,printoutput='Var'):
+                        ,getBeforeReLU=False,printoutput='Var',cropCenter=False):
     """
     In this function we will compute the first or second moments for two subsets
     a small part of ImageNet validation set 
@@ -401,7 +408,7 @@ def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
             if not os.path.isfile(filename_path):
                 dict_var = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered_tmp,\
                                                dataset=dataset,set=set,saveformat=saveformat,
-                                               whatToload=whatToload,getBeforeReLU=getBeforeReLU)
+                                               whatToload=whatToload,getBeforeReLU=getBeforeReLU,cropCenter=cropCenter)
                 dict_of_dict[dataset] = dict_var
             else:
                 print('We will load the features ')

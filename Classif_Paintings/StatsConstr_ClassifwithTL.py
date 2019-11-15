@@ -16,7 +16,7 @@ from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index
 from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     load_resize_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
     MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
-    ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction
+    ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,HomeMade_BatchNormalisation_Refinement
 from IMDB import get_database
 import pickle
 import pathlib
@@ -39,6 +39,8 @@ import tempfile
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 from tensorflow.python.keras.models import load_model
 from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,fit_generator_ForRefineParameters
+
+from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
 
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
@@ -63,7 +65,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                                     style_layers,\
                                     list_mean_and_std_source,whatToload,saveformat='h5',\
                                     getBeforeReLU=False,target_set='trainval',applySqrtOnVar=True,\
-                                    Net='VGG'):
+                                    Net='VGG',cropCenter=False):
     """
     The goal of this function is to compute a version of the statistics of the 
     features of the VGG or ResNet50
@@ -76,7 +78,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
             dict_stats_target0 = get_dict_stats(target_dataset,target_number_im_considered,\
                                                 style_layers_firstLayer,\
                                                 whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,\
-                                                set=target_set,Net=Net)
+                                                set=target_set,Net=Net,cropCenter=cropCenter)
             dict_stats_coherent[layer_name] = dict_stats_target0[layer_name]
             list_mean_and_std_target_i_m1 = compute_ref_stats(dict_stats_target0,\
                                             style_layers_firstLayer,type_ref='mean',\
@@ -98,7 +100,8 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                                                  set=target_set,Net=Net,\
                                                  style_layers_imposed=style_layers_imposed,\
                                                  list_mean_and_std_source=list_mean_and_std_source_i,\
-                                                 list_mean_and_std_target=current_list_mean_and_std_target)
+                                                 list_mean_and_std_target=current_list_mean_and_std_target,\
+                                                 cropCenter=cropCenter)
             dict_stats_coherent[layer_name] = dict_stats_target_i[layer_name]
             # Compute the next statistics 
             list_mean_and_std_target_i = compute_ref_stats(dict_stats_target_i,\
@@ -124,7 +127,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    plotConv=False,batch_size=32,regulOnNewLayer=None,\
                                    regulOnNewLayerParam=[],return_best_model=False,\
                                    onlyReturnResult=False,dbn_affine=True,m_per_group=16,
-                                   momentum=0.9,batch_size_RF=32,epochs_RF=20):
+                                   momentum=0.9,batch_size_RF=32,epochs_RF=20,cropCenter=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -151,6 +154,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : onlyReturnResult : only return the results if True and nothing computed will return None
     @param : dbn_affine : use of Affine decorrelated BN in  VGGAdaDBN model
     @param : m_per_group : number of group for the VGGAdaDBN model (with decorrelated BN)
+    @param : momentum : momentum for the refinement of the batch statistics
+    @param : batch_size_RF : batch size for the refinement of the batch statistics
+    @param : epochs_RF : number of epochs for the refinement of the batch statistics
+    @param : cropCenter if True we only consider the central crop of the image as in Crowley 2016
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -181,7 +188,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         
     name_base = constrNet + '_'  +target_dataset +'_'
     if not(constrNet=='VGG') or not(constrNet=='ResNet50'):
-        if kind_method=='TL':
+        if kind_method=='TL' and constrNet in ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']:
             name_base += source_dataset +str(number_im_considered)
         name_base +=  '_' + num_layers
     if kind_method=='FT' and (weights is None):
@@ -239,6 +246,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     name_base += '_' + features
                 if not((transformOnFinalLayer is None) or (transformOnFinalLayer=='')):
                    name_base += '_'+ transformOnFinalLayer
+    if cropCenter:   
+        name_base += '_CropCenter'  
     name_base += '_' + kind_method   
     
     # features can be 'flatten' with will output a 25088 dimension vectors = 7*7*512 features
@@ -274,7 +283,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 elif constrNet=='VGGInNorm' or constrNet=='VGGInNormAdapt':
                     whatToload = 'varmean'
                     dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG')
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
+                           cropCenter=cropCenter)
                     # Compute the reference statistics
                     vgg_mean_stds_values = compute_ref_stats(dict_stats,style_layers,type_ref='mean',\
                                                          imageUsed='all',whatToload =whatToload,
@@ -294,7 +304,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 elif constrNet=='VGGBaseNorm':
                     whatToload = 'varmean'
                     dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG')
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',cropCenter=cropCenter)
                     # Compute the reference statistics
                     list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
                                                          imageUsed='all',whatToload =whatToload,
@@ -302,7 +312,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     target_number_im_considered = None
                     target_set = 'trainval' # Todo ici
                     dict_stats_target = get_dict_stats(target_dataset,target_number_im_considered,style_layers,\
-                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=target_set)
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=target_set,cropCenter=cropCenter)
                     # Compute the reference statistics
                     list_mean_and_std_target = compute_ref_stats(dict_stats_target,style_layers,type_ref='mean',\
                                                          imageUsed='all',whatToload =whatToload,
@@ -319,7 +329,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     # get the coherent mean and std of the target domain
                     whatToload = 'varmean'
                     dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG')
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',cropCenter=cropCenter)
                     # Compute the reference statistics
                     list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
                                                          imageUsed='all',whatToload =whatToload,
@@ -329,7 +339,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
                            style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
                            getBeforeReLU=getBeforeReLU,target_set=target_set,\
-                           applySqrtOnVar=True) # It also computes the reference statistics (mean,var)
+                           applySqrtOnVar=True,cropCenter=cropCenter) # It also computes the reference statistics (mean,var)
                     
                     network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
                         list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
@@ -346,7 +356,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                             target_dataset,source_dataset,target_number_im_considered,\
                             style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
                             getBeforeReLU=getBeforeReLU,target_set=target_set,\
-                            applySqrtOnVar=True,Net=constrNet) # It also computes the reference statistics (mean,var)
+                            applySqrtOnVar=True,Net=constrNet,cropCenter=cropCenter) # It also computes the reference statistics (mean,var)
                     
                     network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
@@ -372,7 +382,12 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 # Compute bottleneck features on the target dataset
                 for i,name_img in  enumerate(df_label[item_name]):
                     im_path =  os.path.join(path_to_img,name_img+'.jpg')
-                    image = load_resize_and_process_img(im_path)
+                    if cropCenter:
+                        image = load_and_crop_img(path=im_path,Net=constrNet,target_smallest_size=256,
+                                            crop_size=224,interpolation='nearest:center')
+                          # For VGG or ResNet size == 224
+                    else:
+                        image = load_resize_and_process_img(im_path,Net=constrNet)
                     features_im = network_features_extraction.predict(image)
                     if features_net is not None:
                         features_net = np.vstack((features_net,np.array(features_im)))
@@ -569,13 +584,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                                     x_col=item_name,y_col=classes,path_im=path_to_img,\
                                     str_val=str_val,num_classes=len(classes),epochs=epochs,\
-                                    Net=constrNet,plotConv=plotConv,batch_size=batch_size)
+                                    Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter)
             model_path = os.path.join(model_output_path,AP_file_base+'.h5')
             include_optimizer=False
             model.save(model_path,include_optimizer=include_optimizer)
             # Prediction
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
-                                           y_col=classes,path_im=path_to_img,Net=constrNet)
+                                           y_col=classes,path_im=path_to_img,Net=constrNet,\
+                                           cropCenter=cropCenter)
 
             metrics = evaluationScore(y_test,predictions)    
             del model
@@ -632,22 +648,23 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
     
     model_file_name = 'ResNet'+str(res_num_layers)+'_ROWD_'+str(weights)+'_'+transformOnFinalLayer+\
         '_bs' +str(batch_size)+'_m'+str(momentum)+'_ep'+str(num_epochs_BN) 
-    model_file_name_path = model_file_name + '.h5'
+    model_file_name_path = model_file_name + '.tf'
     model_file_name_path = os.path.join(output_path,'model',model_file_name_path) 
     
-    print('model_file_name_path',model_file_name_path)
-    
+    print('model_file_name_path',model_file_name_path,os.path.isfile(model_file_name_path))
+    verbose = True
     model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
                                             transformOnFinalLayer =transformOnFinalLayer,\
-                                            verbose=True,weights=weights,\
+                                            verbose=verbose,weights=weights,\
                                             res_num_layers=res_num_layers,momentum=momentum,\
                                             kind_method=kind_method)
     
     if os.path.isfile(model_file_name_path):
+        print('We will load the weights of the model')
         #model = load_model(model_file_name_path)
         model.load_weights(model_file_name_path)
     else:
-        
+        print('We will refine the normalisation parameters')
         if 'ResNet50' in Net:
             preprocessing_function = tf.keras.applications.resnet50.preprocess_input
         else:
@@ -662,6 +679,7 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
             df_train = df_train.append(df_val)
             
         datagen= tf.keras.preprocessing.image.ImageDataGenerator()
+        # Todo should add the possibility to crop the center of the image here
         trainval_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
                                                     x_col=x_col,y_col=None,\
                                                     class_mode=None, \
@@ -669,9 +687,7 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                                                     shuffle=True,\
                                                     preprocessing_function=preprocessing_function)
         STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
-        
 
-        
         model =  fit_generator_ForRefineParameters(model,
                       trainval_generator,
                       steps_per_epoch=STEP_SIZE_TRAIN,
@@ -693,7 +709,7 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
 
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 32,plotConv=False,test_size=0.15,\
-                  return_best_model=False):
+                  return_best_model=False,cropCenter=False):
     """
     @param x_col : name of images
     @param y_col : classes
@@ -707,13 +723,17 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     if len(df_val)==0:
         df_train, df_val = train_test_split(df_train, test_size=test_size)
         
-    if Net=='VGG' or Net=='VGGAdaIn' or Net=='VGGAdaDBN':
-        preprocessing_function = tf.keras.applications.vgg19.preprocess_input
-    elif 'ResNet50' in Net:
-        preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+    if cropCenter:
+        from functools import partial
+        preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
     else:
-        print(Net,'is unknwon')
-        raise(NotImplementedError)
+        if Net=='VGG' or Net=='VGGAdaIn' or Net=='VGGAdaDBN':
+            preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+        elif 'ResNet50' in Net:
+            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        else:
+            print(Net,'is unknwon')
+            raise(NotImplementedError)
 
     datagen= tf.keras.preprocessing.image.ImageDataGenerator()
     
@@ -812,17 +832,22 @@ def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
         
     return(model)
     
-def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG'):
+def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=False):
     df_test[x_col] = df_test[x_col].apply(lambda x : x + '.jpg')
     datagen= tf.keras.preprocessing.image.ImageDataGenerator()
     
-    if Net=='VGG' or Net=='VGGAdaIn' or Net=='VGGAdaDBN':
-        preprocessing_function = tf.keras.applications.vgg19.preprocess_input
-    elif 'ResNet' in Net:
-        preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+    if cropCenter:
+        from functools import partial
+        preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
     else:
-        print(Net,'is unknwon')
-        raise(NotImplementedError)
+        if Net=='VGG' or Net=='VGGAdaIn' or Net=='VGGAdaDBN':
+            preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+        elif 'ResNet50' in Net:
+            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        else:
+            print(Net,'is unknwon')
+            raise(NotImplementedError)
+            
     test_generator=datagen.flow_from_dataframe(dataframe=df_test, directory=path_im,\
                                                 x_col=x_col,\
                                                 class_mode=None,shuffle=False,\
@@ -1540,7 +1565,32 @@ def Test_Apropos_DuRebond():
                         pretrainingModif=3,plotConv=False)
         print(i,np.mean(AP_per_class))
         tab_AP += [np.mean(AP_per_class)]
-        
+ 
+def Crowley_reproduction_results():
+    
+    target_dataset = 'Paintings'
+    ReDo = False
+    
+    print('The following experiments will normally reproduce the performance of Crowley 2016 with VGG central crop, grid search on C parameter of SVM but no augmentation of the image (multi crop).')
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='fc2',\
+                   constrNet='VGG',kind_method='TL',gridSearch=True,ReDo=ReDo,cropCenter=True)
+    
+    print('Same experiment with ResNet50 ')
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='fc2',\
+                   constrNet='ResNet50',kind_method='TL',gridSearch=True,ReDo=ReDo,cropCenter=True)
+    
+    print('Same experiment with ResNet50 but a MLP2')
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
+                   constrNet='ResNet50',kind_method='TL',gridSearch=True,ReDo=ReDo,\
+                   transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
+                   optimizer='SGD',opt_option=[0.1,0.0001],cropCenter=True)
+    
+    print('Same experiment with ResNet50 with a fine tuning of the whole model')
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
+                   constrNet='ResNet50',kind_method='FT',gridSearch=True,ReDo=ReDo,\
+                   transformOnFinalLayer='GlobalAveragePooling2D',return_best_model=True,
+                   epochs=20,cropCenter=True)    
+       
 # TODO :
 # Train the layer i and use it as initialization for training layer i+1 
 # Test RASTA

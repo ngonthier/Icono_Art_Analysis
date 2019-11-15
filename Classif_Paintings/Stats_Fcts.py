@@ -934,7 +934,7 @@ def load_resize(path_to_img,max_dim = 224):
   img = np.expand_dims(img, axis=0)
   return img
 
-def load_resize_and_process_img(path_to_img,max_dim = 224):
+def load_resize_and_process_img(path_to_img,Net,max_dim = 224):
  # img = load_resize(path_to_img,max_dim=max_dim)
  
   img = tf.keras.preprocessing.image.load_img(
@@ -946,12 +946,26 @@ def load_resize_and_process_img(path_to_img,max_dim = 224):
   # are certainly suboptimal
   img = kp_image.img_to_array(img)
   img = np.expand_dims(img, axis=0) # Should be replace by expand_dims in tf
-  img = tf.keras.applications.vgg19.preprocess_input(img)
+  if 'VGG' in Net:
+    preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+  elif 'ResNet' in Net:
+    preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+  else:
+    print(Net,'is unknwon')
+    raise(NotImplementedError)
+  img =  preprocessing_function(img)
   return img
 
-def load_and_process_img(path_to_img):
+def load_and_process_img(path_to_img,Net):
   img = load_img(path_to_img)
-  img = tf.keras.applications.vgg19.preprocess_input(img)
+  if 'VGG' in Net:
+    preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+  elif 'ResNet' in Net:
+    preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+  else:
+    print(Net,'is unknwon')
+    raise(NotImplementedError)
+  img =  preprocessing_function(img)
   return img
 
 def load_img(path_to_img,max_dim = 512):
