@@ -61,7 +61,7 @@ def TrainLinearSVC(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=
         elif clf == 'SGDsquared_hinge':
             clf = SGDClassifier(max_iter=1000, tol=0.0001,loss='squared_hinge')
             param_grid = dict(alpha=cs)
-    
+
         classifier = GridSearchCV(clf, refit=True,
                                   scoring =make_scorer(average_precision_score,
                                                        needs_threshold=True),

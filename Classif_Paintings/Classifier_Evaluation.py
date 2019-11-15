@@ -305,6 +305,8 @@ def Classification_evaluation(kind='1536D',kindnetwork='InceptionResNetv2',datab
                                     param_grid=param_grid,n_jobs=-1)
             grid.fit(X_trainval,y_trainval[:,i])  
             y_predict_confidence_score = grid.decision_function(X_test)
+            print('y_predict_confidence_score',y_predict_confidence_score)
+            print('y_test[:,i]',y_test[:,i])
             y_predict_test = grid.predict(X_test) 
             #y_predict_trainval = grid.predict(X_trainval) 
             # Warning ! predict provide class labels for samples whereas decision_function provide confidence scores for samples.
@@ -944,9 +946,11 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
     if database=='Paintings':
         item_name = 'name_img'
         path_to_img = '/media/gonthier/HDD/data/Painting_Dataset/'
+        databasetxt = '/media/gonthier/HDD/output_exp/ClassifPaintings/Paintings.txt'
         classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     elif database=='VOC12':
         item_name = 'name_img'
+        databasetxt = '/media/gonthier/HDD/output_exp/ClassifPaintings/VOC12.txt'
         path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2012/JPEGImages/'
         classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     elif(database=='Wikidata_Paintings'):
@@ -965,7 +969,7 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
     sLength = len(df_label[item_name])
     name_img = df_label[item_name][0]
     i = 0
-    classes_vectors = np.zeros((sLength,10))
+    classes_vectors = np.zeros((sLength,len(classes)))
     name_pkl = path_data+'VGG'+VGG+'_'+ kind +'_'+database +'_N'+str(N)+extL2+'.pkl'
     if(kind=='fuco8'):
         size_output = 1000
@@ -1038,9 +1042,10 @@ def compute_VGG_features(VGG='19',kind='fuco7',database='Paintings',L2=True,augm
             if L2:
                 out_norm = LA.norm(out) 
                 out /= out_norm
+        #print(i,name_img,out[0:10])
         features_resnet[i,:] = np.array(out)
         if database=='VOC12' or database=='Paintings':
-            for j in range(10):
+            for j in range(len(classes)):
                 if( classes[j] in df_label['classe'][i]):
                     classes_vectors[i,j] = 1
         
@@ -1117,6 +1122,13 @@ if __name__ == '__main__':
     #Compute_ResNet(kind='2048D',database='VOC12',L2=True,augmentation=False)
     #Compute_ResNet(kind='2048D',database='Paintings',L2=True,augmentation=False)
     
+    # For Paintings ArtUK Dataset
+    kind = 'relu7'
+    VGGnum = '19'
+    compute_VGG_features(VGG=VGGnum,kind=kind,database='Paintings',L2=False,augmentation=False)
+    Classification_evaluation(kind=kind,database='Paintings',kindnetwork='VGG19',L2=True,augmentation=True)
+    
+    
     # Plot SVM support and error
     #HowAreSupport_of_SVM(kind='2048D',kindnetwork='ResNet152',database='Paintings',L2=False,augmentation=False)
     
@@ -1131,4 +1143,4 @@ if __name__ == '__main__':
 #    Classification_evaluation_Wikidata('2048D',kindnetwork='ResNet152',database='Wikidata_Paintings')
 #    Classification_evaluation_Wikidata('relu7',kindnetwork='VGG19',database='Wikidata_Paintings')
 #    
-    classif_angel_simple()
+#    classif_angel_simple()
