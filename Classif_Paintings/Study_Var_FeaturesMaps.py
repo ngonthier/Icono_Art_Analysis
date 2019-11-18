@@ -30,7 +30,7 @@ from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
     load_resize_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\
     get_ResNet_ROWD_gram_mean_features
-from keras_resnet_utils import getResNetLayersNumeral
+from keras_resnet_utils import getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion
 from preprocess_crop import load_and_crop_img
 
 ### To copy only the image from the dataset
@@ -51,10 +51,24 @@ keras_vgg_layers= ['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
                 'block5_pool','flatten','fc1','fc2','predictions']
 
 def numeral_layers_index(style_layers):
+    """For VGG 19"""
     string = ''
     for elt in style_layers:
         string+= str(keras_vgg_layers.index(elt))+'_'
     return(string)
+    
+def numeral_layers_index_bitsVersion(style_layers):
+    """For VGG 19"""
+    
+    list_bool = [False]*len(keras_vgg_layers)
+    for elt in style_layers:
+        try:
+            list_bool[keras_vgg_layers.index(elt)] = True
+        except ValueError as e:
+            print(e)
+    string = 'BV'+ str(int(''.join(['1' if i else '0' for i in list_bool]), 2)) # Convert the boolean version of index list to int
+    return(string)
+
 
 
 def get_list_im(dataset,set=''):
@@ -289,20 +303,32 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    whatToload,saveformat='h5',set='',getBeforeReLU=False,\
                    Net='VGG',style_layers_imposed=[],\
                    list_mean_and_std_source=[],list_mean_and_std_target=[],\
-                   cropCenter=False):
+                   cropCenter=False,BV=True):
     if 'VGG' in Net:
-        str_layers = numeral_layers_index(style_layers)
+        if BV:
+            str_layers = numeral_layers_index(style_layers)
+        else:
+            str_layers = numeral_layers_index_bitsVersion(style_layers)
     elif 'ResNet50' in Net:
-        str_layers = getResNetLayersNumeral(style_layers,num_layers=50)
+        if BV:
+            str_layers = getResNetLayersNumeral_bitsVersion(style_layers,num_layers=50)
+        else:
+            str_layers = getResNetLayersNumeral(style_layers,num_layers=50)
     else:
         raise(NotImplementedError)
     filename = source_dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
     
     if not(Net=='VGG'):
         if 'VGG' in Net:
-            filename += '_'+Net + numeral_layers_index(style_layers_imposed)
+            if BV:
+                filename += '_'+Net + numeral_layers_index_bitsVersion(style_layers_imposed)
+            else:
+                filename += '_'+Net + numeral_layers_index(style_layers_imposed)
         elif 'ResNet50' in Net:
-            filename += '_'+Net + getResNetLayersNumeral(style_layers_imposed,num_layers=50)
+            if BV:
+                filename += '_'+Net + getResNetLayersNumeral_bitsVersion(style_layers_imposed,num_layers=50)
+            else:
+                filename += '_'+Net + getResNetLayersNumeral(style_layers_imposed,num_layers=50)
         else:
             raise(NotImplementedError)
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp')
@@ -333,7 +359,7 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
     return(dict_stats)
 
 def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None
-                        ,getBeforeReLU=False,printoutput='Var',cropCenter=False):
+                        ,getBeforeReLU=False,printoutput='Var',cropCenter=False,BV=False):
     """
     In this function we will compute the first or second moments for two subsets
     a small part of ImageNet validation set 
@@ -392,7 +418,10 @@ def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
                     number_im_considered_tmp =None
                 else:
                     number_im_considered_tmp=number_im_considered
-            str_layers = numeral_layers_index(style_layers)
+            if BV:
+                str_layers = numeral_layers_index_bitsVersion(style_layers)
+            else:
+                str_layers = numeral_layers_index(style_layers)
             filename = dataset + '_' + str(number_im_considered_tmp) + '_CovMean'+\
                 '_'+str_layers
             if not(set=='' or set is None):

@@ -262,6 +262,21 @@ def getResNetLayersNumeral(style_layers,num_layers=50):
         except ValueError as e:
             print(e)
     return(string)
+    
+def getResNetLayersNumeral_bitsVersion(style_layers,num_layers=50):
+    if num_layers==50:
+        keras_resnet_layers = getResNet50layersName()
+    else:
+        print('Only Resnet50 is supported')
+        raise(NotImplementedError)
+    list_bool = [False]*len(keras_resnet_layers)
+    for elt in style_layers:
+        try:
+            list_bool[keras_resnet_layers.index(elt)] = True
+        except ValueError as e:
+            print(e)
+    string = 'BV'+ str(int(''.join(['1' if i else '0' for i in list_bool]), 2)) # Convert the boolean version of index list to int
+    return(string)
  
 def is_sequence(seq):
     """Determine if an object follows the Sequence API.

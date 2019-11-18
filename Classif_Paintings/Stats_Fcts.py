@@ -13,7 +13,7 @@ import tensorflow as tf
 from tensorflow.python.keras.preprocessing import image as kp_image
 from tensorflow.python.keras import models 
 from tensorflow.python.keras import activations
-from tensorflow.python.keras.layers import Activation,Dense,Flatten,Input
+from tensorflow.python.keras.layers import Activation,Dense,Flatten,Input,Dropout
 from tensorflow.python.keras import layers
 from tensorflow.python.keras import utils
 import utils_keras
@@ -37,30 +37,53 @@ from PIL import Image
 import os
 import os.path
 import re
+from functools import partial
 #import time
 #import functools
 
 ### Multi Layer perceptron
-def MLP_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False):
+def MLP_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False,num_layers=2,\
+              regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,\
+              nesterov=False,SGDmomentum=0.9,decay=0.0):
+  """ Return a MLP model ready to fit
+  @param : dropout if None : not dropout otherwise must be a value between 0 and 1
+  """
+    
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+    
   if optimizer=='SGD':
-      opt = SGD(learning_rate=lr,momentum=0.9)
+      opt = SGD(learning_rate=lr,nesterov=nesterov,momentum=SGDmomentum,decay=decay)
   elif optimizer=='adam':
-      opt= Adam(learning_rate=lr)
+      opt= Adam(learning_rate=lr,decay=decay)
   model =  tf.keras.Sequential()
-  model.add(Dense(256, activation='relu'))
-  model.add(Dense(num_of_classes, activation='sigmoid'))
+  if num_layers==2:
+      model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
+      if not(dropout is None): model.add(Dropout(dropout))
+      model.add(Dense(num_of_classes, activation='sigmoid',kernel_regularizer=regularizers))
+  elif num_layers==3:
+      model.add(Dense(256, activation='relu', kernel_regularizer=regularizers))
+      if not(dropout is None): model.add(Dropout(dropout))
+      model.add(Dense(128, activation='relu', kernel_regularizer=regularizers))
+      if not(dropout is None): model.add(Dropout(dropout))
+      model.add(Dense(num_of_classes, activation='sigmoid', kernel_regularizer=regularizers))
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   return(model)
   
 ### one Layer perceptron
-def Perceptron_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False):
+def Perceptron_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False,\
+                     regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,\
+                     nesterov=False,SGDmomentum=0.9,decay=0.0):
+    
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+
   if optimizer=='SGD':
-      opt = SGD(learning_rate=lr,momentum=0.9)
+      opt = SGD(learning_rate=lr,momentum=SGDmomentum,decay=decay,nesterov=nesterov)
   elif optimizer=='adam': 
-      opt = Adam(learning_rate=lr)
+      opt = Adam(learning_rate=lr,decay=decay)
   model =  tf.keras.Sequential()
-  model.add(Dense(num_of_classes, activation='sigmoid'))
+  if not(dropout is None): model.add(Dropout(dropout))
+  model.add(Dense(num_of_classes, activation='sigmoid', kernel_regularizer=regularizers))
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   return(model)
@@ -89,10 +112,38 @@ def get_regularizers(regulOnNewLayer=None,regulOnNewLayerParam=[]):
   return(regularizers)
 
 ### To fine Tune a VGG
+  
+def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout):
+  if final_clf=='MLP3':
+      model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
+      if not(dropout is None): model.add(Dropout(dropout))
+      model.add(Dense(128, activation='relu',kernel_regularizer=regularizers))
+      if not(dropout is None): model.add(Dropout(dropout))
+      if lr_multiple:
+          multipliers[model.layers[-1].name] = 1.0
+  elif final_clf=='MLP2':
+      model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
+      if not(dropout is None): model.add(Dropout(dropout))
+      if lr_multiple:
+          multipliers[model.layers[-1].name] = 1.0
+  if final_clf in ['MLP3','MLP2','MLP1']:
+      if final_clf=='MLP1':
+          if not(dropout is None): model.add(Dropout(dropout))
+      model.add(Dense(num_of_classes, activation='sigmoid',kernel_regularizer=regularizers))
+      if lr_multiple:
+          multipliers[model.layers[-1].name] = 1.0
+          opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)  
+      else:
+          opt = opt(learning_rate=lr)
+  # Compile model
+  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])  
+  return(model)     
+  
 def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
                        pretrainingModif=True,verbose=False,weights='imagenet',optimizer='adam',\
-                       opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',
-                       final_layer='block5_pool',regulOnNewLayer=None,regulOnNewLayerParam=[]): 
+                       opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',\
+                       final_layer='block5_pool',regulOnNewLayer=None,regulOnNewLayerParam=[],\
+                       dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   @param : regulOnNewLayer used on kernel_regularizer 
@@ -110,18 +161,19 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
       number_of_trainable_layers =  16
       assert(number_of_trainable_layers >= pretrainingModif)
   lr_multiple = False
+  multipliers = {}
+  multiply_lrp, lr = None,None
   if len(opt_option)==2:
       multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
-      multipliers = {}
       lr_multiple = True
   elif len(opt_option)==1:
       lr = opt_option[-1]
   else:
       lr = 0.01
   if optimizer=='SGD': 
-      opt = SGD
+      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
-      opt = Adam
+      opt = partial(Adam,decay=decay)
   else:
       opt = optimizer
 
@@ -164,19 +216,8 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   
   #model.add(tf.keras.layers.Lambda(lambda x :  tf.Print(x, [x,tf.shape(x)])))
     
-  if final_clf=='MLP2':
-      model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
-      if lr_multiple:
-          multipliers[model.layers[-1].name] = 1.0
-  if final_clf=='MLP2' or final_clf=='MLP1':
-      model.add(Dense(num_of_classes, activation='sigmoid',kernel_regularizer=regularizers))
-      if lr_multiple:
-          multipliers[model.layers[-1].name] = 1.0
-          opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)  
-      else:
-          opt = opt(learning_rate=lr)
-  # Compile model
-  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout)
+
   if verbose: print(model.summary())
   return model
 
@@ -185,7 +226,8 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
 def vgg_AdaIn(style_layers,num_of_classes=10,\
               transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
               weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
-              optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[]):
+              optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
+              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0):
   """
   VGG with an Instance normalisation learn only those are the only learnable parameters
   with the last 2 dense layer 
@@ -199,20 +241,20 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
   
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
 
-  
   lr_multiple = False
+  multipliers = {}
+  multiply_lrp, lr = None,None
   if len(opt_option)==2:
       multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
-      multipliers = {}
       lr_multiple = True
   elif len(opt_option)==1:
       lr = opt_option[-1]
   else:
       lr = 0.01
   if optimizer=='SGD': 
-      opt = SGD
+      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
-      opt = Adam
+      opt = partial(Adam,decay=decay)
   else:
       opt = optimizer
   
@@ -244,19 +286,8 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
               model.add(Flatten())
       break
   
-  if final_clf=='MLP2':
-      model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
-      if lr_multiple:
-          multipliers[model.layers[-1].name] = 1.0
-  if final_clf=='MLP2' or final_clf=='MLP1':
-      model.add(Dense(num_of_classes, activation='sigmoid',kernel_regularizer=regularizers))
-      if lr_multiple:
-          multipliers[model.layers[-1].name] = 1.0
-          opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)    
-      else:
-          opt = opt(learning_rate=lr)
-  # Compile model
-  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout)
+
 
   if getBeforeReLU:# refresh the non linearity 
       model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
@@ -268,7 +299,7 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
               transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
               weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
-              dbn_affine=True,m_per_group=16):
+              dbn_affine=True,m_per_group=16,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0):
   """
   VGG with some decorrelated  learn only those are the only learnable parameters
   with a 2 dense layer MLP or one layer MLP according to the final_clf parameters
@@ -283,6 +314,8 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
 
   lr_multiple = False
+  multipliers = {}
+  multiply_lrp, lr = None,None
   if len(opt_option)==2:
       multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
       multipliers = {}
@@ -292,9 +325,9 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
   else:
       lr = 0.01
   if optimizer=='SGD': 
-      opt = SGD
+      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
-      opt = Adam
+      opt = partial(Adam,decay=decay)
   else:
       opt = optimizer
   
@@ -326,19 +359,7 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
               model.add(Flatten())
       break
   
-  if final_clf=='MLP2':
-      model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
-      if lr_multiple:
-          multipliers[model.layers[-1].name] = 1.0
-  if final_clf=='MLP2' or final_clf=='MLP1':
-      model.add(Dense(num_of_classes, activation='sigmoid',kernel_regularizer=regularizers))
-      if lr_multiple:
-          multipliers[model.layers[-1].name] = 1.0
-          opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)    
-      else:
-          opt = opt(learning_rate=lr)
-  # Compile model
-  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout)
 
   if getBeforeReLU:# refresh the non linearity 
       model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
@@ -349,9 +370,33 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
 
 ### ResNet baseline
   
+def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout):
+  if final_clf=='MLP2' or final_clf=='MLP3' :
+      x = Dense(256, activation='relu')(x)
+      if not(dropout is None): x = Dropout(dropout)(x)
+  if final_clf=='MLP3' :
+      x = Dense(128, activation='relu')(x)
+      if not(dropout is None): x = Dropout(dropout)(x)
+  if final_clf=='MLP2' or final_clf=='MLP1' or final_clf=='MLP3':
+      predictions = Dense(num_of_classes, activation='sigmoid')(x)
+      if final_clf=='MLP1':
+          if not(dropout is None): x = Dropout(dropout)(x)
+  model = Model(inputs=pre_model.input, outputs=predictions)
+  if lr_multiple:
+      if final_clf=='MLP3': multipliers[model.layers[-3].name] = None
+      if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = None
+      if final_clf=='MLP3' or final_clf=='MLPé' or final_clf=='MLP1': multipliers[model.layers[-1].name] = None
+      opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
+  else:
+      opt = opt(learning_rate=lr)
+  # Compile model
+  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  return(model)
+
 def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
                              pretrainingModif=True,verbose=True,weights='imagenet',res_num_layers=50,\
-                             optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2'): 
+                             optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',\
+                             dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
@@ -372,18 +417,19 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
       assert(number_of_trainable_layers >= pretrainingModif)
   
   lr_multiple = False
+  multipliers = {}
+  multiply_lrp, lr = None,None
   if len(opt_option)==2:
       multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
-      multipliers = {}
       lr_multiple = True
   elif len(opt_option)==1:
       lr = opt_option[-1]
   else:
       lr = 0.01
   if optimizer=='SGD': 
-      opt = SGD
+      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
-      opt = Adam
+      opt = partial(Adam,decay=decay)
   else:
       opt = optimizer
       
@@ -425,22 +471,12 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
   elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
       x= Flatten()(x)
   
-  if final_clf=='MLP2':
-      x = Dense(256, activation='relu')(x)
-  if final_clf=='MLP2' or final_clf=='MLP1':
-      predictions = Dense(num_of_classes, activation='sigmoid')(x)
-  model = Model(inputs=pre_model.input, outputs=predictions)
-  if lr_multiple:
-      multipliers[model.layers[-2].name] = None
-      multipliers[model.layers[-1].name] = None
-      opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
-  else:
-      opt = opt(learning_rate=lr)
-  # Compile model
-  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout)
+ 
   if verbose: print(model.summary())
   return model
 
+# For Feature extraction
 def ResNet_cut(final_layer='activation_48',transformOnFinalLayer ='GlobalMaxPooling2D',\
                              verbose=False,weights='imagenet',res_num_layers=50): 
   """
@@ -481,7 +517,7 @@ def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMa
                              verbose=True,weights='imagenet',\
                              res_num_layers=50,\
                              optimizer='adam',opt_option=[0.01],\
-                             final_clf='MLP2'): 
+                             final_clf='MLP2',dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   We only allow to train the layer in the style_layers listt
@@ -497,6 +533,8 @@ def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMa
       raise(NotImplementedError)
   
   lr_multiple = False
+  multiply_lrp, lr  = None,None
+  multipliers = {}
   if len(opt_option)==2:
       multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
       multipliers = {}
@@ -506,9 +544,9 @@ def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMa
   else:
       lr = 0.01
   if optimizer=='SGD': 
-      opt = SGD
+      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
-      opt = Adam
+      opt = partial(Adam,decay=decay)
   else:
       opt = optimizer
 
@@ -528,19 +566,8 @@ def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMa
   elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
       x= Flatten()(x)
   
-  if final_clf=='MLP2':
-      x = Dense(256, activation='relu')(x)
-  if final_clf=='MLP2' or final_clf=='MLP1':
-      predictions = Dense(num_of_classes, activation='sigmoid')(x)
-  model = Model(inputs=pre_model.input, outputs=predictions)
-  if lr_multiple:
-      multipliers[model.layers[-2].name] = None
-      multipliers[model.layers[-1].name] = None
-      opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
-  else:
-      opt = opt(learning_rate=lr)
-  # Compile model
-  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout)
+ 
   if verbose: print(model.summary())
   return model
 
@@ -778,12 +805,13 @@ def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer 
       x = GlobalAveragePooling2D()(x)
   elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
       x= Flatten()(x)
+  predictions = x 
 #  
 #  if final_clf=='MLP2':
 #      x = Dense(256, activation='relu')(x)
 #  if final_clf=='MLP2' or final_clf=='MLP1':
 #      predictions = Dense(num_of_classes, activation='sigmoid')(x)
-#  model = Model(inputs=pre_model.input, outputs=predictions)
+  model = Model(inputs=pre_model.input, outputs=predictions)
 #  if lr_multiple:
 #      multipliers[model.layers[-2].name] = None
 #      multipliers[model.layers[-1].name] = None
@@ -792,8 +820,8 @@ def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer 
 #      opt = opt(learning_rate=lr)
   # Compile model
   #pre_model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
-  if verbose: print(pre_model.summary())
-  return pre_model
+  if verbose: print(model.summary())
+  return model
 
 ### ResNet with Batch normalisation splitted 
 def ResNet_Split_batchNormalisation(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\

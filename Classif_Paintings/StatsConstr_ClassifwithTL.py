@@ -12,7 +12,7 @@ statistics imposed on the features maps of the layers
 from trouver_classes_parmi_K import TrainClassif
 import numpy as np
 import os.path
-from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index
+from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index,numeral_layers_index_bitsVersion
 from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     load_resize_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
     MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
@@ -38,7 +38,8 @@ import gc
 import tempfile
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 from tensorflow.python.keras.models import load_model
-from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,fit_generator_ForRefineParameters
+from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion,\
+    fit_generator_ForRefineParameters
 
 from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
 
@@ -65,7 +66,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                                     style_layers,\
                                     list_mean_and_std_source,whatToload,saveformat='h5',\
                                     getBeforeReLU=False,target_set='trainval',applySqrtOnVar=True,\
-                                    Net='VGG',cropCenter=False):
+                                    Net='VGG',cropCenter=False,BV=True):
     """
     The goal of this function is to compute a version of the statistics of the 
     features of the VGG or ResNet50
@@ -78,7 +79,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
             dict_stats_target0 = get_dict_stats(target_dataset,target_number_im_considered,\
                                                 style_layers_firstLayer,\
                                                 whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,\
-                                                set=target_set,Net=Net,cropCenter=cropCenter)
+                                                set=target_set,Net=Net,cropCenter=cropCenter,BV=BV)
             dict_stats_coherent[layer_name] = dict_stats_target0[layer_name]
             list_mean_and_std_target_i_m1 = compute_ref_stats(dict_stats_target0,\
                                             style_layers_firstLayer,type_ref='mean',\
@@ -101,7 +102,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                                                  style_layers_imposed=style_layers_imposed,\
                                                  list_mean_and_std_source=list_mean_and_std_source_i,\
                                                  list_mean_and_std_target=current_list_mean_and_std_target,\
-                                                 cropCenter=cropCenter)
+                                                 cropCenter=cropCenter,BV=BV)
             dict_stats_coherent[layer_name] = dict_stats_target_i[layer_name]
             # Compute the next statistics 
             list_mean_and_std_target_i = compute_ref_stats(dict_stats_target_i,\
@@ -127,7 +128,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    plotConv=False,batch_size=32,regulOnNewLayer=None,\
                                    regulOnNewLayerParam=[],return_best_model=False,\
                                    onlyReturnResult=False,dbn_affine=True,m_per_group=16,
-                                   momentum=0.9,batch_size_RF=32,epochs_RF=20,cropCenter=False):
+                                   momentum=0.9,batch_size_RF=32,epochs_RF=20,cropCenter=False,\
+                                   BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -148,7 +150,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : freezingType : the way we unfreeze the pretained network : 'FromBottom','FromTop','Alter'
     @param : ReDo : we erase the output performance file
     @param : plotConv : plot the loss function in train and val
-    @param : regulOnNewLayer : Noone l1 l2 or l1_l2
+    @param : regulOnNewLayer : None l1 l2 or l1_l2
     @param : regulOnNewLayerParam the weight on the regularizer
     @param : return_best_model if True we will load and return the best model
     @param : onlyReturnResult : only return the results if True and nothing computed will return None
@@ -158,6 +160,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : batch_size_RF : batch size for the refinement of the batch statistics
     @param : epochs_RF : number of epochs for the refinement of the batch statistics
     @param : cropCenter if True we only consider the central crop of the image as in Crowley 2016
+    @param : BV : if true use the compress value for the layer index
+    @param : dropout : if None no dropout otherwise on the new layer
+    @param : nesterov : nesterov approximation for MLP
+    @param : SGDmomentum : SGD momentum in the gradient descent
+    @param : decay : learning rate decay for MLP model
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -175,9 +182,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             raise(NotImplementedError)
     
     if 'VGG' in  constrNet: 
-        num_layers = numeral_layers_index(style_layers)
+        if BV:
+            num_layers = numeral_layers_index_bitsVersion(style_layers)
+        else:
+            num_layers = numeral_layers_index(style_layers)
     elif 'ResNet' in constrNet:
-        num_layers = getResNetLayersNumeral(style_layers)
+        if BV: 
+            num_layers = getResNetLayersNumeral_bitsVersion(style_layers)
+        else: 
+            num_layers = getResNetLayersNumeral(style_layers)
     # Compute statistics on the source_dataset
     if source_dataset is None:
         constrNet='VGG'
@@ -187,7 +200,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     path_data,Not_on_NicolasPC = get_database(target_dataset)
         
     name_base = constrNet + '_'  +target_dataset +'_'
-    if not(constrNet=='VGG') or not(constrNet=='ResNet50'):
+    if not(constrNet=='VGG') and not(constrNet=='ResNet50'):
         if kind_method=='TL' and constrNet in ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']:
             name_base += source_dataset +str(number_im_considered)
         name_base +=  '_' + num_layers
@@ -284,7 +297,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     whatToload = 'varmean'
                     dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
                            whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
-                           cropCenter=cropCenter)
+                           cropCenter=cropCenter,BV=BV)
                     # Compute the reference statistics
                     vgg_mean_stds_values = compute_ref_stats(dict_stats,style_layers,type_ref='mean',\
                                                          imageUsed='all',whatToload =whatToload,
@@ -304,7 +317,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 elif constrNet=='VGGBaseNorm':
                     whatToload = 'varmean'
                     dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',cropCenter=cropCenter)
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
+                           cropCenter=cropCenter,BV=BV)
                     # Compute the reference statistics
                     list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
                                                          imageUsed='all',whatToload =whatToload,
@@ -312,7 +326,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     target_number_im_considered = None
                     target_set = 'trainval' # Todo ici
                     dict_stats_target = get_dict_stats(target_dataset,target_number_im_considered,style_layers,\
-                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=target_set,cropCenter=cropCenter)
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=target_set,\
+                           cropCenter=cropCenter,BV=BV)
                     # Compute the reference statistics
                     list_mean_and_std_target = compute_ref_stats(dict_stats_target,style_layers,type_ref='mean',\
                                                          imageUsed='all',whatToload =whatToload,
@@ -329,7 +344,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     # get the coherent mean and std of the target domain
                     whatToload = 'varmean'
                     dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',cropCenter=cropCenter)
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
+                           cropCenter=cropCenter,BV=BV)
                     # Compute the reference statistics
                     list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
                                                          imageUsed='all',whatToload =whatToload,
@@ -339,7 +355,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
                            style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
                            getBeforeReLU=getBeforeReLU,target_set=target_set,\
-                           applySqrtOnVar=True,cropCenter=cropCenter) # It also computes the reference statistics (mean,var)
+                           applySqrtOnVar=True,cropCenter=cropCenter,BV=BV) # It also computes the reference statistics (mean,var)
                     
                     network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
                         list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
@@ -362,7 +378,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                             target_dataset,source_dataset,target_number_im_considered,\
                             style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
                             getBeforeReLU=getBeforeReLU,target_set=target_set,\
-                            applySqrtOnVar=True,Net=constrNet,cropCenter=cropCenter) # It also computes the reference statistics (mean,var)
+                            applySqrtOnVar=True,Net=constrNet,cropCenter=cropCenter,\
+                            BV=BV) # It also computes the reference statistics (mean,var)
                     
                     network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
@@ -422,7 +439,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     AP_file  = name_base
     if kind_method=='TL':
         AP_file += '_'+final_clf
-        if final_clf=='MLP2' or final_clf=='MLP1':
+        if final_clf in ['MLP2','MLP1','MLP3']:
             AP_file += '_'+str(epochs)+batch_size_str+'_'+optimizer
             lr = opt_option[-1]
             AP_file += '_lr' +str(lr) 
@@ -432,6 +449,22 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             AP_file +=  '_Norm' 
             if gridSearch:
                 AP_file += '_GS'
+        if not(regulOnNewLayer is None):
+           AP_file += '_'+regulOnNewLayer
+           if len(regulOnNewLayerParam)>0:
+               if regulOnNewLayer=='l1' or  regulOnNewLayer=='l1':
+                   AP_file += '_'+  regulOnNewLayerParam[0]
+               elif regulOnNewLayer=='l1_l2':
+                   AP_file += '_'+  regulOnNewLayerParam[0]+'_'+ regulOnNewLayerParam[1]
+        if not(dropout is None):
+             AP_file += '_dropout'+str(dropout)
+        if optimizer=='SGD':
+            if nesterov:
+                AP_file += '_nes'
+            if not(SGDmomentum==0.0):
+                AP_file += '_sgdm'+str(SGDmomentum)
+        if not(decay==0.0):
+            AP_file += '_dec'+str(decay)
     elif kind_method=='FT':
        AP_file += '_'+str(epochs)+batch_size_str
        if not(optimizer=='adam'):
@@ -443,6 +476,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                    AP_file += '_'+  regulOnNewLayerParam[0]
                elif regulOnNewLayer=='l1_l2':
                    AP_file += '_'+  regulOnNewLayerParam[0]+'_'+ regulOnNewLayerParam[1]
+       if not(dropout is None):
+            AP_file += '_dropout'+str(dropout) 
+       if optimizer=='SGD':
+           if nesterov:
+                AP_file += '_nes'
+           if not(SGDmomentum==0.0):
+                AP_file += '_sgdm'+str(SGDmomentum)
+       if not(decay==0.0):
+           AP_file += '_dec'+str(decay)
        if return_best_model:
             AP_file += '_BestOnVal'
     
@@ -537,16 +579,27 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 # Prediction
                 dico_pred = PredictOnTestSet(X_test,dico_clf,clf=final_clf)
                 metrics = evaluationScoreDict(y_test,dico_pred)
-            elif final_clf=='MLP2' or final_clf=='MLP1':
+            elif final_clf in ['MLP2','MLP1','MLP3']:
                 if final_clf=='MLP2':
-                    model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr)
+                    model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
+                                      regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
+                                      nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                if final_clf=='MLP3':
+                    model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,num_layers=3,\
+                                      regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
+                                      nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 elif final_clf=='MLP1':
-                    model = Perceptron_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr)
+                    model = Perceptron_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
+                                            regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
+                                            nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 
                 model = TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,\
                                  verbose=verbose,plotConv=plotConv,return_best_model=return_best_model)
                 predictions = model.predict(X_test, batch_size=1)
                 metrics = evaluationScore(y_test,predictions)  
+            else:
+                print(final_clf,'doesn t exist')
+                raise(NotImplementedError)
                 
         elif kind_method=='FT':
             # We fineTune a VGG
@@ -556,14 +609,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                            transformOnFinalLayer=transformOnFinalLayer,weights=weights,
                                            optimizer=optimizer,opt_option=opt_option,freezingType=freezingType,
                                            final_clf=final_clf,final_layer=features,verbose=verbose,
-                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam
+                                           ,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 
             elif constrNet=='VGGAdaIn':
                 model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
                           transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
                           final_clf=final_clf,final_layer=features,verbose=verbose,\
                           optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
-                          regulOnNewLayerParam=regulOnNewLayerParam)
+                          regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 
             elif constrNet=='VGGAdaDBN':
                 model = vgg_adaDBN(style_layers,num_of_classes=num_classes,\
@@ -571,19 +625,19 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                           weights=weights,final_layer=features,final_clf=final_clf,\
                           optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                           regulOnNewLayerParam=regulOnNewLayerParam,\
-                          dbn_affine=dbn_affine,m_per_group=m_per_group)
+                          dbn_affine=dbn_affine,m_per_group=m_per_group,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
             
             elif constrNet=='ResNet50':
                 getBeforeReLU = False
                 model = ResNet_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
                                            transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
                                            res_num_layers=50,final_clf=final_clf,verbose=verbose,\
-                                           freezingType=freezingType)
+                                           freezingType=freezingType,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
             elif constrNet=='ResNet50AdaIn':
                 getBeforeReLU = False
                 model = ResNet_AdaIn(style_layers,num_of_classes=num_classes,\
                                            transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
-                                           res_num_layers=50,final_clf=final_clf,verbose=verbose)
+                                           res_num_layers=50,final_clf=final_clf,verbose=verbose,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 
             else:
                 print(constrNet,'is unkwon in the context of TL')
@@ -971,7 +1025,7 @@ def RunUnfreezeLayerPerformanceVGG(plot=False):
                 plt.close()
                 
 def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short=False,
-                           scenario=0,onlyPlot=False):
+                           scenario=0,onlyPlot=False,BV=True):
     """
     Plot some mAP  on ArtUK Paintings dataset with different model just to see
     if we can say someting
@@ -1166,7 +1220,10 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                     fig_i_m = fig_i
                 labelstr = constrNet 
                 if not(constrNet=='VGG'):
-                    labelstr += '_'+ numeral_layers_index(style_layers)
+                    if BV:
+                        labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                    else:
+                        labelstr += '_'+ numeral_layers_index(style_layers)
                 plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
                          marker=list_markers[fig_i_m],linestyle='')
                 fig_i += 1
@@ -1203,7 +1260,10 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                     fig_i_m = fig_i
                 labelstr = constrNet 
                 if not(constrNet=='VGG'):
-                    labelstr += '_'+ numeral_layers_index(style_layers)
+                    if BV:
+                        labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                    else:
+                        labelstr += '_'+ numeral_layers_index(style_layers)
                 plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
                          marker=list_markers[fig_i_m],linestyle='')
                 fig_i += 1
@@ -1227,7 +1287,7 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
 #        plt.close()
         
 def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=0,
-                              onlyPlot=Fals,cropCenter=True):
+                              onlyPlot=False,cropCenter=True,BV=True):
     """
     Plot some mAP  on ArtUK Paintings dataset with different model just to see
     if we can say someting
@@ -1285,7 +1345,6 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
         optimizer_tab = ['adam']
         opt_option_tab = [[0.1,10**(-3)]]
         return_best_model = True
-        # Really small learning rate 10**(-5)
     elif scenario==4:
         final_clf = 'MLP2'
         epochs = 20
@@ -1301,7 +1360,7 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
         # In WILDCAT we have lrp = 0.1, lp = 0.01 loss = MultiLabelSoftMarginLoss, Net = ResNet101
         # MultiLabelSoftMarginLoss seems to be the use of sigmoid on the outpur of the model and then the sum over classes of the binary cross entropy loss
     elif scenario==6:
-        # In Recognizing Characters in Art History Using Deep Learning  -  Madhu 2019
+        # In Recognizing Characters in Art History Using Deep Learning  -  Madhu 2019 ?
         raise(NotImplementedError)
 
 
@@ -1367,7 +1426,10 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                 for style_layers in style_layers_tab:
                     labelstr = constrNet 
                     if not(constrNet=='ResNet50' or constrNet=='ResNet50_BNRF'):
-                        labelstr += '_'+ getResNetLayersNumeral(style_layers)
+                        if BV:
+                            labelstr += '_'+ getResNetLayersNumeral_bitsVersion(style_layers)
+                        else:
+                            labelstr += '_'+ getResNetLayersNumeral(style_layers)
                     metrics = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                        constrNet,kind_method,style_layers,gridSearch=False,
                                        number_im_considered=number_im_considered,
@@ -1376,7 +1438,10 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                                        optimizer=optimizer,opt_option=opt_option,batch_size=batch_size\
                                        ,return_best_model=return_best_model,\
                                        forLatex=forLatex,cropCenter=cropCenter,\
-                                       momentum=0.9,batch_size_RF=16,epochs_RF=20)
+                                       momentum=0.9,batch_size_RF=16,epochs_RF=20,\
+                                       onlyReturnResult=onlyPlot)
+                    if metrics is None:
+                        continue
                     metricI_per_class = metrics[metricploted_index]
                     mMetric = np.mean(metricI_per_class)
                     if fig_i in color_number_for_frozen:
@@ -1401,7 +1466,10 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                                           epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
                                           final_clf='MLP2',forLatex=True,optimizer=optimizer,\
                                           style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
-                                          opt_option=opt_option,cropCenter=cropCenter)
+                                          opt_option=opt_option,cropCenter=cropCenter,\
+                                          onlyReturnResult=onlyPlot)
+                if metrics is None:
+                    continue
                 metricI_per_class = metrics[metricploted_index]
                 mMetric = np.mean(metricI_per_class)
                 if fig_i in color_number_for_frozen:
@@ -1412,11 +1480,17 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                     fig_i_c = fig_i
                     fig_i_m = fig_i
                 labelstr = constrNet 
-                if not(constrNet=='VGG'):
-                    if getResNetLayersNumeral(style_layers) == getResNetLayersNumeral(getBNlayersResNet50()):
-                        labelstr += '_all'
+                if not(constrNet=='VGG' or constrNet=='ResNet50'):
+                    if BV:
+                        if getResNetLayersNumeral_bitsVersion(style_layers) == getResNetLayersNumeral_bitsVersion(getBNlayersResNet50()):
+                            labelstr += '_all'
+                        else:
+                            labelstr += '_'+  getResNetLayersNumeral_bitsVersion(style_layers)
                     else:
-                        labelstr += '_'+  getResNetLayersNumeral(style_layers)
+                        if getResNetLayersNumeral(style_layers) == getResNetLayersNumeral(getBNlayersResNet50()):
+                            labelstr += '_all'
+                        else:
+                            labelstr += '_'+  getResNetLayersNumeral(style_layers)
                 plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
                          marker=list_markers[fig_i_m],linestyle='')
                 fig_i += 1
@@ -1603,6 +1677,21 @@ def Crowley_reproduction_results():
                    constrNet='ResNet50',kind_method='TL',gridSearch=True,ReDo=ReDo,\
                    transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True)
     
+    print('Same experiment with ResNet50 but a MLP3 with dropout etc')
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
+                   constrNet='ResNet50',kind_method='TL',gridSearch=True,ReDo=ReDo,\
+                   transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                   dropout=0.5,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-4)],\
+                   epochs=50)
+    
+    print('Same experiment with ResNet50 but a MLP3 with dropout decay etc')
+    # 68.8 AP sur Paintings
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
+                   constrNet='ResNet50',kind_method='TL',gridSearch=True,ReDo=ReDo,\
+                   transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[5*10**(-4)],\
+                   epochs=50,nesterov=True,SGDmomentum=0.99,decay=0.0005)
+    
     print('Same experiment with ResNet50 with a fine tuning of the whole model')
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
                    constrNet='ResNet50',kind_method='FT',gridSearch=True,ReDo=ReDo,\
@@ -1631,10 +1720,10 @@ if __name__ == '__main__':
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=4)
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=5)
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=5)
-    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=5)
-    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=5)
     PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=4)
     PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=4)
+    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=5)
+    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=5)
     PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=3)
     PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=3)
 #    PlotSomePerformanceVGG()
@@ -1693,13 +1782,13 @@ if __name__ == '__main__':
 #                        transformOnFinalLayer='GlobalAveragePooling2D',return_best_model=True)
 
 ## Test BN Refinement of ResNet50
-#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-#                        kind_method='TL',epochs=20,batch_size=16,\
-#                        optimizer='SGD',opt_option=[10**(-4)],\
-#                        constrNet='ResNet50_BNRF',momentum=0.9,batch_size_RF=16,\
-#                        style_layers=['bn_conv1'],verbose=True,epochs_RF=1,\
-#                        transformOnFinalLayer='GlobalAveragePooling2D',\
-#                        features='activation_48')
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                        kind_method='TL',epochs=20,batch_size=16,\
+                        optimizer='SGD',opt_option=[10**(-4)],\
+                        constrNet='ResNet50_BNRF',momentum=0.9,batch_size_RF=16,\
+                        style_layers=['bn_conv1'],verbose=True,epochs_RF=1,\
+                        transformOnFinalLayer='GlobalAveragePooling2D',\
+                        features='activation_48',cropCenter=True)
 #    Crowley_reproduction_results()
 ## Test BN Refinement Once on the Whole Dataset of ResNet50
 #    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
