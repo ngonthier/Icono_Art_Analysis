@@ -367,6 +367,79 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
   if verbose: print(model.summary())
   return model
 
+def vgg_suffleInStats(style_layers,num_of_classes=10,\
+              transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
+              weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
+              optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
+              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0):
+  """
+  VGG with a shuffling the mean and standard deviation of the features maps between
+  instance
+  In this case the statistics are shuffle the statistics of features maps at each layer concerned 
+  there is not sharing in the shuffling between layers
+  """
+  model = tf.keras.Sequential()
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
+  vgg_layers = vgg.layers
+  vgg.trainable = False
+  i = 0
+  
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+
+  lr_multiple = False
+  multipliers = {}
+  multiply_lrp, lr = None,None
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      multipliers = {}
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
+  else:
+      lr = 0.01
+  if optimizer=='SGD': 
+      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
+  elif optimizer=='adam': 
+      opt = partial(Adam,decay=decay)
+  else:
+      opt = optimizer
+  
+  otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
+  if not(transformOnFinalLayer in otherOutputPorposed):
+      print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
+      raise(NotImplementedError)
+      
+  for layer in vgg_layers:
+    name_layer = layer.name
+    if i < len(style_layers) and name_layer==style_layers[i]:
+      if getBeforeReLU:# remove the non linearity
+          layer.activation = activations.linear # i.e. identity
+      model.add(layer)
+      model.add(Shuffle_MeanAndVar())
+        
+      if getBeforeReLU: # add back the non linearity
+          model.add(Activation('relu'))
+      i += 1
+    else:
+      model.add(layer)
+    if layer.name==final_layer:
+      if not(final_layer in  ['fc2','fc1','flatten']):
+          if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+              model.add(GlobalMaxPooling2D()) 
+          elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+              model.add(GlobalAveragePooling2D())
+          elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+              model.add(Flatten())
+      break
+  
+  model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout)
+
+  if getBeforeReLU:# refresh the non linearity 
+      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
+  
+  if verbose: print(model.summary())
+  return model
+
 
 ### ResNet baseline
   
@@ -1284,6 +1357,36 @@ class Global_Prescrib_Mean_Std(Layer):
         config['mean_tgt'] = self.mean_tgt
         config['std_src'] = self.std_src
         config['std_tgt'] = self.std_tgt
+        config['epsilon'] = self.epsilon
+        return(config)
+        
+class Shuffle_MeanAndVar(Layer):
+
+    def __init__(self,epsilon = 0.00001, **kwargs):
+        self.epsilon = epsilon # Small float added to variance to avoid dividing by zero.
+        super(Shuffle_MeanAndVar, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(Shuffle_MeanAndVar, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
+        std = math_ops.sqrt(variance)
+        mean_and_std = tf.stack([mean,std])
+        rand_mean_and_std = tf.random.shuffle(mean_and_std) #  The tensor is shuffled along dimension 0, such that each value[j] is mapped to one and only one output[i]
+        new_mean = rand_mean_and_std[0,:]
+        new_std = rand_mean_and_std[1,:]
+        output =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
+        return K.in_train_phase(output,x)
+
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        return input_shape
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(Shuffle_MeanAndVar, self).get_config()
         config['epsilon'] = self.epsilon
         return(config)
         
