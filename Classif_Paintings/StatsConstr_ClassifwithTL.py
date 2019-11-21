@@ -17,7 +17,7 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     load_resize_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
     MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
     ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,ResNet_cut,vgg_suffleInStats,\
-    get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2n_features,get_VGGmodel_meanX_meanX2_features
+    get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,get_VGGmodel_meanX_meanX2_features
 from IMDB import get_database
 import pickle
 import pathlib
@@ -67,7 +67,8 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                                     style_layers,\
                                     list_mean_and_std_source,whatToload,saveformat='h5',\
                                     getBeforeReLU=False,target_set='trainval',applySqrtOnVar=True,\
-                                    Net='VGG',cropCenter=False,BV=True,cumulativeWay=False,verbose=False):
+                                    Net='VGG',cropCenter=False,BV=True,cumulativeWay=False,verbose=False,\
+                                    useFloat32=False):
     """
     The goal of this function is to compute a version of the statistics of the 
     features of the VGG or ResNet50
@@ -155,7 +156,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                                                                     set=target_set,getBeforeReLU=getBeforeReLU,\
                                                                     Net=Net,style_layers_imposed=[],\
                                                                     list_mean_and_std_source=None,list_mean_and_std_target=None,\
-                                                                    cropCenter=cropCenter)
+                                                                    cropCenter=cropCenter,useFloat32=useFloat32)
                     dict_stats_coherent[layer_name] = mean_and_std_layer
                     current_list_mean_and_std_target = [mean_and_std_layer]
                 else:
@@ -172,7 +173,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                                                                     Net=Net,style_layers_imposed=[],\
                                                                     list_mean_and_std_source=list_mean_and_std_source_i,\
                                                                     list_mean_and_std_target=current_list_mean_and_std_target,\
-                                                                    cropCenter=cropCenter)
+                                                                    cropCenter=cropCenter,useFloat32=useFloat32)
                     dict_stats_coherent[layer_name] = mean_and_std_layer
                     current_list_mean_and_std_target += [mean_and_std_layer]
             # Need to save the dict_stats_coherent 
@@ -191,7 +192,7 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
                    set='',getBeforeReLU=False,\
                    Net='VGG',style_layers_imposed=[],\
                    list_mean_and_std_source=[],list_mean_and_std_target=[],\
-                   cropCenter=False,dtype='float64'):
+                   cropCenter=False,useFloat32=True):
     """
     this function will directly compute mean and std of the features maps on the source_dataset
     in an efficient way without saving covariance matrices for the style_layers
@@ -203,7 +204,7 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
         net_get_SpatialMean_SpatialMeanOfSquare =  get_VGGmodel_meanX_meanX2_features(style_layers,getBeforeReLU=getBeforeReLU)
     elif Net=='VGGBaseNorm' or Net=='VGGBaseNormCoherent':
         style_layers_exported = style_layers
-        net_get_SpatialMean_SpatialMeanOfSquare = get_BaseNorm_meanX_meanX2n_features(style_layers_exported,\
+        net_get_SpatialMean_SpatialMeanOfSquare = get_BaseNorm_meanX_meanX2_features(style_layers_exported,\
                         style_layers_imposed,list_mean_and_std_source,list_mean_and_std_target,\
                         getBeforeReLU=getBeforeReLU)
     elif Net=='ResNet50_ROWD_CUMUL': # Base coherent here also but only update the batch normalisation
@@ -253,9 +254,9 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
                                                 use_multiprocessing=True,workers=3)
     predictions = net_get_SpatialMean_SpatialMeanOfSquare.predict_generator(test_generator)
     meanX,meanX2 = predictions
-    if dtype=='float64':
-        meanX.astype('float64')
-        meanX2.astype('float64')
+#    if dtype=='float64':
+#        meanX.astype('float64')
+#        meanX2.astype('float64')
 #    print(meanX.shape,meanX2.shape)
 #    print(meanX)
 #    print(meanX2)
@@ -272,9 +273,9 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
         print('varX negative index :',np.where(varX<0.0))
         raise(e)
     expectation_stdX = np.mean(np.sqrt(varX),axis=0)
-    if dtype=='float64':
-        expectation_meanX.astype('float32')
-        expectation_stdX.astype('float32')
+#    if dtype=='float64':
+#        expectation_meanX.astype('float32')
+#        expectation_stdX.astype('float32')
     return(expectation_meanX,expectation_stdX)
 
 def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
@@ -294,7 +295,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    onlyReturnResult=False,dbn_affine=True,m_per_group=16,
                                    momentum=0.9,batch_size_RF=32,epochs_RF=20,cropCenter=True,\
                                    BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
-                                   kind_of_shuffling='shuffle'):
+                                   kind_of_shuffling='shuffle',useFloat32=True):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -331,6 +332,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : SGDmomentum : SGD momentum in the gradient descent
     @param : decay : learning rate decay for MLP model
     @param : kind_of_shuffling=='shuffle' or 'roll'  for VGGshuffleInStats
+    @param : useFloat32 is the use of float32 for cumulated spatial mean of features and squared features
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -429,6 +431,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if not(kind_of_shuffling=='shuffle'):
             name_base += '_'+ kind_of_shuffling
    
+    if constrNet=='ResNet50_ROWD_CUMUL' and useFloat32:
+        name_base += '_useFloat32'
+    
     if cropCenter:   
         name_base += '_CropCenter'  
     name_base += '_' + kind_method   
@@ -572,7 +577,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                             style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
                             getBeforeReLU=getBeforeReLU,target_set=target_set,\
                             applySqrtOnVar=True,Net=constrNet,cropCenter=cropCenter,\
-                            BV=BV,cumulativeWay=True,verbose=verbose) # It also computes the reference statistics (mean,var)
+                            BV=BV,cumulativeWay=True,verbose=verbose,useFloat32=useFloat32) # It also computes the reference statistics (mean,var)
                     
                     network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
@@ -1939,15 +1944,16 @@ def testROWD_CUMUL():
     learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
                     kind_method='TL',ReDo=False,
                     constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
-                    style_layers=['bn_conv1'],verbose=True,features='activation_48')
-    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
-                    kind_method='TL',ReDo=False,
-                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
-                    style_layers=['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],verbose=True,features='activation_48')
-    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
-                    kind_method='TL',ReDo=False,
-                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
-                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48')
+                    style_layers=['bn_conv1'],verbose=True,features='activation_48',useFloat32=True)
+#    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
+#                    kind_method='TL',ReDo=False,
+#                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
+#                    style_layers=['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],\
+#                    verbose=True,features='activation_48',useFloat32=True)
+#    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
+#                    kind_method='TL',ReDo=False,
+#                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
+#                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48,useFloat32=True')
        
 # TODO :
 # Train the layer i and use it as initialization for training layer i+1 
@@ -1970,8 +1976,8 @@ if __name__ == '__main__':
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=4)
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',scenario=5)
 #    PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=5)
-    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=4)
-    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=4)
+#    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=4)
+#    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=4)
 #    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=5)
 #    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'IconArt_v1',scenario=5)
 #    PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=3)
@@ -2044,4 +2050,4 @@ if __name__ == '__main__':
 #                        kind_method='TL',ReDo=True,
 #                        constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
 #                        style_layers=['bn_conv1'],verbose=True,features='activation_48') # A finir
-#    testROWD_CUMUL()
+    testROWD_CUMUL()

@@ -659,6 +659,7 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
   @param : final_layer final layer provide for feature extraction
   @param : transformOnFinalLayer : on va modifier la derniere couche du réseau
   @param : getBeforeReLU if True we modify the features before the ReLU
+  TODO : find why this function fail first time run
   """
   
   if res_num_layers==50:
@@ -690,7 +691,7 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
 
           i += 1
 
-      if name_layer==final_layer:  
+      if name_layer==final_layer:
           x = layer.output
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
              x = GlobalMaxPooling2D()(x)
@@ -1057,7 +1058,7 @@ def get_ResNet_ROWD_gram_mean_features(style_layers_exported,style_layers_impose
   
 def get_ResNet_ROWD_meanX_meanX2_features(style_layers_exported,style_layers_imposed,\
                                     list_mean_and_std_target,transformOnFinalLayer=None,res_num_layers=50,
-                                    weights='imagenet'):
+                                    weights='imagenet',useFloat32=False):
   """Helper function to compute the Mean of feature and features square representations 
   from a modified resnet50. that have the features maps modified
   
@@ -1094,7 +1095,7 @@ def get_ResNet_ROWD_meanX_meanX2_features(style_layers_exported,style_layers_imp
               output = last_layer.output
           else: 
               output = pre_model.input
-          mean_and_meanOfSquared_layer = Mean_and_MeanSquare_Layer()(output)
+          mean_and_meanOfSquared_layer = Mean_and_MeanSquare_Layer(useFloat32=useFloat32)(output)
           list_stats += [mean_and_meanOfSquared_layer]
           i+= 1
       else:
@@ -1608,7 +1609,8 @@ class Four_Param_Layer(Layer):
     
 class Mean_and_MeanSquare_Layer(Layer):
 
-    def __init__(self, **kwargs):
+    def __init__(self,useFloat32=False, **kwargs):
+        self.useFloat32 = useFloat32
         super(Mean_and_MeanSquare_Layer, self).__init__(**kwargs)
 
     def build(self,input_shape):
@@ -1617,6 +1619,8 @@ class Mean_and_MeanSquare_Layer(Layer):
 
     def call(self, x):
         # x size bs,H,W,C
+        if self.useFloat32:
+            x = math_ops.cast(x, dtypes.float32) if x.dtype == dtypes.float16 else x
         mean_of_features = tf.reduce_mean(x,axis=[1,2],keepdims=False)
         mean_of_squared_features = tf.reduce_mean(tf.pow(x,2),axis=[1,2],keepdims=False)
         return(mean_of_features,mean_of_squared_features)
@@ -1625,6 +1629,11 @@ class Mean_and_MeanSquare_Layer(Layer):
         assert isinstance(input_shape, list)
         b,k1,k2,c = input_shape
         return (2,b,c)
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(Mean_and_MeanSquare_Layer, self).get_config()
+        config['useFloat32'] = self.useFloat32
+        return(config)
     
 class Cov_Matrix_Layer(Layer):
 
@@ -1706,7 +1715,7 @@ def get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=False):
       model = utils_keras.apply_modifications(model,custom_objects=custom_objects,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
   return(model)
   
-def get_VGGmodel_meanX_meanX2_features(style_layers,getBeforeReLU=False):
+def get_VGGmodel_meanX_meanX2_features(style_layers,getBeforeReLU=False,useFloat32=False):
   """Helper function to compute the mean of feature and mean of squared features representations 
   from vgg.
   
@@ -1741,7 +1750,7 @@ def get_VGGmodel_meanX_meanX2_features(style_layers,getBeforeReLU=False):
           model.add(layer)
             
           output = model.output
-          mean_and_meanSquared_layer = Mean_and_MeanSquare_Layer()(output)
+          mean_and_meanSquared_layer = Mean_and_MeanSquare_Layer(useFloat32=useFloat32)(output)
           list_stats += [mean_and_meanSquared_layer]
           
           if getBeforeReLU:
@@ -1812,8 +1821,8 @@ def get_VGGmodel_4Param_features(style_layers,getBeforeReLU=False):
       model = utils_keras.apply_modifications(model,custom_objects=custom_objects,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
   return(model)
 
-def get_BaseNorm_meanX_meanX2n_features(style_layers_exported,style_layers_imposed,list_mean_and_std_source,\
-                                    list_mean_and_std_target,getBeforeReLU=False):
+def get_BaseNorm_meanX_meanX2_features(style_layers_exported,style_layers_imposed,list_mean_and_std_source,\
+                                    list_mean_and_std_target,getBeforeReLU=False,useFloat32=False):
   """Helper function to compute the mean of feature and squared features representations 
   from a modified VGG that have the features maps modified
   
@@ -1852,7 +1861,7 @@ def get_BaseNorm_meanX_meanX2n_features(style_layers_exported,style_layers_impos
           model.add(layer)
             
           output = model.output
-          mean_and_meanSquared_layer = Mean_and_MeanSquare_Layer()(output)
+          mean_and_meanSquared_layer = Mean_and_MeanSquare_Layer(useFloat32=useFloat32)(output)
           list_stats += [mean_and_meanSquared_layer]
           
           if getBeforeReLU:
