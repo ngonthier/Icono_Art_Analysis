@@ -320,10 +320,10 @@ def Precompute_4Param(filename_path,style_layers,number_im_considered,\
             if saveformat=='h5':
                 grp = store.create_group(short_name)
                 for l,layer in enumerate(style_layers):
-                    mean = net_params[2*l]
-                    var = net_params[2*l+1]
-                    skew = net_params[2*l+2]
-                    kurt = net_params[2*l+3]
+                    mean = net_params[4*l]
+                    var = net_params[4*l+1]
+                    skew = net_params[4*l+2]
+                    kurt = net_params[4*l+3]
                     var_str = layer + '_var'
                     mean_str = layer + '_mean'
                     skew_str = layer + '_skew'
@@ -337,10 +337,10 @@ def Precompute_4Param(filename_path,style_layers,number_im_considered,\
                 
             for l,layer in enumerate(style_layers):
                 # car batch size == 1
-                mean = net_params[2*l][0,:]
-                var = net_params[2*l+1][0,:]
-                skew = net_params[2*l+2][0,:]
-                kurt = net_params[2*l+3][0,:]
+                mean = net_params[4*l][0,:]
+                var = net_params[4*l+1][0,:]
+                skew = net_params[4*l+2][0,:]
+                kurt = net_params[4*l+3][0,:]
                 # Here we only get a tensor we need to run the session !!! 
                 if whatToload=='var':
                     dict_var[layer] += [var]
@@ -935,7 +935,7 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
         colors = colors_full[0:len(dataset_tab)]
         
         for l,layer in enumerate(style_layers):
-            print("Layer",layer)
+            print("Layer",layer,"pour bar plot")
             tab_vars = []
             for dataset in dataset_tab: 
                 vars_ = dict_of_dict[dataset][layer]
@@ -960,14 +960,18 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
                     std_of_stats = []
                     for l in range(len(dataset_tab)):
                         vars_values = tab_vars[l][:,f_k].reshape((-1,))
-                        mean_of_stats += np.mean(vars_values)
-                        std_of_stats += np.std(vars_values)
-                        xtab += [vars_values]
+                        mean_of_stats += [np.mean(vars_values)]
+                        std_of_stats += [np.std(vars_values)]
+                        #xtab += [vars_values]
+#                    print(mean_of_stats)
+#                    print(std_of_stats)
                     im = ax.bar(x_pos, mean_of_stats, yerr=std_of_stats, align='center', 
                                 alpha=alpha, ecolor='black',capsize=10,color=colors,label=labels)
+                    ax.set_xticks(x_pos)
+                    ax.set_xticklabels(labels)
                     ax.tick_params(axis='both', which='major', labelsize=3)
                     ax.tick_params(axis='both', which='minor', labelsize=3)
-                    ax.legend(loc='upper right', prop={'size': 2})
+                    #ax.legend(loc='upper right', prop={'size': 2})
                 titre = layer +' ' +str(p)
                 plt.suptitle(titre)
                 
@@ -986,13 +990,13 @@ if __name__ == '__main__':
 #                        getBeforeReLU=True,printoutput=['Mean','Var'])
 #    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
 #                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet'],
-#                        getBeforeReLU=True,printoutput=['Mean','Var'])
-    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
-                        dataset_tab= ['ImageNet'],
-                        getBeforeReLU=True,printoutput=['Mean','Var'])
-#    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+##                        getBeforeReLU=True,printoutput=['Mean','Var'])
+#    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
 #                        dataset_tab= ['ImageNet'],
-#                        getBeforeReLU=True,printoutput=['Mean','Var','Skewness','Kurtosis'])
+#                        getBeforeReLU=True,printoutput=['Mean','Var'])
+    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =2,
+                        dataset_tab= ['ImageNet','ImageNetTest'],
+                        getBeforeReLU=True,printoutput=['Mean','Var','Skewness','Kurtosis'])
     #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     
