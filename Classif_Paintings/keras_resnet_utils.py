@@ -194,6 +194,8 @@ def getResNet50layersName():
     return(liste)
     
 def getBNlayersResNet50():
+    """ Il y en a 53
+    """
     liste=['bn_conv1',
      'bn2a_branch2a',
      'bn2a_branch2b',
@@ -264,6 +266,10 @@ def getResNetLayersNumeral(style_layers,num_layers=50):
     return(string)
     
 def getResNetLayersNumeral_bitsVersion(style_layers,num_layers=50):
+    """
+    Return a shorter version for the layer index : maybe not the best way to do because
+    if only bn_conv1 layer, we have a very big number because it is 001000000000000000000 full of 0 converted to base 10
+    """
     if num_layers==50:
         keras_resnet_layers = getResNet50layersName()
     else:

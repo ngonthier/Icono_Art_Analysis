@@ -29,7 +29,7 @@ import tensorflow as tf
 from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
     load_resize_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\
-    get_ResNet_ROWD_gram_mean_features
+    get_ResNet_ROWD_gram_mean_features,get_VGGmodel_4Param_features
 from keras_resnet_utils import getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion
 from preprocess_crop import load_and_crop_img
 
@@ -184,8 +184,8 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             try:
                 #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
                 if cropCenter:
-                    image_array= load_and_crop_img(path=image_path,Net=Net,target_smallest_size=256,
-                                            crop_size=224,interpolation='nearest:crop')
+                    image_array= load_and_crop_img(path=image_path,Net=Net,target_smallest_size=224,
+                                            crop_size=224,interpolation='lanczos:center')
                           # For VGG or ResNet size == 224
                 else:
                     image_array = load_resize_and_process_img(image_path,Net=Net)
@@ -222,6 +222,137 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                     dict_var[layer] += [[cov,mean]]
                 elif whatToload=='varmean':
                     dict_var[layer] += [[np.diag(cov),mean]]
+        else:
+            continue
+    for l,layer in enumerate(style_layers):
+        stacked = np.stack(dict_var[layer]) 
+        dict_var[layer] = stacked
+    
+    # Save data
+    if saveformat=='pkl':
+        with open(filename_path, 'wb') as handle:
+            pickle.dump(dict_output, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    if saveformat=='h5':
+        store.close()
+    return(dict_var)
+    
+def Precompute_4Param(filename_path,style_layers,number_im_considered,\
+                        dataset='ImageNet',set='',saveformat='h5',whatToload='var',\
+                        getBeforeReLU=False,Net='VGG',style_layers_imposed=[],\
+                        list_mean_and_std_source=[],list_mean_and_std_target=[],cropCenter=False):
+    """
+    In this function we precompute the mean and cov for certain dataset
+    @param : whatToload mention what you want to load by default only return variances
+    """
+    if not(whatToload in ['var','kurt','mean','skew','all','']):
+        print(whatToload,'is not known')
+        raise(NotImplementedError)
+    
+    if saveformat=='h5':
+        # Create a storage file where data is to be stored
+        store = h5py.File(filename_path, 'a')
+    print('We will compute features')
+    list_imgs,images_in_set,number_im_list = get_list_im(dataset,set=set)
+    
+    # 6000 images pour IconArt
+    # Un peu moins de 8700 images pour ArtUK
+    # On devrait faire un test à 10000 
+    if not(number_im_considered is None):
+        if number_im_considered >= 10:
+            if not(np.isinf(number_im_considered)):
+                itera = number_im_considered//10
+            else:
+                itera =1000
+        else:
+            itera=1
+    else:
+        itera=1000
+    print('Number of images :',number_im_list)
+    if not(number_im_considered is None):
+        if number_im_considered >= number_im_list:
+            number_im_considered =None
+    dict_output = {}
+    dict_var = {}
+    
+    if Net=='VGG':
+        net_get_params =  get_VGGmodel_4Param_features(style_layers,getBeforeReLU=getBeforeReLU)
+#    elif Net=='VGGBaseNorm' or Net=='VGGBaseNormCoherent':
+#        style_layers_exported = style_layers
+#        net_get_params = get_BaseNorm_gram_mean_features(style_layers_exported,\
+#                        style_layers_imposed,list_mean_and_std_source,list_mean_and_std_target,\
+#                        getBeforeReLU=getBeforeReLU)
+#    elif Net=='ResNet50_ROWD': # Base coherent here also but only update the batch normalisation
+#        style_layers_exported = style_layers
+#        net_get_params = get_ResNet_ROWD_gram_mean_features(style_layers_exported,style_layers_imposed,\
+#                                    list_mean_and_std_target,transformOnFinalLayer=None,
+#                                    res_num_layers=50,weights='imagenet')
+    else:
+        print(Net,'is inknown')
+        raise(NotImplementedError)
+    
+    for l,layer in enumerate(style_layers):
+        dict_var[layer] = []
+    for i,image_path in enumerate(list_imgs):
+        if number_im_considered is None or i < number_im_considered:
+            if i%itera==0: print(i,image_path)
+            head, tail = os.path.split(image_path)
+            short_name = '.'.join(tail.split('.')[0:-1])
+            if not(set is None or set==''):
+                if not(short_name in images_in_set):
+                    # The image is not in the set considered
+                    continue
+            # Get the covairances matrixes and the means
+            try:
+                #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
+                if cropCenter:
+                    image_array= load_and_crop_img(path=image_path,Net=Net,target_smallest_size=224,
+                                            crop_size=224,interpolation='lanczos:center')
+                          # For VGG or ResNet size == 224
+                else:
+                    image_array = load_resize_and_process_img(image_path,Net=Net)
+                net_params = net_get_params.predict(image_array, batch_size=1)
+            except IndexError as e:
+                print(e)
+                print(i,image_path)
+                raise(e)
+            
+            if saveformat=='h5':
+                grp = store.create_group(short_name)
+                for l,layer in enumerate(style_layers):
+                    mean = net_params[2*l]
+                    var = net_params[2*l+1]
+                    skew = net_params[2*l+2]
+                    kurt = net_params[2*l+3]
+                    var_str = layer + '_var'
+                    mean_str = layer + '_mean'
+                    skew_str = layer + '_skew'
+                    kurt_str = layer + '_kurt'
+                    grp.create_dataset(mean_str,data=mean) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                    grp.create_dataset(var_str,data=var) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                    grp.create_dataset(skew_str,data=skew) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                    grp.create_dataset(kurt_str,data=kurt) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+            elif saveformat=='pkl':
+                dict_output[short_name] = net_params
+                
+            for l,layer in enumerate(style_layers):
+                # car batch size == 1
+                mean = net_params[2*l][0,:]
+                var = net_params[2*l+1][0,:]
+                skew = net_params[2*l+2][0,:]
+                kurt = net_params[2*l+3][0,:]
+                # Here we only get a tensor we need to run the session !!! 
+                if whatToload=='var':
+                    dict_var[layer] += [var]
+                elif whatToload=='mean':
+                    dict_var[layer] += [mean]
+                elif whatToload=='skew':
+                    dict_var[layer] += [skew]
+                elif whatToload=='kurt':
+                    dict_var[layer] += [kurt]
+                elif whatToload=='mean':
+                    dict_var[layer] += [mean]
+                elif whatToload in ['','all']:
+                    dict_var[layer] += [[mean,var,skew,kurt]]
         else:
             continue
     for l,layer in enumerate(style_layers):
@@ -298,6 +429,75 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
             dict_var[layer] = stacked
         store.close()
     return(dict_var)
+    
+def load_precomputed_4Param(filename_path,style_layers,dataset,saveformat='h5',
+                              whatToload='var'):
+    """
+    @param : whatToload mention what you want to load by default only return variances
+    """
+    
+    if not(whatToload in ['var','kurt','mean','skew','all','']):
+        print(whatToload,'is not known')
+        raise(NotImplementedError)
+    dict_var = {}
+    for l,layer in enumerate(style_layers):
+        dict_var[layer] = []
+    if saveformat=='pkl':
+        with open(filename_path, 'rb') as handle:
+           dict_output = pickle.load(handle)
+        for elt in dict_output.keys():
+           net_params =  dict_output[elt]
+           for l,layer in enumerate(style_layers):
+                [mean,var,skew,kurt] = net_params[l]
+                mean = mean[0,:]
+                var = var[0,:]
+                skew = skew[0,:]
+                kurt = kurt[0,:]
+                if whatToload=='var':
+                    dict_var[layer] += [var]
+                elif whatToload=='mean':
+                    dict_var[layer] += [mean]
+                elif whatToload=='skew':
+                    dict_var[layer] += [skew]
+                elif whatToload=='kurt':
+                    dict_var[layer] += [kurt]
+                elif whatToload in ['','all']:
+                    dict_var[layer] += [[mean,var,skew,kurt]]
+
+        for l,layer in enumerate(style_layers):
+            stacked = np.stack(dict_var[layer]) 
+            dict_var[layer] = stacked
+            
+    if saveformat=='h5':
+        store = h5py.File(filename_path, 'r')
+        for elt in store.keys():
+            net_params = store[elt]
+            for l,layer in enumerate(style_layers):
+                var_str = layer + '_var'
+                mean_str = layer + '_mean'
+                skew_str = layer + '_skew'
+                kurt_str = layer + '_kurt'
+                mean = net_params[mean_str]
+                var = net_params[var_str]
+                skew = net_params[skew_str]
+                kurt = net_params[kurt_str]
+                if whatToload=='var':
+                    dict_var[layer] += [var]
+                elif whatToload=='mean':
+                    dict_var[layer] += [mean]
+                elif whatToload=='skew':
+                    dict_var[layer] += [skew]
+                elif whatToload=='kurt':
+                    dict_var[layer] += [kurt]
+                elif whatToload=='mean':
+                    dict_var[layer] += [mean]
+                elif whatToload in ['','all']:
+                    dict_var[layer] += [[mean,var,skew,kurt]]
+        for l,layer in enumerate(style_layers):
+            stacked = np.stack(dict_var[layer]) 
+            dict_var[layer] = stacked
+        store.close()
+    return(dict_var)
 
 def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    whatToload,saveformat='h5',set='',getBeforeReLU=False,\
@@ -357,12 +557,13 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
         dict_stats = load_precomputed_mean_cov(filename_path,style_layers,source_dataset,\
                                             saveformat=saveformat,whatToload=whatToload)
     return(dict_stats)
+    
 
-def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None
+def VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None
                         ,getBeforeReLU=False,printoutput='Var',cropCenter=False,BV=False):
     """
-    In this function we will compute the first or second moments for two subsets
-    a small part of ImageNet validation set 
+    In this function we will compute the first or second moments of VGG net
+    for different subsets such as a small part of ImageNet validation set 
     Paintings datasets
     @param : saveformat use h5 if you use more than 1000 images
     @param :number_im_considered number of image considered in the computation 
@@ -524,21 +725,196 @@ def Mom_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_ta
                 plt.close()
         pp.close()
         plt.clf()
+        
+        
+def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None
+                        ,getBeforeReLU=False,printoutput='Var',cropCenter=False,BV=False):
+    """
+    In this function we will compute the first or second moments of VGG net
+    for different subsets such as a small part of ImageNet validation set 
+    Paintings datasets
+    @param : saveformat use h5 if you use more than 1000 images
+    @param :number_im_considered number of image considered in the computation 
+        if == np.inf we will use all the image in the folder of the dataset
+    @param : printoutput : print in a pdf the output Var or Mean
+    """
+    if not(printoutput in ['Var','Mean','Skewness','Kurtosis',['Mean','Var','Skewness','Kurtosis']]):
+        print(printoutput,"is unknown. It must be 'Var' or 'Mean' or this of those two terms.")
+        raise(NotImplementedError)
+    if type(printoutput)==list:
+        list_printoutput = printoutput
+    else:
+        list_printoutput = [printoutput]
+
+    if dataset_tab is None:
+        dataset_tab = ['ImageNet','Paintings','watercolor','IconArt_v1','OIV5']
+    output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','4Param')
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+
+
+    style_layers = ['block1_conv1',
+                'block2_conv1',
+                'block3_conv1', 
+                'block4_conv1', 
+                'block5_conv1'
+               ]
+
+#    num_style_layers = len(style_layers)
+    # Load the VGG model
+#    vgg_inter =  get_intermediate_layers_vgg(style_layers) 
+    
+    set = None
+    
+    
+    
+    dict_of_dict = {}
+#    config = tf.ConfigProto()
+#    config.gpu_options.allow_growth = True
+#    vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers)
+#    sess = tf.Session(config=config)
+#    sess.run(tf.global_variables_initializer())
+#    sess.run(tf.local_variables_initializer())
+    for printoutput in list_printoutput:
+        if printoutput=='Var':
+            whatToload= 'var'
+        elif printoutput=='Mean':
+            whatToload= 'mean' 
+        elif printoutput=='Skewness':
+            whatToload= 'skew' 
+        elif printoutput=='Kurtosis':
+            whatToload= 'kurt' 
+        for dataset in dataset_tab:
+            print('===',dataset,'===')
+            list_imgs,images_in_set,number_im_list = get_list_im(dataset,set='')
+            if not(number_im_considered is None):
+                if number_im_considered >= number_im_list:
+                    number_im_considered_tmp =None
+                else:
+                    number_im_considered_tmp=number_im_considered
+            if BV:
+                str_layers = numeral_layers_index_bitsVersion(style_layers)
+            else:
+                str_layers = numeral_layers_index(style_layers)
+            filename = dataset + '_' + str(number_im_considered_tmp) + '_4Param'+\
+                '_'+str_layers
+            if not(set=='' or set is None):
+                filename += '_'+set
+            if getBeforeReLU:
+                filename += '_BeforeReLU'
+            if saveformat=='pkl':
+                filename += '.pkl'
+            if saveformat=='h5':
+                filename += '.h5'
+            filename_path= os.path.join(output_path,filename)
+            
+            if not os.path.isfile(filename_path):
+                dict_var = Precompute_4Param(filename_path,style_layers,number_im_considered_tmp,\
+                                               dataset=dataset,set=set,saveformat=saveformat,
+                                               whatToload=whatToload,getBeforeReLU=getBeforeReLU,cropCenter=cropCenter)
+                dict_of_dict[dataset] = dict_var
+            else:
+                print('We will load the features ')
+                dict_var =load_precomputed_4Param(filename_path,style_layers,dataset,
+                                                    saveformat=saveformat,whatToload=whatToload)
+                dict_of_dict[dataset] = dict_var
+    
+    
+        print('Start plotting ',printoutput)
+        # Plot the histograms (one per kernel for the different layers and save all in a pdf file)
+        pltname = 'Hist_of_'+printoutput+'_fm_'
+        labels = []
+        for dataset in dataset_tab:
+            pltname +=  dataset+'_'
+            if dataset == 'ImageNet':
+                labels += ['ImNet']
+            if dataset == 'ImageNetTest':
+                labels += ['ImNetTest']
+            if dataset == 'ImageNetTrain':
+                labels += ['ImNetTrain']
+            elif dataset == 'Paintings':
+                labels += ['ArtUK']
+            elif dataset == 'watercolor':
+                labels += ['w2k']
+            elif dataset == 'IconArt_v1':
+                labels += ['icon']
+            elif dataset == 'OIV5':
+                labels += ['OIV5']
+        pltname +=  str(number_im_considered)
+        if getBeforeReLU:
+            pltname+= '_BeforeReLU'
+            
+        pltname +='.pdf'
+        pltname= os.path.join(output_path,pltname)
+        pp = PdfPages(pltname)
+        
+        alpha=0.7
+        n_bins = 100
+        colors_full = ['red','green','blue','purple','orange','pink']
+        colors = colors_full[0:len(dataset_tab)]
+        
+    #    style_layers = [style_layers[0]]
+        
+        # Turn interactive plotting off
+        plt.ioff()
+        
+        for l,layer in enumerate(style_layers):
+            print("Layer",layer)
+            tab_vars = []
+            for dataset in dataset_tab: 
+                vars_ = dict_of_dict[dataset][layer]
+                num_images,num_features = vars_.shape
+                print('num_images,num_features ',num_images,num_features )
+                tab_vars +=[vars_]
+     
+            number_img_w = 4
+            number_img_h= 4
+            num_pages = num_features//(number_img_w*number_img_h)
+            for p in range(num_pages):
+                #f = plt.figure()  # Do I need this ?
+                axes = []
+                gs00 = gridspec.GridSpec(number_img_h, number_img_w)
+                for j in range(number_img_w*number_img_h):
+                    ax = plt.subplot(gs00[j])
+                    axes += [ax]
+                for k,ax in enumerate(axes):
+                    f_k = k + p*number_img_w*number_img_h
+                    xtab = []
+                    for l in range(len(dataset_tab)):
+    #                    x = np.vstack([tab_vars[0][:,f_k],tab_vars[1][:,f_k]])# Each line is a dataset 
+    #                    x = x.reshape((-1,2))
+                        vars_values = tab_vars[l][:,f_k].reshape((-1,))
+                        xtab += [vars_values]
+                    im = ax.hist(xtab,n_bins, density=True, histtype='step',color=colors,\
+                                 stacked=False,alpha=alpha,label=labels)
+                    ax.tick_params(axis='both', which='major', labelsize=3)
+                    ax.tick_params(axis='both', which='minor', labelsize=3)
+                    ax.legend(loc='upper right', prop={'size': 2})
+                titre = layer +' ' +str(p)
+                plt.suptitle(titre)
+                
+                #gs0.tight_layout(f)
+                plt.savefig(pp, format='pdf')
+                plt.close()
+        pp.close()
+        plt.clf()
     
 if __name__ == '__main__':         
-    #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
-    #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
-    #Mom_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
-#    Mom_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+    #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
+    #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
+    #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+#    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
 #                        dataset_tab= ['ImageNet','Paintings','watercolor','IconArt_v1'],
 #                        getBeforeReLU=True,printoutput=['Mean','Var'])
-    Mom_of_featuresMaps(saveformat='h5',number_im_considered =10000,
-                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet'],
-                        getBeforeReLU=True,printoutput=['Mean','Var'])
-    Mom_of_featuresMaps(saveformat='h5',number_im_considered =10000,
-                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet'],
-                        getBeforeReLU=False,printoutput=['Mean','Var'])
-    #Mom_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
+#    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+#                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet'],
+#                        getBeforeReLU=True,printoutput=['Mean','Var'])
+#    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+#                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet'],
+#                        getBeforeReLU=False,printoutput=['Mean','Var'])
+    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+                        dataset_tab= ['ImageNet'],
+                        getBeforeReLU=True,printoutput=['Mean','Var','Skewness','Kurtosis'])
+    #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     
         

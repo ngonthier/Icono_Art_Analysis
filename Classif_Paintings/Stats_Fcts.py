@@ -22,14 +22,15 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.layers import Layer,GlobalMaxPooling2D,GlobalAveragePooling2D
 from tensorflow.python.keras.layers import concatenate
 from tensorflow.python.keras.backend import expand_dims
-from tensorflow.python.ops import math_ops
 from tensorflow.python.keras.applications.imagenet_utils import decode_predictions
 from tensorflow.keras.optimizers import SGD,Adam
+from tensorflow.python.ops import math_ops,array_ops
+from tensorflow import dtypes
 
 #from custom_pooling import GlobalMinPooling2D
 from lr_multiplier import LearningRateMultiplier
 from common.layers import DecorrelatedBN
-from keras_resnet_utils import getBNlayersResNet50
+from keras_resnet_utils import getBNlayersResNet50,getResNet50layersName
 
 # Others libraries
 import numpy as np
@@ -371,13 +372,14 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
               transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
               weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
-              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0):
+              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle'):
   """
   VGG with a shuffling the mean and standard deviation of the features maps between
   instance
   In this case the statistics are shuffle the statistics of features maps at each layer concerned 
   there is not sharing in the shuffling between layers
   """
+  # TODO : faire une multiplication par du bruit des statistics
   model = tf.keras.Sequential()
   vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
   vgg_layers = vgg.layers
@@ -415,7 +417,10 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
       if getBeforeReLU:# remove the non linearity
           layer.activation = activations.linear # i.e. identity
       model.add(layer)
-      model.add(Shuffle_MeanAndVar())
+      if kind_of_shuffling=='shuffle':
+          model.add(Shuffle_MeanAndVar())
+      if kind_of_shuffling=='roll':
+          model.add(Roll_MeanAndVar())
         
       if getBeforeReLU: # add back the non linearity
           model.add(Activation('relu'))
@@ -647,7 +652,7 @@ def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMa
 def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_and_std_target,\
                                                          final_layer,\
                                    transformOnFinalLayer=None,res_num_layers=50,\
-                                   weights='imagenet'):
+                                   weights='imagenet',verbose=True):
   """
   VGG with an Instance normalisation : we impose the mean and std of reference 
   instance per instance
@@ -657,43 +662,36 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
   """
   
   if res_num_layers==50:
-      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=True, weights=weights,\
                                                           input_shape= (224, 224, 3))
 #      number_of_trainable_layers = 106
   else:
       print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
       raise(NotImplementedError)
-  
-#  lr_multiple = False
-#  if len(opt_option)==2:
-#      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
-#      multipliers = {}
-#      lr_multiple = True
-#  elif len(opt_option)==1:
-#      lr = opt_option[-1]
-#  else:
-#      lr = 0.01
-#  if optimizer=='SGD': 
-#      opt = SGD
-#  elif optimizer=='adam': 
-#      opt = Adam
-#  else:
-#      opt = optimizer
+      
+  if not(final_layer in getResNet50layersName()):
+      print(final_layer,'is not in ResNet')
+      raise(NotImplementedError)
+  if not(transformOnFinalLayer in [None,'','GlobalMaxPooling2D','GlobalAveragePooling2D']):
+      print(transformOnFinalLayer,'is unknwon')
+      raise(NotImplementedError)
       
   i = 0
   sess = K.get_session()
   for layer in pre_model.layers:
       name_layer = layer.name
       if i < len(style_layers) and name_layer==style_layers[i]:
+          
           mean_src = list_mean_and_std_target[i][0] 
           std_src = list_mean_and_std_target[i][1] 
           # replace the statictics used for normalisation in the batch normalisation
           sess.run(layer.moving_mean.assign(mean_src))
           sess.run(layer.moving_variance.assign(std_src**2))
+
           i += 1
 
       if name_layer==final_layer:  
-          x = pre_model.output
+          x = layer.output
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
              x = GlobalMaxPooling2D()(x)
           elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
@@ -1057,6 +1055,58 @@ def get_ResNet_ROWD_gram_mean_features(style_layers_exported,style_layers_impose
   model.trainable = False
   return(model)
   
+def get_ResNet_ROWD_meanX_meanX2_features(style_layers_exported,style_layers_imposed,\
+                                    list_mean_and_std_target,transformOnFinalLayer=None,res_num_layers=50,
+                                    weights='imagenet'):
+  """Helper function to compute the Mean of feature and features square representations 
+  from a modified resnet50. that have the features maps modified
+  
+  The gram matrices are computed 
+
+  This function will simply load and preprocess the images from their path. 
+  Then it will feed them through the network to obtain
+  the outputs of the intermediate layers. 
+  
+  Arguments:
+    model: The model that we are using.
+    img_path: The path to the image.
+    
+  Returns:
+    returns the model that return the features ! 
+  """
+  
+  pre_model = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers=style_layers_imposed,\
+                                   list_mean_and_std_target=list_mean_and_std_target,\
+                                   final_layer=style_layers_exported[-1],\
+                                   transformOnFinalLayer=transformOnFinalLayer,res_num_layers=res_num_layers,\
+                                   weights=weights)
+  pre_model.trainable = False
+
+  # Get output layers corresponding to style and content layers 
+  list_stats = []
+  i = 0
+  last_layer = None
+  for layer in pre_model.layers:
+      name_layer = layer.name
+      #print(name_layer)
+      if name_layer==style_layers_exported[i]:
+          if not(last_layer is None):
+              output = last_layer.output
+          else: 
+              output = pre_model.input
+          mean_and_meanOfSquared_layer = Mean_and_MeanSquare_Layer()(output)
+          list_stats += [mean_and_meanOfSquared_layer]
+          i+= 1
+      else:
+          last_layer = layer
+      
+      if i==len(style_layers_exported): # No need to compute further
+          break
+  
+  model = models.Model(pre_model.input,list_stats)
+  model.trainable = False
+  return(model)
+  
 ### Preprocessing functions 
 
 def load_resize(path_to_img,max_dim = 224):
@@ -1360,6 +1410,38 @@ class Global_Prescrib_Mean_Std(Layer):
         config['epsilon'] = self.epsilon
         return(config)
         
+class Roll_MeanAndVar(Layer):
+    """
+    In this case we only roll the mean and variance the the other element of the 
+    batch
+    """
+
+    def __init__(self,epsilon = 0.00001, **kwargs):
+        self.epsilon = epsilon # Small float added to variance to avoid dividing by zero.
+        super(Roll_MeanAndVar, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(Roll_MeanAndVar, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
+        std = math_ops.sqrt(variance)
+        new_mean= tf.roll(mean,shift=1,axis=0)
+        new_std= tf.roll(std,shift=1,axis=0)
+        output =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
+        return K.in_train_phase(output,x)
+
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        return input_shape
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(Roll_MeanAndVar, self).get_config()
+        config['epsilon'] = self.epsilon
+        return(config)
+        
 class Shuffle_MeanAndVar(Layer):
 
     def __init__(self,epsilon = 0.00001, **kwargs):
@@ -1470,6 +1552,80 @@ class Mean_Matrix_Layer(Layer):
         b,k1,k2,c = input_shape
         return (b,1,1,c)
     
+class Four_Param_Layer(Layer):
+    """
+    This layer return the 4 first parameters of each of the feature of a features maps
+    mean, variance, skewness and kurtosis
+    """
+
+    def __init__(self, **kwargs):
+        super(Four_Param_Layer, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(Four_Param_Layer, self).build(input_shape)  
+        # Be sure to call this at the end
+    
+    def call(self, x):
+        # x size bs,H,W,C
+        axes=[1,2]
+        # The dynamic range of fp16 is too limited to support the collection of
+        # sufficient statistics. As a workaround we simply perform the operations
+        # on 32-bit floats before converting the mean and variance back to fp16
+        y = math_ops.cast(x, dtypes.float32) if x.dtype == dtypes.float16 else x
+        # Compute true mean while keeping the dims for proper broadcasting.
+        mean = math_ops.reduce_mean(y, axes, keepdims=True, name="mean")
+        # sample variance, not unbiased variance
+        # Note: stop_gradient does not change the gradient that gets
+        #       backpropagated to the mean from the variance calculation,
+        #       because that gradient is zero
+        variance = math_ops.reduce_mean(
+            math_ops.squared_difference(y, array_ops.stop_gradient(mean)),
+            axes,
+            keepdims=True,
+            name="variance")
+        std = math_ops.sqrt(variance,name='std')
+        y_centered = array_ops.stop_gradient(y - mean)
+        y_centered_norm = array_ops.stop_gradient(math_ops.divide(y_centered,std))
+        skewness = math_ops.reduce_mean(math_ops.pow(y_centered_norm,3),axes,keepdims=True,name='skewness')
+        kurtosis = math_ops.reduce_mean(math_ops.pow(y_centered_norm,4),axes,keepdims=True,name='kurtosis')
+
+        mean = array_ops.squeeze(mean, axes)
+        variance = array_ops.squeeze(variance, axes)
+        skewness = array_ops.squeeze(skewness, axes)
+        kurtosis = array_ops.squeeze(kurtosis, axes)
+        if x.dtype == dtypes.float16:
+          return (math_ops.cast(mean, dtypes.float16),
+                  math_ops.cast(variance, dtypes.float16),
+                  math_ops.cast(skewness, dtypes.float16),
+                  math_ops.cast(kurtosis, dtypes.float16))
+        else:
+          return (mean, variance, skewness, kurtosis)
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        b,k1,k2,c = input_shape
+        return (4,b,c)
+    
+class Mean_and_MeanSquare_Layer(Layer):
+
+    def __init__(self, **kwargs):
+        super(Mean_and_MeanSquare_Layer, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(Mean_and_MeanSquare_Layer, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        # x size bs,H,W,C
+        mean_of_features = tf.reduce_mean(x,axis=[1,2],keepdims=False)
+        mean_of_squared_features = tf.reduce_mean(tf.pow(x,2),axis=[1,2],keepdims=False)
+        return(mean_of_features,mean_of_squared_features)
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        b,k1,k2,c = input_shape
+        return (2,b,c)
+    
 class Cov_Matrix_Layer(Layer):
 
     def __init__(self, **kwargs):
@@ -1500,7 +1656,7 @@ def get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=False):
   The gram matrices are computed 
 
   This function will simply load and preprocess the images from their path. 
-  Then it will feed them through the network to obtain
+  Then it will feed them through the network to obtain the mean and gram matrix of 
   the outputs of the intermediate layers. 
   
   Arguments:
@@ -1549,7 +1705,171 @@ def get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=False):
   if getBeforeReLU:
       model = utils_keras.apply_modifications(model,custom_objects=custom_objects,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
   return(model)
+  
+def get_VGGmodel_meanX_meanX2_features(style_layers,getBeforeReLU=False):
+  """Helper function to compute the mean of feature and mean of squared features representations 
+  from vgg.
+  
+  This function will simply load and preprocess the images from their path. 
+  Then it will feed them through the network to obtain the mean of 
+  the outputs of the intermediate layers and the mean of the square of it
+  
+  Arguments:
+    model: The model that we are using.
+    img_path: The path to the image.
+    
+  Returns:
+    returns the keras model that return the features . 
+  """
+  model = tf.keras.Sequential()
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
+  vgg.trainable = False
+  vgg_layers = vgg.layers
+  # Get output layers corresponding to style and content layers 
+  list_stats = []
+  i = 0
+  
+  if getBeforeReLU: 
+      custom_objects = {}
+      custom_objects['Mean_and_MeanSquare_Layer']= Mean_and_MeanSquare_Layer
+  
+  for layer in vgg_layers:
+      name_layer = layer.name
+      if name_layer==style_layers[i]:
+          if getBeforeReLU:
+              layer.activation = activations.linear # i.e. identity
+          model.add(layer)
+            
+          output = model.output
+          mean_and_meanSquared_layer = Mean_and_MeanSquare_Layer()(output)
+          list_stats += [mean_and_meanSquared_layer]
+          
+          if getBeforeReLU:
+              model.add(Activation('relu'))
+          
+          i+= 1
+          if i==len(style_layers): # No need to compute further
+              break
+      else:
+         model.add(layer)
+  
+  model = models.Model(model.input,list_stats)
+  model.trainable = False
+  if getBeforeReLU:
+      model = utils_keras.apply_modifications(model,custom_objects=custom_objects,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
+  return(model)
+  
+def get_VGGmodel_4Param_features(style_layers,getBeforeReLU=False):
+  """Helper function to compute the mean of feature and mean of squared features representations 
+  from vgg.
+  
+  This function will simply load and preprocess the images from their path. 
+  Then it will feed them through the network to obtain the mean, variance, 
+  skewness and kurtosis of the outputs of the intermediate layers. 
+  
+  Arguments:
+    model: The model that we are using.
+    img_path: The path to the image.
+    
+  Returns:
+    returns the keras model that return the features . 
+  """
+  model = tf.keras.Sequential()
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
+  vgg.trainable = False
+  vgg_layers = vgg.layers
+  # Get output layers corresponding to style and content layers 
+  list_stats = []
+  i = 0
+  
+  if getBeforeReLU: 
+      custom_objects = {}
+      custom_objects['Four_Param_Layer']= Four_Param_Layer
+  
+  for layer in vgg_layers:
+      name_layer = layer.name
+      if name_layer==style_layers[i]:
+          if getBeforeReLU:
+              layer.activation = activations.linear # i.e. identity
+          model.add(layer)
+            
+          output = model.output
+          mean_and_meanSquared_layer = Four_Param_Layer()(output)
+          list_stats += [mean_and_meanSquared_layer]
+          
+          if getBeforeReLU:
+              model.add(Activation('relu'))
+          
+          i+= 1
+          if i==len(style_layers): # No need to compute further
+              break
+      else:
+         model.add(layer)
+  
+  model = models.Model(model.input,list_stats)
+  model.trainable = False
+  if getBeforeReLU:
+      model = utils_keras.apply_modifications(model,custom_objects=custom_objects,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
+  return(model)
 
+def get_BaseNorm_meanX_meanX2n_features(style_layers_exported,style_layers_imposed,list_mean_and_std_source,\
+                                    list_mean_and_std_target,getBeforeReLU=False):
+  """Helper function to compute the mean of feature and squared features representations 
+  from a modified VGG that have the features maps modified
+  
+
+  This function will simply load and preprocess the images from their path. 
+  Then it will feed them through the network to obtain
+  the outputs of the intermediate layers. 
+  
+  Arguments:
+    model: The model that we are using.
+    img_path: The path to the image.
+    
+  Returns:
+    returns the model that return the features !
+  """
+  model = tf.keras.Sequential()
+  VGGBaseNorm = vgg_BaseNorm(style_layers_imposed,list_mean_and_std_source,\
+                                   list_mean_and_std_target,final_layer='fc2',
+                                   getBeforeReLU=getBeforeReLU)
+  VGGBaseNorm.trainable = False
+  vgg_layers = VGGBaseNorm.layers
+  # Get output layers corresponding to style and content layers 
+  list_stats = []
+  i = 0
+  
+  if getBeforeReLU: 
+      custom_objects = {}
+      custom_objects['Mean_and_MeanSquare_Layer']= Mean_and_MeanSquare_Layer
+      custom_objects['Global_Prescrib_Mean_Std']= Global_Prescrib_Mean_Std
+  
+  for layer in vgg_layers:
+      name_layer = layer.name
+      if name_layer==style_layers_exported[i]:
+          if getBeforeReLU:
+              layer.activation = activations.linear # i.e. identity
+          model.add(layer)
+            
+          output = model.output
+          mean_and_meanSquared_layer = Mean_and_MeanSquare_Layer()(output)
+          list_stats += [mean_and_meanSquared_layer]
+          
+          if getBeforeReLU:
+              model.add(Activation('relu'))
+          
+          i+= 1
+          if i==len(style_layers_exported): # No need to compute further
+              break
+      else:
+         model.add(layer)
+  
+  model = models.Model(model.input,list_stats)
+  model.trainable = False
+  if getBeforeReLU:
+      model = utils_keras.apply_modifications(model,custom_objects=custom_objects,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
+  return(model)
+  
 def get_BaseNorm_gram_mean_features(style_layers_exported,style_layers_imposed,list_mean_and_std_source,\
                                     list_mean_and_std_target,getBeforeReLU=False):
   """Helper function to compute the Gram matrix and mean of feature representations 
