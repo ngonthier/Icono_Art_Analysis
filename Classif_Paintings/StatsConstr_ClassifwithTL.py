@@ -17,7 +17,8 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     load_resize_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
     MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
     ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,ResNet_cut,vgg_suffleInStats,\
-    get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,get_VGGmodel_meanX_meanX2_features
+    get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,\
+    get_VGGmodel_meanX_meanX2_features
 from IMDB import get_database
 import pickle
 import pathlib
@@ -43,6 +44,10 @@ from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getRes
     fit_generator_ForRefineParameters
 
 from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
+
+from functools import partial
+from sklearn.metrics import average_precision_score,make_scorer
+from sklearn.model_selection import GridSearchCV
 
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
@@ -285,11 +290,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     'block3_conv1', 
                                     'block4_conv1', 
                                     'block5_conv1'
-                                   ],normalisation=False,gridSearch=True,ReDo=False,\
+                                   ],normalisation=False,gridSearch=False,ReDo=False,\
                                    transformOnFinalLayer='',number_im_considered = 1000,\
                                    set='',getBeforeReLU=False,forLatex=False,epochs=20,\
                                    pretrainingModif=True,weights='imagenet',opt_option=[0.01],\
-                                   optimizer='adam',freezingType='FromTop',verbose=False,\
+                                   optimizer='SGD',freezingType='FromTop',verbose=False,\
                                    plotConv=False,batch_size=32,regulOnNewLayer=None,\
                                    regulOnNewLayerParam=[],return_best_model=False,\
                                    onlyReturnResult=False,dbn_affine=True,m_per_group=16,
@@ -646,8 +651,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             AP_file += '_BestOnVal'
         if normalisation:
             AP_file +=  '_Norm' 
-            if gridSearch:
-                AP_file += '_GS'
+        if gridSearch:
+            AP_file += '_GS'
         if not(regulOnNewLayer is None):
            AP_file += '_'+regulOnNewLayer
            if len(regulOnNewLayerParam)>0:
@@ -779,20 +784,38 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 dico_pred = PredictOnTestSet(X_test,dico_clf,clf=final_clf)
                 metrics = evaluationScoreDict(y_test,dico_pred)
             elif final_clf in ['MLP2','MLP1','MLP3']:
-                if final_clf=='MLP2':
-                    model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
-                                      regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                      nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
-                if final_clf=='MLP3':
-                    model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,num_layers=3,\
-                                      regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                      nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
-                elif final_clf=='MLP1':
-                    model = Perceptron_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
-                                            regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                            nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
-                
-                model = TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,\
+                if gridSearch:
+                    if final_clf=='MLP2':
+                        builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,\
+                                          regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
+                                          nesterov=nesterov,decay=decay)
+                    if final_clf=='MLP3':
+                        builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,num_layers=3,\
+                                          regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
+                                          nesterov=nesterov,decay=decay)
+                    elif final_clf=='MLP1':
+                        builder_model = partial(Perceptron_model,num_of_classes=num_classes,optimizer=optimizer,\
+                                                regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
+                                                nesterov=nesterov,decay=decay)
+                        
+                    model = TrainMLPwithGridSearch(builder_model,Xtrainval,ytrainval,batch_size,epochs)
+                    
+                else:
+                    
+                    if final_clf=='MLP2':
+                        model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
+                                          regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
+                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                    if final_clf=='MLP3':
+                        model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,num_layers=3,\
+                                          regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
+                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                    elif final_clf=='MLP1':
+                        model = Perceptron_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
+                                                regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
+                                                nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                    
+                    model = TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,\
                                  verbose=verbose,plotConv=plotConv,return_best_model=return_best_model)
                 predictions = model.predict(X_test, batch_size=1)
                 metrics = evaluationScore(y_test,predictions)  
@@ -1076,6 +1099,8 @@ def plotKerasHistory(history):
 def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
              plotConv=False,return_best_model=False):
     
+    
+    
     callbacks = []
     if return_best_model:
         tmp_model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
@@ -1100,6 +1125,25 @@ def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
                             shuffle=True,callbacks=callbacks)
         plotKerasHistory(history)
         
+    return(model)
+    
+def TrainMLPwithGridSearch(builder_model,X,Y,batch_size,epochs):
+    """
+    Train the MLP with a grid search on learning rate and momentum
+    """
+    print('Train MLP with Grid search')
+    learn_rate = [0.0001,0.001, 0.01, 0.1, 0.2, 0.3]
+    momentum = [0.0, 0.2, 0.4, 0.6, 0.8, 0.9]
+    # TODO faire un test avec momentum pour le SGD mais pas pour adam
+    param_grid = dict(lr=learn_rate, SGDmomentum=momentum)
+    print(param_grid)
+    print(builder_model)
+
+    w_model = tf.keras.wrappers.scikit_learn.KerasClassifier(build_fn=builder_model, epochs=epochs, 
+                                                             batch_size=batch_size,verbose=0)
+    grid = GridSearchCV(estimator=w_model, param_grid=param_grid, n_jobs=-1, cv=3,
+                        refit=True,scoring =make_scorer(average_precision_score,needs_threshold=True))
+    model = grid.fit(X, Y)
     return(model)
     
 def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=False):
@@ -1746,8 +1790,7 @@ def RunEval_MLP_onConvBlock():
                                      kind_method='TL',epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
                                      optimizer=optimizer,opt_option=opt_option,final_clf='MLP2')
     
-def RunAllEvaluation(dataset='Paintings',forLatex=False):
-    target_dataset='Paintings'
+def RunAllEvaluation(target_dataset='Paintings',forLatex=False):
     source_dataset = 'ImageNet'
     ## Run the baseline
     
@@ -1816,6 +1859,81 @@ def RunAllEvaluation(dataset='Paintings',forLatex=False):
                                        normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
                                        transformOnFinalLayer=transformOnFinalLayer,\
                                        forLatex=forLatex)
+                            
+def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
+    """
+    Le but de cette fonction est de faire les calculs avec les differentes methodes 
+    et voir ce que cela donne
+    """
+    source_dataset = 'ImageNet'
+    gridSearch = True # For LinearSVC
+    normalisation = False
+    kind_method = 'TL'
+    
+    final_clf_list = ['LinearSVC','MLP2'] # LinearSVC but also MLP : pas encore fini
+    final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
+    
+    for target_dataset in ['Paintings','IconArt_v1']:
+        for final_clf in final_clf_list: 
+        
+            # VGG case 
+            for features,transformOnFinalLayer in zip(['fc2','block5_pool','block5_pool'],['','GlobalMaxPooling2D','GlobalAveragePooling2D']):
+                
+                # Baseline Case
+                constrNet = 'VGG'
+                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                               constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
+                
+                # Statistics model
+                net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
+                style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                             ['block1_conv1','block2_conv1'],['block1_conv1']]
+                style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                             ['block1_conv1','block2_conv1']]
+                number_im_considered = 10000
+                getBeforeReLU = True
+    
+                for constrNet in net_tab:
+                    if constrNet=='VGGBaseNormCoherent':
+                        style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
+                    else:
+                        style_layers_tab = style_layers_tab_forOther
+                        for style_layers in style_layers_tab:
+                            if not(forLatex): print('=== getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,'features',features,'number_im_considered',number_im_considered,'style_layers',style_layers)
+                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
+                                   number_im_considered=number_im_considered,\
+                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+                                   forLatex=forLatex)
+                
+                
+            
+            
+            # ResNet50 case
+            for features,transformOnFinalLayer in zip(['activation_48','activation_48'],['GlobalMaxPooling2D','GlobalAveragePooling2D']):
+                
+                # Baseline Case
+                constrNet = 'ResNet50'
+                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                               constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
+                # Statistics model
+                constrNet = 'ResNet50_BNRF'
+                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                               constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                               batch_size_RF=16,epochs_RF=20,momentum=0.9)
+                
+                style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
+                                             getBNlayersResNet50()]
+                
+                constrNet = 'ResNet50_ROWD_CUMUL'
+                for style_layers in style_layers_tab_forResNet50_ROWD:
+                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                               constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
+                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
+             
  
 def TrucBizarre(target_dataset='Paintings'):
     # Ces deux manieres de faire devrait retourner les memes performances et ce n'est pas le cas....
@@ -2044,10 +2162,18 @@ if __name__ == '__main__':
 #                        style_layers=['bn_conv1'],verbose=True,epochs_RF=20,\
 #                        transformOnFinalLayer='GlobalAveragePooling2D',\
 #                        features='activation_48',cropCenter=True)
+## Test MLP2 with gridsearch
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                        kind_method='TL',
+#                        constrNet='ResNet50',batch_size=16,\
+#                        style_layers=[],verbose=True,epochs=20,\
+#                        transformOnFinalLayer='GlobalAveragePooling2D',\
+#                        features='activation_48',cropCenter=True,gridSearch=True)
 #    Crowley_reproduction_results()
 ## Test BN Refinement Once on the Whole Dataset of ResNet50
 #    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
 #                        kind_method='TL',ReDo=True,
 #                        constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
 #                        style_layers=['bn_conv1'],verbose=True,features='activation_48') # A finir
-    testROWD_CUMUL()
+#    testROWD_CUMUL()
+    RunAllEvaluation_ForFeatureExtractionModel()

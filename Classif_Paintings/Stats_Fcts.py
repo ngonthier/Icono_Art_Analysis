@@ -43,7 +43,7 @@ from functools import partial
 #import functools
 
 ### Multi Layer perceptron
-def MLP_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False,num_layers=2,\
+def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers=2,\
               regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,\
               nesterov=False,SGDmomentum=0.9,decay=0.0):
   """ Return a MLP model ready to fit
@@ -72,7 +72,7 @@ def MLP_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False,num_layer
   return(model)
   
 ### one Layer perceptron
-def Perceptron_model(num_of_classes=10,optimizer='adam',lr=0.01,verbose=False,\
+def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
                      regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,\
                      nesterov=False,SGDmomentum=0.9,decay=0.0):
     
