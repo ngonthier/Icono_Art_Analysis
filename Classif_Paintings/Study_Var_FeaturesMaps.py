@@ -19,6 +19,7 @@ import pickle
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib
 import pathlib
 #from pandas import HDFStore
 #import pandas as pd
@@ -349,8 +350,6 @@ def Precompute_4Param(filename_path,style_layers,number_im_considered,\
                     dict_var[layer] += [skew]
                 elif whatToload=='kurt':
                     dict_var[layer] += [kurt]
-                elif whatToload=='mean':
-                    dict_var[layer] += [mean]
                 elif whatToload in ['','all']:
                     dict_var[layer] += [[mean,var,skew,kurt]]
         else:
@@ -453,6 +452,7 @@ def load_precomputed_4Param(filename_path,style_layers,dataset,saveformat='h5',
                 var = var[0,:]
                 skew = skew[0,:]
                 kurt = kurt[0,:]
+                
                 if whatToload=='var':
                     dict_var[layer] += [var]
                 elif whatToload=='mean':
@@ -494,7 +494,7 @@ def load_precomputed_4Param(filename_path,style_layers,dataset,saveformat='h5',
                 elif whatToload in ['','all']:
                     dict_var[layer] += [[mean,var,skew,kurt]]
         for l,layer in enumerate(style_layers):
-            stacked = np.stack(dict_var[layer]) 
+            stacked = np.vstack(dict_var[layer]) 
             dict_var[layer] = stacked
         store.close()
     return(dict_var)
@@ -657,7 +657,8 @@ def VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
                 labels += ['ImNet']
             if dataset == 'ImageNetTest':
                 labels += ['ImNetTest']
-            if dataset == 'ImageNetTrain':
+            if dataset == 'ImageNetTrain': # Warning in this case the images are ordered 
+                # So we have a semantic bias
                 labels += ['ImNetTrain']
             elif dataset == 'Paintings':
                 labels += ['ArtUK']
@@ -738,9 +739,7 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
         if == np.inf we will use all the image in the folder of the dataset
     @param : printoutput : print in a pdf the output Var or Mean
     """
-    if not(printoutput in ['Var','Mean','Skewness','Kurtosis',['Mean','Var','Skewness','Kurtosis']]):
-        print(printoutput,"is unknown. It must be 'Var' or 'Mean' or this of those two terms.")
-        raise(NotImplementedError)
+    matplotlib.use('Agg') # For not display image normally : need to be tested
     if type(printoutput)==list:
         list_printoutput = printoutput
     else:
@@ -783,6 +782,9 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
             whatToload= 'skew' 
         elif printoutput=='Kurtosis':
             whatToload= 'kurt' 
+        else:
+            print(printoutput,'is unkwnon')
+            raise(NotImplementedError)
         for dataset in dataset_tab:
             print('===',dataset,'===')
             list_imgs,images_in_set,number_im_list = get_list_im(dataset,set='')
@@ -830,7 +832,8 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
             if dataset == 'ImageNetTest':
                 labels += ['ImNetTest']
             if dataset == 'ImageNetTrain':
-                labels += ['ImNetTrain']
+                labels += ['ImNetTrain']# Warning in this case the images are ordered 
+                # So we have a semantic bias
             elif dataset == 'Paintings':
                 labels += ['ArtUK']
             elif dataset == 'watercolor':
@@ -897,6 +900,82 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
                 plt.close()
         pp.close()
         plt.clf()
+        
+        # Plot Error bar
+        pltname = 'ErrorBar_of_'+printoutput+'_fm_'
+        labels = []
+        for dataset in dataset_tab:
+            pltname +=  dataset+'_'
+            if dataset == 'ImageNet':
+                labels += ['ImNet']
+            if dataset == 'ImageNetTest':
+                labels += ['ImNetTest']
+            if dataset == 'ImageNetTrain':
+                labels += ['ImNetTrain']# Warning in this case the images are ordered 
+                # So we have a semantic bias
+            elif dataset == 'Paintings':
+                labels += ['ArtUK']
+            elif dataset == 'watercolor':
+                labels += ['w2k']
+            elif dataset == 'IconArt_v1':
+                labels += ['icon']
+            elif dataset == 'OIV5':
+                labels += ['OIV5']
+        pltname +=  str(number_im_considered)
+        if getBeforeReLU:
+            pltname+= '_BeforeReLU'
+            
+        pltname +='.pdf'
+        pltname= os.path.join(output_path,pltname)
+        pp = PdfPages(pltname)
+        
+        alpha=0.7
+        n_bins = 100
+        colors_full = ['red','green','blue','purple','orange','pink']
+        colors = colors_full[0:len(dataset_tab)]
+        
+        for l,layer in enumerate(style_layers):
+            print("Layer",layer)
+            tab_vars = []
+            for dataset in dataset_tab: 
+                vars_ = dict_of_dict[dataset][layer]
+                num_images,num_features = vars_.shape
+                print('num_images,num_features ',num_images,num_features )
+                tab_vars +=[vars_]
+     
+            x_pos = np.arange(len(dataset_tab))
+            number_img_w = 4
+            number_img_h= 4
+            num_pages = num_features//(number_img_w*number_img_h)
+            for p in range(num_pages):
+                #f = plt.figure()  # Do I need this ?
+                axes = []
+                gs00 = gridspec.GridSpec(number_img_h, number_img_w)
+                for j in range(number_img_w*number_img_h):
+                    ax = plt.subplot(gs00[j])
+                    axes += [ax]
+                for k,ax in enumerate(axes):
+                    f_k = k + p*number_img_w*number_img_h
+                    mean_of_stats = []
+                    std_of_stats = []
+                    for l in range(len(dataset_tab)):
+                        vars_values = tab_vars[l][:,f_k].reshape((-1,))
+                        mean_of_stats += np.mean(vars_values)
+                        std_of_stats += np.std(vars_values)
+                        xtab += [vars_values]
+                    im = ax.bar(x_pos, mean_of_stats, yerr=std_of_stats, align='center', 
+                                alpha=alpha, ecolor='black',capsize=10,color=colors,label=labels)
+                    ax.tick_params(axis='both', which='major', labelsize=3)
+                    ax.tick_params(axis='both', which='minor', labelsize=3)
+                    ax.legend(loc='upper right', prop={'size': 2})
+                titre = layer +' ' +str(p)
+                plt.suptitle(titre)
+                
+                #gs0.tight_layout(f)
+                plt.savefig(pp, format='pdf')
+                plt.close()
+        pp.close()
+        plt.clf()
     
 if __name__ == '__main__':         
     #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
@@ -908,12 +987,12 @@ if __name__ == '__main__':
 #    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
 #                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet'],
 #                        getBeforeReLU=True,printoutput=['Mean','Var'])
-#    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
-#                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet'],
-#                        getBeforeReLU=False,printoutput=['Mean','Var'])
-    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
                         dataset_tab= ['ImageNet'],
-                        getBeforeReLU=True,printoutput=['Mean','Var','Skewness','Kurtosis'])
+                        getBeforeReLU=True,printoutput=['Mean','Var'])
+#    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+#                        dataset_tab= ['ImageNet'],
+#                        getBeforeReLU=True,printoutput=['Mean','Var','Skewness','Kurtosis'])
     #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     
