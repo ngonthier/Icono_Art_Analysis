@@ -629,6 +629,8 @@ def VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
                 filename += '_'+set
             if getBeforeReLU:
                 filename += '_BeforeReLU'
+            if cropCenter:
+                filename += '_cropCenter'
             if saveformat=='pkl':
                 filename += '.pkl'
             if saveformat=='h5':
@@ -671,7 +673,8 @@ def VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
         pltname +=  str(number_im_considered)
         if getBeforeReLU:
             pltname+= '_BeforeReLU'
-            
+        if cropCenter:
+            pltname += '_cropCenter'   
         pltname +='.pdf'
         pltname= os.path.join(output_path,pltname)
         pp = PdfPages(pltname)
@@ -803,6 +806,8 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
                 filename += '_'+set
             if getBeforeReLU:
                 filename += '_BeforeReLU'
+            if cropCenter:
+                filename +=  '_cropCenter' 
             if saveformat=='pkl':
                 filename += '.pkl'
             if saveformat=='h5':
@@ -845,6 +850,8 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
         pltname +=  str(number_im_considered)
         if getBeforeReLU:
             pltname+= '_BeforeReLU'
+        if cropCenter:
+            pltname += '_cropCenter'
             
         pltname +='.pdf'
         pltname= os.path.join(output_path,pltname)
@@ -924,6 +931,8 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
         pltname +=  str(number_im_considered)
         if getBeforeReLU:
             pltname+= '_BeforeReLU'
+        if cropCenter:
+            pltname += '_cropCenter'
             
         pltname +='.pdf'
         pltname= os.path.join(output_path,pltname)
@@ -966,11 +975,12 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
 #                    print(mean_of_stats)
 #                    print(std_of_stats)
                     im = ax.bar(x_pos, mean_of_stats, yerr=std_of_stats, align='center', 
-                                alpha=alpha, ecolor='black',capsize=10,color=colors,label=labels)
+                                alpha=alpha, ecolor='black',capsize=3,color=colors,label=labels)
                     ax.set_xticks(x_pos)
                     ax.set_xticklabels(labels)
                     ax.tick_params(axis='both', which='major', labelsize=3)
                     ax.tick_params(axis='both', which='minor', labelsize=3)
+                    ax.yaxis.grid(True)
                     #ax.legend(loc='upper right', prop={'size': 2})
                 titre = layer +' ' +str(p)
                 plt.suptitle(titre)
@@ -994,9 +1004,12 @@ if __name__ == '__main__':
 #    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
 #                        dataset_tab= ['ImageNet'],
 #                        getBeforeReLU=True,printoutput=['Mean','Var'])
-    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =2,
-                        dataset_tab= ['ImageNet','ImageNetTest'],
+    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet','Paintings','watercolor','IconArt_v1'],
                         getBeforeReLU=True,printoutput=['Mean','Var','Skewness','Kurtosis'])
+    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet','Paintings','watercolor','IconArt_v1'],
+                        getBeforeReLU=True,printoutput=['Mean','Var','Skewness','Kurtosis'],cropCenter =True)
     #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     
