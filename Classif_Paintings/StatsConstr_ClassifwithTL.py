@@ -18,7 +18,7 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
     ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,ResNet_cut,vgg_suffleInStats,\
     get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,\
-    get_VGGmodel_meanX_meanX2_features
+    get_VGGmodel_meanX_meanX2_features,add_head_and_trainable
 from IMDB import get_database
 import pickle
 import pathlib
@@ -48,6 +48,7 @@ from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerato
 from functools import partial
 from sklearn.metrics import average_precision_score,make_scorer
 from sklearn.model_selection import GridSearchCV
+
 
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
@@ -394,9 +395,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             if dbn_affine:
                 name_base += '_Affine'
                 
-    if kind_method=='TL':
-        if constrNet=='ResNet50_BNRF': # BN Refinement
-            name_base += '_m'+str(momentum)+'_bsRF'+str(batch_size_RF)+'_ep'+str(epochs_RF)
+    if constrNet=='ResNet50_BNRF': # BN Refinement
+        name_base += '_m'+str(momentum)+'_bsRF'+str(batch_size_RF)+'_ep'+str(epochs_RF)
             
     if not(set=='' or set is None):
         name_base += '_'+set
@@ -598,8 +598,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     weights=weights,res_num_layers=res_num_layers,\
                                     transformOnFinalLayer=transformOnFinalLayer,\
                                     kind_method=kind_method,\
-                                    batch_size=batch_size_RF,momentum=momentum,
-                                    num_epochs_BN=epochs_RF,output_path=output_path)
+                                    batch_size=batch_size_RF,momentum=momentum,\
+                                    num_epochs_BN=epochs_RF,output_path=output_path,\
+                                    cropCenter=cropCenter)
 
                 else:
                     print(constrNet,'is unknown')
@@ -630,6 +631,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 with open(name_pkl_im, 'wb') as pkl:
                     pickle.dump(im_net,pkl)
             else: # Load the precomputed data
+                print('We will load the precomputed bottleneck deep features :',name_pkl_values)
                 with open(name_pkl_values, 'rb') as pkl:
                     features_net = pickle.load(pkl)
                 
@@ -647,28 +649,29 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             AP_file += '_'+str(epochs)+batch_size_str+'_'+optimizer
             lr = opt_option[-1]
             AP_file += '_lr' +str(lr) 
-        if return_best_model:
-            AP_file += '_BestOnVal'
+            if return_best_model:
+                AP_file += '_BestOnVal'
         if normalisation:
             AP_file +=  '_Norm' 
         if gridSearch:
             AP_file += '_GS'
-        if not(regulOnNewLayer is None):
-           AP_file += '_'+regulOnNewLayer
-           if len(regulOnNewLayerParam)>0:
-               if regulOnNewLayer=='l1' or  regulOnNewLayer=='l1':
-                   AP_file += '_'+  regulOnNewLayerParam[0]
-               elif regulOnNewLayer=='l1_l2':
-                   AP_file += '_'+  regulOnNewLayerParam[0]+'_'+ regulOnNewLayerParam[1]
-        if not(dropout is None):
-             AP_file += '_dropout'+str(dropout)
-        if optimizer=='SGD':
-            if nesterov:
-                AP_file += '_nes'
-            if not(SGDmomentum==0.0):
-                AP_file += '_sgdm'+str(SGDmomentum)
-        if not(decay==0.0):
-            AP_file += '_dec'+str(decay)
+        if final_clf in ['MLP2','MLP1','MLP3']:
+            if not(regulOnNewLayer is None):
+               AP_file += '_'+regulOnNewLayer
+               if len(regulOnNewLayerParam)>0:
+                   if regulOnNewLayer=='l1' or  regulOnNewLayer=='l1':
+                       AP_file += '_'+  regulOnNewLayerParam[0]
+                   elif regulOnNewLayer=='l1_l2':
+                       AP_file += '_'+  regulOnNewLayerParam[0]+'_'+ regulOnNewLayerParam[1]
+            if not(dropout is None):
+                 AP_file += '_dropout'+str(dropout)
+            if optimizer=='SGD':
+                if nesterov:
+                    AP_file += '_nes'
+                if not(SGDmomentum==0.0):
+                    AP_file += '_sgdm'+str(SGDmomentum)
+            if not(decay==0.0):
+                AP_file += '_dec'+str(decay)
     elif kind_method=='FT':
        AP_file += '_'+str(epochs)+batch_size_str
        if not(optimizer=='adam'):
@@ -868,7 +871,47 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 getBeforeReLU = False
                 model = ResNet_AdaIn(style_layers,num_of_classes=num_classes,\
                                            transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
-                                           res_num_layers=50,final_clf=final_clf,verbose=verbose,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                                           res_num_layers=50,final_clf=final_clf,verbose=verbose,
+                                           dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                
+            elif constrNet=='ResNet50_ROWD_CUMUL':
+                # Refinement the batch normalisation : normalisation statistics
+                # Once on the Whole train val Dataset on new dataset
+                # In a cumulative way to be more efficient
+                # Il faudrait peut etre mieux gerer les cas ou la variances est négatives
+                list_mean_and_std_source = None
+                target_number_im_considered = None
+                whatToload = 'varmean'
+                target_set = 'trainval'
+                dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(
+                        target_dataset,source_dataset,target_number_im_considered,\
+                        style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
+                        getBeforeReLU=getBeforeReLU,target_set=target_set,\
+                        applySqrtOnVar=True,Net=constrNet,cropCenter=cropCenter,\
+                        BV=BV,cumulativeWay=True,verbose=verbose,useFloat32=useFloat32) # It also computes the reference statistics (mean,var)
+                
+                network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
+                               style_layers,list_mean_and_std_target=list_mean_and_std_target,\
+                               final_layer=features,\
+                               transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
+                               weights='imagenet')
+                model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
+                             final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                    
+            elif constrNet=='ResNet50_BNRF':
+                res_num_layers = 50
+                network_features_extraction= get_ResNet_BNRefin(df=df_label,\
+                                x_col=item_name,path_im=path_to_img,\
+                                str_val=str_val,num_of_classes=len(classes),Net=constrNet,\
+                                weights=weights,res_num_layers=res_num_layers,\
+                                transformOnFinalLayer=transformOnFinalLayer,\
+                                kind_method=kind_method,\
+                                batch_size=batch_size_RF,momentum=momentum,\
+                                num_epochs_BN=epochs_RF,output_path=output_path,\
+                                cropCenter=cropCenter)
+                model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
+                             final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                
                 
             else:
                 print(constrNet,'is unkwon in the context of TL')
@@ -933,7 +976,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
 
 def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                        weights,res_num_layers,transformOnFinalLayer,kind_method,\
-                       batch_size=32,momentum=0.9,num_epochs_BN=5,output_path=''):
+                       batch_size=32,momentum=0.9,num_epochs_BN=5,output_path='',cropCenter=False):
     """
     This function refine the normalisation statistics of the batch normalisation 
     with an exponential moving average
@@ -958,11 +1001,15 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
         model.load_weights(model_file_name_path)
     else:
         print('We will refine the normalisation parameters')
-        if 'ResNet50' in Net:
-            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        
+        if cropCenter:
+            preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
         else:
-            print(Net,'is unknwon')
-            raise(NotImplementedError)
+            if 'ResNet50' in Net:
+                preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+            else:
+                print(Net,'is unknwon')
+                raise(NotImplementedError)
     
         df_train = df[df['set']=='train']
         df_val = df[df['set']==str_val]
@@ -1017,7 +1064,6 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         df_train, df_val = train_test_split(df_train, test_size=test_size)
         
     if cropCenter:
-        from functools import partial
         preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
     else:
         if Net=='VGG' or Net=='VGGAdaIn' or Net=='VGGAdaDBN':
@@ -1863,7 +1909,127 @@ def RunAllEvaluation(target_dataset='Paintings',forLatex=False):
 def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     """
     Le but de cette fonction est de faire les calculs avec les differentes methodes 
-    et voir ce que cela donne
+    et voir ce que cela donne dans le cadre de l'extraction de features
+    """
+    source_dataset = 'ImageNet'
+    gridSearch = True # For LinearSVC
+    normalisation = False
+    kind_method = 'TL'
+    
+    final_clf_list = ['LinearSVC','MLP2'] # LinearSVC but also MLP : pas encore fini
+    #final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
+    
+    dataset_tab = ['Paintings','IconArt_v1']
+    #dataset_tab = ['Paintings']
+    
+    for target_dataset in dataset_tab:
+        for final_clf,gridSearch in zip(final_clf_list,[True,False]): 
+        
+            # VGG case 
+            for features,transformOnFinalLayer in zip(['fc2','block5_pool','block5_pool'],['','GlobalMaxPooling2D','GlobalAveragePooling2D']):
+                
+                # Baseline Case
+                constrNet = 'VGG'
+                if final_clf=='LinearSVC':
+                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                   ReDo=False)
+                else:
+                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+                
+                # Statistics model
+                net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
+                style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                             ['block1_conv1','block2_conv1'],['block1_conv1']]
+                style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                             ['block1_conv1','block2_conv1']]
+                number_im_considered = 10000
+                getBeforeReLU = True
+    
+                for constrNet in net_tab:
+                    if constrNet=='VGGBaseNormCoherent':
+                        style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
+                    else:
+                        style_layers_tab = style_layers_tab_forOther
+                    for style_layers in style_layers_tab:
+                        if not(forLatex): print('--- getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,\
+                              'features',features,'transformOnFinalLayer',transformOnFinalLayer,'number_im_considered',number_im_considered,'style_layers',style_layers)
+                        if final_clf=='LinearSVC':
+                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
+                                   number_im_considered=number_im_considered,\
+                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+                                   forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer,
+                                   ReDo=False)
+                        else:
+                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
+                                   number_im_considered=number_im_considered,\
+                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+                                   forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer,
+                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+            
+            # ResNet50 case
+            for features,transformOnFinalLayer in zip(['activation_48','activation_48'],['GlobalMaxPooling2D','GlobalAveragePooling2D']):
+                
+                # Baseline Case
+                constrNet = 'ResNet50'
+                if final_clf=='LinearSVC':
+                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                   ReDo=False)
+                else:
+                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-43)],\
+                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+                
+                # Statistics model
+                style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
+                                             getBNlayersResNet50()]
+                
+                constrNet = 'ResNet50_ROWD_CUMUL'
+                for style_layers in style_layers_tab_forResNet50_ROWD:
+                    if final_clf=='LinearSVC':
+                        learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
+                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                   ReDo=False)
+                    else:
+                        learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
+                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+                
+                
+                constrNet = 'ResNet50_BNRF'
+                if final_clf=='LinearSVC':
+                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                   batch_size_RF=16,epochs_RF=20,momentum=0.9,ReDo=False)
+                else:
+                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                   batch_size_RF=16,epochs_RF=20,momentum=0.9,
+                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+                               epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+       
+                    
+def RunAllEvaluation_InFineTuningCase(forLatex=False):
+    """
+    Le but de cette fonction est de faire les calculs avec les differentes methodes 
+    de fine tuning et voir ce que cela donne
     """
     source_dataset = 'ImageNet'
     gridSearch = True # For LinearSVC
@@ -1873,7 +2039,10 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     final_clf_list = ['LinearSVC','MLP2'] # LinearSVC but also MLP : pas encore fini
     final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
     
-    for target_dataset in ['Paintings','IconArt_v1']:
+    dataset_tab = ['Paintings','IconArt_v1']
+    dataset_tab = ['Paintings']
+    
+    for target_dataset in dataset_tab:
         for final_clf in final_clf_list: 
         
             # VGG case 
@@ -1899,16 +2068,14 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                         style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
                     else:
                         style_layers_tab = style_layers_tab_forOther
-                        for style_layers in style_layers_tab:
-                            if not(forLatex): print('=== getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,'features',features,'number_im_considered',number_im_considered,'style_layers',style_layers)
-                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
-                                   number_im_considered=number_im_considered,\
-                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
-                                   forLatex=forLatex)
-                
-                
-            
+                    for style_layers in style_layers_tab:
+                        if not(forLatex): print('--- getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,\
+                              'features',features,'transformOnFinalLayer',transformOnFinalLayer,'number_im_considered',number_im_considered,'style_layers',style_layers)
+                        learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                               constrNet,kind_method,style_layers,gridSearch=gridSearch,
+                               number_im_considered=number_im_considered,\
+                               normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+                               forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer)
             
             # ResNet50 case
             for features,transformOnFinalLayer in zip(['activation_48','activation_48'],['GlobalMaxPooling2D','GlobalAveragePooling2D']):
@@ -1920,10 +2087,15 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                                normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
                 # Statistics model
                 constrNet = 'ResNet50_BNRF'
-                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                               constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                               batch_size_RF=16,epochs_RF=20,momentum=0.9)
+                try:
+                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                   batch_size_RF=16,epochs_RF=20,momentum=0.9)
+                except Exception as e:
+                    print("!!!!!!!!!!!",e,"!!!!!!!!!!!!!!!!")
+                    # handle all other exceptions
+                    pass
                 
                 style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
                                              getBNlayersResNet50()]
@@ -2004,12 +2176,12 @@ def Crowley_reproduction_results():
     
     print('Same experiment with ResNet50 but a MLP2')
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
-                   constrNet='ResNet50',kind_method='TL',gridSearch=True,ReDo=ReDo,\
+                   constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                    transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True)
     
     print('Same experiment with ResNet50 but a MLP3 with dropout etc')
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
-                   constrNet='ResNet50',kind_method='TL',gridSearch=True,ReDo=ReDo,\
+                   constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                    transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                    dropout=0.5,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-4)],\
                    epochs=50)
@@ -2017,26 +2189,33 @@ def Crowley_reproduction_results():
     print('Same experiment with ResNet50 but a MLP3 with dropout decay etc')
     # 68.8 AP sur Paintings
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
-                   constrNet='ResNet50',kind_method='TL',gridSearch=True,ReDo=ReDo,\
+                   constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                    transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                    dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[5*10**(-4)],\
                    epochs=50,nesterov=True,SGDmomentum=0.99,decay=0.0005)
     
+    # 68.7 AP sur Paintings
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
+                   constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
+                   transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,cropCenter=True,\
+                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.5,5*10**(-4)],\
+                   epochs=50,nesterov=True,SGDmomentum=0.99,decay=0.0005)
+    
     print('Same experiment with ResNet50 with a fine tuning of the whole model')
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
-                   constrNet='ResNet50',kind_method='FT',gridSearch=True,ReDo=ReDo,\
+                   constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
                    transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
-                   optimizer='SGD',opt_option=[0.1,0.0001],return_best_model=True,
+                   optimizer='SGD',opt_option=[0.1,0.01],return_best_model=True,
                    epochs=20,cropCenter=True)   
     
 def testVGGShuffle():
     target_dataset = 'Paintings'
     ReDo = False
-#    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
-#               constrNet='VGG',kind_method='FT',gridSearch=True,ReDo=ReDo,\
-#               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
-#               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[5*10**(-4)],\
-#               epochs=50,nesterov=True,SGDmomentum=0.99,decay=0.0005)
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
+               constrNet='VGG',kind_method='FT',gridSearch=True,ReDo=ReDo,\
+               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
+               epochs=50,nesterov=True,SGDmomentum=0.99,decay=0.0005)
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
                constrNet='VGG',kind_method='FT',gridSearch=True,ReDo=ReDo,\
                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,pretrainingModif=False,\
@@ -2063,6 +2242,27 @@ def testROWD_CUMUL():
                     kind_method='TL',ReDo=False,
                     constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
                     style_layers=['bn_conv1'],verbose=True,features='activation_48',useFloat32=True)
+    
+def testROWD_CUMUL_and_BRNF_FineTuning():
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='FT',ReDo=True,
+                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=['bn_conv1'],verbose=True,features='activation_48',
+                    dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.1,10**(-2)],
+                    epochs=20,nesterov=True,SGDmomentum=0.99,return_best_model=True,batch_size=16)
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='FT',ReDo=True,
+                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
+                    dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.1,10**(-2)],
+                    epochs=20,nesterov=True,SGDmomentum=0.99,return_best_model=True,batch_size=16)
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='FT',ReDo=True,
+                    constrNet='ResNet50_BNRF',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=[],verbose=True,features='activation_48',
+                    dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.1,10**(-2)],
+                    epochs=20,nesterov=True,SGDmomentum=0.99,return_best_model=True,batch_size=16,
+                    batch_size_RF=16,epochs_RF=20,momentum=0.9)
 #    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
 #                    kind_method='TL',ReDo=False,
 #                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',

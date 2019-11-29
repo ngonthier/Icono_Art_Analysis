@@ -155,6 +155,14 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   model =  tf.keras.Sequential()
   pre_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
   SomePartFreezed = False
+  
+  list_name_layers = []
+  for layer in pre_model.layers:
+    list_name_layers += [layer.name]
+  if not(final_layer in list_name_layers):
+    print(final_layer,'is not in VGG net')
+    raise(NotImplementedError)
+  
   if type(pretrainingModif)==bool:
       pre_model.trainable = pretrainingModif
   else:
@@ -264,6 +272,13 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
       print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
       raise(NotImplementedError)
       
+  list_name_layers = []
+  for layer in vgg_layers:
+    list_name_layers += [layer.name]
+  if not(final_layer in list_name_layers):
+    print(final_layer,'is not in VGG net')
+    raise(NotImplementedError)
+      
   for layer in vgg_layers:
     name_layer = layer.name
     if i < len(style_layers) and name_layer==style_layers[i]:
@@ -336,6 +351,13 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
   if not(transformOnFinalLayer in otherOutputPorposed):
       print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
       raise(NotImplementedError)
+
+  list_name_layers = []
+  for layer in vgg_layers:
+    list_name_layers += [layer.name]
+  if not(final_layer in list_name_layers):
+    print(final_layer,'is not in VGG net')
+    raise(NotImplementedError)
       
   for layer in vgg_layers:
     name_layer = layer.name
@@ -411,6 +433,13 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
       print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
       raise(NotImplementedError)
       
+  list_name_layers = []
+  for layer in vgg_layers:
+    list_name_layers += [layer.name]
+  if not(final_layer in list_name_layers):
+    print(final_layer,'is not in VGG net')
+    raise(NotImplementedError)    
+    
   for layer in vgg_layers:
     name_layer = layer.name
     if i < len(style_layers) and name_layer==style_layers[i]:
@@ -461,9 +490,9 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
           if not(dropout is None): x = Dropout(dropout)(x)
   model = Model(inputs=pre_model.input, outputs=predictions)
   if lr_multiple:
-      if final_clf=='MLP3': multipliers[model.layers[-3].name] = None
-      if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = None
-      if final_clf=='MLP3' or final_clf=='MLPé' or final_clf=='MLP1': multipliers[model.layers[-1].name] = None
+      if final_clf=='MLP3': multipliers[model.layers[-3].name] = 1.
+      if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = 1.
+      if final_clf=='MLP3' or final_clf=='MLP2' or final_clf=='MLP1': multipliers[model.layers[-1].name] = 1.
       opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
   else:
       opt = opt(learning_rate=lr)
@@ -509,7 +538,7 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
   elif optimizer=='adam': 
       opt = partial(Adam,decay=decay)
   else:
-      opt = optimizer
+      opt =  optimizer
       
   ilayer = 0
   for layer in pre_model.layers:
@@ -706,6 +735,35 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
  
   return model
   
+def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=[0.01],\
+                             final_clf='MLP2',dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0):
+    pre_model.trainable = True
+    
+    lr_multiple = False
+    multiply_lrp, lr  = None,None
+    multipliers = {}
+    if len(opt_option)==2:
+        multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+        multipliers = {}
+        lr_multiple = True
+    elif len(opt_option)==1:
+        lr = opt_option[-1]
+    else:
+        lr = 0.01
+    if optimizer=='SGD': 
+        opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
+    elif optimizer=='adam': 
+        opt = partial(Adam,decay=decay)
+    else:
+        opt = optimizer
+
+    for layer in pre_model.layers:
+      if lr_multiple: 
+          multipliers[layer.name] = multiply_lrp
+    
+    x= pre_model.output
+    model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout)
+    return(model)
 
 ### Resnet Refinement of the batch normalisation statistics 
 
@@ -1999,6 +2057,15 @@ def vgg_InNorm(style_layers,list_mean_and_std,final_layer='fc2',HomeMadeBatchNor
   if not(transformOnFinalLayer in otherOutputPorposed):
       print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
       raise(NotImplementedError)
+  if not(final_layer in ['fc1','fc2','flatten']) and not(transformOnFinalLayer in ['GlobalMaxPooling2D','GlobalAveragePooling2D']):
+      print('Are you sure of what you are doing ? You will get a matrix and not a global spatial pooling')
+      
+  list_name_layers = []
+  for layer in vgg_layers:
+    list_name_layers += [layer.name]
+  if not(final_layer in list_name_layers):
+    print(final_layer,'is not in VGG net')
+    raise(NotImplementedError)
       
   for layer in vgg_layers:
     name_layer = layer.name
@@ -2074,6 +2141,13 @@ def vgg_InNorm_adaptative(style_layers,list_mean_and_std,final_layer='fc2',
   if not(transformOnFinalLayer in otherOutputPorposed):
       print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
       raise(NotImplementedError)
+      
+  list_name_layers = []
+  for layer in vgg_layers:
+    list_name_layers += [layer.name]
+  if not(final_layer in list_name_layers):
+    print(final_layer,'is not in VGG net')
+    raise(NotImplementedError)
   
   for layer in vgg_layers:
     name_layer = layer.name
@@ -2150,6 +2224,13 @@ def vgg_BaseNorm(style_layers,list_mean_and_std_source,list_mean_and_std_target,
   if not(transformOnFinalLayer in otherOutputPorposed):
       print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
       raise(NotImplementedError)
+      
+  list_name_layers = []
+  for layer in vgg_layers:
+    list_name_layers += [layer.name]
+  if not(final_layer in list_name_layers):
+    print(final_layer,'is not in VGG net')
+    raise(NotImplementedError)
       
   for layer in vgg_layers:
     name_layer = layer.name
