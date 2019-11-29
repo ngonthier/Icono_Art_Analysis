@@ -1003,7 +1003,9 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
         print('We will refine the normalisation parameters')
         
         if cropCenter:
-            preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
+            preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net=Net,
+                                             grayscale=False, color_mode='rgb', target_smallest_size=224,
+                                             crop_size=224,interpolation='lanczos:center')
         else:
             if 'ResNet50' in Net:
                 preprocessing_function = tf.keras.applications.resnet50.preprocess_input
@@ -1920,7 +1922,7 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     #final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
     
     dataset_tab = ['Paintings','IconArt_v1']
-    #dataset_tab = ['Paintings']
+    dataset_tab = ['IconArt_v1']
     
     for target_dataset in dataset_tab:
         for final_clf,gridSearch in zip(final_clf_list,[True,False]): 

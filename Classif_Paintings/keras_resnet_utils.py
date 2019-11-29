@@ -511,16 +511,22 @@ def fit_generator_ForRefineParameters(model,
 #                                     'a tuple `(x, y, sample_weight)` '
 #                                     'or `(x, y) or (x)`. Found: ' +
 #                                     str(generator_output))
-                if x is None or len(x) == 0:
-                    # Handle data tensors support when no input given
-                    # step-size = 1 for data tensors
+                if len(x.shape)==4:
+                    if x is None or len(x) == 0:
+                        # Handle data tensors support when no input given
+                        # step-size = 1 for data tensors
+                        batch_size = 1
+                    elif isinstance(x, list):
+                        batch_size = x[0].shape[0]
+                    elif isinstance(x, dict):
+                        batch_size = list(x.values())[0].shape[0]
+                    else:
+                        batch_size = x.shape[0]
+                elif len(x.shape)==3:
+                    # In this case we only have one image in the batch
+                    x = np.expand_dims(x, axis=0)
                     batch_size = 1
-                elif isinstance(x, list):
-                    batch_size = x[0].shape[0]
-                elif isinstance(x, dict):
-                    batch_size = list(x.values())[0].shape[0]
-                else:
-                    batch_size = x.shape[0]
+
                 # build batch logs
 #                batch_logs = {'batch': batch_index, 'size': batch_size}
 #                callbacks.on_batch_begin(batch_index, batch_logs)

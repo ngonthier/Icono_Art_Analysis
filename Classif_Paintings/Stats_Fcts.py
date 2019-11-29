@@ -1827,7 +1827,7 @@ def get_VGGmodel_meanX_meanX2_features(style_layers,getBeforeReLU=False,useFloat
   return(model)
   
 def get_VGGmodel_4Param_features(style_layers,getBeforeReLU=False):
-  """Helper function to compute the mean of feature and mean of squared features representations 
+  """Helper function to compute the 4 first moments of the features representations 
   from vgg.
   
   This function will simply load and preprocess the images from their path. 
@@ -1835,8 +1835,7 @@ def get_VGGmodel_4Param_features(style_layers,getBeforeReLU=False):
   skewness and kurtosis of the outputs of the intermediate layers. 
   
   Arguments:
-    model: The model that we are using.
-    img_path: The path to the image.
+    the layer considered
     
   Returns:
     returns the keras model that return the features . 
@@ -1878,6 +1877,50 @@ def get_VGGmodel_4Param_features(style_layers,getBeforeReLU=False):
   if getBeforeReLU:
       model = utils_keras.apply_modifications(model,custom_objects=custom_objects,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
   return(model)
+  
+def get_VGGmodel_features(style_layers,getBeforeReLU=False):
+  """Helper function to compute the features representations of the input image
+  
+  This function will simply load and preprocess the images from their path. 
+  
+  Arguments:
+    the layer considered
+    
+  Returns:
+    returns the keras model that return the features . 
+  """
+  model = tf.keras.Sequential()
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
+  vgg.trainable = False
+  vgg_layers = vgg.layers
+  # Get output layers corresponding to style and content layers 
+  list_stats = []
+  i = 0
+  
+  for layer in vgg_layers:
+      name_layer = layer.name
+      if name_layer==style_layers[i]:
+          if getBeforeReLU:
+              layer.activation = activations.linear # i.e. identity
+          model.add(layer)
+            
+          output = model.output
+          list_stats += [output]
+          
+          if getBeforeReLU:
+              model.add(Activation('relu'))
+          
+          i+= 1
+          if i==len(style_layers): # No need to compute further
+              break
+      else:
+         model.add(layer)
+  
+  model = models.Model(model.input,list_stats)
+  model.trainable = False
+  if getBeforeReLU:
+      model = utils_keras.apply_modifications(model,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
+  return(model)
 
 def get_BaseNorm_meanX_meanX2_features(style_layers_exported,style_layers_imposed,list_mean_and_std_source,\
                                     list_mean_and_std_target,getBeforeReLU=False,useFloat32=False):
@@ -1890,8 +1933,7 @@ def get_BaseNorm_meanX_meanX2_features(style_layers_exported,style_layers_impose
   the outputs of the intermediate layers. 
   
   Arguments:
-    model: The model that we are using.
-    img_path: The path to the image.
+    the layer considered
     
   Returns:
     returns the model that return the features !
