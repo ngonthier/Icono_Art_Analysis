@@ -74,7 +74,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                                     list_mean_and_std_source,whatToload,saveformat='h5',\
                                     getBeforeReLU=False,target_set='trainval',applySqrtOnVar=True,\
                                     Net='VGG',cropCenter=False,BV=True,cumulativeWay=False,verbose=False,\
-                                    useFloat32=False):
+                                    useFloat32=False,computeGlobalVariance=False):
     """
     The goal of this function is to compute a version of the statistics of the 
     features of the VGG or ResNet50
@@ -137,7 +137,10 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                 str_layers = getResNetLayersNumeral(style_layers,num_layers=50)
         else:
             raise(NotImplementedError)
-        filename = 'OnlyCoherentStats_'+source_dataset + '_' + str(target_number_im_considered) + '_MeanStd'+'_'+str_layers
+        filename = 'OnlyCoherentStats_'+source_dataset + '_' + str(target_number_im_considered) +\
+            '_MeanStd'+'_'+str_layers
+        if computeGlobalVariance:
+            filename +='_computeGlobalVariance'
         
         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp')
         if os.path.isdir(output_path):
@@ -162,7 +165,8 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                                                                     set=target_set,getBeforeReLU=getBeforeReLU,\
                                                                     Net=Net,style_layers_imposed=[],\
                                                                     list_mean_and_std_source=None,list_mean_and_std_target=None,\
-                                                                    cropCenter=cropCenter,useFloat32=useFloat32)
+                                                                    cropCenter=cropCenter,useFloat32=useFloat32,
+                                                                    computeGlobalVariance=computeGlobalVariance)
                     dict_stats_coherent[layer_name] = mean_and_std_layer
                     current_list_mean_and_std_target = [mean_and_std_layer]
                 else:
@@ -179,7 +183,8 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                                                                     Net=Net,style_layers_imposed=[],\
                                                                     list_mean_and_std_source=list_mean_and_std_source_i,\
                                                                     list_mean_and_std_target=current_list_mean_and_std_target,\
-                                                                    cropCenter=cropCenter,useFloat32=useFloat32)
+                                                                    cropCenter=cropCenter,useFloat32=useFloat32,
+                                                                    computeGlobalVariance=computeGlobalVariance)
                     dict_stats_coherent[layer_name] = mean_and_std_layer
                     current_list_mean_and_std_target += [mean_and_std_layer]
             # Need to save the dict_stats_coherent 
@@ -198,11 +203,12 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
                    set='',getBeforeReLU=False,\
                    Net='VGG',style_layers_imposed=[],\
                    list_mean_and_std_source=[],list_mean_and_std_target=[],\
-                   cropCenter=False,useFloat32=True):
+                   cropCenter=False,useFloat32=True,computeGlobalVariance=False):
     """
     this function will directly compute mean and std of the features maps on the source_dataset
     in an efficient way without saving covariance matrices for the style_layers
-    @param : dtype is the 
+    @param : computeGlobalVariance : if False : compute the mean of the variance of the different images
+        if True : compute the global variance on the whole image and spatial position
     """
     # Les differents reseaux retournr la moyenne spatiale des features et la 
     # moyenne spatiale des carrées des features
@@ -266,11 +272,26 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
 #    print(meanX.shape,meanX2.shape)
 #    print(meanX)
 #    print(meanX2)
-    expectation_meanX = np.mean(meanX,axis=0)
-    varX = meanX2 - np.power(meanX,2)
-#    varX_beforeClip = varX
-#    varX = np.where(varX<0.0 and varX>=-10**(-5), 0.0, varX)
-    varX = varX.clip(min=0.0)
+    
+    
+    if computeGlobalVariance:
+        meanX2.astype('float64')
+        meanX.astype('float64')
+        expectation_meanX = np.mean(meanX,axis=0)
+        mean_global_X2 = np.mean(meanX2,axis=0)
+        
+        varX = mean_global_X2 - np.power(expectation_meanX,2)
+        varX.astype('float32')
+        expectation_meanX.astype('float32')
+    #    varX_beforeClip = varX
+    #    varX = np.where(varX<0.0 and varX>=-10**(-5), 0.0, varX)
+        varX = varX.clip(min=0.0)
+    else:
+        expectation_meanX = np.mean(meanX,axis=0)
+        varX = meanX2 - np.power(meanX,2)
+    #    varX_beforeClip = varX
+    #    varX = np.where(varX<0.0 and varX>=-10**(-5), 0.0, varX)
+        varX = varX.clip(min=0.0)
 #    print(varX)
     try:
         assert(varX>=0).all()
@@ -299,9 +320,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    plotConv=False,batch_size=32,regulOnNewLayer=None,\
                                    regulOnNewLayerParam=[],return_best_model=False,\
                                    onlyReturnResult=False,dbn_affine=True,m_per_group=16,
-                                   momentum=0.9,batch_size_RF=32,epochs_RF=20,cropCenter=True,\
+                                   momentum=0.9,batch_size_RF=16,epochs_RF=20,cropCenter=True,\
                                    BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
-                                   kind_of_shuffling='shuffle',useFloat32=True):
+                                   kind_of_shuffling='shuffle',useFloat32=True,\
+                                   computeGlobalVariance=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -339,6 +361,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : decay : learning rate decay for MLP model
     @param : kind_of_shuffling=='shuffle' or 'roll'  for VGGshuffleInStats
     @param : useFloat32 is the use of float32 for cumulated spatial mean of features and squared features
+    @param : computeGlobalVariance if True compute the global variance in the case of ResNet50_ROWD_CUMUL  
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -441,6 +464,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     
     if cropCenter:   
         name_base += '_CropCenter'  
+        
+    if constrNet=='ResNet50_ROWD_CUMUL' and computeGlobalVariance:
+        name_base += '_computeGlobalVariance'
+        
     name_base += '_' + kind_method   
     
     # features can be 'flatten' with will output a 25088 dimension vectors = 7*7*512 features
@@ -582,7 +609,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                             style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
                             getBeforeReLU=getBeforeReLU,target_set=target_set,\
                             applySqrtOnVar=True,Net=constrNet,cropCenter=cropCenter,\
-                            BV=BV,cumulativeWay=True,verbose=verbose,useFloat32=useFloat32) # It also computes the reference statistics (mean,var)
+                            BV=BV,cumulativeWay=True,verbose=verbose,useFloat32=useFloat32,\
+                            computeGlobalVariance=computeGlobalVariance) # It also computes the reference statistics (mean,var)
                     
                     network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
@@ -1325,7 +1353,7 @@ def RunUnfreezeLayerPerformanceVGG(plot=False):
                 plt.close()
                 
 def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short=False,
-                           scenario=0,onlyPlot=False,BV=True):
+                           scenario=0,onlyPlot=False,BV=True,cropCenter=True):
     """
     Plot some mAP  on ArtUK Paintings dataset with different model just to see
     if we can say someting
@@ -1354,8 +1382,13 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
     list_freezingType = ['FromTop']
     
     transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D'] # Not the flatten case for the moment
-    transformOnFinalLayer_tab = ['GlobalMaxPooling2D'] # Not the flatten case for the moment
+    #transformOnFinalLayer_tab = ['GlobalMaxPooling2D'] # Not the flatten case for the moment
     
+    dropout=None
+    regulOnNewLayer=None
+    nesterov=False
+    SGDmomentum=0.0
+    decay=0.0
     if scenario==0:
         final_clf = 'MLP2'
         epochs = 20
@@ -1388,6 +1421,25 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
         optimizer_tab = ['SGD']
         opt_option_tab = [[0.1,10**(-4)]]
         return_best_model = True
+    elif scenario==5:
+        final_clf = 'MLP1'
+        epochs = 20
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,0.01]] # WILDACT
+        return_best_model = True
+    elif scenario==6:
+        final_clf = 'MLP2'
+        epochs = 20
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,10**(-3)]]
+        return_best_model = True
+        dropout=0.2
+        regulOnNewLayer='l2'
+        nesterov=True
+        SGDmomentum=0.99
+        decay=0.0005
+    else:
+        raise(NotImplementedError)
     
     # Not the flatten case for the moment
 #    optimizer_tab = ['SGD','SGD','adam']
@@ -1417,9 +1469,10 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                     metrics = learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
                                              kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                              pretrainingModif=pretrainingModif,freezingType=freezingType,
-                                             optimizer=optimizer,opt_option=opt_option
+                                             optimizer=optimizer,opt_option=opt_option,cropCenter=cropCenter
                                              ,final_clf=final_clf,features='block5_pool',\
-                                             return_best_model=return_best_model,onlyReturnResult=onlyPlot)
+                                             return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                                             dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
     
                     if metrics is None:
                         continue
@@ -1496,15 +1549,17 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                                                         'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
                                                         ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
                                                         ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
+       
             for style_layers in style_layers_tab_VGGAdaIn:
     #            print(constrNet,style_layers)
                 metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
                                           epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                           forLatex=True,optimizer=optimizer,\
-                                          opt_option=[opt_option[-1]],\
+                                          opt_option=[opt_option[-1]],cropCenter=cropCenter,\
                                           style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
                                           final_clf=final_clf,features='block5_pool',return_best_model=return_best_model,\
-                                          onlyReturnResult=onlyPlot)
+                                          onlyReturnResult=onlyPlot,\
+                                          dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 
                 if metrics is None:
                     continue
@@ -1541,10 +1596,11 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                 metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
                                           epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                           forLatex=True,optimizer=optimizer,\
-                                          opt_option=[opt_option[-1]],\
+                                          opt_option=[opt_option[-1]],cropCenter=cropCenter,\
                                           style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
                                           final_clf=final_clf,features='block5_pool',return_best_model=return_best_model,\
-                                          onlyReturnResult=onlyPlot,dbn_affine=True,m_per_group=16)
+                                          onlyReturnResult=onlyPlot,dbn_affine=True,m_per_group=16,\
+                                          dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 
                 if metrics is None:
                     continue
@@ -1568,6 +1624,52 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                          marker=list_markers[fig_i_m],linestyle='')
                 fig_i += 1
                 
+            # Case of tthe stats (mean,var) shuffling
+            constrNet = 'VGGsuffleInStats'
+            style_layers_tab_VGGAdaDBN = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
+                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
+            
+            kind_of_shuffling_tab=['roll','shuffle']
+            for kind_of_shuffling in kind_of_shuffling_tab:
+                for style_layers in style_layers_tab_VGGAdaDBN:
+        #            print(constrNet,style_layers)
+                    metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
+                                              epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                                              forLatex=True,optimizer=optimizer,\
+                                              opt_option=[opt_option[-1]],cropCenter=cropCenter,\
+                                              style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
+                                              final_clf=final_clf,features='block5_pool',return_best_model=return_best_model,\
+                                              onlyReturnResult=onlyPlot,\
+                                              dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                                              nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
+                                              kind_of_shuffling=kind_of_shuffling)
+                    
+                    if metrics is None:
+                        continue
+                    
+                    metricI_per_class = metrics[metricploted_index]
+                    mMetric = np.mean(metricI_per_class)
+                    if fig_i in color_number_for_frozen:
+                        fig_i_c = fig_i +1 
+                        fig_i_m = fig_i
+                        fig_i += 1
+                    else:
+                        fig_i_c = fig_i
+                        fig_i_m = fig_i
+                    labelstr = constrNet 
+                    if not(constrNet=='VGG'):
+                        if BV:
+                            labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                        else:
+                            labelstr += '_'+ numeral_layers_index(style_layers)
+                    plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
+                             marker=list_markers[fig_i_m],linestyle='')
+                    fig_i += 1
+                    
             title = optimizer + ' ' + transformOnFinalLayer + ' ' + metricploted + ' ' + final_clf
             plt.ion()
             plt.xlabel('Number of layers retrained')
@@ -1576,7 +1678,7 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
             plt.legend(loc='best')
             output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
             pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
-            name_of_the_figure = 'Summary_'+ target_dataset+'_'+final_clf+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png'
+            name_of_the_figure = 'Summary_'+str(scenario)+'_'+ target_dataset+'_'+final_clf+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png'
             if short:
                 name_of_the_figure = 'Short_'+name_of_the_figure
             fname = os.path.join(output_path,name_of_the_figure)
@@ -1620,6 +1722,11 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
     transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D'] # Not the flatten case for the moment
     #transformOnFinalLayer_tab = ['GlobalMaxPooling2D'] # Not the flatten case for the moment
     style_layers = ['bn_conv1']
+    dropout=None
+    regulOnNewLayer=None
+    nesterov=False
+    SGDmomentum=0.0
+    decay=0.0
     if scenario==0:
         final_clf = 'MLP2'
         epochs = 20
@@ -1660,6 +1767,17 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
         # In WILDCAT we have lrp = 0.1, lp = 0.01 loss = MultiLabelSoftMarginLoss, Net = ResNet101
         # MultiLabelSoftMarginLoss seems to be the use of sigmoid on the outpur of the model and then the sum over classes of the binary cross entropy loss
     elif scenario==6:
+        final_clf = 'MLP2'
+        epochs = 20
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,10**(-3)]]
+        return_best_model = True
+        dropout=0.2
+        regulOnNewLayer='l2'
+        nesterov=True
+        SGDmomentum=0.99
+        decay=0.0005
+    elif scenario==7:
         # In Recognizing Characters in Art History Using Deep Learning  -  Madhu 2019 ?
         raise(NotImplementedError)
 
@@ -1704,58 +1822,7 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
     #        # Plot other proposed solution
             
     #        net_tab = ['VGG','VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
-            net_tab = ['ResNet50','ResNet50_BNRF']
-            style_layers_tab_forOther = [[]] # TODO il faudra changer cela a terme
-            style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
-                                         getBNlayersResNet50()]
-            style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']]
-            number_im_considered = 1000
-            final_clf = 'MLP2'
-            source_dataset = 'ImageNet'
-            kind_method = 'TL'
-            normalisation = False
-            getBeforeReLU = True
-            forLatex = True
-            fig_i = 0
-            for constrNet in net_tab:
-                print('~~~ ',constrNet,' ~~~')
-                if constrNet=='ResNet50_ROWD_CUMUL':
-                    style_layers_tab = style_layers_tab_forResNet50_ROWD
-                elif constrNet=='ResNet50' or constrNet=='ResNet50_BNRF':
-                    style_layers_tab = [[]]
-                else:
-                    style_layers_tab = style_layers_tab_forOther
-                for style_layers in style_layers_tab:
-                    labelstr = constrNet 
-                    if not(constrNet=='ResNet50' or constrNet=='ResNet50_BNRF'):
-                        if BV:
-                            labelstr += '_'+ getResNetLayersNumeral_bitsVersion(style_layers)
-                        else:
-                            labelstr += '_'+ getResNetLayersNumeral(style_layers)
-                    metrics = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                       constrNet,kind_method,style_layers,gridSearch=False,
-                                       number_im_considered=number_im_considered,
-                                       normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
-                                       transformOnFinalLayer=transformOnFinalLayer,\
-                                       optimizer=optimizer,opt_option=opt_option,batch_size=batch_size\
-                                       ,return_best_model=return_best_model,\
-                                       forLatex=forLatex,cropCenter=cropCenter,\
-                                       momentum=0.9,batch_size_RF=16,epochs_RF=20,\
-                                       onlyReturnResult=onlyPlot,verbose=True)
-                    if metrics is None:
-                        continue
-                    metricI_per_class = metrics[metricploted_index]
-                    mMetric = np.mean(metricI_per_class)
-                    if fig_i in color_number_for_frozen:
-                        fig_i_c = fig_i +1 
-                        fig_i_m = fig_i
-                        fig_i += 1
-                    else:
-                        fig_i_c = fig_i
-                        fig_i_m = fig_i
-                    plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
-                             marker=list_markers[fig_i_m],linestyle='')
-                    fig_i += 1
+            
     #        
     #        # Case of the fine tuning with batch normalization 
             constrNet = 'ResNet50AdaIn'
@@ -1814,7 +1881,7 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
             plt.legend(loc='best')
             output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
             pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
-            name_of_the_figure = 'Summary_'+ target_dataset+network+'_Unfreezed_'+\
+            name_of_the_figure = 'Summary_'+str(scenario)+'_'+ target_dataset+network+'_Unfreezed_'+\
                 optimizer+optstr_+'_'+transformOnFinalLayer+final_clf+target_dataset_str
             if cropCenter:
                 name_of_the_figure += '_CropCenter'   
@@ -1822,6 +1889,62 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
             fname = os.path.join(output_path,name_of_the_figure)
             plt.show() 
             plt.pause(0.001)
+            
+            # Case BNRF
+            net_tab = ['ResNet50_BNRF','ResNet50_ROWD_CUMUL']
+            style_layers_tab_forOther = [[]] # TODO il faudra changer cela a terme
+            style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
+                                         getBNlayersResNet50()]
+            number_im_considered = 10000
+            final_clf = 'MLP2'
+            source_dataset = 'ImageNet'
+            kind_method = 'FT'
+            normalisation = False
+            getBeforeReLU = True
+            forLatex = True
+            fig_i = 0
+            for constrNet in net_tab:
+                print('~~~ ',constrNet,' ~~~')
+                if constrNet=='ResNet50_ROWD_CUMUL':
+                    style_layers_tab = style_layers_tab_forResNet50_ROWD
+                elif constrNet=='ResNet50' or constrNet=='ResNet50_BNRF':
+                    style_layers_tab = [[]]
+                else:
+                    style_layers_tab = style_layers_tab_forOther
+                for style_layers in style_layers_tab:
+                    labelstr = constrNet 
+                    if not(constrNet=='ResNet50' or constrNet=='ResNet50_BNRF'):
+                        if BV:
+                            labelstr += '_'+ getResNetLayersNumeral_bitsVersion(style_layers)
+                        else:
+                            labelstr += '_'+ getResNetLayersNumeral(style_layers)
+                    metrics = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                       constrNet,kind_method,style_layers,gridSearch=False,
+                                       number_im_considered=number_im_considered,
+                                       normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+                                       transformOnFinalLayer=transformOnFinalLayer,\
+                                       optimizer=optimizer,opt_option=opt_option,batch_size=batch_size\
+                                       ,return_best_model=return_best_model,\
+                                       forLatex=forLatex,cropCenter=cropCenter,\
+                                       momentum=0.9,batch_size_RF=16,epochs_RF=20,\
+                                       onlyReturnResult=onlyPlot,verbose=True)
+                    if metrics is None:
+                        continue
+                    metricI_per_class = metrics[metricploted_index]
+                    mMetric = np.mean(metricI_per_class)
+                    if fig_i in color_number_for_frozen:
+                        fig_i_c = fig_i +1 
+                        fig_i_m = fig_i
+                        fig_i += 1
+                    else:
+                        fig_i_c = fig_i
+                        fig_i_m = fig_i
+                    plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
+                             marker=list_markers[fig_i_m],linestyle='')
+                    fig_i += 1
+            
+            
+
     #        input('Press to close')
             plt.savefig(fname)
     #        plt.close()
@@ -1922,7 +2045,7 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     #final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
     
     dataset_tab = ['Paintings','IconArt_v1']
-    dataset_tab = ['IconArt_v1']
+    #dataset_tab = ['IconArt_v1']
     
     for target_dataset in dataset_tab:
         for final_clf,gridSearch in zip(final_clf_list,[True,False]): 
@@ -1999,19 +2122,21 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                                              getBNlayersResNet50()]
                 
                 constrNet = 'ResNet50_ROWD_CUMUL'
-                for style_layers in style_layers_tab_forResNet50_ROWD:
-                    if final_clf=='LinearSVC':
-                        learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
-                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                                   ReDo=False)
-                    else:
-                        learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
-                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
-                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
-                
+                for computeGlobalVariance in [False,True]:
+                    print('------ computeGlobalVariance = ',computeGlobalVariance,'------')
+                    for style_layers in style_layers_tab_forResNet50_ROWD:
+                        if final_clf=='LinearSVC':
+                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                       constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
+                                       normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                       ReDo=False,computeGlobalVariance=computeGlobalVariance)
+                        else:
+                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                       constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
+                                       normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                       dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+                                       epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False,computeGlobalVariance=computeGlobalVariance)
+                    
                 
                 constrNet = 'ResNet50_BNRF'
                 if final_clf=='LinearSVC':
@@ -2027,87 +2152,19 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                                    dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
                                epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
        
-                    
-def RunAllEvaluation_InFineTuningCase(forLatex=False):
+
+def RunAllEvaluation_FineTuning(onlyPlot=False):
     """
-    Le but de cette fonction est de faire les calculs avec les differentes methodes 
-    de fine tuning et voir ce que cela donne
+    @param onlyPlot = True if you only want to plot the new values
     """
-    source_dataset = 'ImageNet'
-    gridSearch = True # For LinearSVC
-    normalisation = False
-    kind_method = 'TL'
-    
-    final_clf_list = ['LinearSVC','MLP2'] # LinearSVC but also MLP : pas encore fini
-    final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
     
     dataset_tab = ['Paintings','IconArt_v1']
-    dataset_tab = ['Paintings']
-    
+    scenario = 6 
     for target_dataset in dataset_tab:
-        for final_clf in final_clf_list: 
-        
-            # VGG case 
-            for features,transformOnFinalLayer in zip(['fc2','block5_pool','block5_pool'],['','GlobalMaxPooling2D','GlobalAveragePooling2D']):
-                
-                # Baseline Case
-                constrNet = 'VGG'
-                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                               constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
-                
-                # Statistics model
-                net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
-                style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                             ['block1_conv1','block2_conv1'],['block1_conv1']]
-                style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                             ['block1_conv1','block2_conv1']]
-                number_im_considered = 10000
-                getBeforeReLU = True
-    
-                for constrNet in net_tab:
-                    if constrNet=='VGGBaseNormCoherent':
-                        style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
-                    else:
-                        style_layers_tab = style_layers_tab_forOther
-                    for style_layers in style_layers_tab:
-                        if not(forLatex): print('--- getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,\
-                              'features',features,'transformOnFinalLayer',transformOnFinalLayer,'number_im_considered',number_im_considered,'style_layers',style_layers)
-                        learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                               constrNet,kind_method,style_layers,gridSearch=gridSearch,
-                               number_im_considered=number_im_considered,\
-                               normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
-                               forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer)
-            
-            # ResNet50 case
-            for features,transformOnFinalLayer in zip(['activation_48','activation_48'],['GlobalMaxPooling2D','GlobalAveragePooling2D']):
-                
-                # Baseline Case
-                constrNet = 'ResNet50'
-                learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                               constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
-                # Statistics model
-                constrNet = 'ResNet50_BNRF'
-                try:
-                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                                   batch_size_RF=16,epochs_RF=20,momentum=0.9)
-                except Exception as e:
-                    print("!!!!!!!!!!!",e,"!!!!!!!!!!!!!!!!")
-                    # handle all other exceptions
-                    pass
-                
-                style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
-                                             getBNlayersResNet50()]
-                
-                constrNet = 'ResNet50_ROWD_CUMUL'
-                for style_layers in style_layers_tab_forResNet50_ROWD:
-                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                               constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
-                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer)
-             
+        PlotSomePerformanceVGG(target_dataset = target_dataset,
+                           onlyPlot=onlyPlot,scenario=scenario,BV=True,cropCenter=True)
+        PlotSomePerformanceResNet(target_dataset = target_dataset,scenario=scenario,
+                              onlyPlot=onlyPlot,cropCenter=True,BV=True)
  
 def TrucBizarre(target_dataset='Paintings'):
     # Ces deux manieres de faire devrait retourner les memes performances et ce n'est pas le cas....

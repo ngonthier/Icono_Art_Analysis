@@ -12,6 +12,7 @@ import tensorflow as tf
 import tensorflow.python.keras.utils as Sequence
 from tensorflow.python.keras import utils
 from tensorflow.python.keras import backend as K
+import numpy as np
 
 def getResNet50layersName():
     liste = ['input_1',
