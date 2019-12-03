@@ -2423,7 +2423,8 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
                                constrNet,kind_method,style_layers=style_layers,
                                normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                batch_size_RF=16,epochs_RF=20,momentum=0.9,ReDo=False,
-                               returnStatistics=True,cropCenter=cropCenter)
+                               returnStatistics=True,cropCenter=cropCenter,\
+                               computeGlobalVariance=computeGlobalVariance)
         if 'ROWD' in constrNet:
             dict_stats_target,list_mean_and_std_target = output
         else:
@@ -2434,6 +2435,7 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
             str_model += 'GlobalVar' 
         Model_dict[str_model] = dict_stats_target
       
+    print('Plotting the statistics')
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',\
                                target_dataset,'CompBNstats') 
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
@@ -2444,8 +2446,14 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     pltname= os.path.join(output_path,pltname)
     pp = PdfPages(pltname)    
     
+    distances_means = {}
+    distances_stds = {}
+
     for layer_name in list_bn_layers:
-        fig, (ax1, ax2) = plt.subplots(1, 2)
+        distances_means[layer_name] = []
+        distances_stds[layer_name] = []
+        
+        fig, (ax1, ax2) = plt.subplots(2, 1)
         str_title = 'Normalisation statistics ' + layer_name
         fig.suptitle(str_title)
         i = 0
@@ -2453,9 +2461,18 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
             str_model = constrNet
             if computeGlobalVariance:
                 str_model += 'GlobalVar' 
+            str_model.replace('ResNet50_','')
             dict_stats_target = Model_dict[str_model]
             stats_target =  dict_stats_target[layer_name]
             means,stds = stats_target
+            if constrNet=='ResNet50':
+                ref_means = means
+                ref_stds = stds
+            else:
+                diff_means = np.abs(ref_means-means)
+                diff_stds = np.abs(ref_stds-stds)
+                distances_means[layer_name] += [diff_means]
+                distances_stds[layer_name] += [diff_stds]
             x = np.arange(0,len(means))
             ax1.scatter(x, means,label=str_model,marker=list_markers[i],alpha=alpha)
             ax1.set_title('Normalisation Means')
@@ -2463,19 +2480,70 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
             ax1.set_ylabel('Mean')
             ax1.tick_params(axis='both', which='major', labelsize=3)
             ax1.tick_params(axis='both', which='minor', labelsize=3)
-            ax1.legend(loc='upper right', prop={'size': 2})
+            ax1.legend(loc='best', prop={'size': 4})
             ax2.scatter(x, stds,label=str_model,marker=list_markers[i],alpha=alpha)
             ax2.set_title('Normalisation STDs')
             ax2.set_xlabel('Channel')
             ax2.set_ylabel('Std')
             ax2.tick_params(axis='both', which='major', labelsize=3)
             ax2.tick_params(axis='both', which='minor', labelsize=3)
-            ax2.legend(loc='upper right', prop={'size': 2})
+            ax2.legend(loc='best', prop={'size': 4})
             i+=1
+ 
         #plt.show()
-        plt.legend(loc='best')
         plt.savefig(pp, format='pdf')
         plt.close()
+     
+    # Plot the boxplot of the distance between normalisation statistics
+    fig = plt.figure()
+    ax = plt.axes()
+    set_xticks= []
+    c = ['C1','C2','C3']
+    c = ['orange','green','red']
+    for i,layer_name in enumerate(list_bn_layers):     
+        positions = [i*3,i*3+1,i*3+2]
+        set_xticks += [i*3+1]
+        bp = plt.boxplot(distances_means[layer_name], positions = positions, 
+                         widths = 0.6,notch=True, patch_artist=True)
+        for patch, color in zip(bp['boxes'], c):
+            patch.set_facecolor(color)
+    ax.set_xticklabels(list_bn_layers)
+    ax.set_xticks(set_xticks,rotation='vertical')
+    hO, = plt.plot([1,1],'C1-')
+    hG, = plt.plot([1,1],'C2-')
+    hR, = plt.plot([1,1],'C3-')
+    plt.title('Absolute distance between normalisation means of ResNet and other models')
+    plt.legend((hO, hG,hR),('ROWD_global', 'ROWD', 'BNRF'))
+    hO.set_visible(False)
+    hG.set_visible(False)
+    hR.set_visible(False)
+    plt.savefig(pp, format='pdf')
+    plt.close()
+    
+    fig = plt.figure()
+    ax = plt.axes()
+    set_xticks= []
+    
+    for i,layer_name in enumerate(list_bn_layers):     
+        positions = [i*3,i*3+1,i*3+2]
+        set_xticks += [i*3+1]
+        bp = plt.boxplot(distances_stds[layer_name], positions = positions, 
+                         widths = 0.6,notch=True, patch_artist=True)
+        for patch, color in zip(bp['boxes'], c):
+            patch.set_facecolor(color) 
+    ax.set_xticklabels(list_bn_layers)
+    ax.set_xticks(set_xticks,rotation='vertical')
+    hO, = plt.plot([1,1],'C1-')
+    hG, = plt.plot([1,1],'C2-')
+    hR, = plt.plot([1,1],'C3-')
+    plt.title('Absolute distance between normalisation stds of ResNet and other models')
+    plt.legend((hO, hG,hR),('ROWD_global', 'ROWD', 'BNRF'))
+    hO.set_visible(False)
+    hG.set_visible(False)
+    hR.set_visible(False)
+    plt.savefig(pp, format='pdf')
+    plt.close()
+        
     pp.close()
     plt.clf()
             
