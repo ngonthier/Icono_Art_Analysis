@@ -18,7 +18,7 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
     ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,ResNet_cut,vgg_suffleInStats,\
     get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,\
-    get_VGGmodel_meanX_meanX2_features,add_head_and_trainable
+    get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet
 from IMDB import get_database
 import pickle
 import pathlib
@@ -36,6 +36,7 @@ from numba import cuda
 import matplotlib.pyplot as plt
 import matplotlib.cm as mplcm
 import matplotlib.colors as colors
+from matplotlib.backends.backend_pdf import PdfPages
 import gc 
 import tempfile
 from tensorflow.python.keras.callbacks import ModelCheckpoint
@@ -281,11 +282,19 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
         mean_global_X2 = np.mean(meanX2,axis=0)
         
         varX = mean_global_X2 - np.power(expectation_meanX,2)
-        varX.astype('float32')
-        expectation_meanX.astype('float32')
+        
     #    varX_beforeClip = varX
     #    varX = np.where(varX<0.0 and varX>=-10**(-5), 0.0, varX)
         varX = varX.clip(min=0.0)
+        try:
+            assert(varX>=0).all()
+        except AssertionError as e:
+            print('varX negative values :',varX[np.where(varX<0.0)])
+            print('varX negative index :',np.where(varX<0.0))
+            raise(e)
+        expectation_stdX = np.sqrt(varX)
+        expectation_stdX.astype('float32')
+        expectation_meanX.astype('float32')
     else:
         expectation_meanX = np.mean(meanX,axis=0)
         varX = meanX2 - np.power(meanX,2)
@@ -293,16 +302,18 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
     #    varX = np.where(varX<0.0 and varX>=-10**(-5), 0.0, varX)
         varX = varX.clip(min=0.0)
 #    print(varX)
-    try:
-        assert(varX>=0).all()
-    except AssertionError as e:
-        print('varX negative values :',varX[np.where(varX<0.0)])
-        print('varX negative index :',np.where(varX<0.0))
-        raise(e)
-    expectation_stdX = np.mean(np.sqrt(varX),axis=0)
+        try:
+            assert(varX>=0).all()
+        except AssertionError as e:
+            print('varX negative values :',varX[np.where(varX<0.0)])
+            print('varX negative index :',np.where(varX<0.0))
+            raise(e)
+        expectation_stdX = np.mean(np.sqrt(varX),axis=0)
 #    if dtype=='float64':
 #        expectation_meanX.astype('float32')
 #        expectation_stdX.astype('float32')
+    del net_get_SpatialMean_SpatialMeanOfSquare
+    
     return(expectation_meanX,expectation_stdX)
 
 def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
@@ -323,7 +334,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    momentum=0.9,batch_size_RF=16,epochs_RF=20,cropCenter=True,\
                                    BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
                                    kind_of_shuffling='shuffle',useFloat32=True,\
-                                   computeGlobalVariance=False):
+                                   computeGlobalVariance=False,returnStatistics=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -361,7 +372,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : decay : learning rate decay for MLP model
     @param : kind_of_shuffling=='shuffle' or 'roll'  for VGGshuffleInStats
     @param : useFloat32 is the use of float32 for cumulated spatial mean of features and squared features
-    @param : computeGlobalVariance if True compute the global variance in the case of ResNet50_ROWD_CUMUL  
+    @param : computeGlobalVariance if True compute the global variance in the case of ResNet50_ROWD_CUMUL 
+    @param : returnStatistics : if True in the case of ROWD and BNRF, we return the normalisation statistics computer by the refinement step
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -489,11 +501,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         name_pkl_im = os.path.join(output_path,name_pkl_im)
         name_pkl_values = os.path.join(output_path,name_pkl_values)
 
-        if  not(onlyReturnResult):
-            if not os.path.isfile(name_pkl_values):
+        if  not(onlyReturnResult) or returnStatistics:
+            if not os.path.isfile(name_pkl_values) or returnStatistics:
                 if not(forLatex):
-                    print('== We will compute the reference statistics and / or the extraction features network ==')
-                    print('They will be saved in ',name_pkl_values)
+                    print('== We will compute or load the reference statistics and / or the extraction features network ==')
+                    print('The Saving file is',name_pkl_values)
                 features_net = None
                 im_net = []
                 # Load Network 
@@ -574,7 +586,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     network_features_extraction = ResNet_cut(final_layer=features,\
                                      transformOnFinalLayer ='GlobalMaxPooling2D',\
                              verbose=verbose,weights='imagenet',res_num_layers=50)
-                
+                    
+                    if returnStatistics:
+                        return(network_features_extraction)
+                        
                 elif constrNet=='ResNet50_ROWD':
                     # Refinement the batch normalisation : normalisation statistics
                     # Once on the Whole train val Dataset on new dataset
@@ -589,6 +604,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                             applySqrtOnVar=True,Net=constrNet,cropCenter=cropCenter,\
                             BV=BV,verbose=verbose) # It also computes the reference statistics (mean,var)
                     
+                    if returnStatistics:
+                        return(dict_stats_target,list_mean_and_std_target)
+                        
                     network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
                                    final_layer=features,\
@@ -612,6 +630,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                             BV=BV,cumulativeWay=True,verbose=verbose,useFloat32=useFloat32,\
                             computeGlobalVariance=computeGlobalVariance) # It also computes the reference statistics (mean,var)
                     
+                    if returnStatistics:
+                        return(dict_stats_target,list_mean_and_std_target)
+                    
                     network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
                                    final_layer=features,\
@@ -629,6 +650,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     batch_size=batch_size_RF,momentum=momentum,\
                                     num_epochs_BN=epochs_RF,output_path=output_path,\
                                     cropCenter=cropCenter)
+                    if returnStatistics:
+                        return(network_features_extraction)
 
                 else:
                     print(constrNet,'is unknown')
@@ -1010,12 +1033,13 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
     with an exponential moving average
     """
     
-    model_file_name = 'ResNet'+str(res_num_layers)+'_ROWD_'+str(weights)+'_'+transformOnFinalLayer+\
+    model_file_name = 'ResNet'+str(res_num_layers)+'_BNRF_'+str(weights)+'_'+transformOnFinalLayer+\
         '_bs' +str(batch_size)+'_m'+str(momentum)+'_ep'+str(num_epochs_BN) 
     model_file_name_path = model_file_name + '.tf'
     model_file_name_path = os.path.join(output_path,'model',model_file_name_path) 
+    model_file_name_path_for_test_existence = os.path.join(output_path,'model',model_file_name_path) +'.index'
     
-    print('model_file_name_path',model_file_name_path,os.path.isfile(model_file_name_path))
+    print('model_file_name_path',model_file_name_path_for_test_existence,'it is exist ? ',os.path.isfile(model_file_name_path_for_test_existence))
     verbose = True
     model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
                                             transformOnFinalLayer =transformOnFinalLayer,\
@@ -1023,8 +1047,8 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                                             res_num_layers=res_num_layers,momentum=momentum,\
                                             kind_method=kind_method)
     
-    if os.path.isfile(model_file_name_path):
-        print('We will load the weights of the model')
+    if os.path.isfile(model_file_name_path_for_test_existence):
+        print('--- We will load the weights of the model ---')
         #model = load_model(model_file_name_path)
         model.load_weights(model_file_name_path)
     else:
@@ -1438,6 +1462,23 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
         nesterov=True
         SGDmomentum=0.99
         decay=0.0005
+    elif scenario==7:
+        final_clf = 'MLP2'
+        epochs = 20
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,10**(-3)]]
+        return_best_model = True
+        dropout=0.5
+        SGDmomentum=0.99
+        decay=0.0005
+    elif scenario==8:
+        final_clf = 'MLP2'
+        epochs = 20
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,10**(-4)]]
+        return_best_model = True
+        dropout=0.5
+        SGDmomentum=0.9
     else:
         raise(NotImplementedError)
     
@@ -1778,6 +1819,23 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
         SGDmomentum=0.99
         decay=0.0005
     elif scenario==7:
+        final_clf = 'MLP2'
+        epochs = 20
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,10**(-3)]]
+        return_best_model = True
+        dropout=0.5
+        SGDmomentum=0.99
+        decay=0.0005
+    elif scenario==8:
+        final_clf = 'MLP2'
+        epochs = 20
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,10**(-4)]]
+        return_best_model = True
+        dropout=0.5
+        SGDmomentum=0.9
+    else:
         # In Recognizing Characters in Art History Using Deep Learning  -  Madhu 2019 ?
         raise(NotImplementedError)
 
@@ -1801,7 +1859,8 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                                              optimizer=optimizer,opt_option=opt_option,batch_size=batch_size\
                                              ,final_clf=final_clf,features=features,return_best_model=return_best_model,\
                                              onlyReturnResult=onlyPlot,style_layers=style_layers,
-                                             cropCenter=cropCenter)
+                                             cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                                             nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                                             # il faudra checker cela avec le ResNet 
         
                     if metrics is None:
@@ -1836,7 +1895,8 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                                           final_clf='MLP2',forLatex=True,optimizer=optimizer,\
                                           style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
                                           opt_option=opt_option,cropCenter=cropCenter,\
-                                          onlyReturnResult=onlyPlot)
+                                          onlyReturnResult=onlyPlot,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 if metrics is None:
                     continue
                 metricI_per_class = metrics[metricploted_index]
@@ -1927,7 +1987,9 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                                        ,return_best_model=return_best_model,\
                                        forLatex=forLatex,cropCenter=cropCenter,\
                                        momentum=0.9,batch_size_RF=16,epochs_RF=20,\
-                                       onlyReturnResult=onlyPlot,verbose=True)
+                                       onlyReturnResult=onlyPlot,verbose=True,\
+                                       dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                                       nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                     if metrics is None:
                         continue
                     metricI_per_class = metrics[metricploted_index]
@@ -2159,7 +2221,7 @@ def RunAllEvaluation_FineTuning(onlyPlot=False):
     """
     
     dataset_tab = ['Paintings','IconArt_v1']
-    scenario = 6 
+    scenario = 8
     for target_dataset in dataset_tab:
         PlotSomePerformanceVGG(target_dataset = target_dataset,
                            onlyPlot=onlyPlot,scenario=scenario,BV=True,cropCenter=True)
@@ -2331,6 +2393,91 @@ def testROWD_CUMUL_and_BRNF_FineTuning():
 #                    kind_method='TL',ReDo=False,
 #                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
 #                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48,useFloat32=True')
+
+def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
+    """ The goal of this function is to compare the new normalisation statistics of BN
+    computed in the case of the adaptation of them 
+    We will compare BNRF, ROWD (mean of variance) and variance global in the case 
+    of ResNet50 """
+    
+    nets = ['ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_BNRF']
+    style_layers = getBNlayersResNet50()
+    features = 'activation_48'
+    normalisation = False
+    final_clf= 'LinearSVC' # Don t matter
+    source_dataset=  'ImageNet'
+    kind_method=  'TL'
+    transformOnFinalLayer='GlobalAveragePooling2D'
+    computeGlobalVariance_tab = [False,True,False,False]
+    cropCenter = True
+    # Load ResNet50 normalisation statistics
+    
+    list_bn_layers = getBNlayersResNet50()
+
+    Model_dict = {}
+    list_markers = ['o','s','X','*']
+    for constrNet,computeGlobalVariance in zip(nets,computeGlobalVariance_tab):          
+        output = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                               constrNet,kind_method,style_layers=style_layers,
+                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                               batch_size_RF=16,epochs_RF=20,momentum=0.9,ReDo=False,
+                               returnStatistics=True,cropCenter=cropCenter)
+        if 'ROWD' in constrNet:
+            dict_stats_target,list_mean_and_std_target = output
+        else:
+            dict_stats_target,list_mean_and_std_target = extract_Norm_stats_of_ResNet(output,\
+                                                    res_num_layers=50,model_type=constrNet)
+        str_model = constrNet
+        if computeGlobalVariance:
+            str_model += 'GlobalVar' 
+        Model_dict[str_model] = dict_stats_target
+      
+    output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',\
+                               target_dataset,'CompBNstats') 
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
+    pltname = 'ResNet50_comparison_BN_statistics_ROWD_and_BNRF'
+    if cropCenter:
+        pltname += '_cropCenter'   
+    pltname +='.pdf'
+    pltname= os.path.join(output_path,pltname)
+    pp = PdfPages(pltname)    
+    
+    for layer_name in list_bn_layers:
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+        str_title = 'Normalisation statistics ' + layer_name
+        fig.suptitle(str_title)
+        i = 0
+        for constrNet,computeGlobalVariance in zip(nets,computeGlobalVariance_tab):
+            str_model = constrNet
+            if computeGlobalVariance:
+                str_model += 'GlobalVar' 
+            dict_stats_target = Model_dict[str_model]
+            stats_target =  dict_stats_target[layer_name]
+            means,stds = stats_target
+            x = np.arange(0,len(means))
+            ax1.scatter(x, means,label=str_model,marker=list_markers[i])
+            ax1.set_title('Normalisation Means')
+            ax1.set_xlabel('Channel')
+            ax1.set_ylabel('Mean')
+            ax1.tick_params(axis='both', which='major', labelsize=3)
+            ax1.tick_params(axis='both', which='minor', labelsize=3)
+            ax1.legend(loc='upper right', prop={'size': 2})
+            ax2.scatter(x, stds,label=str_model,marker=list_markers[i])
+            ax2.set_title('Normalisation STDs')
+            ax2.set_xlabel('Channel')
+            ax2.set_ylabel('Std')
+            ax2.tick_params(axis='both', which='major', labelsize=3)
+            ax2.tick_params(axis='both', which='minor', labelsize=3)
+            ax2.legend(loc='upper right', prop={'size': 2})
+            i+=1
+        #plt.show()
+        plt.legend(loc='best')
+        plt.savefig(pp, format='pdf')
+        plt.close()
+    pp.close()
+    plt.clf()
+            
+        
        
 # TODO :
 # Train the layer i and use it as initialization for training layer i+1 
@@ -2435,4 +2582,5 @@ if __name__ == '__main__':
 #                        constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
 #                        style_layers=['bn_conv1'],verbose=True,features='activation_48') # A finir
 #    testROWD_CUMUL()
-    RunAllEvaluation_ForFeatureExtractionModel()
+    #RunAllEvaluation_ForFeatureExtractionModel()
+    RunAllEvaluation_FineTuning()

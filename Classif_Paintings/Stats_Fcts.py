@@ -19,6 +19,8 @@ from tensorflow.python.keras import utils
 import utils_keras
 from tensorflow.python.keras import Model
 from tensorflow.python.keras import backend as K
+from tensorflow.python.keras.layers import BatchNormalization,Conv2D
+from tensorflow.python.keras import Sequential
 from tensorflow.python.keras.layers import Layer,GlobalMaxPooling2D,GlobalAveragePooling2D
 from tensorflow.python.keras.layers import concatenate
 from tensorflow.python.keras.backend import expand_dims
@@ -329,6 +331,9 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
   
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
 
+  custom_objects = {}
+  custom_objects['DecorrelatedBN']= DecorrelatedBN
+
   lr_multiple = False
   multipliers = {}
   multiply_lrp, lr = None,None
@@ -385,7 +390,8 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
   model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout)
 
   if getBeforeReLU:# refresh the non linearity 
-      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
+      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True,\
+                                              custom_objects=custom_objects)
   
   if verbose: print(model.summary())
   return model
@@ -729,9 +735,17 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
           elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
               x= Flatten()(x)
           break
+      
   pre_model.trainable = False
 
-  model = Model(inputs=pre_model.input, outputs=x)
+  try:
+      model = Model(inputs=pre_model.input, outputs=x)
+  except UnboundLocalError as e:
+      print('UnboundLocalError')
+      print(name_layer,final_layer)
+      for l in pre_model.layers:
+          print(l.name)
+      raise(e)
  
   return model
   
@@ -951,6 +965,7 @@ def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer 
   # Compile model
   #pre_model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   if verbose: print(model.summary())
+  
   return model
 
 ### ResNet with Batch normalisation splitted 
@@ -1165,6 +1180,43 @@ def get_ResNet_ROWD_meanX_meanX2_features(style_layers_exported,style_layers_imp
   model = models.Model(pre_model.input,list_stats)
   model.trainable = False
   return(model)
+
+def extract_Norm_stats_of_ResNet(model,res_num_layers=50,model_type='normal'):
+    """
+    Return the normalisation statistics of a ResNet model
+    it return the mean and the std
+    """
+    if res_num_layers==50:
+      number_of_trainable_layers = 106
+      if model_type=='normal' or model_type=='ResNet50':
+          list_bn_layers = getBNlayersResNet50()
+          list_bn_layers_name_for_dict = list_bn_layers
+      elif model_type=='BNRF' or model_type=='ResNet50_BNRF':
+          list_bn_layers_name_for_dict = getBNlayersResNet50()
+          list_bn_layers = ['home_made__batch_normalisation__refinement']
+          for i in range(len(list_bn_layers_name_for_dict)-1):
+              list_bn_layers += ['home_made__batch_normalisation__refinement_'+str(i+1)]
+          assert(len(list_bn_layers_name_for_dict)==len(list_bn_layers))
+      correspondance_names = {}
+      for layer_bn,layer_dict in zip(list_bn_layers,list_bn_layers_name_for_dict):
+          correspondance_names[layer_bn] = layer_dict
+    else:
+      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
+      raise(NotImplementedError)
+    current_list_mean_and_std_target = []
+    dict_stats_coherent = {}
+    for layer in model.layers:
+      name_layer = layer.name
+      if name_layer in list_bn_layers:
+          batchnorm_layer = model.get_layer(name_layer)
+          moving_mean = batchnorm_layer.moving_mean
+          moving_variance = batchnorm_layer.moving_variance
+          moving_mean_eval = tf.keras.backend.eval(moving_mean)
+          moving_std_eval = np.sqrt(tf.keras.backend.eval(moving_variance))
+          mean_and_std_layer = moving_mean_eval,moving_std_eval
+          dict_stats_coherent[correspondance_names[name_layer]] = mean_and_std_layer
+          current_list_mean_and_std_target += [mean_and_std_layer]
+    return(dict_stats_coherent,current_list_mean_and_std_target)
   
 ### Preprocessing functions 
 
@@ -2683,9 +2735,6 @@ def Test_BatchNormRefinement():
     
     ### Peut etre que cela ne ùarche pas a cause de ca : 
     # https://pgaleone.eu/tensorflow/keras/2019/01/19/keras-not-yet-interface-to-tensorflow/
-    from tensorflow.python.keras.layers import BatchNormalization,Conv2D
-    from tensorflow.python.keras import Model,Sequential
-    from tensorflow.python.keras import backend as K
     
     bs = 64
     features_size = 24
