@@ -730,7 +730,6 @@ def VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
         pp.close()
         plt.clf()
         
-        
 def VGG_Hist_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None
                         ,getBeforeReLU=True,printoutput='Var',cropCenter=False,BV=False):
     """
