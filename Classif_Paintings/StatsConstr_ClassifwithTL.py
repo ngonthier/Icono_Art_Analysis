@@ -2416,6 +2416,8 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
 
     Model_dict = {}
     list_markers = ['o','s','X','*']
+    alpha = 0.7
+    
     for constrNet,computeGlobalVariance in zip(nets,computeGlobalVariance_tab):          
         output = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                constrNet,kind_method,style_layers=style_layers,
@@ -2455,14 +2457,14 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
             stats_target =  dict_stats_target[layer_name]
             means,stds = stats_target
             x = np.arange(0,len(means))
-            ax1.scatter(x, means,label=str_model,marker=list_markers[i])
+            ax1.scatter(x, means,label=str_model,marker=list_markers[i],alpha=alpha)
             ax1.set_title('Normalisation Means')
             ax1.set_xlabel('Channel')
             ax1.set_ylabel('Mean')
             ax1.tick_params(axis='both', which='major', labelsize=3)
             ax1.tick_params(axis='both', which='minor', labelsize=3)
             ax1.legend(loc='upper right', prop={'size': 2})
-            ax2.scatter(x, stds,label=str_model,marker=list_markers[i])
+            ax2.scatter(x, stds,label=str_model,marker=list_markers[i],alpha=alpha)
             ax2.set_title('Normalisation STDs')
             ax2.set_xlabel('Channel')
             ax2.set_ylabel('Std')
