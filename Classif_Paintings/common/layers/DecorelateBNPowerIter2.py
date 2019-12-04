@@ -166,5 +166,32 @@ class DecorelateBNPowerIter:
             self.output = tf.transpose(outputs, [1, 0, 2, 3])
 
         return self.output
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(DecorelateBNPowerIter, self).get_config()
+        config['nIter'] = self.nIter
+        config['groups'] = self.groups
+        config['momentum'] = self.momentum
+        config['running_means'] = self.running_means
+        config['running_projections'] = self.running_projections
+        config['sigmas'] = self.sigmas
+        config['set_Xs'] = self.set_Xs
+        config['centereds'] = self.centereds
+        config['whiten_matrixs'] = self.whiten_matrixs
+        config['eps'] = self.eps
+        config['nDim'] = self.nDim
+        config['input_shape'] = self.input_shape
+        config['m_perGroup'] = self.m_perGroup
+        config['affine'] = self.affine
+        if len(self.input_shape) == 4:
+            config['iH'] = self.iH
+            config['iW'] = self.iW 
+        
+        if self.affine:
+            config['weight'] =self.weight 
+            config['bias'] =self.bias 
+            config['flag_inner_lr'] =self.flag_inner_lr 
+            config['scale'] =self.scale 
+        return(config) 
 
 
