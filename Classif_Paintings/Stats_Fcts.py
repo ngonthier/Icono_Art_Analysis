@@ -1400,7 +1400,7 @@ def wct_tf(new_img, cov_ref,m_ref, eps=1e-8):
 
     return fnew_ref_hat
 
-def get_intermediate_layers_vgg(style_layers):
+def get_intermediate_layers_vgg(style_layers,getBeforeReLU=False):
   """ Creates our model with access to intermediate layers. 
   
   This function will load the VGG19 model and access the intermediate layers. 
@@ -1414,11 +1414,34 @@ def get_intermediate_layers_vgg(style_layers):
   # Load our model. We load pretrained VGG, trained on imagenet data
   vgg = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
   vgg.trainable = False
-  # Get output layers corresponding to style and content layers 
-  style_outputs = [vgg.get_layer(name).output for name in style_layers]
-  model_outputs = style_outputs
-  # Build model 
-  return models.Model(vgg.input, model_outputs)
+  if not(getBeforeReLU):
+      # Get output layers corresponding to style and content layers 
+      style_outputs = [vgg.get_layer(name).output for name in style_layers]
+      model_outputs = style_outputs
+      # Build model 
+      model =  models.Model(vgg.input, model_outputs)
+  else: # Before ReLU ! 
+      model = tf.keras.Sequential()
+      i = 0
+      vgg_layers = vgg.layers
+      style_outputs = []
+      for layer in vgg_layers:
+          name_layer = layer.name
+          if i < len(style_layers) and name_layer==style_layers[i]:
+              # remove the non linearity
+              layer.activation = activations.linear # i.e. identity
+              style_outputs += [layer.output]
+              model.add(layer)
+              # add back the non linearity
+              model.add(Activation('relu'))
+              i += 1
+          else:
+             model.add(layer)
+             
+      model =  models.Model(vgg.input, style_outputs)     
+      # refresh the non linearity 
+      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
+  return(model)
 
 def gram_matrix(input_tensor):
   # We make the image channels first 

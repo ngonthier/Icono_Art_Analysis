@@ -15,6 +15,7 @@ import glob
 import os.path
 import os 
 import numpy as np
+from scipy.stats import kurtosis,skew
 import pickle
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -69,6 +70,19 @@ def numeral_layers_index_bitsVersion(style_layers):
             print(e)
     string = 'BV'+ str(int(''.join(['1' if i else '0' for i in list_bool]), 2)) # Convert the boolean version of index list to int
     return(string)
+
+def partition(collection):
+    if len(collection) == 1:
+        yield [ collection ]
+        return
+
+    first = collection[0]
+    for smaller in partition(collection[1:]):
+        # insert `first` in each of the subpartition's subsets
+        for n, subset in enumerate(smaller):
+            yield smaller[:n] + [[ first ] + subset]  + smaller[n+1:]
+        # put `first` in its own subset 
+        yield [ [ first ] ] + smaller
 
 
 
@@ -570,7 +584,7 @@ def VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
         if == np.inf we will use all the image in the folder of the dataset
     @param : printoutput : print in a pdf the output Var or Mean
     """
-    if not(printoutput in ['Var','Mean',['Mean','Var']]):
+    if not(printoutput in partition(['Mean','Var'])):
         print(printoutput,"is unknown. It must be 'Var' or 'Mean' or this of those two terms.")
         raise(NotImplementedError)
     if type(printoutput)==list:
@@ -730,8 +744,8 @@ def VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
         pp.close()
         plt.clf()
         
-def VGG_Hist_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None
-                        ,getBeforeReLU=True,printoutput='Var',cropCenter=False,BV=False):
+def VGG_Hist_of_featuresMaps(number_im_considered = 10,
+                             dataset_tab=None,getBeforeReLU=True,cropCenter=True,BV=False):
     """
     In this function we will compute features of VGG net and plot theirs histogram
     for different subsets such as a small part of ImageNet validation set 
@@ -742,14 +756,14 @@ def VGG_Hist_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,datas
     @param : printoutput : print in a pdf the output Var or Mean
     """
     matplotlib.use('Agg') 
-    if type(printoutput)==list:
-        list_printoutput = printoutput
-    else:
-        list_printoutput = [printoutput]
+
+    if number_im_considered>10:
+        print('You should use a small value for number_im_considered because we will create a pdf file of more than 45 pages per image')
 
     if dataset_tab is None:
         dataset_tab = ['ImageNet','Paintings','watercolor','IconArt_v1','OIV5']
-    output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','4Param')
+    output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',\
+                               'HistOfFM')
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
 
 
@@ -760,135 +774,90 @@ def VGG_Hist_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,datas
                 'block5_conv1'
                ]
 
-#    vgg_inter =  get_intermediate_layers_vgg(style_layers) 
-#    
-#    set = None
-#
-#    dict_of_dict = {}
-#
-#    for dataset in dataset_tab:
-#        print('===',dataset,'===')
-#        list_imgs,images_in_set,number_im_list = get_list_im(dataset,set='')
-#        if not(number_im_considered is None):
-#            if number_im_considered >= number_im_list:
-#                number_im_considered_tmp =None
-#            else:
-#                number_im_considered_tmp=number_im_considered
-#        if BV:
-#            str_layers = numeral_layers_index_bitsVersion(style_layers)
-#        else:
-#            str_layers = numeral_layers_index(style_layers)
-#            
-#         
-#            
-#            
-#        filename = dataset + '_' + str(number_im_considered_tmp) + '_4Param'+\
-#            '_'+str_layers
-#        if not(set=='' or set is None):
-#            filename += '_'+set
-#        if getBeforeReLU:
-#            filename += '_BeforeReLU'
-#        if cropCenter:
-#            filename +=  '_cropCenter' 
-#        if saveformat=='pkl':
-#            filename += '.pkl'
-#        if saveformat=='h5':
-#            filename += '.h5'
-#        filename_path= os.path.join(output_path,filename)
-#        
-#        if not os.path.isfile(filename_path):
-#            dict_var = Precompute_intermediate_layers(filename_path,style_layers,number_im_considered_tmp,\
-#                                           dataset=dataset,set=set,saveformat=saveformat,
-#                                           whatToload=whatToload,getBeforeReLU=getBeforeReLU,cropCenter=cropCenter)
-#            dict_of_dict[dataset] = dict_var
-#        else:
-#            print('We will load the features ')
-#            dict_var =load_precomputed_4Param(filename_path,style_layers,dataset,
-#                                                saveformat=saveformat,whatToload=whatToload)
-#            dict_of_dict[dataset] = dict_var
-#    
-#    
-#        print('Start plotting ',printoutput)
-#        # Plot the histograms (one per kernel for the different layers and save all in a pdf file)
-#        pltname = 'Hist_of_'+printoutput+'_fm_'
-#        labels = []
-#        for dataset in dataset_tab:
-#            pltname +=  dataset+'_'
-#            if dataset == 'ImageNet':
-#                labels += ['ImNet']
-#            if dataset == 'ImageNetTest':
-#                labels += ['ImNetTest']
-#            if dataset == 'ImageNetTrain':
-#                labels += ['ImNetTrain']# Warning in this case the images are ordered 
-#                # So we have a semantic bias
-#            elif dataset == 'Paintings':
-#                labels += ['ArtUK']
-#            elif dataset == 'watercolor':
-#                labels += ['w2k']
-#            elif dataset == 'IconArt_v1':
-#                labels += ['icon']
-#            elif dataset == 'OIV5':
-#                labels += ['OIV5']
-#        pltname +=  str(number_im_considered)
-#        if getBeforeReLU:
-#            pltname+= '_BeforeReLU'
-#        if cropCenter:
-#            pltname += '_cropCenter'
-#            
-#        pltname +='.pdf'
-#        pltname= os.path.join(output_path,pltname)
-#        pp = PdfPages(pltname)
-#        
-#        alpha=0.7
-#        n_bins = 100
-#        colors_full = ['red','green','blue','purple','orange','pink']
-#        colors = colors_full[0:len(dataset_tab)]
-#        
-#    #    style_layers = [style_layers[0]]
-#        
-#        # Turn interactive plotting off
-#        plt.ioff()
-#        
-#        for l,layer in enumerate(style_layers):
-#            print("Layer",layer)
-#            tab_vars = []
-#            for dataset in dataset_tab: 
-#                vars_ = dict_of_dict[dataset][layer]
-#                num_images,num_features = vars_.shape
-#                print('num_images,num_features ',num_images,num_features )
-#                tab_vars +=[vars_]
-#     
-#            number_img_w = 4
-#            number_img_h= 4
-#            num_pages = num_features//(number_img_w*number_img_h)
-#            for p in range(num_pages):
-#                #f = plt.figure()  # Do I need this ?
-#                axes = []
-#                gs00 = gridspec.GridSpec(number_img_h, number_img_w)
-#                for j in range(number_img_w*number_img_h):
-#                    ax = plt.subplot(gs00[j])
-#                    axes += [ax]
-#                for k,ax in enumerate(axes):
-#                    f_k = k + p*number_img_w*number_img_h
-#                    xtab = []
-#                    for l in range(len(dataset_tab)):
-#    #                    x = np.vstack([tab_vars[0][:,f_k],tab_vars[1][:,f_k]])# Each line is a dataset 
-#    #                    x = x.reshape((-1,2))
-#                        vars_values = tab_vars[l][:,f_k].reshape((-1,))
-#                        xtab += [vars_values]
-#                    im = ax.hist(xtab,n_bins, density=True, histtype='step',color=colors,\
-#                                 stacked=False,alpha=alpha,label=labels)
-#                    ax.tick_params(axis='both', which='major', labelsize=3)
-#                    ax.tick_params(axis='both', which='minor', labelsize=3)
-#                    ax.legend(loc='upper right', prop={'size': 2})
-#                titre = layer +' ' +str(p)
-#                plt.suptitle(titre)
-#                
-#                #gs0.tight_layout(f)
-#                plt.savefig(pp, format='pdf')
-#                plt.close()
-#        pp.close()
-#        plt.clf()
+    vgg_inter =  get_intermediate_layers_vgg(style_layers,getBeforeReLU=getBeforeReLU) 
+ 
+    set = None
+    itera = 1
+    Net = 'VGG'
+    n_bins= 100
+    for dataset in dataset_tab:
+        print('===',dataset,'===')
+        list_imgs,images_in_set,number_im_list = get_list_im(dataset,set='')
+        
+        for i,image_path in enumerate(list_imgs):
+            if number_im_considered is None or i < number_im_considered:
+                if i%itera==0: print(i,image_path)
+                head, tail = os.path.split(image_path)
+                short_name = '.'.join(tail.split('.')[0:-1])
+                if not(set is None or set==''):
+                    if not(short_name in images_in_set):
+                        # The image is not in the set considered
+                        continue
+                # Get the covairances matrixes and the means
+                try:
+                    #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
+                    if cropCenter:
+                        image_array= load_and_crop_img(path=image_path,Net=Net,target_smallest_size=224,
+                                                crop_size=224,interpolation='lanczos:center')
+                              # For VGG or ResNet size == 224
+                    else:
+                        image_array = load_resize_and_process_img(image_path,Net=Net)
+                    vgg_features = vgg_inter.predict(image_array, batch_size=1)
+                except IndexError as e:
+                    print(e)
+                    print(i,image_path)
+                    raise(e)
+                # Plot the histograms (one per kernel for the different layers and save all in a pdf file)
+                pltname = 'Hist_of_'+dataset+'_'+short_name+'_fm'
+                if getBeforeReLU:
+                    pltname+= '_BeforeReLU'
+                if cropCenter:
+                    pltname += '_cropCenter'
+                pltname +='.pdf'
+                pltname= os.path.join(output_path,pltname)
+                pp = PdfPages(pltname)
+        
+                # Turn interactive plotting off
+                plt.ioff()
+        #        
+                for l,layer in enumerate(style_layers):
+                    print("Layer",layer)
+                    features_l = vgg_features[l]
+                    num_images,h,w,num_features = features_l.shape
+                    print('num_images,num_features ',num_images,num_features )
+             
+                    number_img_w = 4
+                    number_img_h= 4
+                    num_pages = num_features//(number_img_w*number_img_h)
+                    for p in range(num_pages):
+                        #f = plt.figure()  # Do I need this ?
+                        axes = []
+                        gs00 = gridspec.GridSpec(number_img_h, number_img_w)
+                        for j in range(number_img_w*number_img_h):
+                            ax = plt.subplot(gs00[j])
+                            axes += [ax]
+                        for k,ax in enumerate(axes):
+                            f_k = k + p*number_img_w*number_img_h
+                            vars_values = features_l[:,:,:,f_k].reshape((-1,))
+                            m = np.mean(vars_values)
+                            v = np.var(vars_values)
+                            s = skew(vars_values)
+                            k = kurtosis(vars_values)
+                            im = ax.hist(vars_values,n_bins, density=False, histtype='step',\
+                                         stacked=False)
+                            ax.tick_params(axis='both', which='major', labelsize=3)
+                            ax.tick_params(axis='both', which='minor', labelsize=3)
+                            #ax.legend(loc='upper right', prop={'size': 2})
+                            fig_title = "m: {:.2E}, v: {:.2E}, s: {:.2E}, k: {:.2E}".format(m,v,s,k)
+                            ax.set_title(fig_title, fontsize=3)
+                        titre = layer +' ' +str(p)
+                        plt.suptitle(titre)
+                        
+                        #gs0.tight_layout(f)
+                        plt.savefig(pp, format='pdf')
+                        plt.close()
+                pp.close()
+                plt.clf()
         
         
 def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dataset_tab=None
@@ -907,6 +876,9 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
         list_printoutput = printoutput
     else:
         list_printoutput = [printoutput]
+    if not(list_printoutput in partition(['Mean','Var','Skewness','Kurtosis'])):
+        print(list_printoutput,'is not known')
+        raise(NotImplementedError)
 
     if dataset_tab is None:
         dataset_tab = ['ImageNet','Paintings','watercolor','IconArt_v1','OIV5']
