@@ -18,7 +18,8 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
     ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,ResNet_cut,vgg_suffleInStats,\
     get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,\
-    get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet
+    get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet,\
+    vgg_FRN
 from IMDB import get_database
 import pickle
 import pathlib
@@ -340,7 +341,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : final_clf : the final classifier can be
         - linear SVM 'LinearSVC' or two layers NN 'MLP2' or MLP1 for perceptron
     @param : features : which features we will use
-        - fc2, fc1, flatten block5_pool (need a transformation)
+        - fc2, fc1, flatten block5_pool (need a transformation) for VGG
     @param : constrNet the constrained net used
     TODO : VGGInNorm, VGGInNormAdapt seulement sur les features qui répondent trop fort, VGGGram
     @param : kind_method the type of methods we will use : TL or FT
@@ -889,6 +890,13 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 
             elif constrNet=='VGGAdaIn':
                 model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
+                          transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
+                          final_clf=final_clf,final_layer=features,verbose=verbose,\
+                          optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
+                          regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                
+            elif constrNet=='VGGFRN':
+                model = vgg_FRN(style_layers,num_of_classes=num_classes,weights=weights,\
                           transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
                           final_clf=final_clf,final_layer=features,verbose=verbose,\
                           optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
@@ -2338,31 +2346,36 @@ def Crowley_reproduction_results():
 def testVGGShuffle():
     target_dataset = 'Paintings'
     ReDo = False
-    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
-               constrNet='VGG',kind_method='FT',gridSearch=True,ReDo=ReDo,\
+#    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='block5_pool',\
+#               constrNet='VGG',kind_method='FT',gridSearch=True,ReDo=ReDo,\
+#               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+#               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
+#               epochs=50,nesterov=True,SGDmomentum=0.99,decay=0.0005)
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='block5_pool',\
+               constrNet='VGGFRN',kind_method='FT',gridSearch=True,ReDo=ReDo,\
                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
                epochs=50,nesterov=True,SGDmomentum=0.99,decay=0.0005)
-    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
-               constrNet='VGG',kind_method='FT',gridSearch=True,ReDo=ReDo,\
-               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,pretrainingModif=False,\
-               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
-               epochs=20,nesterov=True,SGDmomentum=0.9,decay=0.0005)
-    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
-               constrNet='VGGAdaIn',kind_method='FT',gridSearch=True,ReDo=ReDo,\
-               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
-               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
-               epochs=20,nesterov=True,SGDmomentum=0.9,decay=0.0005)
-    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
-               constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=True,ReDo=ReDo,\
-               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,kind_of_shuffling='roll',\
-               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
-               epochs=20,nesterov=True,SGDmomentum=0.9,decay=0.0005)
-    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
-               constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=True,ReDo=ReDo,\
-               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,kind_of_shuffling='shuffle',\
-               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
-               epochs=20,nesterov=True,SGDmomentum=0.9,decay=0.0005)
+#    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='block5_pool',\
+#               constrNet='VGG',kind_method='FT',gridSearch=True,ReDo=ReDo,\
+#               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,pretrainingModif=False,\
+#               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
+#               epochs=20,nesterov=True,SGDmomentum=0.9,decay=0.0005)
+#    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='block5_pool',\
+#               constrNet='VGGAdaIn',kind_method='FT',gridSearch=True,ReDo=ReDo,\
+#               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+#               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
+#               epochs=20,nesterov=True,SGDmomentum=0.9,decay=0.0005)
+#    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='block5_pool',\
+#               constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=True,ReDo=ReDo,\
+#               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,kind_of_shuffling='roll',\
+#               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
+#               epochs=20,nesterov=True,SGDmomentum=0.9,decay=0.0005)
+#    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='block5_pool',\
+#               constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=True,ReDo=ReDo,\
+#               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,kind_of_shuffling='shuffle',\
+#               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
+#               epochs=20,nesterov=True,SGDmomentum=0.9,decay=0.0005)
 
 def testROWD_CUMUL():
     learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
@@ -2658,5 +2671,5 @@ if __name__ == '__main__':
 #                        constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
 #                        style_layers=['bn_conv1'],verbose=True,features='activation_48') # A finir
 #    testROWD_CUMUL()
-    #RunAllEvaluation_ForFeatureExtractionModel()
+    RunAllEvaluation_ForFeatureExtractionModel()
     RunAllEvaluation_FineTuning()

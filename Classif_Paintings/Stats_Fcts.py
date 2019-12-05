@@ -234,6 +234,89 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
 
 ### VGG adaptation for new dataset
 
+def vgg_FRN(style_layers,num_of_classes=10,\
+              transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
+              weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
+              optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
+              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0):
+  """
+  VGG with an  Filter  Response  Normalization  with  Thresh-olded Activation layer 
+  are the only learnable parameters
+  with the last x dense layer 
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  Idea from https://arxiv.org/pdf/1911.09737v1.pdf
+  """
+  model = tf.keras.Sequential()
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
+  vgg_layers = vgg.layers
+  vgg.trainable = False
+  i = 0
+  
+  custom_objects = {}
+  custom_objects['FRN_Layer']= FRN_Layer
+  
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+
+  lr_multiple = False
+  multipliers = {}
+  multiply_lrp, lr = None,None
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
+  else:
+      lr = 0.01
+  if optimizer=='SGD': 
+      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
+  elif optimizer=='adam': 
+      opt = partial(Adam,decay=decay)
+  else:
+      opt = optimizer
+  
+  otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
+  if not(transformOnFinalLayer in otherOutputPorposed):
+      print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
+      raise(NotImplementedError)
+      
+  list_name_layers = []
+  for layer in vgg_layers:
+    list_name_layers += [layer.name]
+  if not(final_layer in list_name_layers):
+    print(final_layer,'is not in VGG net')
+    raise(NotImplementedError)
+      
+  for layer in vgg_layers:
+    name_layer = layer.name
+    if i < len(style_layers) and name_layer==style_layers[i]:
+      if getBeforeReLU:# remove the non linearity
+          layer.activation = activations.linear # i.e. identity
+      model.add(layer)
+      model.add(FRN_Layer()) # This layer include a activation function
+
+      i += 1
+    else:
+      model.add(layer)
+    if layer.name==final_layer:
+      if not(final_layer in  ['fc2','fc1','flatten']):
+          if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+              model.add(GlobalMaxPooling2D()) 
+          elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+              model.add(GlobalAveragePooling2D())
+          elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+              model.add(Flatten())
+      break
+  
+  model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,
+                           regularizers,dropout)
+
+  if getBeforeReLU:# refresh the non linearity 
+      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True,
+                                              custom_objects=custom_objects)
+  
+  if verbose: print(model.summary())
+  return model
+
 def vgg_AdaIn(style_layers,num_of_classes=10,\
               transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
               weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
@@ -241,7 +324,7 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0):
   """
   VGG with an Instance normalisation learn only those are the only learnable parameters
-  with the last 2 dense layer 
+  with the last x dense layer 
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
   model = tf.keras.Sequential()
@@ -1603,6 +1686,53 @@ class Shuffle_MeanAndVar(Layer):
     
     def get_config(self): # Need this to save correctly the model with this kind of layer
         config = super(Shuffle_MeanAndVar, self).get_config()
+        config['epsilon'] = self.epsilon
+        return(config)
+        
+class FRN_Layer(Layer):
+
+    def __init__(self,epsilon =1e-6, **kwargs):
+        self.epsilon = epsilon # Small float added to variance to avoid dividing by zero.
+        super(FRN_Layer, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        self.tau = self.add_weight(name='tau', 
+                                      shape=(1,1,1,input_shape[3].value),
+                                      initializer='uniform',
+                                      trainable=True)
+        self.beta = self.add_weight(name='beta', 
+                                      shape=(1,1,1,input_shape[3].value),
+                                      initializer='uniform',
+                                      trainable=True)
+        self.gamma = self.add_weight(name='gamma', 
+                                      shape=(1,1,1,input_shape[3].value),
+                                      initializer='uniform',
+                                      trainable=True)
+        
+        super(FRN_Layer, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        # x: Input tensor of shape [BxHxWxC].
+        # alpha, beta, gamma: Variables of shape [1, 1, 1, C].
+        # eps: A scalar constant or learnable variable.
+        # Compute the mean norm of activations per channel.
+        nu2 = tf.reduce_mean(tf.square(x), axis=[1, 2],keepdims=True)
+        # Perform FRN.
+        x = x*tf.math.rsqrt(nu2 + tf.abs(self.epsilon))
+        # Return after applying the Offset-ReLU non-linearity.
+        return tf.maximum(self.gamma*x + self.beta, self.tau)
+
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        return input_shape
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(FRN_Layer, self).get_config()
+        config['tau'] = self.tau
+        config['beta'] = self.beta
+        config['gamma'] = self.gamma
         config['epsilon'] = self.epsilon
         return(config)
         
