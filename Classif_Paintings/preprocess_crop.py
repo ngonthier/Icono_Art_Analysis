@@ -55,52 +55,48 @@ def load_and_crop_img(path,Net, grayscale=False, color_mode='rgb', target_smalle
                                         color_mode=color_mode, 
                                         target_size=None, 
                                         interpolation=interpolation)
-#    print('original',img.size)
-
+    
     target_width = crop_size
     target_height = crop_size
 
     if crop not in ["center", "random"]:
         raise ValueError('Invalid crop method {} specified.', crop)
+    if interpolation not in ["nearest", "bilinear", "bicubic", "lanczos","box", "hamming"]:
+        raise ValueError('Invalid interpolation method {} specified.', interpolation)
 
     width, height = img.size
-
-    # Resize keeping aspect ratio
     # result should be no smaller than the targer size, include crop fraction overhead
     if width > height:
         ratio = target_smallest_size/height
         target_biggest_size = int(ratio*width)
-        target_size_before_crop = (target_smallest_size, target_biggest_size)
-        width = target_smallest_size
-        height = target_biggest_size
+        target_size_before_crop = (target_smallest_size, target_biggest_size) # (img_height, img_width)`
     else:
         ratio = target_smallest_size/width
         target_biggest_size = int(ratio*height)
-        target_size_before_crop = (target_biggest_size, target_smallest_size)
-        width = target_biggest_size
-        height = target_smallest_size
-
+        target_size_before_crop =  (target_biggest_size, target_smallest_size) # (img_height, img_width)`
+        
+    height,width = target_size_before_crop # (img_height, img_width)`
+    
     img = preprocessing.image.load_img(path, 
                                         grayscale=grayscale, 
                                         color_mode=color_mode, 
                                         target_size=target_size_before_crop, 
                                         interpolation=interpolation)
 
-#    print('resize',img.size)
     if crop == "center":
         left_corner = int(round(width/2)) - int(round(target_width/2))
         top_corner = int(round(height/2)) - int(round(target_height/2))
         img = img.crop((left_corner, top_corner, left_corner + target_width, top_corner + target_height))
+        # Returns a rectangular region from this image. The box is a 4-tuple defining the left, 
+        #    upper, right, and lower pixel coordinate
     elif crop == "random":
         print('This have never been testes')
         left_shift = random.randint(0, int((width - target_width)))
         down_shift = random.randint(0, int((height - target_height)))
         img = img.crop((left_shift, down_shift, target_width + left_shift, target_height + down_shift))
         
+    
     img = kp_image.img_to_array(img)
-#    import matplotlib.pyplot as plt
-#    plt.imshow(img.astype(int))
-#    plt.title('Crop avec keras resizeing')
     img = np.expand_dims(img, axis=0) # Should be replace by expand_dims in tf
     if 'VGG' in Net:
         preprocessing_function = applications.vgg19.preprocess_input
@@ -111,39 +107,7 @@ def load_and_crop_img(path,Net, grayscale=False, color_mode='rgb', target_smalle
         raise(NotImplementedError)
     
     img =  preprocessing_function(img)
-#    plt.figure()
-#    plt.imshow(((img-np.min(img))/(np.max(img)-np.min(img)))[0,:,:,:])
-#    plt.title('Crop avec keras resizeing after preprocessing fct')
-#    import cv2
-#    augmentation = False
-#    im = cv2.imread(path)
-#    if augmentation:
-#        sizeIm = 256
-#    else:
-#        sizeIm = 224
-#    if(im.shape[0] < im.shape[1]):
-#        dim = (sizeIm, int(im.shape[1] * sizeIm / im.shape[0]),3)
-#    else:
-#        dim = (int(im.shape[0] * sizeIm / im.shape[1]),sizeIm,3)
-#    tmp = (dim[1],dim[0])
-#    dim = tmp
-#    resized = cv2.resize(im, dim, interpolation = cv2.INTER_AREA)
-#    resized = resized[:,:,[2,1,0]]
-#
-#    resizedf = resized.astype(np.float32)
-#    crop = resizedf[int(resized.shape[0]/2 - 112):int(resized.shape[0]/2 +112),int(resized.shape[1]/2-112):int(resized.shape[1]/2+112),:] 
-#    plt.figure()
-#    plt.imshow(crop)
-#    plt.title('Crop avec cv2 resizing')
-#    
-#    resized = kp_image.img_to_array(crop)
-#    resized = np.expand_dims(resized, axis=0)
-#    resized =  preprocessing_function(resized)
-#    plt.figure()
-#    plt.imshow(((resized-np.min(resized))/(np.max(resized)-np.min(resized)))[0,:,:,:])
-#    plt.title('Crop avec keras resizeing apres preprocessing fct')
-#    
-    
+
     return img
 
 def load_and_crop_img_forImageGenerator(path,Net, grayscale=False, color_mode='rgb',\
@@ -193,6 +157,8 @@ def load_and_crop_img_forImageGenerator(path,Net, grayscale=False, color_mode='r
 
     if crop not in ["center", "random"]:
         raise ValueError('Invalid crop method {} specified.', crop)
+    if interpolation not in ["nearest", "bilinear", "bicubic", "lanczos","box", "hamming"]:
+        raise ValueError('Invalid interpolation method {} specified.', interpolation)
     
     width, height = img.size
 
@@ -201,11 +167,13 @@ def load_and_crop_img_forImageGenerator(path,Net, grayscale=False, color_mode='r
     if width > height:
         ratio = target_smallest_size/height
         target_biggest_size = int(ratio*width)
-        target_size_before_crop = (target_biggest_size, target_smallest_size)
+        target_size_before_crop = (target_smallest_size, target_biggest_size) # (img_height, img_width)`
     else:
         ratio = target_smallest_size/width
         target_biggest_size = int(ratio*height)
-        target_size_before_crop = (target_smallest_size, target_biggest_size)
+        target_size_before_crop =  (target_biggest_size, target_smallest_size) # (img_height, img_width)`
+        
+    height,width = target_size_before_crop # (img_height, img_width)`
 
     img = preprocessing.image.load_img(path, 
                                     grayscale=grayscale, 
@@ -221,9 +189,10 @@ def load_and_crop_img_forImageGenerator(path,Net, grayscale=False, color_mode='r
         left_shift = random.randint(0, int((width - target_width)))
         down_shift = random.randint(0, int((height - target_height)))
         img = img.crop((left_shift, down_shift, target_width + left_shift, target_height + down_shift))
-        
-#    img = kp_image.img_to_array(img)
-#    img = np.expand_dims(img, axis=0) # Should be replace by expand_dims in tf
+#    print('width, height crop',img.shape)
+#        
+##    img = kp_image.img_to_array(img)
+##    img = np.expand_dims(img, axis=0) # Should be replace by expand_dims in tf
     if 'VGG' in Net:
         preprocessing_function = applications.vgg19.preprocess_input
     elif 'ResNet' in Net:
