@@ -33,7 +33,7 @@ from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
     load_resize_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\
     get_ResNet_ROWD_gram_mean_features,get_VGGmodel_4Param_features,get_VGGmodel_features
 from keras_resnet_utils import getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion
-from preprocess_crop import load_and_crop_img
+from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
 
 ### To copy only the image from the dataset
 #dataset='watercolor'
@@ -75,14 +75,20 @@ def partition(collection):
     if len(collection) == 1:
         yield [ collection ]
         return
+    else:
+        first = collection[0]
+        for smaller in partition(collection[1:]):
+            # insert `first` in each of the subpartition's subsets
+            for n, subset in enumerate(smaller):
+                yield smaller[:n] + [[ first ] + subset]  + smaller[n+1:]
+            # put `first` in its own subset 
+            yield [ [ first ] ] + smaller
 
-    first = collection[0]
-    for smaller in partition(collection[1:]):
-        # insert `first` in each of the subpartition's subsets
-        for n, subset in enumerate(smaller):
-            yield smaller[:n] + [[ first ] + subset]  + smaller[n+1:]
-        # put `first` in its own subset 
-        yield [ [ first ] ] + smaller
+def get_partition(collection):
+    l =  []
+    for p in partition(collection):
+        l += p
+    return(l)
 
 
 
@@ -584,7 +590,7 @@ def VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
         if == np.inf we will use all the image in the folder of the dataset
     @param : printoutput : print in a pdf the output Var or Mean
     """
-    if not(printoutput in partition(['Mean','Var'])):
+    if not(printoutput in get_partition(['Mean','Var'])):
         print(printoutput,"is unknown. It must be 'Var' or 'Mean' or this of those two terms.")
         raise(NotImplementedError)
     if type(printoutput)==list:
@@ -755,7 +761,7 @@ def VGG_Hist_of_featuresMaps(number_im_considered = 10,
         if == np.inf we will use all the image in the folder of the dataset
     @param : printoutput : print in a pdf the output Var or Mean
     """
-    matplotlib.use('Agg') 
+    #matplotlib.use('Agg') 
 
     if number_im_considered>10:
         print('You should use a small value for number_im_considered because we will create a pdf file of more than 45 pages per image')
@@ -787,6 +793,9 @@ def VGG_Hist_of_featuresMaps(number_im_considered = 10,
         for i,image_path in enumerate(list_imgs):
             if number_im_considered is None or i < number_im_considered:
                 if i%itera==0: print(i,image_path)
+                
+                
+                
                 head, tail = os.path.split(image_path)
                 short_name = '.'.join(tail.split('.')[0:-1])
                 if not(set is None or set==''):
@@ -819,7 +828,16 @@ def VGG_Hist_of_featuresMaps(number_im_considered = 10,
         
                 # Turn interactive plotting off
                 plt.ioff()
-        #        
+                
+                # Plot the image on the first page
+                image_array_ = image_array[0,:,:,::-1] # To get an RGB image
+                image_array_between01 = (image_array_ - np.min(image_array_))/(np.max(image_array_)-np.min(image_array_))
+                plt.figure()        
+                plt.imshow(image_array_between01)
+                plt.title(short_name)
+                plt.savefig(pp, format='pdf')
+                plt.close()
+                
                 for l,layer in enumerate(style_layers):
                     print("Layer",layer)
                     features_l = vgg_features[l]
@@ -876,7 +894,7 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
         list_printoutput = printoutput
     else:
         list_printoutput = [printoutput]
-    if not(list_printoutput in partition(['Mean','Var','Skewness','Kurtosis'])):
+    if not(list_printoutput in get_partition(['Mean','Var','Skewness','Kurtosis'])):
         print(list_printoutput,'is not known')
         raise(NotImplementedError)
 
@@ -1134,12 +1152,12 @@ if __name__ == '__main__':
 #    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
 #                        dataset_tab= ['ImageNet'],
 #                        getBeforeReLU=True,printoutput=['Mean','Var'])
-#    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
-#                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet','Paintings','watercolor','IconArt_v1'],
-#                        getBeforeReLU=True,printoutput=['Mean','Var','Skewness','Kurtosis'])
     VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
-                        dataset_tab= ['ImageNetTrain'],
-                        getBeforeReLU=True,printoutput=['Var'],cropCenter =True)
+                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet','Paintings','watercolor','IconArt_v1'],
+                        getBeforeReLU=True,printoutput=['Mean','Var','Skewness','Kurtosis'],cropCenter =True)
+#    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+#                        dataset_tab= ['ImageNetTrain'],
+#                        getBeforeReLU=True,printoutput=['Var'],cropCenter =True)
     #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
     
                     

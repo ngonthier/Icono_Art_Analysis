@@ -248,7 +248,6 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
     datagen= tf.keras.preprocessing.image.ImageDataGenerator()
     
     if cropCenter:
-        from functools import partial
         preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
     else:
         if 'VGG' in Net:
@@ -1251,7 +1250,6 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
     datagen= tf.keras.preprocessing.image.ImageDataGenerator()
     
     if cropCenter:
-        from functools import partial
         preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
     else:
         if 'VGG' in Net:
@@ -2288,18 +2286,20 @@ def Crowley_reproduction_results():
     print('The following experiments will normally reproduce the performance of Crowley 2016 with VGG central crop, grid search on C parameter of SVM but no augmentation of the image (multi crop).')
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='fc2',\
                    constrNet='VGG',kind_method='TL',gridSearch=True,ReDo=ReDo,cropCenter=True)
+    # 67.1 & 50.6 & 93.0 & 74.6 & 61.3 & 70.2 & 56.1 & 78.8 & 67.1 & 85.5 & 70.5 \\ 
     
     print('Same experiment with ResNet50 ')
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='activation_48',\
                    transformOnFinalLayer='GlobalAveragePooling2D',
                    constrNet='ResNet50',kind_method='TL',gridSearch=True,ReDo=ReDo,cropCenter=True)
     # ResNet50 Block1-5\_conv1 activation\_48 GlobalAveragePooling2D LinearSVCGS 
-    #& 64.4 & 45.9 & 91.2 & 71.6 & 64.6 & 67.9 & 53.6 & 78.0 & 65.5 & 83.6 & 68.6 \\ 
+    # & 71.1 & 48.3 & 92.9 & 75.8 & 64.4 & 72.5 & 56.6 & 80.7 & 70.5 & 88.5 & 72.2 \\ 
     
     print('Same experiment with ResNet50 but a MLP2')
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
                    constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                    transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True)
+    # & 57.3 & 34.0 & 89.7 & 68.9 & 51.5 & 62.4 & 45.9 & 72.9 & 60.5 & 77.1 & 62.0 \\
     
     print('Same experiment with ResNet50 but a MLP3 with dropout etc')
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
@@ -2307,28 +2307,33 @@ def Crowley_reproduction_results():
                    transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                    dropout=0.5,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-4)],\
                    epochs=50)
+    # & 3.4 & 10.8 & 64.7 & 25.3 & 12.9 & 16.2 & 18.7 & 24.9 & 17.9 & 4.2 & 19.9 \\ 
     
     print('Same experiment with ResNet50 but a MLP3 with dropout decay etc')
-    # 68.8 AP sur Paintings
+    # 72.4 AP sur Paintings : a verifier car il y  avait de probleme avec le crop center fct
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
                    constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                    transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                    dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[5*10**(-4)],\
                    epochs=50,nesterov=True,SGDmomentum=0.99,decay=0.0005)
-    
-    # 68.7 AP sur Paintings
-    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
-                   constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
-                   transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,cropCenter=True,\
-                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.5,5*10**(-4)],\
-                   epochs=50,nesterov=True,SGDmomentum=0.99,decay=0.0005)
+    # & 71.4 & 49.3 & 93.3 & 76.5 & 63.8 & 73.2 & 60.1 & 82.0 & 69.3 & 85.5 & 72.4 \\    
     
     print('Same experiment with ResNet50 with a fine tuning of the whole model')
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
                    constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
                    transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
-                   optimizer='SGD',opt_option=[0.1,0.01],return_best_model=True,
+                   optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
                    epochs=20,cropCenter=True)   
+    #& 13.8 & 9.9 & 42.5 & 32.3 & 16.1 & 23.2 & 16.8 & 30.6 & 20.5 & 10.6 & 21.6 \\
+    
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
+               constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
+               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+               regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
+               epochs=50,return_best_model=True,SGDmomentum=0.99,dropout=0.2)
+    # & 73.1 & 46.9 & 92.8 & 76.4 & 65.1 & 73.4 & 56.8 & 80.2 & 71.1 & 88.6 & 72.4 \\
+    
+    
     
 def testVGGShuffle():
     target_dataset = 'Paintings'
