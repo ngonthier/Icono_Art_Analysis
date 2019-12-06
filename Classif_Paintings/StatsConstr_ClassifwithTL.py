@@ -324,7 +324,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     'block4_conv1', 
                                     'block5_conv1'
                                    ],normalisation=False,gridSearch=False,ReDo=False,\
-                                   transformOnFinalLayer='',number_im_considered = 1000,\
+                                   transformOnFinalLayer='',number_im_considered = 10000,\
                                    set='',getBeforeReLU=False,forLatex=False,epochs=20,\
                                    pretrainingModif=True,weights='imagenet',opt_option=[0.01],\
                                    optimizer='SGD',freezingType='FromTop',verbose=False,\
@@ -894,6 +894,36 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                           final_clf=final_clf,final_layer=features,verbose=verbose,\
                           optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                           regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+              
+            elif constrNet=='VGGBaseNormCoherentAdaIn':
+                    # A more coherent way to compute the VGGBaseNormalisation
+                    # We will pass the dataset several time through the net modify bit after bit to 
+                    # get the coherent mean and std of the target domain
+                    whatToload = 'varmean'
+                    dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
+                           cropCenter=cropCenter,BV=BV)
+                    # Compute the reference statistics
+                    list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
+                                                         imageUsed='all',whatToload =whatToload,
+                                                         applySqrtOnVar=True)
+                    target_number_im_considered = None
+                    target_set = 'trainval'
+                    dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
+                           style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
+                           getBeforeReLU=getBeforeReLU,target_set=target_set,\
+                           applySqrtOnVar=True,cropCenter=cropCenter,BV=BV,verbose=verbose) # It also computes the reference statistics (mean,var)
+                    
+                    # We use the vgg_BaseNorm as the initialisation of the VGGAdaIn one 
+                    # That means we allow to fine-tune the batch normalisation
+                    
+                    model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
+                          transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
+                          final_clf=final_clf,final_layer=features,verbose=verbose,\
+                          optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
+                          regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
+                          SGDmomentum=SGDmomentum,decay=decay,\
+                          list_mean_and_std_source=list_mean_and_std_source,list_mean_and_std_target=list_mean_and_std_target)
                 
             elif constrNet=='VGGFRN':
                 model = vgg_FRN(style_layers,num_of_classes=num_classes,weights=weights,\
@@ -1042,6 +1072,8 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
     
     model_file_name = 'ResNet'+str(res_num_layers)+'_BNRF_'+str(weights)+'_'+transformOnFinalLayer+\
         '_bs' +str(batch_size)+'_m'+str(momentum)+'_ep'+str(num_epochs_BN) 
+    if cropCenter:
+        model_file_name += '_cropCenter'
     model_file_name_path = model_file_name + '.tf'
     model_file_name_path = os.path.join(output_path,'model',model_file_name_path) 
     model_file_name_path_for_test_existence = os.path.join(output_path,'model',model_file_name_path) +'.index'
@@ -2111,10 +2143,10 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     kind_method = 'TL'
     
     final_clf_list = ['LinearSVC','MLP2'] # LinearSVC but also MLP : pas encore fini
-    #final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
+    final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
     
     dataset_tab = ['Paintings','IconArt_v1']
-    #dataset_tab = ['IconArt_v1']
+    dataset_tab = ['Paintings']
     
     for target_dataset in dataset_tab:
         for final_clf,gridSearch in zip(final_clf_list,[True,False]): 
@@ -2138,6 +2170,7 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                 
                 # Statistics model
                 net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
+                net_tab = []
                 style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
                              ['block1_conv1','block2_conv1'],['block1_conv1']]
                 style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
@@ -2189,6 +2222,7 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                 # Statistics model
                 style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
                                              getBNlayersResNet50()]
+                style_layers_tab_forResNet50_ROWD = [getBNlayersResNet50()]
                 
                 constrNet = 'ResNet50_ROWD_CUMUL'
                 for computeGlobalVariance in [False,True]:
@@ -2351,6 +2385,11 @@ def testVGGShuffle():
 #               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
 #               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
 #               epochs=50,nesterov=True,SGDmomentum=0.99,decay=0.0005)
+#    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='block5_pool',\
+#               constrNet='VGGBaseNormCoherentAdaIn',kind_method='FT',gridSearch=True,ReDo=ReDo,\
+#               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+#               dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
+#               epochs=50,nesterov=True,SGDmomentum=0.99,decay=0.0005)
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='block5_pool',\
                constrNet='VGGFRN',kind_method='FT',gridSearch=True,ReDo=ReDo,\
                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
@@ -2427,7 +2466,7 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     source_dataset=  'ImageNet'
     kind_method=  'TL'
     transformOnFinalLayer='GlobalAveragePooling2D'
-    computeGlobalVariance_tab = [False,True,False,False]
+    computeGlobalVariance_tab = [False,False,True,False]
     cropCenter = True
     # Load ResNet50 normalisation statistics
     
@@ -2467,6 +2506,8 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     
     distances_means = {}
     distances_stds = {}
+    ratios_means = {}
+    ratios_stds = {}
 
     for layer_name in list_bn_layers:
         distances_means[layer_name] = []
@@ -2490,8 +2531,12 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
             else:
                 diff_means = np.abs(ref_means-means)
                 diff_stds = np.abs(ref_stds-stds)
+                ratio_means = means/ref_means
+                ratio_stds = stds/ref_stds
                 distances_means[layer_name] += [diff_means]
                 distances_stds[layer_name] += [diff_stds]
+                ratios_means[layer_name] += [ratio_means]
+                ratios_stds[layer_name] += [ratio_stds]
             x = np.arange(0,len(means))
             ax1.scatter(x, means,label=str_model,marker=list_markers[i],alpha=alpha)
             ax1.set_title('Normalisation Means')
@@ -2531,8 +2576,8 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     hO, = plt.plot([1,1],'C1-')
     hG, = plt.plot([1,1],'C2-')
     hR, = plt.plot([1,1],'C3-')
-    plt.title('Absolute distance between normalisation means of ResNet and other models')
-    plt.legend((hO, hG,hR),('ROWD_global', 'ROWD', 'BNRF'))
+    plt.title('Absolute distance between normalisation means of original ResNet and other models')
+    plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
     hO.set_visible(False)
     hG.set_visible(False)
     hR.set_visible(False)
@@ -2555,14 +2600,64 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     hO, = plt.plot([1,1],'C1-')
     hG, = plt.plot([1,1],'C2-')
     hR, = plt.plot([1,1],'C3-')
-    plt.title('Absolute distance between normalisation stds of ResNet and other models')
-    plt.legend((hO, hG,hR),('ROWD_global', 'ROWD', 'BNRF'))
+    plt.title('Absolute distance between normalisation stds of original ResNet and other models')
+    plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
     hO.set_visible(False)
     hG.set_visible(False)
     hR.set_visible(False)
     plt.savefig(pp, format='pdf')
     plt.close()
-        
+    
+    # Plot the boxplot of the ratio between normalisation statistics
+    fig = plt.figure()
+    ax = plt.axes()
+    set_xticks= []
+    c = ['C1','C2','C3']
+    c = ['orange','green','red']
+    for i,layer_name in enumerate(list_bn_layers):     
+        positions = [i*3,i*3+1,i*3+2]
+        set_xticks += [i*3+1]
+        bp = plt.boxplot(ratio_means[layer_name], positions = positions, 
+                         widths = 0.6,notch=True, patch_artist=True)
+        for patch, color in zip(bp['boxes'], c):
+            patch.set_facecolor(color)
+    ax.set_xticklabels(list_bn_layers)
+    ax.set_xticks(set_xticks,rotation='vertical')
+    hO, = plt.plot([1,1],'C1-')
+    hG, = plt.plot([1,1],'C2-')
+    hR, = plt.plot([1,1],'C3-')
+    plt.title('Ratio between normalisation means of Refined model and original ResNet')
+    plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
+    hO.set_visible(False)
+    hG.set_visible(False)
+    hR.set_visible(False)
+    plt.savefig(pp, format='pdf')
+    plt.close()
+    
+    fig = plt.figure()
+    ax = plt.axes()
+    set_xticks= []
+    
+    for i,layer_name in enumerate(list_bn_layers):     
+        positions = [i*3,i*3+1,i*3+2]
+        set_xticks += [i*3+1]
+        bp = plt.boxplot(ratios_stds[layer_name], positions = positions, 
+                         widths = 0.6,notch=True, patch_artist=True)
+        for patch, color in zip(bp['boxes'], c):
+            patch.set_facecolor(color) 
+    ax.set_xticklabels(list_bn_layers)
+    ax.set_xticks(set_xticks,rotation='vertical')
+    hO, = plt.plot([1,1],'C1-')
+    hG, = plt.plot([1,1],'C2-')
+    hR, = plt.plot([1,1],'C3-')
+    plt.title('Ratio between normalisation stds of Refined model and original ResNet')
+    plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
+    hO.set_visible(False)
+    hG.set_visible(False)
+    hR.set_visible(False)
+    plt.savefig(pp, format='pdf')
+    plt.close()
+    
     pp.close()
     plt.clf()
             
@@ -2672,4 +2767,4 @@ if __name__ == '__main__':
 #                        style_layers=['bn_conv1'],verbose=True,features='activation_48') # A finir
 #    testROWD_CUMUL()
     RunAllEvaluation_ForFeatureExtractionModel()
-    RunAllEvaluation_FineTuning()
+    #RunAllEvaluation_FineTuning()

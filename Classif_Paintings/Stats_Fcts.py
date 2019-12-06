@@ -321,12 +321,19 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
               transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
               weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
-              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0):
+              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
+              list_mean_and_std_source=None,list_mean_and_std_target=None):
   """
   VGG with an Instance normalisation learn only those are the only learnable parameters
   with the last x dense layer 
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
+  
+  if list_mean_and_std_source is None or list_mean_and_std_target is None:
+      ParamInitialision = False
+  else:
+      ParamInitialision = True
+  
   model = tf.keras.Sequential()
   vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
   vgg_layers = vgg.layers
@@ -370,7 +377,21 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
       if getBeforeReLU:# remove the non linearity
           layer.activation = activations.linear # i.e. identity
       model.add(layer)
-      model.add(layers.BatchNormalization(axis=-1, center=True, scale=True))
+      if not(ParamInitialision):
+          bn_layer = layers.BatchNormalization(axis=-1, center=True, scale=True)
+      else:
+          # Scaling parameters
+          beta_initializer = tf.constant_initializer(list_mean_and_std_source[i][0])
+          gamma_initializer = tf.constant_initializer(list_mean_and_std_source[i][1])
+          # Normalisation parameters
+          moving_mean_initializer = tf.constant_initializer(list_mean_and_std_target[i][0])
+          moving_variance_initializer = tf.constant_initializer(np.square(list_mean_and_std_target[i][1]))
+          bn_layer = layers.BatchNormalization(axis=-1, center=True, scale=True,\
+                                               beta_initializer=beta_initializer,\
+                                               gamma_initializer=gamma_initializer,\
+                                               moving_mean_initializer=moving_mean_initializer,\
+                                               moving_variance_initializer=moving_variance_initializer)
+      model.add(bn_layer)
         
       if getBeforeReLU: # add back the non linearity
           model.add(Activation('relu'))

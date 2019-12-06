@@ -761,7 +761,7 @@ def VGG_Hist_of_featuresMaps(number_im_considered = 10,
         if == np.inf we will use all the image in the folder of the dataset
     @param : printoutput : print in a pdf the output Var or Mean
     """
-    #matplotlib.use('Agg') 
+    matplotlib.use('Agg') 
 
     if number_im_considered>10:
         print('You should use a small value for number_im_considered because we will create a pdf file of more than 45 pages per image')
