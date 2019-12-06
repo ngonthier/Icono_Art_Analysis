@@ -24,6 +24,7 @@ def apply_modifications(model,include_optimizer=True, custom_objects=None,needFi
     # in a Keras layer doesnt actually change the graph. We have to iterate the entire graph and change the
     # layer inbound and outbound nodes with modified tensors. This is doubly complicated in Keras 2.x since
     # multiple inbound and outbound nodes are allowed with the Graph API.
+
     model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
     try:
         model.save(model_path,include_optimizer=include_optimizer)

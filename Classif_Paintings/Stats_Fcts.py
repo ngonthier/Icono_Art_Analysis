@@ -250,8 +250,7 @@ def vgg_FRN(style_layers,num_of_classes=10,\
   vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
   vgg_layers = vgg.layers
   vgg.trainable = False
-  i = 0
-  
+
   custom_objects = {}
   custom_objects['FRN_Layer']= FRN_Layer
   
@@ -285,18 +284,22 @@ def vgg_FRN(style_layers,num_of_classes=10,\
   if not(final_layer in list_name_layers):
     print(final_layer,'is not in VGG net')
     raise(NotImplementedError)
-      
+  
+  i = 0  
   for layer in vgg_layers:
     name_layer = layer.name
     if i < len(style_layers) and name_layer==style_layers[i]:
       if getBeforeReLU:# remove the non linearity
           layer.activation = activations.linear # i.e. identity
       model.add(layer)
-      model.add(FRN_Layer()) # This layer include a activation function
+      new_layer = FRN_Layer() # This layer include a activation function
+      new_layer.trainable = True
+      model.add(new_layer) 
 
       i += 1
     else:
       model.add(layer)
+      
     if layer.name==final_layer:
       if not(final_layer in  ['fc2','fc1','flatten']):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
@@ -306,14 +309,14 @@ def vgg_FRN(style_layers,num_of_classes=10,\
           elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
               model.add(Flatten())
       break
-  
+
   model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,
                            regularizers,dropout)
 
   if getBeforeReLU:# refresh the non linearity 
       model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True,
                                               custom_objects=custom_objects)
-  
+
   if verbose: print(model.summary())
   return model
 
@@ -474,7 +477,7 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
       if getBeforeReLU:# remove the non linearity
           layer.activation = activations.linear # i.e. identity
       model.add(layer)
-      model.add(DecorrelatedBN(m_per_group=m_per_group, affine=dbn_affine))
+      model.add(DecorrelatedBN(m_per_group=m_per_group, affine=dbn_affine,name='decorrelated_bn'+str(i)))
         
       if getBeforeReLU: # add back the non linearity
           model.add(Activation('relu'))
@@ -519,6 +522,12 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
   i = 0
   
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+
+  custom_objects = {}
+  if kind_of_shuffling=='shuffle':
+      custom_objects['Shuffle_MeanAndVar']= Shuffle_MeanAndVar
+  if kind_of_shuffling=='roll':
+      custom_objects['Roll_MeanAndVar']= Roll_MeanAndVar
 
   lr_multiple = False
   multipliers = {}
@@ -579,7 +588,8 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
   model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout)
 
   if getBeforeReLU:# refresh the non linearity 
-      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
+      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True,\
+                                              custom_objects=custom_objects)
   
   if verbose: print(model.summary())
   return model
@@ -1544,7 +1554,7 @@ def get_intermediate_layers_vgg(style_layers,getBeforeReLU=False):
              
       model =  models.Model(vgg.input, style_outputs)     
       # refresh the non linearity 
-      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
+      model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True)
   return(model)
 
 def gram_matrix(input_tensor):
@@ -1723,11 +1733,11 @@ class FRN_Layer(Layer):
                                       trainable=True)
         self.beta = self.add_weight(name='beta', 
                                       shape=(1,1,1,input_shape[3].value),
-                                      initializer='uniform',
+                                      initializer='zeros',
                                       trainable=True)
         self.gamma = self.add_weight(name='gamma', 
                                       shape=(1,1,1,input_shape[3].value),
-                                      initializer='uniform',
+                                      initializer='ones',
                                       trainable=True)
         
         super(FRN_Layer, self).build(input_shape)  
@@ -1751,9 +1761,9 @@ class FRN_Layer(Layer):
     
     def get_config(self): # Need this to save correctly the model with this kind of layer
         config = super(FRN_Layer, self).get_config()
-        config['tau'] = self.tau
-        config['beta'] = self.beta
-        config['gamma'] = self.gamma
+#        config['tau'] = self.tau
+#        config['beta'] = self.beta
+#        config['gamma'] = self.gamma
         config['epsilon'] = self.epsilon
         return(config)
         
