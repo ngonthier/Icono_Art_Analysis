@@ -72,6 +72,24 @@ class DecorrelatedBN(Layer):
         self.moving_projections = []
 
         self._trainable_var = None
+        
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(DecorrelatedBN, self).get_config()
+        config['epsilon'] = self.epsilon
+        config['axis'] = self.axis
+        config['momentum'] = self.momentum
+        config['affine'] = self.affine
+        config['beta_initializer'] = self.beta_initializer
+        config['gamma_initializer'] = self.gamma_initializer
+        config['moving_mean_initializer'] = self.moving_mean_initializer
+        config['moving_projection_initializer'] = self.moving_projection_initializer
+        config['beta_regularizer'] = self.beta_regularizer
+        config['gamma_regularizer'] = self.gamma_regularizer
+        config['gamma_constraint'] = self.gamma_constraint
+        config['beta_constraint'] = self.beta_constraint
+        config['trainable'] = self.trainable
+        config['name'] = self.name
+        return(config)
 
     @property
     def trainable(self):
