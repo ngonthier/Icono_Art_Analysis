@@ -1266,7 +1266,8 @@ def get_ResNet_ROWD_meanX_meanX2_features(style_layers_exported,style_layers_imp
   pre_model = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers=style_layers_imposed,\
                                    list_mean_and_std_target=list_mean_and_std_target,\
                                    final_layer=style_layers_exported[-1],\
-                                   transformOnFinalLayer=transformOnFinalLayer,res_num_layers=res_num_layers,\
+                                   transformOnFinalLayer=transformOnFinalLayer,\
+                                   res_num_layers=res_num_layers,\
                                    weights=weights)
   pre_model.trainable = False
 

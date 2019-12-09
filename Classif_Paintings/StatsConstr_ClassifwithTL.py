@@ -11,6 +11,7 @@ statistics imposed on the features maps of the layers
 
 from trouver_classes_parmi_K import TrainClassif
 import numpy as np
+import matplotlib
 import os.path
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index,numeral_layers_index_bitsVersion
 from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
@@ -104,7 +105,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                 style_layers_imposed = style_layers[0:i_layer]
                 style_layers_exported = [style_layers[i_layer]]
                 
-                if Net=='ResNet50_ROWD' or list_mean_and_std_source is None:
+                if 'ROWD' in Net or list_mean_and_std_source is None:
                     list_mean_and_std_source_i = None
                 else:
                     list_mean_and_std_source_i = list_mean_and_std_source[0:i_layer]
@@ -139,8 +140,12 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                 str_layers = getResNetLayersNumeral(style_layers,num_layers=50)
         else:
             raise(NotImplementedError)
-        filename = 'OnlyCoherentStats_'+source_dataset + '_' + str(target_number_im_considered) +\
-            '_MeanStd'+'_'+str_layers
+        if 'ROWD' in Net: 
+            # In this case we don t take into account the source_dataset only the target one
+            filename = Net+'_OnlyCoherentStats_MeanStd_'+str_layers
+        else:
+            filename = Net+'_OnlyCoherentStats_'+source_dataset + '_' + str(target_number_im_considered) +\
+                '_MeanStd'+'_'+str_layers
         if computeGlobalVariance:
             filename +='_computeGlobalVariance'
         
@@ -151,6 +156,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
             output_path_full = os.path.join('data','Covdata')
         pathlib.Path(output_path_full).mkdir(parents=True, exist_ok=True)  
         
+        filename += '_TD_'+target_dataset
         if not(target_set=='' or target_set is None):
             filename += '_'+ target_set
         if 'VGG' in Net and getBeforeReLU:
@@ -175,7 +181,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                     style_layers_imposed = style_layers[0:i_layer]
                     style_layers_exported = [style_layers[i_layer]]
                     
-                    if Net=='ResNet50_ROWD' or list_mean_and_std_source is None:
+                    if 'ROWD' in Net or list_mean_and_std_source is None:
                         list_mean_and_std_source_i = None
                     else:
                         list_mean_and_std_source_i = list_mean_and_std_source[0:i_layer]
@@ -198,7 +204,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
             for i_layer,layer_name in enumerate(style_layers):
                 mean_and_std_layer =  dict_stats_coherent[layer_name]
                 current_list_mean_and_std_target += [mean_and_std_layer]
-
+    
     return(dict_stats_coherent,current_list_mean_and_std_target)
 
 def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
@@ -214,105 +220,110 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
     """
     # Les differents reseaux retournr la moyenne spatiale des features et la 
     # moyenne spatiale des carrées des features
-    if Net=='VGG':
-        net_get_SpatialMean_SpatialMeanOfSquare =  get_VGGmodel_meanX_meanX2_features(style_layers,getBeforeReLU=getBeforeReLU)
-    elif Net=='VGGBaseNorm' or Net=='VGGBaseNormCoherent':
-        style_layers_exported = style_layers
-        net_get_SpatialMean_SpatialMeanOfSquare = get_BaseNorm_meanX_meanX2_features(style_layers_exported,\
-                        style_layers_imposed,list_mean_and_std_source,list_mean_and_std_target,\
-                        getBeforeReLU=getBeforeReLU)
-    elif Net=='ResNet50_ROWD_CUMUL': # Base coherent here also but only update the batch normalisation
-        style_layers_exported = style_layers
-        net_get_SpatialMean_SpatialMeanOfSquare = get_ResNet_ROWD_meanX_meanX2_features(style_layers_exported,style_layers_imposed,\
-                                    list_mean_and_std_target,transformOnFinalLayer=None,
-                                    res_num_layers=50,weights='imagenet')
-    else:
-        print(Net,'is inknown')
-        raise(NotImplementedError)
-    # Load info about dataset
-    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
-    path_data,Not_on_NicolasPC = get_database(dataset)
+    graph1 = tf.Graph()
+    with graph1.as_default():
+        session1 = tf.Session()
+        with session1.as_default():
     
-    if set=='train':
-        df = df_label[df_label['set']=='train']
-    elif set=='test':
-        df = df_label[df_label['set']=='test']
-    elif set==str_val or set=='val' or set=='validation':
-        df = df_label[df_label['set']==str_val]
-    elif set=='trainval':
-        df1 = df_label[df_label['set']=='train']
-        df2 = df_label[df_label['set']==str_val]
-        df =df1.append(df2)
-    x_col = item_name
-    df[x_col] = df[x_col].apply(lambda x : x + '.jpg')
-    
-    datagen= tf.keras.preprocessing.image.ImageDataGenerator()
-    
-    if cropCenter:
-        preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
-    else:
-        if 'VGG' in Net:
-            preprocessing_function = tf.keras.applications.vgg19.preprocess_input
-        elif 'ResNet50' in Net:
-            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
-        else:
-            print(Net,'is unknwon')
-            raise(NotImplementedError)
+            if Net=='VGG':
+                net_get_SpatialMean_SpatialMeanOfSquare =  get_VGGmodel_meanX_meanX2_features(style_layers,getBeforeReLU=getBeforeReLU)
+            elif Net=='VGGBaseNorm' or Net=='VGGBaseNormCoherent':
+                style_layers_exported = style_layers
+                net_get_SpatialMean_SpatialMeanOfSquare = get_BaseNorm_meanX_meanX2_features(style_layers_exported,\
+                                style_layers_imposed,list_mean_and_std_source,list_mean_and_std_target,\
+                                getBeforeReLU=getBeforeReLU)
+            elif Net=='ResNet50_ROWD_CUMUL': # Base coherent here also but only update the batch normalisation
+                style_layers_exported = style_layers
+                net_get_SpatialMean_SpatialMeanOfSquare = get_ResNet_ROWD_meanX_meanX2_features(style_layers_exported,style_layers_imposed,\
+                                            list_mean_and_std_target,transformOnFinalLayer=None,
+                                            res_num_layers=50,weights='imagenet')
+            else:
+                print(Net,'is inknown')
+                raise(NotImplementedError)
+            # Load info about dataset
+            item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+            path_data,Not_on_NicolasPC = get_database(dataset)
             
-    test_generator=datagen.flow_from_dataframe(dataframe=df, directory=path_to_img,\
-                                                x_col=x_col,\
-                                                class_mode=None,shuffle=False,\
-                                                target_size=(224,224), batch_size=32,
-                                                preprocessing_function=preprocessing_function,
-                                                use_multiprocessing=True,workers=3)
-    predictions = net_get_SpatialMean_SpatialMeanOfSquare.predict_generator(test_generator)
-    meanX,meanX2 = predictions
-#    if dtype=='float64':
-#        meanX.astype('float64')
-#        meanX2.astype('float64')
-#    print(meanX.shape,meanX2.shape)
-#    print(meanX)
-#    print(meanX2)
-    
-    
-    if computeGlobalVariance:
-        meanX2.astype('float64')
-        meanX.astype('float64')
-        expectation_meanX = np.mean(meanX,axis=0)
-        mean_global_X2 = np.mean(meanX2,axis=0)
-        
-        varX = mean_global_X2 - np.power(expectation_meanX,2)
-        
-    #    varX_beforeClip = varX
-    #    varX = np.where(varX<0.0 and varX>=-10**(-5), 0.0, varX)
-        varX = varX.clip(min=0.0)
-        try:
-            assert(varX>=0).all()
-        except AssertionError as e:
-            print('varX negative values :',varX[np.where(varX<0.0)])
-            print('varX negative index :',np.where(varX<0.0))
-            raise(e)
-        expectation_stdX = np.sqrt(varX)
-        expectation_stdX.astype('float32')
-        expectation_meanX.astype('float32')
-    else:
-        expectation_meanX = np.mean(meanX,axis=0)
-        varX = meanX2 - np.power(meanX,2)
-    #    varX_beforeClip = varX
-    #    varX = np.where(varX<0.0 and varX>=-10**(-5), 0.0, varX)
-        varX = varX.clip(min=0.0)
-#    print(varX)
-        try:
-            assert(varX>=0).all()
-        except AssertionError as e:
-            print('varX negative values :',varX[np.where(varX<0.0)])
-            print('varX negative index :',np.where(varX<0.0))
-            raise(e)
-        expectation_stdX = np.mean(np.sqrt(varX),axis=0)
-#    if dtype=='float64':
-#        expectation_meanX.astype('float32')
-#        expectation_stdX.astype('float32')
-    del net_get_SpatialMean_SpatialMeanOfSquare
+            if set=='train':
+                df = df_label[df_label['set']=='train']
+            elif set=='test':
+                df = df_label[df_label['set']=='test']
+            elif set==str_val or set=='val' or set=='validation':
+                df = df_label[df_label['set']==str_val]
+            elif set=='trainval':
+                df1 = df_label[df_label['set']=='train']
+                df2 = df_label[df_label['set']==str_val]
+                df =df1.append(df2)
+            x_col = item_name
+            df[x_col] = df[x_col].apply(lambda x : x + '.jpg')
+            
+            datagen= tf.keras.preprocessing.image.ImageDataGenerator()
+            
+            if cropCenter:
+                preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
+            else:
+                if 'VGG' in Net:
+                    preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+                elif 'ResNet50' in Net:
+                    preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+                else:
+                    print(Net,'is unknwon')
+                    raise(NotImplementedError)
+                    
+            test_generator=datagen.flow_from_dataframe(dataframe=df, directory=path_to_img,\
+                                                        x_col=x_col,\
+                                                        class_mode=None,shuffle=False,\
+                                                        target_size=(224,224), batch_size=32,
+                                                        preprocessing_function=preprocessing_function,
+                                                        use_multiprocessing=True,workers=3)
+            predictions = net_get_SpatialMean_SpatialMeanOfSquare.predict_generator(test_generator)
+            meanX,meanX2 = predictions
+        #    if dtype=='float64':
+        #        meanX.astype('float64')
+        #        meanX2.astype('float64')
+        #    print(meanX.shape,meanX2.shape)
+        #    print(meanX)
+        #    print(meanX2)
+            
+            
+            if computeGlobalVariance:
+                meanX2.astype('float64')
+                meanX.astype('float64')
+                expectation_meanX = np.mean(meanX,axis=0)
+                mean_global_X2 = np.mean(meanX2,axis=0)
+                
+                varX = mean_global_X2 - np.power(expectation_meanX,2)
+                
+            #    varX_beforeClip = varX
+            #    varX = np.where(varX<0.0 and varX>=-10**(-5), 0.0, varX)
+                varX = varX.clip(min=0.0)
+                try:
+                    assert(varX>=0).all()
+                except AssertionError as e:
+                    print('varX negative values :',varX[np.where(varX<0.0)])
+                    print('varX negative index :',np.where(varX<0.0))
+                    raise(e)
+                expectation_stdX = np.sqrt(varX)
+                expectation_stdX.astype('float32')
+                expectation_meanX.astype('float32')
+            else:
+                expectation_meanX = np.mean(meanX,axis=0)
+                varX = meanX2 - np.power(meanX,2)
+            #    varX_beforeClip = varX
+            #    varX = np.where(varX<0.0 and varX>=-10**(-5), 0.0, varX)
+                varX = varX.clip(min=0.0)
+        #    print(varX)
+                try:
+                    assert(varX>=0).all()
+                except AssertionError as e:
+                    print('varX negative values :',varX[np.where(varX<0.0)])
+                    print('varX negative index :',np.where(varX<0.0))
+                    raise(e)
+                expectation_stdX = np.mean(np.sqrt(varX),axis=0)
+        #    if dtype=='float64':
+        #        expectation_meanX.astype('float32')
+        #        expectation_stdX.astype('float32')
+            del net_get_SpatialMean_SpatialMeanOfSquare
     
     return(expectation_meanX,expectation_stdX)
 
@@ -334,7 +345,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    momentum=0.9,batch_size_RF=16,epochs_RF=20,cropCenter=True,\
                                    BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
                                    kind_of_shuffling='shuffle',useFloat32=True,\
-                                   computeGlobalVariance=False,returnStatistics=False):
+                                   computeGlobalVariance=False,returnStatistics=False,returnFeatures=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -389,13 +400,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : kind_of_shuffling=='shuffle' or 'roll'  for VGGshuffleInStats
     @param : useFloat32 is the use of float32 for cumulated spatial mean of features and squared features
     @param : computeGlobalVariance if True compute the global variance in the case of ResNet50_ROWD_CUMUL 
-    @param : returnStatistics : if True in the case of ROWD and BNRF, we return the normalisation statistics computer by the refinement step
+    @param : returnStatistics : if True in the case of ResNet, ROWD and BNRF, we return the normalisation statistics computer by the refinement step
+    @param : returnFeatures : if True in the case of ResNet, ROWD and BNRF, we return the features precomputed along with the labels
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
     
     #tf.compat.v1.enable_eager_execution()
-    
+    assert(not(returnStatistics and returnFeatures)) # Need to choose between both
     assert(freezingType in ['FromBottom','FromTop','Alter'])
     
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset)
@@ -651,6 +663,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     
                     if returnStatistics:
                         return(dict_stats_target,list_mean_and_std_target)
+                    
+                    
                     
                     network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
@@ -2244,16 +2258,18 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     gridSearch = True # For LinearSVC
     normalisation = False
     kind_method = 'TL'
+    verbose = True
     
     final_clf_list = ['LinearSVC','MLP2'] # LinearSVC but also MLP : pas encore fini
-    #final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
+    final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
     
     dataset_tab = ['Paintings','IconArt_v1']
-    #dataset_tab = ['Paintings']
+    dataset_tab = ['Paintings']
     
     for target_dataset in dataset_tab:
+        print('===',target_dataset,'===')
         for final_clf,gridSearch in zip(final_clf_list,[True,False]): 
-        
+            print('==',final_clf,'==')
             # VGG case 
             for features,transformOnFinalLayer in zip(['fc2','block5_pool','block5_pool'],['','GlobalMaxPooling2D','GlobalAveragePooling2D']):
                 
@@ -2335,7 +2351,7 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                             learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                        constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
                                        normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                                       ReDo=False,computeGlobalVariance=computeGlobalVariance)
+                                       ReDo=False,computeGlobalVariance=computeGlobalVariance,verbose=verbose)
                         else:
                             learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                        constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
@@ -2567,6 +2583,8 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     We will compare BNRF, ROWD (mean of variance) and variance global in the case 
     of ResNet50 """
     
+    matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
+    
     nets = ['ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_BNRF']
     style_layers = getBNlayersResNet50()
     features = 'activation_48'
@@ -2621,6 +2639,8 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     for layer_name in list_bn_layers:
         distances_means[layer_name] = []
         distances_stds[layer_name] = []
+        ratios_means[layer_name] = []
+        ratios_stds[layer_name] = []
         
         fig, (ax1, ax2) = plt.subplots(2, 1)
         str_title = 'Normalisation statistics ' + layer_name
@@ -2640,8 +2660,8 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
             else:
                 diff_means = np.abs(ref_means-means)
                 diff_stds = np.abs(ref_stds-stds)
-                ratio_means = means/ref_means
-                ratio_stds = stds/ref_stds
+                ratio_means = np.abs(means/ref_means)
+                ratio_stds = np.abs(stds/ref_stds)
                 distances_means[layer_name] += [diff_means]
                 distances_stds[layer_name] += [diff_stds]
                 ratios_means[layer_name] += [ratio_means]
@@ -2676,16 +2696,17 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     for i,layer_name in enumerate(list_bn_layers):     
         positions = [i*3,i*3+1,i*3+2]
         set_xticks += [i*3+1]
-        bp = plt.boxplot(distances_means[layer_name], positions = positions, 
+        bp = plt.boxplot(np.log(distances_means[layer_name]), positions = positions, 
                          widths = 0.6,notch=True, patch_artist=True)
         for patch, color in zip(bp['boxes'], c):
             patch.set_facecolor(color)
     ax.set_xticklabels(list_bn_layers)
-    ax.set_xticks(set_xticks,rotation='vertical')
+    ax.set_xticks(set_xticks)
+    plt.setp( ax.xaxis.get_majorticklabels(), rotation='vertical')
     hO, = plt.plot([1,1],'C1-')
     hG, = plt.plot([1,1],'C2-')
     hR, = plt.plot([1,1],'C3-')
-    plt.title('Absolute distance between normalisation means of original ResNet and other models')
+    plt.title('Log Abs distance between means of refined and orignal.', fontsize=10)
     plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
     hO.set_visible(False)
     hG.set_visible(False)
@@ -2700,16 +2721,17 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     for i,layer_name in enumerate(list_bn_layers):     
         positions = [i*3,i*3+1,i*3+2]
         set_xticks += [i*3+1]
-        bp = plt.boxplot(distances_stds[layer_name], positions = positions, 
+        bp = plt.boxplot(np.log(distances_stds[layer_name]), positions = positions, 
                          widths = 0.6,notch=True, patch_artist=True)
         for patch, color in zip(bp['boxes'], c):
             patch.set_facecolor(color) 
     ax.set_xticklabels(list_bn_layers)
-    ax.set_xticks(set_xticks,rotation='vertical')
+    ax.set_xticks(set_xticks)
+    plt.setp( ax.xaxis.get_majorticklabels(), rotation='vertical')
     hO, = plt.plot([1,1],'C1-')
     hG, = plt.plot([1,1],'C2-')
     hR, = plt.plot([1,1],'C3-')
-    plt.title('Absolute distance between normalisation stds of original ResNet and other models')
+    plt.title('Log Abs distance between  stds of refined and orignal.', fontsize=10)
     plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
     hO.set_visible(False)
     hG.set_visible(False)
@@ -2726,16 +2748,17 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     for i,layer_name in enumerate(list_bn_layers):     
         positions = [i*3,i*3+1,i*3+2]
         set_xticks += [i*3+1]
-        bp = plt.boxplot(ratio_means[layer_name], positions = positions, 
+        bp = plt.boxplot(np.log(1.+ratios_means[layer_name]), positions = positions, 
                          widths = 0.6,notch=True, patch_artist=True)
         for patch, color in zip(bp['boxes'], c):
             patch.set_facecolor(color)
     ax.set_xticklabels(list_bn_layers)
-    ax.set_xticks(set_xticks,rotation='vertical')
+    ax.set_xticks(set_xticks)
+    plt.setp( ax.xaxis.get_majorticklabels(), rotation='vertical')
     hO, = plt.plot([1,1],'C1-')
     hG, = plt.plot([1,1],'C2-')
     hR, = plt.plot([1,1],'C3-')
-    plt.title('Ratio between normalisation means of Refined model and original ResNet')
+    plt.title('Log 1+ Ratio between means of refined and orignal.', fontsize=10)
     plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
     hO.set_visible(False)
     hG.set_visible(False)
@@ -2750,23 +2773,24 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     for i,layer_name in enumerate(list_bn_layers):     
         positions = [i*3,i*3+1,i*3+2]
         set_xticks += [i*3+1]
-        bp = plt.boxplot(ratios_stds[layer_name], positions = positions, 
+        bp = plt.boxplot(np.log(1.+ratios_stds[layer_name]), positions = positions, 
                          widths = 0.6,notch=True, patch_artist=True)
         for patch, color in zip(bp['boxes'], c):
             patch.set_facecolor(color) 
     ax.set_xticklabels(list_bn_layers)
-    ax.set_xticks(set_xticks,rotation='vertical')
+    ax.set_xticks(set_xticks)
+    plt.setp( ax.xaxis.get_majorticklabels(), rotation='vertical')
     hO, = plt.plot([1,1],'C1-')
     hG, = plt.plot([1,1],'C2-')
     hR, = plt.plot([1,1],'C3-')
-    plt.title('Ratio between normalisation stds of Refined model and original ResNet')
+    plt.title('Log 1+ ratio between stds of Refined model and original', fontsize=10)
     plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
     hO.set_visible(False)
     hG.set_visible(False)
     hR.set_visible(False)
     plt.savefig(pp, format='pdf')
     plt.close()
-    
+   
     pp.close()
     plt.clf()
             
