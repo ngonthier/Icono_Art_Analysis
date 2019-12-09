@@ -345,7 +345,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    momentum=0.9,batch_size_RF=16,epochs_RF=20,cropCenter=True,\
                                    BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
                                    kind_of_shuffling='shuffle',useFloat32=True,\
-                                   computeGlobalVariance=False,returnStatistics=False,returnFeatures=False):
+                                   computeGlobalVariance=True,returnStatistics=False,returnFeatures=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -864,6 +864,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 scaler = StandardScaler()
                 Xtrainval = scaler.fit_transform(Xtrainval)
                 X_test = scaler.transform(X_test)
+                
+            if returnFeatures:
+                return(Xtrainval,ytrainval,X_test,y_test)
             
             if final_clf=='LinearSVC':
                 dico_clf=TrainClassifierOnAllClass(Xtrainval,ytrainval,clf=final_clf,gridSearch=gridSearch)
@@ -2261,10 +2264,10 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     verbose = True
     
     final_clf_list = ['LinearSVC','MLP2'] # LinearSVC but also MLP : pas encore fini
-    final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
+    #final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
     
     dataset_tab = ['Paintings','IconArt_v1']
-    dataset_tab = ['Paintings']
+    #dataset_tab = ['Paintings']
     
     for target_dataset in dataset_tab:
         print('===',target_dataset,'===')
@@ -2289,7 +2292,6 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                 
                 # Statistics model
                 net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
-                net_tab = []
                 style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
                              ['block1_conv1','block2_conv1'],['block1_conv1']]
                 style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
@@ -2341,7 +2343,6 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                 # Statistics model
                 style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
                                              getBNlayersResNet50()]
-                style_layers_tab_forResNet50_ROWD = [getBNlayersResNet50()]
                 
                 constrNet = 'ResNet50_ROWD_CUMUL'
                 for computeGlobalVariance in [False,True]:
@@ -2547,6 +2548,18 @@ def testROWD_CUMUL():
                     constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
                     style_layers=['bn_conv1'],verbose=True,features='activation_48',useFloat32=True)
     
+def test_avec_normalisation_ROWD_CUMUL():
+    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
+                    kind_method='TL',ReDo=False,
+                    constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=[],verbose=True,features='activation_48',useFloat32=True,
+                    normalisation=True,gridSearch=True)
+    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
+                    kind_method='TL',ReDo=False,
+                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',useFloat32=True,
+                    normalisation=True,gridSearch=True,computeGlobalVariance=True)
+    
 def testROWD_CUMUL_and_BRNF_FineTuning():
     learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
                     kind_method='FT',ReDo=True,
@@ -2577,222 +2590,7 @@ def testROWD_CUMUL_and_BRNF_FineTuning():
 #                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
 #                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48,useFloat32=True')
 
-def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
-    """ The goal of this function is to compare the new normalisation statistics of BN
-    computed in the case of the adaptation of them 
-    We will compare BNRF, ROWD (mean of variance) and variance global in the case 
-    of ResNet50 """
-    
-    matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
-    
-    nets = ['ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_BNRF']
-    style_layers = getBNlayersResNet50()
-    features = 'activation_48'
-    normalisation = False
-    final_clf= 'LinearSVC' # Don t matter
-    source_dataset=  'ImageNet'
-    kind_method=  'TL'
-    transformOnFinalLayer='GlobalAveragePooling2D'
-    computeGlobalVariance_tab = [False,False,True,False]
-    cropCenter = True
-    # Load ResNet50 normalisation statistics
-    
-    list_bn_layers = getBNlayersResNet50()
 
-    Model_dict = {}
-    list_markers = ['o','s','X','*']
-    alpha = 0.7
-    
-    for constrNet,computeGlobalVariance in zip(nets,computeGlobalVariance_tab):          
-        output = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                               constrNet,kind_method,style_layers=style_layers,
-                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                               batch_size_RF=16,epochs_RF=20,momentum=0.9,ReDo=False,
-                               returnStatistics=True,cropCenter=cropCenter,\
-                               computeGlobalVariance=computeGlobalVariance)
-        if 'ROWD' in constrNet:
-            dict_stats_target,list_mean_and_std_target = output
-        else:
-            dict_stats_target,list_mean_and_std_target = extract_Norm_stats_of_ResNet(output,\
-                                                    res_num_layers=50,model_type=constrNet)
-        str_model = constrNet
-        if computeGlobalVariance:
-            str_model += 'GlobalVar' 
-        Model_dict[str_model] = dict_stats_target
-      
-    print('Plotting the statistics')
-    output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',\
-                               target_dataset,'CompBNstats') 
-    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
-    pltname = 'ResNet50_comparison_BN_statistics_ROWD_and_BNRF'
-    if cropCenter:
-        pltname += '_cropCenter'   
-    pltname +='.pdf'
-    pltname= os.path.join(output_path,pltname)
-    pp = PdfPages(pltname)    
-    
-    distances_means = {}
-    distances_stds = {}
-    ratios_means = {}
-    ratios_stds = {}
-
-    for layer_name in list_bn_layers:
-        distances_means[layer_name] = []
-        distances_stds[layer_name] = []
-        ratios_means[layer_name] = []
-        ratios_stds[layer_name] = []
-        
-        fig, (ax1, ax2) = plt.subplots(2, 1)
-        str_title = 'Normalisation statistics ' + layer_name
-        fig.suptitle(str_title)
-        i = 0
-        for constrNet,computeGlobalVariance in zip(nets,computeGlobalVariance_tab):
-            str_model = constrNet
-            if computeGlobalVariance:
-                str_model += 'GlobalVar' 
-            str_model.replace('ResNet50_','')
-            dict_stats_target = Model_dict[str_model]
-            stats_target =  dict_stats_target[layer_name]
-            means,stds = stats_target
-            if constrNet=='ResNet50':
-                ref_means = means
-                ref_stds = stds
-            else:
-                diff_means = np.abs(ref_means-means)
-                diff_stds = np.abs(ref_stds-stds)
-                ratio_means = np.abs(means/ref_means)
-                ratio_stds = np.abs(stds/ref_stds)
-                distances_means[layer_name] += [diff_means]
-                distances_stds[layer_name] += [diff_stds]
-                ratios_means[layer_name] += [ratio_means]
-                ratios_stds[layer_name] += [ratio_stds]
-            x = np.arange(0,len(means))
-            ax1.scatter(x, means,label=str_model,marker=list_markers[i],alpha=alpha)
-            ax1.set_title('Normalisation Means')
-            ax1.set_xlabel('Channel')
-            ax1.set_ylabel('Mean')
-            ax1.tick_params(axis='both', which='major', labelsize=3)
-            ax1.tick_params(axis='both', which='minor', labelsize=3)
-            ax1.legend(loc='best', prop={'size': 4})
-            ax2.scatter(x, stds,label=str_model,marker=list_markers[i],alpha=alpha)
-            ax2.set_title('Normalisation STDs')
-            ax2.set_xlabel('Channel')
-            ax2.set_ylabel('Std')
-            ax2.tick_params(axis='both', which='major', labelsize=3)
-            ax2.tick_params(axis='both', which='minor', labelsize=3)
-            ax2.legend(loc='best', prop={'size': 4})
-            i+=1
- 
-        #plt.show()
-        plt.savefig(pp, format='pdf')
-        plt.close()
-     
-    # Plot the boxplot of the distance between normalisation statistics
-    fig = plt.figure()
-    ax = plt.axes()
-    set_xticks= []
-    c = ['C1','C2','C3']
-    c = ['orange','green','red']
-    for i,layer_name in enumerate(list_bn_layers):     
-        positions = [i*3,i*3+1,i*3+2]
-        set_xticks += [i*3+1]
-        bp = plt.boxplot(np.log(distances_means[layer_name]), positions = positions, 
-                         widths = 0.6,notch=True, patch_artist=True)
-        for patch, color in zip(bp['boxes'], c):
-            patch.set_facecolor(color)
-    ax.set_xticklabels(list_bn_layers)
-    ax.set_xticks(set_xticks)
-    plt.setp( ax.xaxis.get_majorticklabels(), rotation='vertical')
-    hO, = plt.plot([1,1],'C1-')
-    hG, = plt.plot([1,1],'C2-')
-    hR, = plt.plot([1,1],'C3-')
-    plt.title('Log Abs distance between means of refined and orignal.', fontsize=10)
-    plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
-    hO.set_visible(False)
-    hG.set_visible(False)
-    hR.set_visible(False)
-    plt.savefig(pp, format='pdf')
-    plt.close()
-    
-    fig = plt.figure()
-    ax = plt.axes()
-    set_xticks= []
-    
-    for i,layer_name in enumerate(list_bn_layers):     
-        positions = [i*3,i*3+1,i*3+2]
-        set_xticks += [i*3+1]
-        bp = plt.boxplot(np.log(distances_stds[layer_name]), positions = positions, 
-                         widths = 0.6,notch=True, patch_artist=True)
-        for patch, color in zip(bp['boxes'], c):
-            patch.set_facecolor(color) 
-    ax.set_xticklabels(list_bn_layers)
-    ax.set_xticks(set_xticks)
-    plt.setp( ax.xaxis.get_majorticklabels(), rotation='vertical')
-    hO, = plt.plot([1,1],'C1-')
-    hG, = plt.plot([1,1],'C2-')
-    hR, = plt.plot([1,1],'C3-')
-    plt.title('Log Abs distance between  stds of refined and orignal.', fontsize=10)
-    plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
-    hO.set_visible(False)
-    hG.set_visible(False)
-    hR.set_visible(False)
-    plt.savefig(pp, format='pdf')
-    plt.close()
-    
-    # Plot the boxplot of the ratio between normalisation statistics
-    fig = plt.figure()
-    ax = plt.axes()
-    set_xticks= []
-    c = ['C1','C2','C3']
-    c = ['orange','green','red']
-    for i,layer_name in enumerate(list_bn_layers):     
-        positions = [i*3,i*3+1,i*3+2]
-        set_xticks += [i*3+1]
-        bp = plt.boxplot(np.log(1.+ratios_means[layer_name]), positions = positions, 
-                         widths = 0.6,notch=True, patch_artist=True)
-        for patch, color in zip(bp['boxes'], c):
-            patch.set_facecolor(color)
-    ax.set_xticklabels(list_bn_layers)
-    ax.set_xticks(set_xticks)
-    plt.setp( ax.xaxis.get_majorticklabels(), rotation='vertical')
-    hO, = plt.plot([1,1],'C1-')
-    hG, = plt.plot([1,1],'C2-')
-    hR, = plt.plot([1,1],'C3-')
-    plt.title('Log 1+ Ratio between means of refined and orignal.', fontsize=10)
-    plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
-    hO.set_visible(False)
-    hG.set_visible(False)
-    hR.set_visible(False)
-    plt.savefig(pp, format='pdf')
-    plt.close()
-    
-    fig = plt.figure()
-    ax = plt.axes()
-    set_xticks= []
-    
-    for i,layer_name in enumerate(list_bn_layers):     
-        positions = [i*3,i*3+1,i*3+2]
-        set_xticks += [i*3+1]
-        bp = plt.boxplot(np.log(1.+ratios_stds[layer_name]), positions = positions, 
-                         widths = 0.6,notch=True, patch_artist=True)
-        for patch, color in zip(bp['boxes'], c):
-            patch.set_facecolor(color) 
-    ax.set_xticklabels(list_bn_layers)
-    ax.set_xticks(set_xticks)
-    plt.setp( ax.xaxis.get_majorticklabels(), rotation='vertical')
-    hO, = plt.plot([1,1],'C1-')
-    hG, = plt.plot([1,1],'C2-')
-    hR, = plt.plot([1,1],'C3-')
-    plt.title('Log 1+ ratio between stds of Refined model and original', fontsize=10)
-    plt.legend((hO, hG,hR),('ROWD','ROWD_global', 'BNRF'))
-    hO.set_visible(False)
-    hG.set_visible(False)
-    hR.set_visible(False)
-    plt.savefig(pp, format='pdf')
-    plt.close()
-   
-    pp.close()
-    plt.clf()
             
         
        
@@ -2900,4 +2698,4 @@ if __name__ == '__main__':
 #                        style_layers=['bn_conv1'],verbose=True,features='activation_48') # A finir
 #    testROWD_CUMUL()
     RunAllEvaluation_ForFeatureExtractionModel()
-    #RunAllEvaluation_FineTuning()
+    RunAllEvaluation_FineTuning()
