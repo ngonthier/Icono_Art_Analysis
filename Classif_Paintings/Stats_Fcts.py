@@ -616,6 +616,7 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
       opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
   else:
       opt = opt(learning_rate=lr)
+      
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
   return(model)
@@ -659,7 +660,6 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
       opt = partial(Adam,decay=decay)
   else:
       opt =  optimizer
-      
   ilayer = 0
   for layer in pre_model.layers:
       if SomePartFreezed and (layer.count_params() > 0):
