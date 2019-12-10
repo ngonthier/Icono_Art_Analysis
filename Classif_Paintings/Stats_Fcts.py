@@ -610,9 +610,9 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
           if not(dropout is None): x = Dropout(dropout)(x)
   model = Model(inputs=pre_model.input, outputs=predictions)
   if lr_multiple:
-      if final_clf=='MLP3': multipliers[model.layers[-3].name] = 1.
-      if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = 1.
-      if final_clf=='MLP3' or final_clf=='MLP2' or final_clf=='MLP1': multipliers[model.layers[-1].name] = 1.
+      if final_clf=='MLP3': multipliers[model.layers[-3].name] = None
+      if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = None
+      if final_clf=='MLP3' or final_clf=='MLP2' or final_clf=='MLP1': multipliers[model.layers[-1].name] = None
       opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
   else:
       opt = opt(learning_rate=lr)
@@ -685,10 +685,11 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
                  #print('Alter',layer.name,ilayer,pretrainingModif_bottom,pretrainingModif_top)
              else:
                  layer.trainable = False
-#         print(ilayer,layer.name,layer.trainable)
+                 
          ilayer += 1
-      if lr_multiple and layer.trainable: 
-          multipliers[layer.name] = multiply_lrp
+         # Only if the layer have some trainable parameters
+         if lr_multiple and layer.trainable: 
+             multipliers[layer.name] = multiply_lrp
 
   x = pre_model.output
   if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
@@ -1222,12 +1223,13 @@ def get_ResNet_ROWD_gram_mean_features(style_layers_exported,style_layers_impose
   last_layer = None
   for layer in pre_model.layers:
       name_layer = layer.name
-      #print(name_layer)
+      print(name_layer)
       if name_layer==style_layers_exported[i]:
-          if not(last_layer is None):
-              output = last_layer.output
-          else: 
-              output = pre_model.input
+#          if not(last_layer is None):
+#              output = last_layer.output
+#          else: 
+#              output = pre_model.input
+          output = layer.input
           #print(output)
           mean_layer = Mean_Matrix_Layer()(output)
           cov_layer = Cov_Matrix_Layer()([output,mean_layer])
@@ -1279,10 +1281,11 @@ def get_ResNet_ROWD_meanX_meanX2_features(style_layers_exported,style_layers_imp
       name_layer = layer.name
       #print(name_layer)
       if name_layer==style_layers_exported[i]:
-          if not(last_layer is None):
-              output = last_layer.output
-          else: 
-              output = pre_model.input
+#          if not(last_layer is None):
+#              output = last_layer.output
+#          else: 
+#              output = pre_model.input
+          output = layer.input
           mean_and_meanOfSquared_layer = Mean_and_MeanSquare_Layer(useFloat32=useFloat32)(output)
           list_stats += [mean_and_meanOfSquared_layer]
           i+= 1

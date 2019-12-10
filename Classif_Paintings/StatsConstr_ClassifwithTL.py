@@ -345,7 +345,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    momentum=0.9,batch_size_RF=16,epochs_RF=20,cropCenter=True,\
                                    BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
                                    kind_of_shuffling='shuffle',useFloat32=True,\
-                                   computeGlobalVariance=True,returnStatistics=False,returnFeatures=False):
+                                   computeGlobalVariance=True,returnStatistics=False,returnFeatures=False,\
+                                   NoValidationSetUsed=False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -402,6 +403,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : computeGlobalVariance if True compute the global variance in the case of ResNet50_ROWD_CUMUL 
     @param : returnStatistics : if True in the case of ResNet, ROWD and BNRF, we return the normalisation statistics computer by the refinement step
     @param : returnFeatures : if True in the case of ResNet, ROWD and BNRF, we return the features precomputed along with the labels
+    @param : NoValidationSetUsed : means that we don't use a validation set for selecting the best model or other stuff, we will use the whole trainval dataset for training
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -756,6 +758,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     AP_file += '_sgdm'+str(SGDmomentum)
             if not(decay==0.0):
                 AP_file += '_dec'+str(decay)
+            if NoValidationSetUsed:
+                AP_file +='_NoValidationSetUsed'
     elif kind_method=='FT':
        AP_file += '_'+str(epochs)+batch_size_str
        if not(optimizer=='adam'):
@@ -777,7 +781,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
        if not(decay==0.0):
            AP_file += '_dec'+str(decay)
        if return_best_model:
-            AP_file += '_BestOnVal'
+           AP_file += '_BestOnVal'
+       if NoValidationSetUsed:
+           AP_file +='_NoValidationSetUsed'
     
     AP_file_base =  AP_file
     AP_file_pkl =AP_file_base+'_AP.pkl'
@@ -906,7 +912,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                     
                     model = TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,\
-                                 verbose=verbose,plotConv=plotConv,return_best_model=return_best_model)
+                                 verbose=verbose,plotConv=plotConv,return_best_model=return_best_model,\
+                                 NoValidationSetUsed=NoValidationSetUsed)
                 predictions = model.predict(X_test, batch_size=1)
                 metrics = evaluationScore(y_test,predictions)  
             else:
@@ -988,14 +995,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             elif constrNet=='ResNet50':
                 getBeforeReLU = False
                 model = ResNet_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
-                                           transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
+                                           transformOnFinalLayer=transformOnFinalLayer,weights=weights,opt_option=opt_option,\
                                            res_num_layers=50,final_clf=final_clf,verbose=verbose,\
                                            freezingType=freezingType,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
             elif constrNet=='ResNet50AdaIn':
                 getBeforeReLU = False
                 model = ResNet_AdaIn(style_layers,num_of_classes=num_classes,\
                                            transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
-                                           res_num_layers=50,final_clf=final_clf,verbose=verbose,
+                                           res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
                                            dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 
             elif constrNet=='ResNet50_ROWD_CUMUL':
@@ -1044,7 +1051,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                                     x_col=item_name,y_col=classes,path_im=path_to_img,\
                                     str_val=str_val,num_classes=len(classes),epochs=epochs,\
-                                    Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter)
+                                    Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
+                                    NoValidationSetUsed=NoValidationSetUsed)
             model_path = os.path.join(model_output_path,AP_file_base+'.h5')
             include_optimizer=False
             model.save(model_path,include_optimizer=include_optimizer)
@@ -1178,19 +1186,25 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
 
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 32,plotConv=False,test_size=0.15,\
-                  return_best_model=False,cropCenter=False):
+                  return_best_model=False,cropCenter=False,NoValidationSetUsed=False):
     """
     @param x_col : name of images
     @param y_col : classes
     @param path_im : path to images
     @param : return_best_model : return the best model on the val_loss
     """
+    assert(not(NoValidationSetUsed and return_best_model))
+    
     df_train = df[df['set']=='train']
     df_val = df[df['set']==str_val]
     df_train[x_col] = df_train[x_col].apply(lambda x : x + '.jpg')
     df_val[x_col] = df_val[x_col].apply(lambda x : x + '.jpg')
-    if len(df_val)==0:
-        df_train, df_val = train_test_split(df_train, test_size=test_size)
+    
+    if not(NoValidationSetUsed):
+        if len(df_val)==0:
+            df_train, df_val = train_test_split(df_train, test_size=test_size)
+    else:
+        df_train = df_train.append(df_val)
         
     if cropCenter:
         preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
@@ -1211,24 +1225,17 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                                                 target_size=(224,224), batch_size=batch_size,\
                                                 shuffle=True,\
                                                 preprocessing_function=preprocessing_function)
-    valid_generator=datagen.flow_from_dataframe(dataframe=df_val, directory=path_im,\
-                                                x_col=x_col,y_col=y_col,\
-                                                class_mode="other", \
-                                                target_size=(224,224), batch_size=batch_size,\
-                                                preprocessing_function=preprocessing_function)
-#    train_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
-#                                                x_col=x_col,y_col=y_col,\
-#                                                class_mode="other", \
-#                                                target_size=(224,224), batch_size=32,\
-#                                                shuffle=True,\
-#                                                preprocessing_function=preprocessing_function)
-#    valid_generator=datagen.flow_from_dataframe(dataframe=df_val, directory=path_im,\
-#                                                x_col=x_col,y_col=y_col,\
-#                                                class_mode="other", \
-#                                                target_size=(224,224), batch_size=32,\
-#                                                preprocessing_function=preprocessing_function)
     STEP_SIZE_TRAIN=train_generator.n//train_generator.batch_size
-    STEP_SIZE_VALID=valid_generator.n//valid_generator.batch_size
+    
+    if not(NoValidationSetUsed):
+        valid_generator=datagen.flow_from_dataframe(dataframe=df_val, directory=path_im,\
+                                                    x_col=x_col,y_col=y_col,\
+                                                    class_mode="other", \
+                                                    target_size=(224,224), batch_size=batch_size,\
+                                                    preprocessing_function=preprocessing_function)
+        STEP_SIZE_VALID=valid_generator.n//valid_generator.batch_size
+    
+    
     # TODO you should add an early stoppping 
 #    earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
 #    mcp_save = ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
@@ -1239,12 +1246,19 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         tmp_model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
         mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor='val_loss', mode='min')
         callbacks += [mcp_save]
-    history = model.fit_generator(generator=train_generator,
-                    steps_per_epoch=STEP_SIZE_TRAIN,
-                    validation_data=valid_generator,
-                    validation_steps=STEP_SIZE_VALID,
-                    epochs=epochs,use_multiprocessing=True,
-                    workers=3,callbacks=callbacks)
+        
+    if not(NoValidationSetUsed):
+        history = model.fit_generator(generator=train_generator,
+                        steps_per_epoch=STEP_SIZE_TRAIN,
+                        validation_data=valid_generator,
+                        validation_steps=STEP_SIZE_VALID,
+                        epochs=epochs,use_multiprocessing=True,
+                        workers=3,callbacks=callbacks)
+    else:
+        history = model.fit_generator(generator=train_generator,
+                        steps_per_epoch=STEP_SIZE_TRAIN,
+                        epochs=epochs,use_multiprocessing=True,
+                        workers=3)
     
     if return_best_model: # We need to load back the best model !
         # https://github.com/keras-team/keras/issues/2768
@@ -1272,9 +1286,11 @@ def plotKerasHistory(history):
    
     
 def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
-             plotConv=False,return_best_model=False):
-    
-    
+             plotConv=False,return_best_model=False,NoValidationSetUsed=False):
+    """
+    @param : plotConv : convergence plotting
+    """
+    assert(not(NoValidationSetUsed and return_best_model))
     
     callbacks = []
     if return_best_model:
@@ -1284,7 +1300,7 @@ def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
         callbacks += [mcp_save]
     
     STEP_SIZE_TRAIN=len(X_train)//batch_size
-    if not(len(X_val)==0):
+    if not(len(X_val)==0) or not(NoValidationSetUsed):
         STEP_SIZE_VALID=len(X_val)//batch_size
         history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
                             validation_data=(X_val, y_val),\
@@ -1293,11 +1309,16 @@ def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
                             use_multiprocessing=True,workers=3,\
                             shuffle=True,callbacks=callbacks)
     else: # No validation set provided
+        if NoValidationSetUsed:
+            validation_split = 0.0
+        else:
+            validation_split = 0.15
         history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
-                            validation_split=0.15,\
+                            validation_split=validation_split,\
                             steps_per_epoch=STEP_SIZE_TRAIN,\
                             use_multiprocessing=True,workers=3,\
                             shuffle=True,callbacks=callbacks)
+    if plotConv: # Plot convergence  
         plotKerasHistory(history)
         
     return(model)
@@ -2264,10 +2285,10 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     verbose = True
     
     final_clf_list = ['LinearSVC','MLP2'] # LinearSVC but also MLP : pas encore fini
-    #final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
+    final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
     
     dataset_tab = ['Paintings','IconArt_v1']
-    #dataset_tab = ['Paintings']
+    dataset_tab = ['Paintings']
     
     for target_dataset in dataset_tab:
         print('===',target_dataset,'===')
@@ -2496,6 +2517,39 @@ def Crowley_reproduction_results():
     # & 73.1 & 46.9 & 92.8 & 76.4 & 65.1 & 73.4 & 56.8 & 80.2 & 71.1 & 88.6 & 72.4 \\
     
     
+def testResNet_FineTuning():
+    """
+    The goal of this function is tout 
+    """
+    target_dataset = 'Paintings'
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+           constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=True,\
+           transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+           regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.1,0.01],\
+           epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,return_best_model=True) 
+    # & 15.7 & 15.3 & 69.2 & 49.4 & 19.6 & 33.6 & 18.2 & 43.1 & 26.7 & 44.0 & 33.5 \\ 
+    
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+           constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=True,\
+           transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+           regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.1,0.01],\
+           epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,return_best_model=True) 
+    # ResNet50 GlobalAveragePooling2D ep :20 BFReLU & 17.8 & 13.3 & 62.6 & 41.0 & 13.7 & 32.0 & 16.8 & 29.3 & 13.6 & 32.6 & 27.3 \\ 
+    
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+           constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=True,\
+           transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+           regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+           epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,return_best_model=True) 
+    # ResNet50 GlobalAveragePooling2D ep :20 BFReLU 
+    #& 18.7 & 13.1 & 60.6 & 42.4 & 19.7 & 28.8 & 19.0 & 41.8 & 26.6 & 48.7 & 31.9 \\ 
+    
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=True,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,NoValidationSetUsed=True)
+    #  & 12.2 & 11.0 & 67.5 & 34.0 & 15.7 & 29.5 & 20.2 & 31.8 & 23.9 & 23.6 & 26.9 \\ 
     
 def testVGGShuffle():
     target_dataset = 'Paintings'
@@ -2549,18 +2603,24 @@ def testROWD_CUMUL():
                     style_layers=['bn_conv1'],verbose=True,features='activation_48',useFloat32=True)
     
 def test_avec_normalisation_ROWD_CUMUL():
+#    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
+#                    kind_method='TL',ReDo=True,
+#                    constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
+#                    style_layers=[],verbose=True,features='activation_48',useFloat32=True,
+#                    normalisation=True,gridSearch=False)
     learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
                     kind_method='TL',ReDo=False,
-                    constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
-                    style_layers=[],verbose=True,features='activation_48',useFloat32=True,
-                    normalisation=True,gridSearch=True)
+                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=['bn_conv1'],verbose=True,features='activation_48',useFloat32=True,
+                    normalisation=True,gridSearch=False,computeGlobalVariance=True)
     learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
                     kind_method='TL',ReDo=False,
                     constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
                     style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',useFloat32=True,
-                    normalisation=True,gridSearch=True,computeGlobalVariance=True)
+                    normalisation=True,gridSearch=False,computeGlobalVariance=True)
     
 def testROWD_CUMUL_and_BRNF_FineTuning():
+    ### Non teste encore, non fonctionnel
     learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
                     kind_method='FT',ReDo=True,
                     constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
