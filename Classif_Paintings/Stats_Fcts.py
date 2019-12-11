@@ -1560,6 +1560,20 @@ def get_intermediate_layers_vgg(style_layers,getBeforeReLU=False):
       # refresh the non linearity 
       model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True)
   return(model)
+  
+def get_those_layers_output(model,list_of_concern_layers):
+  """ Creates our model with access to intermediate layers. 
+  
+  This function will return a model with a list as output, this list will contain
+  the output of the considered layer 
+  
+  You need to provide the specific name of each layer
+  """
+  model.trainable = False
+  model_outputs = [model.get_layer(name).output for name in list_of_concern_layers]
+
+  model =  models.Model(model.input, model_outputs)     
+  return(model)
 
 def gram_matrix(input_tensor):
   # We make the image channels first 

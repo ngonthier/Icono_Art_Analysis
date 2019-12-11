@@ -188,7 +188,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                     style_layers_firstLayer = [layer_name]
                     mean_and_std_layer = compute_mean_std_onDataset(target_dataset,target_number_im_considered,style_layers_firstLayer,\
                                                                     set=target_set,getBeforeReLU=getBeforeReLU,\
-                                                                    Net=Net,style_layers_imposed=[],\
+                                                                    Net=Net,style_layers_imposed=style_layers_imposed,\
                                                                     list_mean_and_std_source=list_mean_and_std_source_i,\
                                                                     list_mean_and_std_target=current_list_mean_and_std_target,\
                                                                     cropCenter=cropCenter,useFloat32=useFloat32,
