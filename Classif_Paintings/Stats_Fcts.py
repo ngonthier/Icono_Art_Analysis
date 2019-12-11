@@ -811,7 +811,7 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
   @param : getBeforeReLU if True we modify the features before the ReLU
   TODO : find why this function fail first time run
   """
-  
+  assert(len(style_layers_imposed)==len(list_mean_and_std_target))
   if res_num_layers==50:
       pre_model = tf.keras.applications.resnet50.ResNet50(include_top=True, weights=weights,\
                                                           input_shape= (224, 224, 3))
@@ -1264,6 +1264,8 @@ def get_ResNet_ROWD_meanX_meanX2_features(style_layers_exported,style_layers_imp
   Returns:
     returns the model that return the features ! 
   """
+  
+  
   
   pre_model = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers=style_layers_imposed,\
                                    list_mean_and_std_target=list_mean_and_std_target,\

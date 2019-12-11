@@ -34,7 +34,7 @@ from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
     get_ResNet_ROWD_gram_mean_features,get_VGGmodel_4Param_features,get_VGGmodel_features
 from keras_resnet_utils import getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion
 from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
-
+from OnlineHistogram import NumericHistogram
 ### To copy only the image from the dataset
 #dataset='watercolor'
 #item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
@@ -135,6 +135,149 @@ def get_list_im(dataset,set=''):
         images_in_set = None
     number_im_list = len(list_imgs)
     return(list_imgs,images_in_set,number_im_list)
+ 
+def get_four_moments(vars_values):
+    m = np.mean(vars_values)
+    v = np.var(vars_values)
+    s = skew(vars_values)
+    k = kurtosis(vars_values)
+    return(m,v,s,k)
+    
+def get_four_momentsAxis(vars_values):
+    m = np.mean(vars_values,axis=(0,1))
+    v = np.var(vars_values,axis=(0,1))
+    s = skew(vars_values.reshape(-1,len(m)),axis=0)
+    k = kurtosis(vars_values.reshape(-1,len(m)),axis=0)
+    return(m,v,s,k)
+    
+def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_concern_layers,number_im_considered,\
+                        dataset,set,saveformat='h5',cropCenter=True):
+    """
+    In this function we compute a cumulated histogram of the value of the features maps but also 
+    the 4 first moments of them for the different layers involved for a given ne on a given dataset
+    @param model_toUse : the model used for extracting data
+    @param : Net : VGG or ResNet etc name in string
+    """
+
+    number_of_bins = 1000
+    if saveformat=='h5':
+        # Create a storage file where data is to be stored
+        store = h5py.File(filename_path, 'a')
+    else:
+        raise(NotImplementedError)
+    print('We will compute statistics and histogram')
+    list_imgs,images_in_set,number_im_list = get_list_im(dataset,set=set)
+    
+    # 6000 images pour IconArt
+    # Un peu moins de 8700 images pour ArtUK
+    # On devrait faire un test à 10000 
+    if not(number_im_considered is None):
+        if number_im_considered >= 10:
+            if not(np.isinf(number_im_considered)):
+                itera = number_im_considered//10
+            else:
+                itera =1000
+        else:
+            itera=1
+    else:
+        itera=1000
+    print('Number of images :',number_im_list)
+    if not(number_im_considered is None):
+        if number_im_considered >= number_im_list:
+            number_im_considered =None
+    dict_output = {}
+    dict_var = {}
+
+    dict_histo = {}
+    dict_num_f = {}
+    
+    for l,layer in enumerate(list_of_concern_layers):
+        dict_var[layer] = []
+        dict_histo[layer] = {}
+        
+    for i,image_path in enumerate(list_imgs):
+        if number_im_considered is None or i < number_im_considered:
+            if i%itera==0: print(i,image_path)
+            head, tail = os.path.split(image_path)
+            short_name = '.'.join(tail.split('.')[0:-1])
+            if not(set is None or set==''):
+                if not(short_name in images_in_set):
+                    # The image is not in the set considered
+                    continue
+            # Get the covairances matrixes and the means
+            try:
+                #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
+                if cropCenter:
+                    image_array= load_and_crop_img(path=image_path,Net=Net,target_smallest_size=224,
+                                            crop_size=224,interpolation='lanczos:center')
+                          # For VGG or ResNet size == 224
+                else:
+                    image_array = load_resize_and_process_img(image_path,Net=Net)
+                features_tab = model_toUse.predict(image_array, batch_size=1) 
+                
+            except IndexError as e:
+                print(e)
+                print(i,image_path)
+                raise(e)
+            
+            if saveformat=='h5':
+                grp = store.create_group(short_name)
+                for l,layer in enumerate(list_of_concern_layers):
+                    features_l = features_tab[l][0]
+                    num_features = features_l.shape[-1]
+                    
+                    # Compute the statistics 
+                    print(features_l.shape)
+                    mean,var,skew,kurt = get_four_momentsAxis(features_l)
+                    
+                    # Update the cumulated histogram
+                    if i==0: # Premiere image
+                        dict_num_f[layer] = num_features
+                        for k in range(num_features): # Number of canal
+                            hist = NumericHistogram()
+                            hist.allocate(number_of_bins)
+                            dict_histo[layer][k] = hist
+                    
+                    for k in range(num_features):   
+                        hist = dict_histo[layer][k]
+                        for elt in list(features_l[:,:,k].reshape((-1,))):
+                            hist.add(elt)
+                        dict_histo[layer][k] = hist
+    
+                    dict_var[layer] += [[mean,var,skew,kurt]]
+                    var_str = layer + '_var'
+                    mean_str = layer + '_mean'
+                    skew_str = layer + '_skew'
+                    kurt_str = layer + '_kurt'
+                    grp.create_dataset(mean_str,data=mean) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                    grp.create_dataset(var_str,data=var) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                    grp.create_dataset(skew_str,data=skew) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+                    grp.create_dataset(kurt_str,data=kurt) # , dtype=np.float32,shape=vgg_cov_mean[l].shape
+#            elif saveformat=='pkl':
+#                dict_output[short_name] = net_params
+                
+        else:
+            continue
+    
+    # When we run on all the image
+    grp = store.create_group('Histo')
+    for l,layer in enumerate(list_of_concern_layers):
+        num_features = dict_num_f[layer]
+        grp.create_dataset(layer,data=num_features)
+        for k in range(num_features):   
+            hist = dict_histo[layer][k]
+            l_str = layer+'_hist_'+str(k)
+            grp.create_dataset(l_str,data=hist)
+    
+    # Save data
+    if saveformat=='pkl':
+        with open(filename_path, 'wb') as handle:
+            pickle.dump(dict_output, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    if saveformat=='h5':
+        store.close()
+    return(dict_var,dict_histo)
+    
+    
     
 def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                         dataset='ImageNet',set='',saveformat='h5',whatToload='var',\
@@ -518,6 +661,72 @@ def load_precomputed_4Param(filename_path,style_layers,dataset,saveformat='h5',
             dict_var[layer] = stacked
         store.close()
     return(dict_var)
+    
+def load_Cumulated_Hist_4Moments(filename_path,list_of_concern_layers,dataset,saveformat='h5'):
+    """
+    @param : whatToload mention what you want to load by default only return variances
+    """
+    
+    dict_var = {}
+    dict_histo = {}
+#    for l,layer in enumerate(style_layers):
+#        dict_var[layer] = []
+#    if saveformat=='pkl':
+#        with open(filename_path, 'rb') as handle:
+#           dict_output = pickle.load(handle)
+#        for elt in dict_output.keys():
+#           net_params =  dict_output[elt]
+#           for l,layer in enumerate(style_layers):
+#                [mean,var,skew,kurt] = net_params[l]
+#                mean = mean[0,:]
+#                var = var[0,:]
+#                skew = skew[0,:]
+#                kurt = kurt[0,:]
+#                
+#                if whatToload=='var':
+#                    dict_var[layer] += [var]
+#                elif whatToload=='mean':
+#                    dict_var[layer] += [mean]
+#                elif whatToload=='skew':
+#                    dict_var[layer] += [skew]
+#                elif whatToload=='kurt':
+#                    dict_var[layer] += [kurt]
+#                elif whatToload in ['','all']:
+#                    dict_var[layer] += [[mean,var,skew,kurt]]
+#
+#        for l,layer in enumerate(style_layers):
+#            stacked = np.stack(dict_var[layer]) 
+#            dict_var[layer] = stacked
+            
+    if saveformat=='h5':
+        store = h5py.File(filename_path, 'r')
+        for elt in store.keys():
+            net_params = store[elt]
+            for l,layer in enumerate(list_of_concern_layers):
+                var_str = layer + '_var'
+                mean_str = layer + '_mean'
+                skew_str = layer + '_skew'
+                kurt_str = layer + '_kurt'
+                mean = net_params[mean_str]
+                var = net_params[var_str]
+                skew = net_params[skew_str]
+                kurt = net_params[kurt_str]
+                dict_var[layer] += [[mean,var,skew,kurt]]
+        for l,layer in enumerate(list_of_concern_layers):
+            stacked = np.vstack(dict_var[layer]) 
+            dict_var[layer] = stacked
+            
+        grp = store['Histo']
+        for l,layer in enumerate(list_of_concern_layers):
+            dict_histo[layer] = {}
+            num_features = grp[layer]
+            for k in range(num_features):   
+                l_str = layer+'_hist_'+str(k)
+                hist = grp[l_str]
+                dict_histo[layer][k] = hist
+            
+        store.close()
+    return(dict_var,dict_histo)
 
 def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    whatToload,saveformat='h5',set='',getBeforeReLU=False,\
@@ -603,21 +812,23 @@ def VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata')
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
 
-
-    style_layers = ['block1_conv1',
+    Net = 'VGG'
+    if Net=='VGG':
+        style_layers = ['block1_conv1',
                 'block2_conv1',
                 'block3_conv1', 
                 'block4_conv1', 
                 'block5_conv1'
                ]
+    elif Net=='ResNet50':
+        style_layers = ['conv1',
+                'activation']
 
 #    num_style_layers = len(style_layers)
     # Load the VGG model
 #    vgg_inter =  get_intermediate_layers_vgg(style_layers) 
     
     set = None
-    
-    
     
     dict_of_dict = {}
 #    config = tf.ConfigProto()
@@ -857,10 +1068,7 @@ def VGG_Hist_of_featuresMaps(number_im_considered = 10,
                         for k,ax in enumerate(axes):
                             f_k = k + p*number_img_w*number_img_h
                             vars_values = features_l[:,:,:,f_k].reshape((-1,))
-                            m = np.mean(vars_values)
-                            v = np.var(vars_values)
-                            s = skew(vars_values)
-                            k = kurtosis(vars_values)
+                            m,v,s,k = get_four_moments(vars_values)
                             im = ax.hist(vars_values,n_bins, density=False, histtype='step',\
                                          stacked=False)
                             ax.tick_params(axis='both', which='major', labelsize=3)

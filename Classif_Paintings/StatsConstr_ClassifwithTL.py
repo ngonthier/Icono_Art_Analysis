@@ -853,8 +853,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             # Get Train set in form of numpy array
             index_train = df_label['set']=='train'
             if not(forLatex):
-                print('classes_vectors.shape',classes_vectors.shape)
-                print('features_net.shape',features_net.shape)
+                print('trainval + test classes_vectors.shape',classes_vectors.shape)
+                print('trainval + test features_net.shape',features_net.shape)
             X_train = features_net[index_train,:]
             y_train = classes_vectors[df_label['set']=='train',:]
             
@@ -2758,4 +2758,4 @@ if __name__ == '__main__':
 #                        style_layers=['bn_conv1'],verbose=True,features='activation_48') # A finir
 #    testROWD_CUMUL()
     RunAllEvaluation_ForFeatureExtractionModel()
-    RunAllEvaluation_FineTuning()
+    #RunAllEvaluation_FineTuning()
