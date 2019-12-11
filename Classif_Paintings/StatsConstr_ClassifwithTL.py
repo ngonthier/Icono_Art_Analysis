@@ -756,6 +756,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     AP_file += '_nes'
                 if not(SGDmomentum==0.0):
                     AP_file += '_sgdm'+str(SGDmomentum)
+            if optimizer=='RMSprop':
+                if not(SGDmomentum==0.0):
+                    AP_file += '_m'+str(SGDmomentum)
             if not(decay==0.0):
                 AP_file += '_dec'+str(decay)
             if NoValidationSetUsed:
@@ -778,6 +781,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 AP_file += '_nes'
            if not(SGDmomentum==0.0):
                 AP_file += '_sgdm'+str(SGDmomentum)
+       if optimizer=='RMSprop':
+           if not(SGDmomentum==0.0):
+                AP_file += '_m'+str(SGDmomentum)
        if not(decay==0.0):
            AP_file += '_dec'+str(decay)
        if return_best_model:

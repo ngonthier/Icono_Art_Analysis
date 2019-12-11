@@ -25,7 +25,7 @@ from tensorflow.python.keras.layers import Layer,GlobalMaxPooling2D,GlobalAverag
 from tensorflow.python.keras.layers import concatenate
 from tensorflow.python.keras.backend import expand_dims
 from tensorflow.python.keras.applications.imagenet_utils import decode_predictions
-from tensorflow.keras.optimizers import SGD,Adam
+from tensorflow.keras.optimizers import SGD,Adam,RMSprop
 from tensorflow.python.ops import math_ops,array_ops
 from tensorflow import dtypes
 
@@ -58,6 +58,8 @@ def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers
       opt = SGD(learning_rate=lr,nesterov=nesterov,momentum=SGDmomentum,decay=decay)
   elif optimizer=='adam':
       opt= Adam(learning_rate=lr,decay=decay)
+  elif optimizer=='RMSprop':
+      opt= RMSprop(learning_rate=lr,decay=decay,momentum=SGDmomentum)
   model =  tf.keras.Sequential()
   if num_layers==2:
       model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
@@ -84,6 +86,8 @@ def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
       opt = SGD(learning_rate=lr,momentum=SGDmomentum,decay=decay,nesterov=nesterov)
   elif optimizer=='adam': 
       opt = Adam(learning_rate=lr,decay=decay)
+  elif optimizer=='RMSprop':
+      opt= RMSprop(learning_rate=lr,decay=decay,momentum=SGDmomentum)
   model =  tf.keras.Sequential()
   if not(dropout is None): model.add(Dropout(dropout))
   model.add(Dense(num_of_classes, activation='sigmoid', kernel_regularizer=regularizers))
@@ -185,6 +189,8 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
       opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
       opt = partial(Adam,decay=decay)
+  elif optimizer=='RMSprop':
+      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   else:
       opt = optimizer
 
@@ -359,6 +365,8 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
       opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
       opt = partial(Adam,decay=decay)
+  elif optimizer=='RMSprop':
+      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   else:
       opt = optimizer
   
@@ -456,6 +464,8 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
       opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
       opt = partial(Adam,decay=decay)
+  elif optimizer=='RMSprop':
+      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   else:
       opt = optimizer
   
@@ -544,6 +554,8 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
       opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
       opt = partial(Adam,decay=decay)
+  elif optimizer=='RMSprop':
+      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   else:
       opt = optimizer
   
@@ -658,6 +670,8 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
       opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
       opt = partial(Adam,decay=decay)
+  elif optimizer=='RMSprop':
+      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   else:
       opt =  optimizer
   ilayer = 0
@@ -775,6 +789,8 @@ def ResNet_AdaIn(style_layers,num_of_classes=10,transformOnFinalLayer ='GlobalMa
       opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
       opt = partial(Adam,decay=decay)
+  elif optimizer=='RMSprop':
+      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   else:
       opt = optimizer
 
@@ -883,6 +899,8 @@ def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=
         opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
     elif optimizer=='adam': 
         opt = partial(Adam,decay=decay)
+    elif optimizer=='RMSprop':
+      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
     else:
         opt = optimizer
 
