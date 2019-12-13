@@ -827,7 +827,13 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
   @param : getBeforeReLU if True we modify the features before the ReLU
   TODO : find why this function fail first time run
   """
-  assert(len(style_layers_imposed)==len(list_mean_and_std_target))
+  if style_layers is None :
+      if not(list_mean_and_std_target is None):
+          assert(len(list_mean_and_std_target)==0)
+  elif list_mean_and_std_target is None:
+      assert(len(style_layers)==0)
+  else:
+      assert(len(style_layers)==len(list_mean_and_std_target))
   if res_num_layers==50:
       pre_model = tf.keras.applications.resnet50.ResNet50(include_top=True, weights=weights,\
                                                           input_shape= (224, 224, 3))
@@ -881,8 +887,12 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
   return model
   
 def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=[0.01],\
-                             final_clf='MLP2',dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0):
-    pre_model.trainable = True
+                             final_clf='MLP2',dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
+                             verbose=False,AdaIn_mode=False,style_layers=[]):
+    """
+    This function makes the model trainable and add it a head (MLP at 1 2 or 3 layers)
+    @param AdaIn_mode : if True means that only batch normalisation are trainable
+    """
     
     lr_multiple = False
     multiply_lrp, lr  = None,None
@@ -903,13 +913,24 @@ def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=
       opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
     else:
         opt = optimizer
-
-    for layer in pre_model.layers:
-      if lr_multiple: 
-          multipliers[layer.name] = multiply_lrp
+        
+    if AdaIn_mode:
+      for layer in pre_model.layers:
+          if layer.name in style_layers:
+              layer.trainable = True
+              if lr_multiple: 
+                  multipliers[layer.name] = multiply_lrp
+          else:
+              layer.trainable = False
+    else:
+        pre_model.trainable = True
+        for layer in pre_model.layers:
+          if lr_multiple: 
+              multipliers[layer.name] = multiply_lrp
     
     x= pre_model.output
     model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout)
+    if verbose: print(model.summary())
     return(model)
 
 ### Resnet Refinement of the batch normalisation statistics 
