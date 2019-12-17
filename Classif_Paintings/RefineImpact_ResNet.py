@@ -9,7 +9,6 @@ normalisation on the features of the ResNet model
 @author: gonthier
 """
 
-from trouver_classes_parmi_K import TrainClassif
 import numpy as np
 import matplotlib
 import os.path
@@ -25,37 +24,16 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
 from StatsConstr_ClassifwithTL import learn_and_eval
 
 
-
-from IMDB import get_database
 import pickle
 import pathlib
-from Classifier_On_Features import TrainClassifierOnAllClass,PredictOnTestSet
-from sklearn.metrics import average_precision_score,recall_score,make_scorer,\
-    precision_score,label_ranking_average_precision_score,classification_report
-from sklearn.metrics import matthews_corrcoef,f1_score
-from sklearn.preprocessing import StandardScaler
-from Custom_Metrics import ranking_precision_score
-from LatexOuput import arrayToLatex
-from sklearn.model_selection import train_test_split
-import tensorflow as tf
-from tensorflow.python.keras import backend as K
-from numba import cuda
+
 import matplotlib.pyplot as plt
 import matplotlib.cm as mplcm
 import matplotlib.colors as colors
 from matplotlib.backends.backend_pdf import PdfPages
-import gc 
-import tempfile
-from tensorflow.python.keras.callbacks import ModelCheckpoint
-from tensorflow.python.keras.models import load_model
 from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion,\
     fit_generator_ForRefineParameters
 
-from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
-
-from functools import partial
-from sklearn.metrics import average_precision_score,make_scorer
-from sklearn.model_selection import GridSearchCV
 
 from sklearn.feature_selection import mutual_info_classif
 
@@ -240,9 +218,6 @@ def compare_Statistics_inFirstLayer_for_ResNet(target_dataset='Paintings'):
     plt.clf()
         
     # Plot Error bar of means of the 4 paramaters statistics
-        
-
-
       
 def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     """ The goal of this function is to compare the new normalisation statistics of BN
