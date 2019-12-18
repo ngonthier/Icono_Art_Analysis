@@ -73,6 +73,7 @@ def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers
       model.add(Dense(num_of_classes, activation='sigmoid', kernel_regularizer=regularizers))
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  
   return(model)
   
 ### one Layer perceptron
@@ -93,6 +94,7 @@ def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
   model.add(Dense(num_of_classes, activation='sigmoid', kernel_regularizer=regularizers))
   # Compile model
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+
   return(model)
 
 def get_regularizers(regulOnNewLayer=None,regulOnNewLayerParam=[]):
@@ -622,9 +624,9 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
           if not(dropout is None): x = Dropout(dropout)(x)
   model = Model(inputs=pre_model.input, outputs=predictions)
   if lr_multiple:
-      if final_clf=='MLP3': multipliers[model.layers[-3].name] = None
-      if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = None
-      if final_clf=='MLP3' or final_clf=='MLP2' or final_clf=='MLP1': multipliers[model.layers[-1].name] = None
+      if final_clf=='MLP3': multipliers[model.layers[-3].name] = 1.0
+      if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = 1.0
+      if final_clf=='MLP3' or final_clf=='MLP2' or final_clf=='MLP1': multipliers[model.layers[-1].name] = 1.0
       opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
   else:
       opt = opt(learning_rate=lr)
@@ -2068,6 +2070,32 @@ def get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=False):
       model = utils_keras.apply_modifications(model,custom_objects=custom_objects,include_optimizer=False) # TODO trouver comme faire cela avec tf keras  
   return(model)
   
+def get_meanX_meanX2_of_InputImages(useFloat32=True):
+  """Helper function to compute the mean of feature and mean of squared of the 
+  input images in order to compute the mean on the total sets
+    
+  Returns:
+    returns the keras model that return the elements . 
+  """
+  model = tf.keras.Sequential()
+  mean_and_meanSquared_layer = [Mean_and_MeanSquare_Layer(useFloat32=useFloat32)(model.input)]
+  model = models.Model(model.input,mean_and_meanSquared_layer)
+  model.trainable = False 
+  return(model)
+  
+def get_cov_mean_of_InputImages():
+  """Helper function to compute the covariance and the mean of the input  RGB images
+  input images in order to compute the mean on the total sets
+    
+  Returns:
+    returns the keras model that return the elements . 
+  """
+  model = tf.keras.Sequential()
+  mean_and_meanSquared_layer = [Cov_Mean_Matrix_Layer()(model.input)]
+  model = models.Model(model.input,mean_and_meanSquared_layer)
+  model.trainable = False 
+  return(model)
+  
 def get_VGGmodel_meanX_meanX2_features(style_layers,getBeforeReLU=False,useFloat32=False):
   """Helper function to compute the mean of feature and mean of squared features representations 
   from vgg.
@@ -2692,6 +2720,33 @@ def get_1st_2nd_moments_features(model,img_path):
     # Get the style and content feature representations from our model  
     list_moments += [moments]
   return list_moments
+
+def preprocessingDataet():
+    
+    # Dans ResNet de Keras la fonction preprocessing est la suivante : 
+#    def preprocess_input(x, data_format=None):
+#      return imagenet_utils.preprocess_input(
+#      x, data_format=data_format, mode='caffe')
+#    Sachant que  :
+#        x: Input Numpy or symbolic tensor, 3D or 4D.
+#      The preprocessed data is written over the input data
+#      if the data types are compatible. To avoid this
+#      behaviour, `numpy.copy(x)` can be used.
+#    data_format: Data format of the image tensor/array.
+#    mode: One of "caffe", "tf" or "torch".
+#      - caffe: will convert the images from RGB to BGR,
+#          then will zero-center each color channel with
+#          respect to the ImageNet dataset,
+#          without scaling.
+#      - tf: will scale pixels between -1 and 1,
+#          sample-wise.
+#      - torch: will scale pixels between 0 and 1 and then
+#          will normalize each channel with respect to the
+#          ImageNet datase
+    
+    return(0)
+    
+    
 
 def unity_test_of_vgg_InNorm(adapt=False):
     """ In this function we compare the fc2 for VGG19 of a given image

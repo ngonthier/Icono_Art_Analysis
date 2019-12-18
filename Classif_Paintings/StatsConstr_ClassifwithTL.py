@@ -9,6 +9,9 @@ statistics imposed on the features maps of the layers
 @author: gonthier
 """
 
+
+from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
+
 from trouver_classes_parmi_K import TrainClassif
 import numpy as np
 import matplotlib
@@ -45,8 +48,7 @@ from tensorflow.python.keras.callbacks import ModelCheckpoint
 from tensorflow.python.keras.models import load_model
 from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion,\
     fit_generator_ForRefineParameters
-
-from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
+import keras_preprocessing as kp
 
 from functools import partial
 from sklearn.metrics import average_precision_score,make_scorer
@@ -257,25 +259,33 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
             x_col = item_name
             df[x_col] = df[x_col].apply(lambda x : x + '.jpg')
             
-            datagen= tf.keras.preprocessing.image.ImageDataGenerator()
             
             if cropCenter:
-                preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
+                interpolation='lanczos:center'
+                old_loading_img_fct = kp.image.iterator.load_img
+                kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
             else:
-                if 'VGG' in Net:
-                    preprocessing_function = tf.keras.applications.vgg19.preprocess_input
-                elif 'ResNet50' in Net:
-                    preprocessing_function = tf.keras.applications.resnet50.preprocess_input
-                else:
-                    print(Net,'is unknwon')
-                    raise(NotImplementedError)
+                interpolation='nearest'
+            if 'VGG' in Net:
+                preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+                target_size = (224,224)
+            elif 'ResNet50' in Net:
+                preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+                target_size = (224,224)
+            else:
+                print(Net,'is unknwon')
+                raise(NotImplementedError)
                     
+            use_multiprocessing = True
+            workers = 8
+            
+            datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)
+            
             test_generator=datagen.flow_from_dataframe(dataframe=df, directory=path_to_img,\
                                                         x_col=x_col,\
                                                         class_mode=None,shuffle=False,\
-                                                        target_size=(224,224), batch_size=32,
-                                                        preprocessing_function=preprocessing_function,
-                                                        use_multiprocessing=True,workers=3)
+                                                        target_size=target_size, batch_size=32,\
+                                                        use_multiprocessing=use_multiprocessing,workers=workers,interpolation=interpolation)
             predictions = net_get_SpatialMean_SpatialMeanOfSquare.predict_generator(test_generator)
             meanX,meanX2 = predictions
         #    if dtype=='float64':
@@ -324,7 +334,10 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
         #        expectation_meanX.astype('float32')
         #        expectation_stdX.astype('float32')
             del net_get_SpatialMean_SpatialMeanOfSquare
-    
+        
+        if cropCenter:
+            kp.image.iterator.load_img = old_loading_img_fct
+            
     return(expectation_meanX,expectation_stdX)
 
 def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
@@ -376,6 +389,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : kind_method the type of methods we will use : TL or FT
     @param : if we use a set to compute the statistics
     @param : getBeforeReLU=False if True we will impose the statistics before the activation ReLU fct
+        !!! Only for VGG model 
     @param : forLatex : only plot performance score to print them in latex
     @param : epochs number of epochs for the finetuning (FT case)
     @param : pretrainingModif : we modify the pretrained net for the case FT + VGG 
@@ -479,7 +493,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             
     if not(set=='' or set is None):
         name_base += '_'+set
-    if constrNet=='VGG':
+    if constrNet=='VGG' or constrNet=='ResNet50':
         getBeforeReLU  = False
     if constrNet in ['VGG','ResNet50'] and kind_method=='FT':
         if type(pretrainingModif)==bool:
@@ -489,9 +503,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             if not(freezingType=='FromTop'):
                 name_base += '_'+freezingType
             name_base += '_unfreeze'+str(pretrainingModif)
-            
-    if getBeforeReLU:
-        name_base += '_BeforeReLU'
+     
+    if 'VGG' in constrNet:
+        if getBeforeReLU:
+            name_base += '_BeforeReLU'
 #    if not(kind_method=='FT' and constrNet=='VGGAdaIn'):
 #        name_base +=  features 
     if 'VGG' in constrNet: # VGG kind family
@@ -709,8 +724,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 for i,name_img in  enumerate(df_label[item_name]):
                     im_path =  os.path.join(path_to_img,name_img+'.jpg')
                     if cropCenter:
-                        image = load_and_crop_img(path=im_path,Net=constrNet,target_smallest_size=224,
+                        image = load_and_crop_img(path=im_path,Net=constrNet,target_size=224,
                                             crop_size=224,interpolation='lanczos:center')
+                          # It's also process the images
                           # For VGG or ResNet size == 224
                     else:
                         image = load_resize_and_process_img(im_path,Net=constrNet)
@@ -867,6 +883,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             classes_vectors =  df_label[classes].values
             df_label_test = df_label[df_label['set']=='test']
             y_test = classes_vectors[df_label['set']=='test',:]
+        elif target_dataset=='RASTA':
+            sLength = len(df_label[item_name])
+            classes_vectors =  df_label[classes].values
+            df_label_test = df_label[df_label['set']=='test']
+            y_test = classes_vectors[df_label['set']=='test',:]
         else:
             raise(NotImplementedError)
     
@@ -905,15 +926,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     if final_clf=='MLP2':
                         builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                          nesterov=nesterov,decay=decay)
+                                          nesterov=nesterov,decay=decay,verbose=verbose)
                     if final_clf=='MLP3':
                         builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,num_layers=3,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                          nesterov=nesterov,decay=decay)
+                                          nesterov=nesterov,decay=decay,verbose=verbose)
                     elif final_clf=='MLP1':
                         builder_model = partial(Perceptron_model,num_of_classes=num_classes,optimizer=optimizer,\
                                                 regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                                nesterov=nesterov,decay=decay)
+                                                nesterov=nesterov,decay=decay,verbose=verbose)
                         
                     model = TrainMLPwithGridSearch(builder_model,Xtrainval,ytrainval,batch_size,epochs)
                     
@@ -922,15 +943,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     if final_clf=='MLP2':
                         model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose)
                     if final_clf=='MLP3':
                         model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,num_layers=3,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose)
                     elif final_clf=='MLP1':
                         model = Perceptron_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
                                                 regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                                nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                                                nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose)
                     
                     model = TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,\
                                  verbose=verbose,plotConv=plotConv,return_best_model=return_best_model,\
@@ -1201,15 +1222,20 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
         print('We will refine the normalisation parameters')
         
         if cropCenter:
-            preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net=Net,
-                                             grayscale=False, color_mode='rgb', target_smallest_size=224,
-                                             crop_size=224,interpolation='lanczos:center')
+            interpolation='lanczos:center'
+            old_loading_img_fct = kp.image.iterator.load_img
+            kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
         else:
-            if 'ResNet50' in Net:
-                preprocessing_function = tf.keras.applications.resnet50.preprocess_input
-            else:
-                print(Net,'is unknwon')
-                raise(NotImplementedError)
+            interpolation='nearest'
+        if 'VGG' in Net:
+            preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+            target_size = (224,224)
+        elif 'ResNet50' in Net:
+            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+            target_size = (224,224)
+        else:
+            print(Net,'is unknwon')
+            raise(NotImplementedError)
     
         df_train = df[df['set']=='train']
         df_val = df[df['set']==str_val]
@@ -1218,16 +1244,19 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
         if not(len(df_val)==0):
             df_train = df_train.append(df_val)
             
-        datagen= tf.keras.preprocessing.image.ImageDataGenerator()
+        datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)
         # Todo should add the possibility to crop the center of the image here
         trainval_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
                                                     x_col=x_col,y_col=None,\
                                                     class_mode=None, \
-                                                    target_size=(224,224), batch_size=batch_size,\
+                                                    target_size=target_size, batch_size=batch_size,\
                                                     shuffle=True,\
-                                                    preprocessing_function=preprocessing_function)
+                                                    interpolation=interpolation)
         STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
 
+        use_multiprocessing =  True
+        workers = 8
+        
         model =  fit_generator_ForRefineParameters(model,
                       trainval_generator,
                       steps_per_epoch=STEP_SIZE_TRAIN,
@@ -1239,11 +1268,14 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
     #                  validation_freq=1,
     #                  class_weight=None,
                       max_queue_size=10,
-                      workers=3,
-                      use_multiprocessing=True,
+                      workers=workers,
+                      use_multiprocessing=use_multiprocessing,
                       shuffle=True)
 
         model.save_weights(model_file_name_path)
+        
+    if cropCenter:
+        kp.image.iterator.load_img = old_loading_img_fct
 
     return(model)
 
@@ -1275,32 +1307,41 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         df_train = df_train.append(df_val)
         
     if cropCenter:
-        preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
+        interpolation='lanczos:center'
+        old_loading_img_fct = kp.image.iterator.load_img
+        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
     else:
-        if 'VGG' in Net:
-            preprocessing_function = tf.keras.applications.vgg19.preprocess_input
-        elif 'ResNet50' in Net:
-            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
-        else:
-            print(Net,'is unknwon')
-            raise(NotImplementedError)
-
-    datagen= tf.keras.preprocessing.image.ImageDataGenerator()
+        interpolation='nearest'
+    if 'VGG' in Net:
+        preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+        target_size = (224,224)
+    elif 'ResNet50' in Net:
+        preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        target_size = (224,224)
+    else:
+        print(Net,'is unknwon')
+        raise(NotImplementedError)
+            
+    datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)    
+    # preprocessing_function will be implied on each input. The function will run after the image is 
+    # load resized and augmented. That's why we need to modify the load_img fct
+    
     
     train_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
                                                 x_col=x_col,y_col=y_col,\
                                                 class_mode="other", \
-                                                target_size=(224,224), batch_size=batch_size,\
+                                                target_size=target_size, batch_size=batch_size,\
                                                 shuffle=True,\
-                                                preprocessing_function=preprocessing_function)
+                                                interpolation=interpolation)
     STEP_SIZE_TRAIN=train_generator.n//train_generator.batch_size
     
     if not(NoValidationSetUsed):
-        valid_generator=datagen.flow_from_dataframe(dataframe=df_val, directory=path_im,\
+        validate_datagen = tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)
+        valid_generator=validate_datagen.flow_from_dataframe(dataframe=df_val, directory=path_im,\
                                                     x_col=x_col,y_col=y_col,\
                                                     class_mode="other", \
-                                                    target_size=(224,224), batch_size=batch_size,\
-                                                    preprocessing_function=preprocessing_function)
+                                                    target_size=target_size, batch_size=batch_size,\
+                                                    interpolation=interpolation)
         STEP_SIZE_VALID=valid_generator.n//valid_generator.batch_size
     
     
@@ -1315,18 +1356,20 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor='val_loss', mode='min')
         callbacks += [mcp_save]
         
+    workers=8
+    use_multiprocessing = True
     if not(NoValidationSetUsed):
         history = model.fit_generator(generator=train_generator,
                         steps_per_epoch=STEP_SIZE_TRAIN,
                         validation_data=valid_generator,
                         validation_steps=STEP_SIZE_VALID,
-                        epochs=epochs,use_multiprocessing=True,
-                        workers=3,callbacks=callbacks)
+                        epochs=epochs,use_multiprocessing=use_multiprocessing,
+                        workers=workers,callbacks=callbacks)
     else:
         history = model.fit_generator(generator=train_generator,
                         steps_per_epoch=STEP_SIZE_TRAIN,
-                        epochs=epochs,use_multiprocessing=True,
-                        workers=3)
+                        epochs=epochs,use_multiprocessing=use_multiprocessing,
+                        workers=workers)
     
     if return_best_model: # We need to load back the best model !
         # https://github.com/keras-team/keras/issues/2768
@@ -1334,7 +1377,10 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     
     if plotConv:
        plotKerasHistory(history) 
-    
+       
+    if cropCenter:
+        kp.image.iterator.load_img = old_loading_img_fct
+        
     return(model)
 
 def plotKerasHistory(history):
@@ -1369,17 +1415,17 @@ def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
                                    mode='min')
         callbacks += [mcp_save]
     
+    workers = 8
+    use_multiprocessing = True
+    
     STEP_SIZE_TRAIN=len(X_train)//batch_size
     if (not(len(X_val)==0) and not(NoValidationSetUsed)) and not(RandomValdiationSet):
         STEP_SIZE_VALID=len(X_val)//batch_size
-        print(X_val.size)
-        print(y_val.size)
-        print(X_train.size)
         history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
                             validation_data=(X_val, y_val),\
                             steps_per_epoch=STEP_SIZE_TRAIN,
                             #validation_steps=STEP_SIZE_VALID,\
-                            use_multiprocessing=True,workers=3,\
+                            use_multiprocessing=use_multiprocessing,workers=workers,\
                             shuffle=True,callbacks=callbacks)
     else: # No validation set provided
         if NoValidationSetUsed:
@@ -1389,11 +1435,11 @@ def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
         history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
                             validation_split=validation_split,\
                             steps_per_epoch=STEP_SIZE_TRAIN,\
-                            use_multiprocessing=True,workers=3,\
+                            use_multiprocessing=use_multiprocessing,workers=workers,\
                             shuffle=True,callbacks=callbacks)
     if plotConv: # Plot convergence  
         plotKerasHistory(history)
-        
+    if verbose: print(model.summary())   
     return(model)
     
 def TrainMLPwithGridSearch(builder_model,X,Y,batch_size,epochs):
@@ -1416,27 +1462,43 @@ def TrainMLPwithGridSearch(builder_model,X,Y,batch_size,epochs):
     return(model)
     
 def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=False):
+    """
+    This function predict on tht provide test set for a fine-tuned network
+    """
     df_test[x_col] = df_test[x_col].apply(lambda x : x + '.jpg')
-    datagen= tf.keras.preprocessing.image.ImageDataGenerator()
     
     if cropCenter:
-        preprocessing_function = partial(load_and_crop_img_forImageGenerator,Net)
+        interpolation='lanczos:center'
+        old_loading_img_fct = kp.image.iterator.load_img
+        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
     else:
-        if 'VGG' in Net:
-            preprocessing_function = tf.keras.applications.vgg19.preprocess_input
-        elif 'ResNet50' in Net:
-            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
-        else:
-            print(Net,'is unknwon')
-            raise(NotImplementedError)
+        interpolation='nearest'
+    if 'VGG' in Net:
+        preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+        target_size = (224,224)
+    elif 'ResNet50' in Net:
+        preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        target_size = (224,224)
+    else:
+        print(Net,'is unknwon')
+        raise(NotImplementedError)
             
+    use_multiprocessing = True
+    workers = 8
+    batch_size = 16
+        
+    datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)    
     test_generator=datagen.flow_from_dataframe(dataframe=df_test, directory=path_im,\
                                                 x_col=x_col,\
                                                 class_mode=None,shuffle=False,\
-                                                target_size=(224,224), batch_size=1,
-                                                preprocessing_function=preprocessing_function,
-                                                use_multiprocessing=True,workers=3)
+                                                target_size=target_size, batch_size=batch_size,\
+                                                use_multiprocessing=use_multiprocessing,workers=workers,\
+                                                interpolation=interpolation)
     predictions = model.predict_generator(test_generator)
+    
+    if cropCenter:
+        kp.image.iterator.load_img = old_loading_img_fct
+        
     return(predictions)
     
 def evaluationScoreDict(y_gt,dico_pred,verbose=False,k = 20,seuil=0.5):
@@ -2368,8 +2430,8 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     
     final_clf_list = ['LinearSVC','MLP2','MLP2bis'] # LinearSVC but also MLP : pas encore fini
     gridSearchTab =[True,False,False] # LinearSVC but also MLP : pas encore fini
-    gridSearchTab =[False] # LinearSVC but also MLP : pas encore fini
-    final_clf_list = ['MLP2'] # LinearSVC but also MLP
+    #gridSearchTab =[False] # LinearSVC but also MLP : pas encore fini
+    #final_clf_list = ['LinearSVC','MLP2'] # LinearSVC but also MLP
     
     dataset_tab = ['Paintings','IconArt_v1']
     #dataset_tab = ['Paintings']
@@ -2517,6 +2579,7 @@ def RunAllEvaluation_FineTuning(onlyPlot=False):
     """
     
     dataset_tab = ['Paintings','IconArt_v1']
+    #dataset_tab = ['Paintings']
     scenario = 9
     for target_dataset in dataset_tab:
         PlotSomePerformanceResNet(target_dataset = target_dataset,scenario=scenario,
@@ -2787,7 +2850,114 @@ def comparaison_ResNet_baseline_ResNetROWD_as_Init():
     
     ## Premier schema de fine tuning
     # La baseline TL
+    # Trainable params: 527,114
     learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='TL',ReDo=True,
+                    constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=[],verbose=True,features='activation_48',
+                    optimizer='SGD',opt_option=[10**(-2)],
+                    epochs=20,return_best_model=True,batch_size=16,
+                    computeGlobalVariance=True,pretrainingModif=True,gridSearch=False)     
+    # & 64.7 & 38.4 & 90.5 & 70.5 & 56.5 & 66.3 & 50.3 & 76.0 & 61.9 & 80.6 & 65.6 \\ 
+    # & 57.1 & 38.3 & 89.7 & 69.0 & 52.2 & 62.1 & 50.4 & 74.9 & 60.7 & 77.5 & 63.2 \\ 
+    # La baseline FT all freeze   
+    # Trainable params: 527,114
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='FT',ReDo=True,
+                    constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=[],verbose=True,features='activation_48',
+                    optimizer='SGD',opt_option=[10**(-2)],
+                    epochs=20,return_best_model=True,batch_size=16,
+                    computeGlobalVariance=True,pretrainingModif=False)
+    # & 41.5 & 20.9 & 84.3 & 55.0 & 29.1 & 52.2 & 34.5 & 69.6 & 48.0 & 68.7 & 50.4 
+    #  & 43.7 & 26.7 & 85.5 & 59.6 & 44.0 & 58.5 & 31.5 & 67.4 & 46.8 & 55.5 & 51.9 \\
+    # La baseline FT all freeze 0 layers : test           
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                    kind_method='FT',ReDo=False,
+#                    constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
+#                    style_layers=[],verbose=True,features='activation_48',
+#                    optimizer='SGD',opt_option=[10**(-2)],
+#                    epochs=20,return_best_model=True,batch_size=16,
+#                    computeGlobalVariance=True,pretrainingModif=0)   
+#    #  & 29.2 & 23.5 & 85.9 & 56.6 & 42.2 & 62.9 & 37.3 & 70.2 & 39.5 & 61.9 & 50.9          
+#    # La baseline FT all fine-tune
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                    kind_method='FT',ReDo=False,
+#                    constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
+#                    style_layers=[],verbose=True,features='activation_48',
+#                    optimizer='SGD',opt_option=[10**(-2)],
+#                    epochs=20,return_best_model=True,batch_size=16,
+#                    computeGlobalVariance=True,pretrainingModif=True)            
+#    #& 15.9 & 15.4 & 64.0 & 48.2 & 17.1 & 34.1 & 20.6 & 35.1 & 23.8 & 40.3 & 31.4 \\ 
+#    # ResNet50_ROWD_CUMUL
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                    kind_method='FT',ReDo=False,
+#                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
+#                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
+#                    optimizer='SGD',opt_option=[10**(-2)],
+#                    epochs=20,return_best_model=True,batch_size=16,
+#                    computeGlobalVariance=True)
+#    # & 62.5 & 42.1 & 92.4 & 73.2 & 59.3 & 69.3 & 51.2 & 76.9 & 67.2 & 85.7 & 68.0 \\
+#    # ResNet50_ROWD_CUMUL_AdaIn
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                    kind_method='FT',ReDo=False,
+#                    constrNet='ResNet50_ROWD_CUMUL_AdaIn',transformOnFinalLayer='GlobalAveragePooling2D',
+#                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
+#                    optimizer='SGD',opt_option=[10**(-2)],
+#                    epochs=20,return_best_model=True,batch_size=16,
+#                    computeGlobalVariance=True)
+#    # & 44.7 & 38.6 & 88.7 & 71.0 & 45.3 & 65.0 & 44.9 & 71.6 & 54.1 & 80.6 & 60.5 \\ 
+#    # ResNet50_BNRF
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                    kind_method='FT',ReDo=False,
+#                    constrNet='ResNet50_BNRF',transformOnFinalLayer='GlobalAveragePooling2D',
+#                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
+#                    optimizer='SGD',opt_option=[10**(-2)],
+#                    epochs=20,return_best_model=True,batch_size=16,
+#                    batch_size_RF=16,epochs_RF=20,momentum=0.9)            
+#    # & 61.4 & 42.0 & 92.0 & 72.8 & 55.9 & 68.7 & 51.5 & 76.8 & 69.4 & 84.0 & 67.5 \\   
+#    # ResNet50_AdaIn
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                    kind_method='FT',ReDo=False,
+#                    constrNet='ResNet50AdaIn',transformOnFinalLayer='GlobalAveragePooling2D',
+#                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
+#                    optimizer='SGD',opt_option=[10**(-2)],
+#                    epochs=20,return_best_model=True,batch_size=16,
+#                    batch_size_RF=16,epochs_RF=20,momentum=0.9)            
+#    #  & 55.1 & 41.3 & 90.2 & 70.3 & 46.1 & 64.4 & 43.7 & 73.5 & 65.5 & 79.2 & 62.9 \\
+#
+#
+#    # Deuxieme schema de fine tuning
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#            kind_method='FT',ReDo=False,
+#            constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
+#            style_layers=[],verbose=True,features='activation_48',
+#            optimizer='SGD',opt_option=[0.1,10**(-2)],decay=10**(-4),SGDmomentum=0.9,
+#            epochs=20,return_best_model=True,batch_size=16,
+#            computeGlobalVariance=True,pretrainingModif=True) 
+#    # & 13.6 & 13.2 & 49.5 & 45.0 & 19.1 & 34.1 & 16.2 & 39.6 & 23.0 & 49.1 & 30.2 \\ 
+#    # Ne marche pas !!!
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#            kind_method='FT',ReDo=False,
+#            constrNet='ResNet50AdaIn',transformOnFinalLayer='GlobalAveragePooling2D',
+#            style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
+#            optimizer='SGD',opt_option=[0.1,10**(-2)],decay=10**(-4),SGDmomentum=0.9,
+#            epochs=20,return_best_model=True,batch_size=16,
+#            computeGlobalVariance=False,pretrainingModif=True) 
+#    #
+#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+#                kind_method='FT',ReDo=False,
+#                constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
+#                style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
+#                optimizer='SGD',opt_option=[0.1,10**(-2)],decay=10**(-4),SGDmomentum=0.9,
+#                epochs=20,return_best_model=True,batch_size=16,
+#                computeGlobalVariance=True,pretrainingModif=True)  
+    
+def RASTAcomparaison_ResNet_baseline_ResNetROWD_as_Init():
+    
+    ## Premier schema de fine tuning
+    # La baseline TL
+    learn_and_eval(target_dataset='RASTA',final_clf='MLP2',\
                     kind_method='TL',ReDo=False,
                     constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
                     style_layers=[],verbose=True,features='activation_48',
@@ -2796,7 +2966,7 @@ def comparaison_ResNet_baseline_ResNetROWD_as_Init():
                     computeGlobalVariance=True,pretrainingModif=True)     
     # & 64.7 & 38.4 & 90.5 & 70.5 & 56.5 & 66.3 & 50.3 & 76.0 & 61.9 & 80.6 & 65.6 \\ 
     # La baseline FT      
-    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+    learn_and_eval(target_dataset='RASTA',final_clf='MLP2',\
                     kind_method='FT',ReDo=False,
                     constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
                     style_layers=[],verbose=True,features='activation_48',
@@ -2805,7 +2975,7 @@ def comparaison_ResNet_baseline_ResNetROWD_as_Init():
                     computeGlobalVariance=True,pretrainingModif=True)            
     #& 15.9 & 15.4 & 64.0 & 48.2 & 17.1 & 34.1 & 20.6 & 35.1 & 23.8 & 40.3 & 31.4 \\ 
     # ResNet50_ROWD_CUMUL
-    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+    learn_and_eval(target_dataset='RASTA',final_clf='MLP2',\
                     kind_method='FT',ReDo=False,
                     constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
                     style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
@@ -2814,7 +2984,7 @@ def comparaison_ResNet_baseline_ResNetROWD_as_Init():
                     computeGlobalVariance=True)
     # & 62.5 & 42.1 & 92.4 & 73.2 & 59.3 & 69.3 & 51.2 & 76.9 & 67.2 & 85.7 & 68.0 \\
     # ResNet50_ROWD_CUMUL_AdaIn
-    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+    learn_and_eval(target_dataset='RASTA',final_clf='MLP2',\
                     kind_method='FT',ReDo=False,
                     constrNet='ResNet50_ROWD_CUMUL_AdaIn',transformOnFinalLayer='GlobalAveragePooling2D',
                     style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
@@ -2823,7 +2993,7 @@ def comparaison_ResNet_baseline_ResNetROWD_as_Init():
                     computeGlobalVariance=True)
     # & 44.7 & 38.6 & 88.7 & 71.0 & 45.3 & 65.0 & 44.9 & 71.6 & 54.1 & 80.6 & 60.5 \\ 
     # ResNet50_BNRF
-    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+    learn_and_eval(target_dataset='RASTA',final_clf='MLP2',\
                     kind_method='FT',ReDo=False,
                     constrNet='ResNet50_BNRF',transformOnFinalLayer='GlobalAveragePooling2D',
                     style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
@@ -2832,7 +3002,7 @@ def comparaison_ResNet_baseline_ResNetROWD_as_Init():
                     batch_size_RF=16,epochs_RF=20,momentum=0.9)            
     # & 61.4 & 42.0 & 92.0 & 72.8 & 55.9 & 68.7 & 51.5 & 76.8 & 69.4 & 84.0 & 67.5 \\   
     # ResNet50_AdaIn
-    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+    learn_and_eval(target_dataset='RASTA',final_clf='MLP2',\
                     kind_method='FT',ReDo=False,
                     constrNet='ResNet50AdaIn',transformOnFinalLayer='GlobalAveragePooling2D',
                     style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
@@ -2840,33 +3010,6 @@ def comparaison_ResNet_baseline_ResNetROWD_as_Init():
                     epochs=20,return_best_model=True,batch_size=16,
                     batch_size_RF=16,epochs_RF=20,momentum=0.9)            
     # ?
-
-
-    # Deuxieme schema de fine tuning
-    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-            kind_method='FT',ReDo=False,
-            constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
-            style_layers=[],verbose=True,features='activation_48',
-            optimizer='SGD',opt_option=[0.1,10**(-2)],decay=10**(-4),SGDmomentum=0.9,
-            epochs=20,return_best_model=True,batch_size=16,
-            computeGlobalVariance=True,pretrainingModif=True) 
-    # & 13.6 & 13.2 & 49.5 & 45.0 & 19.1 & 34.1 & 16.2 & 39.6 & 23.0 & 49.1 & 30.2 \\ 
-    # Ne marche pas !!!
-    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-            kind_method='FT',ReDo=False,
-            constrNet='ResNet50AdaIn',transformOnFinalLayer='GlobalAveragePooling2D',
-            style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
-            optimizer='SGD',opt_option=[0.1,10**(-2)],decay=10**(-4),SGDmomentum=0.9,
-            epochs=20,return_best_model=True,batch_size=16,
-            computeGlobalVariance=False,pretrainingModif=True) 
-    #
-    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-                kind_method='FT',ReDo=False,
-                constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
-                style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
-                optimizer='SGD',opt_option=[0.1,10**(-2)],decay=10**(-4),SGDmomentum=0.9,
-                epochs=20,return_best_model=True,batch_size=16,
-                computeGlobalVariance=True,pretrainingModif=True)  
  
 
        
@@ -2973,6 +3116,7 @@ if __name__ == '__main__':
 #                        constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
 #                        style_layers=['bn_conv1'],verbose=True,features='activation_48') # A finir
 #    testROWD_CUMUL()
-    #comparaison_ResNet_baseline_ResNetROWD_as_Init()
-    RunAllEvaluation_ForFeatureExtractionModel()
-    RunAllEvaluation_FineTuning()
+    comparaison_ResNet_baseline_ResNetROWD_as_Init()
+#    RunAllEvaluation_ForFeatureExtractionModel()
+#    RunAllEvaluation_FineTuning()
+    
