@@ -13,9 +13,16 @@ def get_database(database):
     ext = '.txt'
     default_path_imdb = '/media/gonthier/HDD/data/'
     if database=='Paintings':
+        # Only for classification
         item_name = 'name_img'
         path_to_img = 'Painting_Dataset/'
         classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
+    elif database=='RASTA':
+        path_to_img = '/media/gonthier/HDD2/data/RASTA_LAMSADE/wikipaintings_full'
+        ext = '.csv'
+        item_name = 'name_img'
+        default_path_imdb = '/media/gonthier/HDD2/data/'
+        classes=['Abstract_Art','Abstract_Expressionism','Art_Informel','Art_Nouveau_(Modern)','Baroque','Color_Field_Painting','Cubism','Early_Renaissance','Expressionism','High_Renaissance','Impressionism','Magic_Realism','Mannerism_(Late_Renaissance)','Minimalism','Naïve_Art_(Primitivism)','Neoclassicism','Northern_Renaissance','Pop_Art','Post-Impressionism','Realism','Rococo','Romanticism','Surrealism','Symbolism','Ukiyo-e']
     elif database=='VOC12':
         item_name = 'name_img'
         path_to_img = 'VOCdevkit/VOC2012/JPEGImages/'
@@ -226,6 +233,8 @@ def get_database(database):
             path_data_csvfile = '/media/gonthier/HDD/data/RMN/ImageSets/Main/'
         elif 'OIV5' in database:
             path_data_csvfile = '/media/gonthier/HDD2/data/OIV5/'
+        elif database=='RASTA':
+            path_data_csvfile = '/media/gonthier/HDD2/data/RASTA_LAMSADE/wikipaintings_full/'
         else:
             path_data_csvfile = path_data
     
@@ -258,8 +267,9 @@ def get_database(database):
         str_val = 'validation'
     elif database=='Paintings':
         str_val = 'validation'
-    elif database in ['VOC2007','watercolor','clipart','PeopleArt','CASPApaintings','comic']:
+    elif database in ['VOC2007','watercolor','clipart','PeopleArt','CASPApaintings','comic','RASTA']:
         str_val = 'val'
         df_label[classes] = df_label[classes].apply(lambda x:(x + 1.0)/2.0)
+        # To cast from -1 1 to 0. 1.1
     
     return(item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC)
