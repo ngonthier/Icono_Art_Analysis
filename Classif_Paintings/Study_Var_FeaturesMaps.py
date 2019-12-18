@@ -776,6 +776,8 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
         filename += '_'+set
     if getBeforeReLU:
         filename += '_BeforeReLU'
+    if cropCenter:
+        filename += '_cropCenter'
     if saveformat=='pkl':
         filename += '.pkl'
     if saveformat=='h5':

@@ -148,6 +148,8 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
         else:
             filename = Net+'_OnlyCoherentStats_'+source_dataset + '_' + str(target_number_im_considered) +\
                 '_MeanStd'+'_'+str_layers
+        if cropCenter:
+            filename += '_cropCenter'
         if computeGlobalVariance:
             filename +='_computeGlobalVariance'
         
@@ -2431,76 +2433,76 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     final_clf_list = ['LinearSVC','MLP2','MLP2bis'] # LinearSVC but also MLP : pas encore fini
     gridSearchTab =[True,False,False] # LinearSVC but also MLP : pas encore fini
     #gridSearchTab =[False] # LinearSVC but also MLP : pas encore fini
-    #final_clf_list = ['LinearSVC','MLP2'] # LinearSVC but also MLP
+    final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
     
     dataset_tab = ['Paintings','IconArt_v1']
-    #dataset_tab = ['Paintings']
+    dataset_tab = ['Paintings']
     
     for target_dataset in dataset_tab:
         print('===',target_dataset,'===')
         for final_clf,gridSearch in zip(final_clf_list,gridSearchTab): 
             print('==',final_clf,'==')
             # VGG case 
-            for features,transformOnFinalLayer in zip(['fc2','block5_pool','block5_pool'],['','GlobalMaxPooling2D','GlobalAveragePooling2D']):
-                
-                # Baseline Case
-                constrNet = 'VGG'
-                if final_clf=='LinearSVC':
-                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                                   ReDo=False)
-                elif final_clf=='MLP2':
-                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
-                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
-                elif final_clf=='MLP2bis':
-                    learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
-                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                                   optimizer='SGD',opt_option=[10**(-2)],\
-                                   epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
-                
-                # Statistics model
-                net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
-                style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                             ['block1_conv1','block2_conv1'],['block1_conv1']]
-                style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                             ['block1_conv1','block2_conv1']]
-                number_im_considered = 10000
-                getBeforeReLU = True
-    
-                for constrNet in net_tab:
-                    if constrNet=='VGGBaseNormCoherent':
-                        style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
-                    else:
-                        style_layers_tab = style_layers_tab_forOther
-                    for style_layers in style_layers_tab:
-                        if not(forLatex): print('--- getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,\
-                              'features',features,'transformOnFinalLayer',transformOnFinalLayer,'number_im_considered',number_im_considered,'style_layers',style_layers)
-                        if final_clf=='LinearSVC':
-                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
-                                   number_im_considered=number_im_considered,\
-                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
-                                   forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer,
-                                   ReDo=False)
-                        elif final_clf=='MLP2':
-                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
-                                   number_im_considered=number_im_considered,\
-                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
-                                   forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer,
-                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
-                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
-                        elif final_clf=='MLP2bis':
-                            learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
-                                           constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
-                                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                                           optimizer='SGD',opt_option=[10**(-2)],\
-                                           epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
+#            for features,transformOnFinalLayer in zip(['fc2','block5_pool','block5_pool'],['','GlobalMaxPooling2D','GlobalAveragePooling2D']):
+#                
+#                # Baseline Case
+#                constrNet = 'VGG'
+#                if final_clf=='LinearSVC':
+#                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+#                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+#                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+#                                   ReDo=False)
+#                elif final_clf=='MLP2':
+#                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+#                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+#                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+#                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+#                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+#                elif final_clf=='MLP2bis':
+#                    learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
+#                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+#                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+#                                   optimizer='SGD',opt_option=[10**(-2)],\
+#                                   epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
+#                
+#                # Statistics model
+#                net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
+#                style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+#                             ['block1_conv1','block2_conv1'],['block1_conv1']]
+#                style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+#                             ['block1_conv1','block2_conv1']]
+#                number_im_considered = 10000
+#                getBeforeReLU = True
+#    
+#                for constrNet in net_tab:
+#                    if constrNet=='VGGBaseNormCoherent':
+#                        style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
+#                    else:
+#                        style_layers_tab = style_layers_tab_forOther
+#                    for style_layers in style_layers_tab:
+#                        if not(forLatex): print('--- getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,\
+#                              'features',features,'transformOnFinalLayer',transformOnFinalLayer,'number_im_considered',number_im_considered,'style_layers',style_layers)
+#                        if final_clf=='LinearSVC':
+#                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+#                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
+#                                   number_im_considered=number_im_considered,\
+#                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+#                                   forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer,
+#                                   ReDo=False)
+#                        elif final_clf=='MLP2':
+#                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+#                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
+#                                   number_im_considered=number_im_considered,\
+#                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+#                                   forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer,
+#                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+#                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+#                        elif final_clf=='MLP2bis':
+#                            learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
+#                                           constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
+#                                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+#                                           optimizer='SGD',opt_option=[10**(-2)],\
+#                                           epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
             
             # ResNet50 case
             for features,transformOnFinalLayer in zip(['activation_48','activation_48'],['GlobalMaxPooling2D','GlobalAveragePooling2D']):
@@ -2520,7 +2522,7 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                                    epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
                 elif final_clf=='MLP2bis':
                     learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
-                                   constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
+                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
                                    normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                    optimizer='SGD',opt_option=[10**(-2)],\
                                    epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
@@ -2848,11 +2850,13 @@ def testROWD_CUMUL_and_BRNF_FineTuning():
 
 def comparaison_ResNet_baseline_ResNetROWD_as_Init():
     
+    ReDo = False
+    
     ## Premier schema de fine tuning
     # La baseline TL
     # Trainable params: 527,114
     learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-                    kind_method='TL',ReDo=True,
+                    kind_method='TL',ReDo=ReDo,
                     constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
                     style_layers=[],verbose=True,features='activation_48',
                     optimizer='SGD',opt_option=[10**(-2)],
@@ -2863,7 +2867,7 @@ def comparaison_ResNet_baseline_ResNetROWD_as_Init():
     # La baseline FT all freeze   
     # Trainable params: 527,114
     learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-                    kind_method='FT',ReDo=True,
+                    kind_method='FT',ReDo=ReDo,
                     constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
                     style_layers=[],verbose=True,features='activation_48',
                     optimizer='SGD',opt_option=[10**(-2)],
@@ -2872,60 +2876,60 @@ def comparaison_ResNet_baseline_ResNetROWD_as_Init():
     # & 41.5 & 20.9 & 84.3 & 55.0 & 29.1 & 52.2 & 34.5 & 69.6 & 48.0 & 68.7 & 50.4 
     #  & 43.7 & 26.7 & 85.5 & 59.6 & 44.0 & 58.5 & 31.5 & 67.4 & 46.8 & 55.5 & 51.9 \\
     # La baseline FT all freeze 0 layers : test           
-#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-#                    kind_method='FT',ReDo=False,
-#                    constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
-#                    style_layers=[],verbose=True,features='activation_48',
-#                    optimizer='SGD',opt_option=[10**(-2)],
-#                    epochs=20,return_best_model=True,batch_size=16,
-#                    computeGlobalVariance=True,pretrainingModif=0)   
-#    #  & 29.2 & 23.5 & 85.9 & 56.6 & 42.2 & 62.9 & 37.3 & 70.2 & 39.5 & 61.9 & 50.9          
-#    # La baseline FT all fine-tune
-#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-#                    kind_method='FT',ReDo=False,
-#                    constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
-#                    style_layers=[],verbose=True,features='activation_48',
-#                    optimizer='SGD',opt_option=[10**(-2)],
-#                    epochs=20,return_best_model=True,batch_size=16,
-#                    computeGlobalVariance=True,pretrainingModif=True)            
-#    #& 15.9 & 15.4 & 64.0 & 48.2 & 17.1 & 34.1 & 20.6 & 35.1 & 23.8 & 40.3 & 31.4 \\ 
-#    # ResNet50_ROWD_CUMUL
-#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-#                    kind_method='FT',ReDo=False,
-#                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
-#                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
-#                    optimizer='SGD',opt_option=[10**(-2)],
-#                    epochs=20,return_best_model=True,batch_size=16,
-#                    computeGlobalVariance=True)
-#    # & 62.5 & 42.1 & 92.4 & 73.2 & 59.3 & 69.3 & 51.2 & 76.9 & 67.2 & 85.7 & 68.0 \\
-#    # ResNet50_ROWD_CUMUL_AdaIn
-#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-#                    kind_method='FT',ReDo=False,
-#                    constrNet='ResNet50_ROWD_CUMUL_AdaIn',transformOnFinalLayer='GlobalAveragePooling2D',
-#                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
-#                    optimizer='SGD',opt_option=[10**(-2)],
-#                    epochs=20,return_best_model=True,batch_size=16,
-#                    computeGlobalVariance=True)
-#    # & 44.7 & 38.6 & 88.7 & 71.0 & 45.3 & 65.0 & 44.9 & 71.6 & 54.1 & 80.6 & 60.5 \\ 
-#    # ResNet50_BNRF
-#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-#                    kind_method='FT',ReDo=False,
-#                    constrNet='ResNet50_BNRF',transformOnFinalLayer='GlobalAveragePooling2D',
-#                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
-#                    optimizer='SGD',opt_option=[10**(-2)],
-#                    epochs=20,return_best_model=True,batch_size=16,
-#                    batch_size_RF=16,epochs_RF=20,momentum=0.9)            
-#    # & 61.4 & 42.0 & 92.0 & 72.8 & 55.9 & 68.7 & 51.5 & 76.8 & 69.4 & 84.0 & 67.5 \\   
-#    # ResNet50_AdaIn
-#    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
-#                    kind_method='FT',ReDo=False,
-#                    constrNet='ResNet50AdaIn',transformOnFinalLayer='GlobalAveragePooling2D',
-#                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
-#                    optimizer='SGD',opt_option=[10**(-2)],
-#                    epochs=20,return_best_model=True,batch_size=16,
-#                    batch_size_RF=16,epochs_RF=20,momentum=0.9)            
-#    #  & 55.1 & 41.3 & 90.2 & 70.3 & 46.1 & 64.4 & 43.7 & 73.5 & 65.5 & 79.2 & 62.9 \\
-#
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='FT',ReDo=ReDo,
+                    constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=[],verbose=True,features='activation_48',
+                    optimizer='SGD',opt_option=[10**(-2)],
+                    epochs=20,return_best_model=True,batch_size=16,
+                    computeGlobalVariance=True,pretrainingModif=0)   
+    #  & 29.2 & 23.5 & 85.9 & 56.6 & 42.2 & 62.9 & 37.3 & 70.2 & 39.5 & 61.9 & 50.9          
+    # La baseline FT all fine-tune
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='FT',ReDo=ReDo,
+                    constrNet='ResNet50',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=[],verbose=True,features='activation_48',
+                    optimizer='SGD',opt_option=[10**(-2)],
+                    epochs=20,return_best_model=True,batch_size=16,
+                    computeGlobalVariance=True,pretrainingModif=True)            
+    #& 15.9 & 15.4 & 64.0 & 48.2 & 17.1 & 34.1 & 20.6 & 35.1 & 23.8 & 40.3 & 31.4 \\ 
+    # ResNet50_ROWD_CUMUL
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='FT',ReDo=ReDo,
+                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
+                    optimizer='SGD',opt_option=[10**(-2)],
+                    epochs=20,return_best_model=True,batch_size=16,
+                    computeGlobalVariance=True)
+    # & 62.5 & 42.1 & 92.4 & 73.2 & 59.3 & 69.3 & 51.2 & 76.9 & 67.2 & 85.7 & 68.0 \\
+    # ResNet50_ROWD_CUMUL_AdaIn
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='FT',ReDo=ReDo,
+                    constrNet='ResNet50_ROWD_CUMUL_AdaIn',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
+                    optimizer='SGD',opt_option=[10**(-2)],
+                    epochs=20,return_best_model=True,batch_size=16,
+                    computeGlobalVariance=True)
+    # & 44.7 & 38.6 & 88.7 & 71.0 & 45.3 & 65.0 & 44.9 & 71.6 & 54.1 & 80.6 & 60.5 \\ 
+    # ResNet50_BNRF
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='FT',ReDo=ReDo,
+                    constrNet='ResNet50_BNRF',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
+                    optimizer='SGD',opt_option=[10**(-2)],
+                    epochs=20,return_best_model=True,batch_size=16,
+                    batch_size_RF=16,epochs_RF=20,momentum=0.9)            
+    # & 61.4 & 42.0 & 92.0 & 72.8 & 55.9 & 68.7 & 51.5 & 76.8 & 69.4 & 84.0 & 67.5 \\   
+    # ResNet50_AdaIn
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='FT',ReDo=ReDo,
+                    constrNet='ResNet50AdaIn',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',
+                    optimizer='SGD',opt_option=[10**(-2)],
+                    epochs=20,return_best_model=True,batch_size=16,
+                    batch_size_RF=16,epochs_RF=20,momentum=0.9)            
+    #  & 55.1 & 41.3 & 90.2 & 70.3 & 46.1 & 64.4 & 43.7 & 73.5 & 65.5 & 79.2 & 62.9 \\
+
 #
 #    # Deuxieme schema de fine tuning
 #    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
@@ -3116,6 +3120,7 @@ if __name__ == '__main__':
 #                        constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
 #                        style_layers=['bn_conv1'],verbose=True,features='activation_48') # A finir
 #    testROWD_CUMUL()
+    RunAllEvaluation_ForFeatureExtractionModel()
     comparaison_ResNet_baseline_ResNetROWD_as_Init()
 #    RunAllEvaluation_ForFeatureExtractionModel()
 #    RunAllEvaluation_FineTuning()
