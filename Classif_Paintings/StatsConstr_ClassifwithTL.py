@@ -645,7 +645,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 elif constrNet=='ResNet50':
                     # in the case of ResNet50 : final_alyer = features = 'activation_48'
                     network_features_extraction = ResNet_cut(final_layer=features,\
-                                     transformOnFinalLayer ='GlobalMaxPooling2D',\
+                                     transformOnFinalLayer =transformOnFinalLayer,\
                              verbose=verbose,weights='imagenet',res_num_layers=50)
                     
                     if returnStatistics:
@@ -1194,7 +1194,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
 
 def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                        weights,res_num_layers,transformOnFinalLayer,kind_method,\
-                       batch_size=32,momentum=0.9,num_epochs_BN=5,output_path='',cropCenter=False):
+                       batch_size=16,momentum=0.9,num_epochs_BN=5,output_path='',cropCenter=False):
     """
     This function refine the normalisation statistics of the batch normalisation 
     with an exponential moving average
@@ -1221,7 +1221,7 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
         #model = load_model(model_file_name_path)
         model.load_weights(model_file_name_path)
     else:
-        print('We will refine the normalisation parameters')
+        print('--- We will refine the normalisation parameters ---')
         
         if cropCenter:
             interpolation='lanczos:center'
@@ -1255,10 +1255,13 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                                                     shuffle=True,\
                                                     interpolation=interpolation)
         STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
-
-        use_multiprocessing =  True
-        workers = 8
         
+        print(model.updates)
+        print(len(model.updates))
+        
+        use_multiprocessing =  True
+        workers = 3
+        print('Before Refinement')
         model =  fit_generator_ForRefineParameters(model,
                       trainval_generator,
                       steps_per_epoch=STEP_SIZE_TRAIN,
@@ -2433,10 +2436,10 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     final_clf_list = ['LinearSVC','MLP2','MLP2bis'] # LinearSVC but also MLP : pas encore fini
     gridSearchTab =[True,False,False] # LinearSVC but also MLP : pas encore fini
     #gridSearchTab =[False] # LinearSVC but also MLP : pas encore fini
-    final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
+    #final_clf_list = ['LinearSVC'] # LinearSVC but also MLP
     
     dataset_tab = ['Paintings','IconArt_v1']
-    dataset_tab = ['Paintings']
+    #dataset_tab = ['Paintings']
     
     for target_dataset in dataset_tab:
         print('===',target_dataset,'===')
@@ -2503,8 +2506,8 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
 #                                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
 #                                           optimizer='SGD',opt_option=[10**(-2)],\
 #                                           epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
-            
-            # ResNet50 case
+#            
+#            # ResNet50 case
             for features,transformOnFinalLayer in zip(['activation_48','activation_48'],['GlobalMaxPooling2D','GlobalAveragePooling2D']):
                 
                 # Baseline Case
@@ -3100,12 +3103,12 @@ if __name__ == '__main__':
 #                        transformOnFinalLayer='GlobalAveragePooling2D',return_best_model=True)
 
 ## Test BN Refinement of ResNet50
-#    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
-#                        kind_method='TL',
-#                        constrNet='ResNet50_BNRF',batch_size_RF=16,\
-#                        style_layers=['bn_conv1'],verbose=True,epochs_RF=20,\
-#                        transformOnFinalLayer='GlobalAveragePooling2D',\
-#                        features='activation_48',cropCenter=True)
+    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
+                        kind_method='TL',
+                        constrNet='ResNet50_BNRF',batch_size_RF=16,\
+                        style_layers=[],verbose=True,epochs_RF=20,\
+                        transformOnFinalLayer='GlobalMaxPooling2D',\
+                        features='activation_48',cropCenter=True)
 ## Test MLP2 with gridsearch
 #    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
 #                        kind_method='TL',
@@ -3120,8 +3123,8 @@ if __name__ == '__main__':
 #                        constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
 #                        style_layers=['bn_conv1'],verbose=True,features='activation_48') # A finir
 #    testROWD_CUMUL()
-    RunAllEvaluation_ForFeatureExtractionModel()
-    comparaison_ResNet_baseline_ResNetROWD_as_Init()
+#    RunAllEvaluation_ForFeatureExtractionModel()
+#    comparaison_ResNet_baseline_ResNetROWD_as_Init()
 #    RunAllEvaluation_ForFeatureExtractionModel()
 #    RunAllEvaluation_FineTuning()
     
