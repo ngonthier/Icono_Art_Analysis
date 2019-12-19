@@ -245,7 +245,8 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     list_markers = ['o','s','X','*']
     alpha = 0.7
     
-    for constrNet,computeGlobalVariance in zip(nets,computeGlobalVariance_tab):          
+    for constrNet,computeGlobalVariance in zip(nets,computeGlobalVariance_tab): 
+        print(constrNet)         
         output = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                constrNet,kind_method,style_layers=style_layers,
                                normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
@@ -511,43 +512,3 @@ def compute_MutualInfo(target_dataset='Paintings'):
                    strings += "{:.2E}".format(sum_MI) 
             strings += '\n'
             print(strings)
-#            
-#Classs 0 trainval ResNet50 : 4.39E+00 ResNet50_ROWD_CUMUL : 1.01E+01 ResNet50_ROWD_CUMULGlobalVar : 8.75E+00 ResNet50_BNRF : 4.98E+00
-#
-#Classs 0 test ResNet50 : 4.94E+00 ResNet50_ROWD_CUMUL : 7.03E+00 ResNet50_ROWD_CUMULGlobalVar : 5.85E+00 ResNet50_BNRF : 5.23E+00
-#
-#Classs 1 trainval ResNet50 : 5.42E+00 ResNet50_ROWD_CUMUL : 5.58E+00 ResNet50_ROWD_CUMULGlobalVar : 5.27E+00 ResNet50_BNRF : 4.77E+00
-#
-#Classs 1 test ResNet50 : 5.90E+00 ResNet50_ROWD_CUMUL : 9.65E+00 ResNet50_ROWD_CUMULGlobalVar : 6.51E+00 ResNet50_BNRF : 4.52E+00
-#
-#Classs 2 trainval ResNet50 : 3.26E+01 ResNet50_ROWD_CUMUL : 5.26E+01 ResNet50_ROWD_CUMULGlobalVar : 6.13E+01 ResNet50_BNRF : 7.90E+01
-#
-#Classs 2 test ResNet50 : 3.19E+01 ResNet50_ROWD_CUMUL : 6.09E+01 ResNet50_ROWD_CUMULGlobalVar : 6.84E+01 ResNet50_BNRF : 7.83E+01
-#
-#Classs 3 trainval ResNet50 : 2.57E+01 ResNet50_ROWD_CUMUL : 3.55E+01 ResNet50_ROWD_CUMULGlobalVar : 5.75E+01 ResNet50_BNRF : 4.64E+01
-#
-#Classs 3 test ResNet50 : 2.41E+01 ResNet50_ROWD_CUMUL : 3.11E+01 ResNet50_ROWD_CUMULGlobalVar : 5.17E+01 ResNet50_BNRF : 3.42E+01
-#
-#Classs 4 trainval ResNet50 : 1.01E+01 ResNet50_ROWD_CUMUL : 3.97E+00 ResNet50_ROWD_CUMULGlobalVar : 6.15E+00 ResNet50_BNRF : 9.46E+00
-#
-#Classs 4 test ResNet50 : 9.36E+00 ResNet50_ROWD_CUMUL : 4.71E+00 ResNet50_ROWD_CUMULGlobalVar : 6.26E+00 ResNet50_BNRF : 6.39E+00
-#
-#Classs 5 trainval ResNet50 : 1.83E+01 ResNet50_ROWD_CUMUL : 3.56E+01 ResNet50_ROWD_CUMULGlobalVar : 4.80E+01 ResNet50_BNRF : 3.88E+01
-#
-#Classs 5 test ResNet50 : 1.78E+01 ResNet50_ROWD_CUMUL : 3.28E+01 ResNet50_ROWD_CUMULGlobalVar : 4.24E+01 ResNet50_BNRF : 3.21E+01
-#
-#Classs 6 trainval ResNet50 : 9.25E+00 ResNet50_ROWD_CUMUL : 9.50E+00 ResNet50_ROWD_CUMULGlobalVar : 1.06E+01 ResNet50_BNRF : 1.03E+01
-#
-#Classs 6 test ResNet50 : 8.45E+00 ResNet50_ROWD_CUMUL : 8.69E+00 ResNet50_ROWD_CUMULGlobalVar : 1.04E+01 ResNet50_BNRF : 1.15E+01
-#
-#Classs 7 trainval ResNet50 : 1.48E+01 ResNet50_ROWD_CUMUL : 7.09E+00 ResNet50_ROWD_CUMULGlobalVar : 7.71E+00 ResNet50_BNRF : 9.26E+00
-#
-#Classs 7 test ResNet50 : 1.50E+01 ResNet50_ROWD_CUMUL : 6.25E+00 ResNet50_ROWD_CUMULGlobalVar : 7.49E+00 ResNet50_BNRF : 9.75E+00
-#
-#Classs 8 trainval ResNet50 : 1.18E+01 ResNet50_ROWD_CUMUL : 5.93E+00 ResNet50_ROWD_CUMULGlobalVar : 7.36E+00 ResNet50_BNRF : 1.37E+01
-#
-#Classs 8 test ResNet50 : 1.27E+01 ResNet50_ROWD_CUMUL : 4.99E+00 ResNet50_ROWD_CUMULGlobalVar : 6.32E+00 ResNet50_BNRF : 1.32E+01
-#
-#Classs 9 trainval ResNet50 : 1.01E+01 ResNet50_ROWD_CUMUL : 3.54E+00 ResNet50_ROWD_CUMULGlobalVar : 4.62E+00 ResNet50_BNRF : 1.45E+01
-#
-#Classs 9 test ResNet50 : 1.12E+01 ResNet50_ROWD_CUMUL : 6.62E+00 ResNet50_ROWD_CUMULGlobalVar : 8.64E+00 ResNet50_BNRF : 1.71E+01

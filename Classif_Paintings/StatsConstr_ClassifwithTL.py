@@ -23,7 +23,7 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,ResNet_cut,vgg_suffleInStats,\
     get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,\
     get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet,\
-    vgg_FRN
+    vgg_FRN,set_momentum_BN
 from IMDB import get_database
 import pickle
 import pathlib
@@ -646,7 +646,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     # in the case of ResNet50 : final_alyer = features = 'activation_48'
                     network_features_extraction = ResNet_cut(final_layer=features,\
                                      transformOnFinalLayer =transformOnFinalLayer,\
-                             verbose=verbose,weights='imagenet',res_num_layers=50)
+                             verbose=verbose,weights=weights,res_num_layers=50)
                     
                     if returnStatistics:
                         return(network_features_extraction)
@@ -672,7 +672,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
                                    final_layer=features,\
                                    transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
-                                   weights='imagenet')
+                                   weights=weights)
                     
                 elif constrNet=='ResNet50_ROWD_CUMUL':
                     # Refinement the batch normalisation : normalisation statistics
@@ -700,7 +700,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
                                    final_layer=features,\
                                    transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
-                                   weights='imagenet')
+                                   weights=weights)
                     
                 elif constrNet=='ResNet50_BNRF':
                     res_num_layers = 50
@@ -1044,7 +1044,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                            freezingType=freezingType,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
             elif constrNet=='ResNet50AdaIn':
                 getBeforeReLU = False
-                model = ResNet_AdaIn(style_layers,num_of_classes=num_classes,\
+                model = ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
                                            transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
                                            res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
                                            dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
@@ -1112,20 +1112,20 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                 num_epochs_BN=epochs_RF,output_path=output_path,\
                                 cropCenter=cropCenter)
                 
-                dict_stats_target,list_mean_and_std_target = extract_Norm_stats_of_ResNet(network_features_extractionBNRF,\
-                                                    res_num_layers=res_num_layers,model_type=constrNet)
-                # To the network name
-                K.clear_session()
-                s = tf.InteractiveSession()
-                K.set_session(s)
+#                dict_stats_target,list_mean_and_std_target = extract_Norm_stats_of_ResNet(network_features_extractionBNRF,\
+#                                                    res_num_layers=res_num_layers,model_type=constrNet)
+#                # To the network name
+#                K.clear_session()
+#                s = tf.InteractiveSession()
+#                K.set_session(s)
+#                
+#                network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
+#                               style_layers,list_mean_and_std_target=list_mean_and_std_target,\
+#                               final_layer=features,\
+#                               transformOnFinalLayer=transformOnFinalLayer,res_num_layers=res_num_layers,\
+#                               weights='imagenet')
                 
-                network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
-                               style_layers,list_mean_and_std_target=list_mean_and_std_target,\
-                               final_layer=features,\
-                               transformOnFinalLayer=transformOnFinalLayer,res_num_layers=res_num_layers,\
-                               weights='imagenet')
-                
-                model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
+                model = add_head_and_trainable(network_features_extractionBNRF,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
                              final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 
                 
@@ -1210,15 +1210,35 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
     
     print('model_file_name_path',model_file_name_path_for_test_existence,'it is exist ? ',os.path.isfile(model_file_name_path_for_test_existence))
     verbose = True
-    model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
-                                            transformOnFinalLayer =transformOnFinalLayer,\
-                                            verbose=verbose,weights=weights,\
-                                            res_num_layers=res_num_layers,momentum=momentum,\
-                                            kind_method=kind_method)
+#    model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
+#                                            transformOnFinalLayer =transformOnFinalLayer,\
+#                                            verbose=verbose,weights=weights,\
+#                                            res_num_layers=res_num_layers,momentum=momentum,\
+#                                            kind_method=kind_method)
+    
+    model = ResNet_cut(final_layer='activation_48',\
+                       transformOnFinalLayer =transformOnFinalLayer,\
+                       verbose=verbose,weights=weights,res_num_layers=res_num_layers)
+    
+    model = set_momentum_BN(model,momentum)
+    
+    model.trainable = True
+    
+    print('Before all')
+    name_layer = 'bn_conv1'
+    batchnorm_layer = model.get_layer(name_layer)
+    moving_mean = batchnorm_layer.moving_mean
+    moving_variance = batchnorm_layer.moving_variance
+    moving_mean_eval = tf.keras.backend.eval(moving_mean)
+    moving_std_eval = np.sqrt(tf.keras.backend.eval(moving_variance))
+    mean_and_std_layer = moving_mean_eval,moving_std_eval
+    print(name_layer)
+    print(mean_and_std_layer)
     
     if os.path.isfile(model_file_name_path_for_test_existence):
         print('--- We will load the weights of the model ---')
         #model = load_model(model_file_name_path)
+        model.trainable = False
         model.load_weights(model_file_name_path)
     else:
         print('--- We will refine the normalisation parameters ---')
@@ -1255,13 +1275,11 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                                                     shuffle=True,\
                                                     interpolation=interpolation)
         STEP_SIZE_TRAIN=trainval_generator.n//trainval_generator.batch_size
-        
-        print(model.updates)
-        print(len(model.updates))
-        
+                
         use_multiprocessing =  True
-        workers = 3
-        print('Before Refinement')
+        workers = 8
+        max_queue_size = 20
+        
         model =  fit_generator_ForRefineParameters(model,
                       trainval_generator,
                       steps_per_epoch=STEP_SIZE_TRAIN,
@@ -1272,15 +1290,16 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
     #                  validation_steps=None,
     #                  validation_freq=1,
     #                  class_weight=None,
-                      max_queue_size=10,
+                      max_queue_size=max_queue_size,
                       workers=workers,
                       use_multiprocessing=use_multiprocessing,
                       shuffle=True)
 
+        model.trainable = False
         model.save_weights(model_file_name_path)
         
-    if cropCenter:
-        kp.image.iterator.load_img = old_loading_img_fct
+        if cropCenter:
+            kp.image.iterator.load_img = old_loading_img_fct
 
     return(model)
 
@@ -2284,6 +2303,7 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
             
             # Case BNRF
             net_tab = ['ResNet50_BNRF','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL_AdaIn']
+            net_tab = ['ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL_AdaIn']
             style_layers_tab_forOther = [[]] # TODO il faudra changer cela a terme
             style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
                                          getBNlayersResNet50()]
@@ -2446,67 +2466,67 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
         for final_clf,gridSearch in zip(final_clf_list,gridSearchTab): 
             print('==',final_clf,'==')
             # VGG case 
-#            for features,transformOnFinalLayer in zip(['fc2','block5_pool','block5_pool'],['','GlobalMaxPooling2D','GlobalAveragePooling2D']):
-#                
-#                # Baseline Case
-#                constrNet = 'VGG'
-#                if final_clf=='LinearSVC':
-#                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-#                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-#                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-#                                   ReDo=False)
-#                elif final_clf=='MLP2':
-#                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-#                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-#                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-#                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
-#                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
-#                elif final_clf=='MLP2bis':
-#                    learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
-#                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-#                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-#                                   optimizer='SGD',opt_option=[10**(-2)],\
-#                                   epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
-#                
-#                # Statistics model
-#                net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
-#                style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-#                             ['block1_conv1','block2_conv1'],['block1_conv1']]
-#                style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-#                             ['block1_conv1','block2_conv1']]
-#                number_im_considered = 10000
-#                getBeforeReLU = True
-#    
-#                for constrNet in net_tab:
-#                    if constrNet=='VGGBaseNormCoherent':
-#                        style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
-#                    else:
-#                        style_layers_tab = style_layers_tab_forOther
-#                    for style_layers in style_layers_tab:
-#                        if not(forLatex): print('--- getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,\
-#                              'features',features,'transformOnFinalLayer',transformOnFinalLayer,'number_im_considered',number_im_considered,'style_layers',style_layers)
-#                        if final_clf=='LinearSVC':
-#                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-#                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
-#                                   number_im_considered=number_im_considered,\
-#                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
-#                                   forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer,
-#                                   ReDo=False)
-#                        elif final_clf=='MLP2':
-#                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-#                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
-#                                   number_im_considered=number_im_considered,\
-#                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
-#                                   forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer,
-#                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
-#                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
-#                        elif final_clf=='MLP2bis':
-#                            learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
-#                                           constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
-#                                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-#                                           optimizer='SGD',opt_option=[10**(-2)],\
-#                                           epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
-#            
+            for features,transformOnFinalLayer in zip(['fc2','block5_pool','block5_pool'],['','GlobalMaxPooling2D','GlobalAveragePooling2D']):
+                
+                # Baseline Case
+                constrNet = 'VGG'
+                if final_clf=='LinearSVC':
+                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                  constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                                  normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                  ReDo=False)
+                elif final_clf=='MLP2':
+                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                  constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                                  normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                  dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+                                  epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+                elif final_clf=='MLP2bis':
+                    learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
+                                  constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                                  normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                  optimizer='SGD',opt_option=[10**(-2)],\
+                                  epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
+                
+                # Statistics model
+                net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
+                style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                            ['block1_conv1','block2_conv1'],['block1_conv1']]
+                style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                            ['block1_conv1','block2_conv1']]
+                number_im_considered = 10000
+                getBeforeReLU = True
+    
+                for constrNet in net_tab:
+                    if constrNet=='VGGBaseNormCoherent':
+                        style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
+                    else:
+                        style_layers_tab = style_layers_tab_forOther
+                    for style_layers in style_layers_tab:
+                        if not(forLatex): print('--- getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,\
+                              'features',features,'transformOnFinalLayer',transformOnFinalLayer,'number_im_considered',number_im_considered,'style_layers',style_layers)
+                        if final_clf=='LinearSVC':
+                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                  constrNet,kind_method,style_layers,gridSearch=gridSearch,
+                                  number_im_considered=number_im_considered,\
+                                  normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+                                  forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer,
+                                  ReDo=False)
+                        elif final_clf=='MLP2':
+                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                                  constrNet,kind_method,style_layers,gridSearch=gridSearch,
+                                  number_im_considered=number_im_considered,\
+                                  normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
+                                  forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer,
+                                  dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+                                  epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+                        elif final_clf=='MLP2bis':
+                            learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
+                                          constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
+                                          normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                                          optimizer='SGD',opt_option=[10**(-2)],\
+                                          epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
+            
 #            # ResNet50 case
             for features,transformOnFinalLayer in zip(['activation_48','activation_48'],['GlobalMaxPooling2D','GlobalAveragePooling2D']):
                 
@@ -2557,25 +2577,25 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                                    epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
                     
                 
-                constrNet = 'ResNet50_BNRF'
-                if final_clf=='LinearSVC':
-                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                                   batch_size_RF=16,epochs_RF=20,momentum=0.9,ReDo=False)
-                elif final_clf=='MLP2':
-                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                                   batch_size_RF=16,epochs_RF=20,momentum=0.9,
-                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
-                               epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
-                elif final_clf=='MLP2bis':
-                    learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
-                           constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
-                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                           optimizer='SGD',opt_option=[10**(-2)],\
-                           epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
+                # constrNet = 'ResNet50_BNRF'
+                # if final_clf=='LinearSVC':
+                #     learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                #                    constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                #                    normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                #                    batch_size_RF=16,epochs_RF=20,momentum=0.9,ReDo=False)
+                # elif final_clf=='MLP2':
+                #     learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                #                    constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                #                    normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                #                    batch_size_RF=16,epochs_RF=20,momentum=0.9,
+                #                    dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+                #                epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+                # elif final_clf=='MLP2bis':
+                #     learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
+                #            constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
+                #            normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                #            optimizer='SGD',opt_option=[10**(-2)],\
+                #            epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
        
 
 def RunAllEvaluation_FineTuning(onlyPlot=False):
@@ -3103,12 +3123,12 @@ if __name__ == '__main__':
 #                        transformOnFinalLayer='GlobalAveragePooling2D',return_best_model=True)
 
 ## Test BN Refinement of ResNet50
-    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
-                        kind_method='TL',
-                        constrNet='ResNet50_BNRF',batch_size_RF=16,\
-                        style_layers=[],verbose=True,epochs_RF=20,\
-                        transformOnFinalLayer='GlobalMaxPooling2D',\
-                        features='activation_48',cropCenter=True)
+#    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
+#                        kind_method='TL',
+#                        constrNet='ResNet50_BNRF',batch_size_RF=16,\
+#                        style_layers=[],verbose=True,epochs_RF=20,\
+#                        transformOnFinalLayer='GlobalMaxPooling2D',\
+#                        features='activation_48',cropCenter=True)
 ## Test MLP2 with gridsearch
 #    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
 #                        kind_method='TL',
@@ -3124,7 +3144,7 @@ if __name__ == '__main__':
 #                        style_layers=['bn_conv1'],verbose=True,features='activation_48') # A finir
 #    testROWD_CUMUL()
 #    RunAllEvaluation_ForFeatureExtractionModel()
-#    comparaison_ResNet_baseline_ResNetROWD_as_Init()
-#    RunAllEvaluation_ForFeatureExtractionModel()
-#    RunAllEvaluation_FineTuning()
+#   comparaison_ResNet_baseline_ResNetROWD_as_Init()
+    RunAllEvaluation_ForFeatureExtractionModel()
+    RunAllEvaluation_FineTuning()
     

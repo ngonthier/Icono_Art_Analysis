@@ -13,6 +13,7 @@ import tensorflow.python.keras.utils as Sequence
 from tensorflow.python.keras import utils
 from tensorflow.python.keras import backend as K
 import numpy as np
+import time
 
 def getResNet50layersName():
     liste = ['input_1',
@@ -337,8 +338,8 @@ def fit_generator_ForRefineParameters(model,
     train_fn = K.function(inputs=[model.input], \
         outputs=[model.output], updates=model.updates) # model.output
     #init = tf.global_variables_initializer()
-    init = tf.compat.v1.global_variables_initializer()
-    sess.run(init)
+    #init = tf.compat.v1.global_variables_initializer() # This will put means and variance to 0. and 1.
+    #sess.run(init)
     epoch = initial_epoch
 
 #    do_validation = bool(validation_data)
@@ -346,9 +347,9 @@ def fit_generator_ForRefineParameters(model,
 #    if do_validation:
 #        model._make_test_function()
 #    use_sequence_api = True
-#    print('generator',generator)
+    print('generator',generator)
     use_sequence_api = is_sequence(generator)
-#    print('use_sequence_api',use_sequence_api)
+    print('use_sequence_api',use_sequence_api)
     if not use_sequence_api and use_multiprocessing and workers > 1:
         warnings.warn(
             UserWarning('Using a generator with `use_multiprocessing=True`'
@@ -414,7 +415,7 @@ def fit_generator_ForRefineParameters(model,
 
     enqueuer = None
     val_enqueuer = None
-
+    bs = tf.placeholder(tf.float32, shape=(None, 224, 224,3))
     try:
 #        if do_validation:
 #            if val_gen and workers > 0:
@@ -482,6 +483,17 @@ def fit_generator_ForRefineParameters(model,
         # Construct epoch logs.
         epoch_logs = {}
         while epoch < epochs:
+            print('Start epoch',epoch)
+            name_layer = 'bn_conv1'
+            batchnorm_layer = model.get_layer(name_layer)
+            moving_mean = batchnorm_layer.moving_mean
+            moving_variance = batchnorm_layer.moving_variance
+            moving_mean_eval = tf.keras.backend.eval(moving_mean)
+            moving_std_eval = np.sqrt(tf.keras.backend.eval(moving_variance))
+            mean_and_std_layer = moving_mean_eval,moving_std_eval
+            print(name_layer)
+            print(mean_and_std_layer)
+            t0 = time.time()
             #model.reset_metrics()
 #            callbacks.on_epoch_begin(epoch)
             steps_done = 0
@@ -543,7 +555,20 @@ def fit_generator_ForRefineParameters(model,
                 # Here x is a numpy array because the datagenerator load numpy array
                 
                 #print(epoch,steps_done,'BEfore train fn')
+                print(x.shape)
+                #sess.run(model.updates,feed_dict={model.input : x})
                 train_fn(x)  # updates property is updated after each call of the layer/model with an input, not before.
+                
+                print('batch_index',batch_index)
+                batchnorm_layer = model.get_layer(name_layer)
+                moving_mean = batchnorm_layer.moving_mean
+                moving_variance = batchnorm_layer.moving_variance
+                moving_mean_eval = tf.keras.backend.eval(moving_mean)
+                moving_std_eval = np.sqrt(tf.keras.backend.eval(moving_variance))
+                mean_and_std_layer = moving_mean_eval,moving_std_eval
+                print(name_layer)
+                print(mean_and_std_layer)
+                
                 #print('after train fn')
 #                print(model.updates)
 #                training_updates = model.get_updates_for(tf.convert_to_tensor(x))
@@ -590,6 +615,8 @@ def fit_generator_ForRefineParameters(model,
 #                    break
 #
 #            callbacks.on_epoch_end(epoch, epoch_logs)
+            t1 = time.time()
+            print('End epoch',epoch,str(t1-t0),'s')
             epoch += 1
 #            if callbacks.model.stop_training:
 #                break
