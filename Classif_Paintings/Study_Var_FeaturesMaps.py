@@ -209,7 +209,7 @@ def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_con
             try:
                 #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
                 if cropCenter:
-                    image_array= load_and_crop_img(path=image_path,Net=Net,target_smallest_size=224,
+                    image_array= load_and_crop_img(path=image_path,Net=Net,target_size=224,
                                             crop_size=224,interpolation='lanczos:center')
                           # For VGG or ResNet size == 224
                 else:
@@ -353,7 +353,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             try:
                 #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
                 if cropCenter:
-                    image_array= load_and_crop_img(path=image_path,Net=Net,target_smallest_size=224,
+                    image_array= load_and_crop_img(path=image_path,Net=Net,target_size=224,
                                             crop_size=224,interpolation='lanczos:center')
                           # For VGG or ResNet size == 224
                 else:
@@ -474,7 +474,7 @@ def Precompute_4Param(filename_path,style_layers,number_im_considered,\
             try:
                 #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
                 if cropCenter:
-                    image_array= load_and_crop_img(path=image_path,Net=Net,target_smallest_size=224,
+                    image_array= load_and_crop_img(path=image_path,Net=Net,target_size=224,
                                             crop_size=224,interpolation='lanczos:center')
                           # For VGG or ResNet size == 224
                 else:
@@ -1205,7 +1205,7 @@ def VGG_Hist_of_featuresMaps(number_im_considered = 10,
                 try:
                     #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
                     if cropCenter:
-                        image_array= load_and_crop_img(path=image_path,Net=Net,target_smallest_size=224,
+                        image_array= load_and_crop_img(path=image_path,Net=Net,target_size=224,
                                                 crop_size=224,interpolation='lanczos:center')
                               # For VGG or ResNet size == 224
                     else:
