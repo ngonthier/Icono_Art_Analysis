@@ -47,7 +47,7 @@ import tempfile
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 from tensorflow.python.keras.models import load_model
 from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion,\
-    fit_generator_ForRefineParameters
+    fit_generator_ForRefineParameters,fit_generator_ForRefineParameters_v2
 import keras_preprocessing as kp
 
 from functools import partial
@@ -1198,6 +1198,9 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
     """
     This function refine the normalisation statistics of the batch normalisation 
     with an exponential moving average
+    
+    Le fait que les valeurs explosent et donnent nan vient peut etre de la : 
+        https://github.com/keras-team/keras/issues/11927#issuecomment-568863705
     """
     
     model_file_name = 'ResNet'+str(res_num_layers)+'_BNRF_'+str(weights)+'_'+transformOnFinalLayer+\
@@ -1210,17 +1213,15 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
     
     print('model_file_name_path',model_file_name_path_for_test_existence,'it is exist ? ',os.path.isfile(model_file_name_path_for_test_existence))
     verbose = True
-#    model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
-#                                            transformOnFinalLayer =transformOnFinalLayer,\
-#                                            verbose=verbose,weights=weights,\
-#                                            res_num_layers=res_num_layers,momentum=momentum,\
-#                                            kind_method=kind_method)
+    model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
+                                            transformOnFinalLayer =transformOnFinalLayer,\
+                                            verbose=verbose,weights=weights,\
+                                            res_num_layers=res_num_layers,momentum=momentum,\
+                                            kind_method=kind_method)
     
-    model = ResNet_cut(final_layer='activation_48',\
-                       transformOnFinalLayer =transformOnFinalLayer,\
-                       verbose=verbose,weights=weights,res_num_layers=res_num_layers)
-    
-    model = set_momentum_BN(model,momentum)
+    # model = ResNet_cut(final_layer='activation_48',\
+    #                     transformOnFinalLayer =transformOnFinalLayer,\
+    #                     verbose=verbose,weights=weights,res_num_layers=res_num_layers)
     
     model.trainable = True
     
@@ -1280,16 +1281,11 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
         workers = 8
         max_queue_size = 20
         
-        model =  fit_generator_ForRefineParameters(model,
+        model =  fit_generator_ForRefineParameters_v2(model,
                       trainval_generator,
                       steps_per_epoch=STEP_SIZE_TRAIN,
                       epochs=num_epochs_BN,
                       verbose=1,
-    #                  callbacks=None,
-    #                  validation_data=None,
-    #                  validation_steps=None,
-    #                  validation_freq=1,
-    #                  class_weight=None,
                       max_queue_size=max_queue_size,
                       workers=workers,
                       use_multiprocessing=use_multiprocessing,
@@ -1739,6 +1735,18 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
         optimizer_tab = ['SGD']
         opt_option_tab = [[10**(-2)]]
         return_best_model = True
+    elif scenario==10:
+        final_clf = 'MLP2'
+        epochs = 20
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,10**(-2)]]
+        return_best_model = True
+    elif scenario==11:
+        final_clf = 'MLP2'
+        epochs = 50
+        optimizer_tab = ['SGD']
+        opt_option_tab = [[0.1,10**(-3)]]
+        return_best_model = True
     else:
         raise(NotImplementedError)
     
@@ -2098,7 +2106,8 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
     # VGG : '*'
     
     NUM_COLORS = 20
-    color_number_for_frozen = [0,NUM_COLORS//2,NUM_COLORS-1]
+    #color_number_for_frozen = [0,NUM_COLORS//2,NUM_COLORS-1]
+    color_number_for_frozen = [0,NUM_COLORS//5,2*NUM_COLORS//5,3*NUM_COLORS//5,4*NUM_COLORS//5,NUM_COLORS-1]
     cm = plt.get_cmap('gist_rainbow')
     cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
     scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)
@@ -2194,38 +2203,51 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
     range_l = [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96, 102,106] # For Resnet50
     batch_size = 16 
     features = 'activation_48'
+    
     for optimizer,opt_option in zip(optimizer_tab,opt_option_tab): 
         for transformOnFinalLayer in transformOnFinalLayer_tab:
-            fig_i = 0
-            plt.figure()
-            list_perf = [] 
             j = 0
-            # Plot the value with a certain number of freeze or unfreeze layer
-            for freezingType in list_freezingType:
-                list_perf += [[]]  
-                for pretrainingModif in range_l:
-                    metrics = learn_and_eval(target_dataset=target_dataset,constrNet=network,\
-                                             kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
-                                             pretrainingModif=pretrainingModif,freezingType=freezingType,\
-                                             optimizer=optimizer,opt_option=opt_option,batch_size=batch_size\
-                                             ,final_clf=final_clf,features=features,return_best_model=return_best_model,\
-                                             onlyReturnResult=onlyPlot,style_layers=style_layers,
-                                             cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
-                                             nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
-                                            # il faudra checker cela avec le ResNet 
-        
-                    if metrics is None:
-                        continue
-                    metricI_per_class = metrics[metricploted_index]
-                    list_perf[j] += [np.mean(metricI_per_class)]
-                if not(len(list(range_l))==len(list_perf[j])):
-                    layers_j = list(range_l)[0:len(list_perf[j])]
-                else:
-                    layers_j = list(range_l)
-                plt.plot(layers_j,list_perf[j],label=freezingType,color=scalarMap.to_rgba(color_number_for_frozen[fig_i]),\
-                         marker=list_markers[fig_i],linestyle=':')
-                fig_i += 1
-                j += 1
+            fig_i = 0
+            if len(opt_option)==1:
+                opt_option_tab2 = [opt_option,[0.1,opt_option[0]]]
+            else:
+                opt_option_tab2 = [opt_option]
+            plt.figure()
+            list_perf = []
+            for jj, opt_option2 in enumerate(opt_option_tab2):
+                
+                # Plot the value with a certain number of freeze or unfreeze layer
+                for freezingType in list_freezingType:
+                    list_perf += [[]]  
+                    for pretrainingModif in range_l:
+                        metrics = learn_and_eval(target_dataset=target_dataset,constrNet=network,\
+                                                 kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                                                 pretrainingModif=pretrainingModif,freezingType=freezingType,\
+                                                 optimizer=optimizer,opt_option=opt_option2,batch_size=batch_size\
+                                                 ,final_clf=final_clf,features=features,return_best_model=return_best_model,\
+                                                 onlyReturnResult=onlyPlot,style_layers=style_layers,
+                                                 cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                                                 nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                                                # il faudra checker cela avec le ResNet 
+            
+                        if metrics is None:
+                            continue
+                        metricI_per_class = metrics[metricploted_index]
+                        list_perf[j] += [np.mean(metricI_per_class)]
+                        
+                    if not(len(list(range_l))==len(list_perf[j])):
+                        layers_j = list(range_l)[0:len(list_perf[j])]
+                    else:
+                        layers_j = list(range_l)
+                        
+                    labelstr = freezingType
+                    if jj == 1:
+                        labelstr += ' lrp 0.1'
+                        
+                    plt.plot(layers_j,list_perf[j],label=labelstr,color=scalarMap.to_rgba(color_number_for_frozen[fig_i]),\
+                             marker=list_markers[fig_i],linestyle=':')
+                    fig_i += 1
+                    j += 1
     
             
         ## TODO il va falloir gerer les optimizers la !
@@ -2241,13 +2263,14 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                                          getBNlayersResNet50()]
             for style_layers in style_layers_tab_ResNet50AdaIn:
     #            print(constrNet,style_layers)
-                metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
-                                          epochs=20,transformOnFinalLayer=transformOnFinalLayer,\
-                                          final_clf='MLP2',forLatex=True,optimizer=optimizer,\
-                                          style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
-                                          opt_option=opt_option,cropCenter=cropCenter,\
-                                          onlyReturnResult=onlyPlot,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
-                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                metrics = learn_and_eval(target_dataset=target_dataset,constrNet=constrNet,\
+                                         kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                                         pretrainingModif=pretrainingModif,freezingType=freezingType,\
+                                         optimizer=optimizer,opt_option=opt_option,batch_size=batch_size\
+                                         ,final_clf=final_clf,features=features,return_best_model=return_best_model,\
+                                         onlyReturnResult=onlyPlot,style_layers=style_layers,
+                                         cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                                         nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 if metrics is None:
                     continue
                 metricI_per_class = metrics[metricploted_index]
@@ -2264,11 +2287,19 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                     if BV:
                         if getResNetLayersNumeral_bitsVersion(style_layers) == getResNetLayersNumeral_bitsVersion(getBNlayersResNet50()):
                             labelstr += '_all'
+                        elif style_layers == ['bn_conv1']:
+                            labelstr += '_bnc1'
+                        elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
+                            labelstr += '_bn_*1'
                         else:
                             labelstr += '_'+  getResNetLayersNumeral_bitsVersion(style_layers)
                     else:
                         if getResNetLayersNumeral(style_layers) == getResNetLayersNumeral(getBNlayersResNet50()):
                             labelstr += '_all'
+                        elif style_layers == ['bn_conv1']:
+                            labelstr += '_bnc1'
+                        elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
+                            labelstr += '_bn_*1'
                         else:
                             labelstr += '_'+  getResNetLayersNumeral(style_layers)
                 plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
@@ -2327,7 +2358,15 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                     labelstr = constrNet 
                     if not(constrNet=='ResNet50' or constrNet=='ResNet50_BNRF'):
                         if BV:
-                            labelstr += '_'+ getResNetLayersNumeral_bitsVersion(style_layers)
+                            if getResNetLayersNumeral_bitsVersion(style_layers) == getResNetLayersNumeral_bitsVersion(getBNlayersResNet50()):
+                                labelstr += '_all'
+                            elif style_layers == ['bn_conv1']:
+                                labelstr += '_bnc1'
+                            elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
+                                labelstr += '_bn_*1'
+                            else:
+                                labelstr += '_'+ getResNetLayersNumeral_bitsVersion(style_layers)
+
                         else:
                             labelstr += '_'+ getResNetLayersNumeral(style_layers)
                     metrics = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
@@ -2448,7 +2487,6 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     et voir ce que cela donne dans le cadre de l'extraction de features
     """
     source_dataset = 'ImageNet'
-    gridSearch = True # For LinearSVC
     normalisation = False
     kind_method = 'TL'
     verbose = True
@@ -2580,35 +2618,44 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                 # constrNet = 'ResNet50_BNRF'
                 # if final_clf=='LinearSVC':
                 #     learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                #                    constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                #                    normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                #                    batch_size_RF=16,epochs_RF=20,momentum=0.9,ReDo=False)
+                #                     constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                #                     normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                #                     batch_size_RF=16,epochs_RF=20,momentum=0.9,ReDo=False)
                 # elif final_clf=='MLP2':
                 #     learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                #                    constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                #                    normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                #                    batch_size_RF=16,epochs_RF=20,momentum=0.9,
-                #                    dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
-                #                epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+                #                     constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+                #                     normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                #                     batch_size_RF=16,epochs_RF=20,momentum=0.9,
+                #                     dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+                #                 epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
                 # elif final_clf=='MLP2bis':
                 #     learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
-                #            constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
-                #            normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                #            optimizer='SGD',opt_option=[10**(-2)],\
-                #            epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
+                #             constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
+                #             normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                #             optimizer='SGD',opt_option=[10**(-2)],\
+                #             epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
        
 
-def RunAllEvaluation_FineTuning(onlyPlot=False):
+def RunAllEvaluation_FineTuningResNet(onlyPlot=False):
     """
     @param onlyPlot = True if you only want to plot the new values
     """
     
     dataset_tab = ['Paintings','IconArt_v1']
     #dataset_tab = ['Paintings']
+    # a decommenter pour afficher les courbes
     scenario = 9
     for target_dataset in dataset_tab:
         PlotSomePerformanceResNet(target_dataset = target_dataset,scenario=scenario,
                               onlyPlot=onlyPlot,cropCenter=True,BV=True)
+    
+def RunAllEvaluation_FineTuningVGG(onlyPlot=False):
+    """
+    @param onlyPlot = True if you only want to plot the new values
+    """   
+    dataset_tab = ['Paintings','IconArt_v1']
+    scenario=11
+    for target_dataset in dataset_tab:
         PlotSomePerformanceVGG(target_dataset = target_dataset,
                            onlyPlot=onlyPlot,scenario=scenario,BV=True,cropCenter=True)
  
@@ -3078,7 +3125,7 @@ if __name__ == '__main__':
 #    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,pretrainingModif=False,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
 #    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50',kind_method='FT',epochs=20,pretrainingModif=False,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
 #    learn_and_eval(target_dataset='Paintings',constrNet='ResNet50AdaIn',kind_method='FT',epochs=2,style_layers=['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
-###    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',kind_method='FT',\
+###    .
 ##                   epochs=20,transformOnFinalLayer='GlobalMaxPooling2D',forLatex=True)
 ##    learn_and_eval(target_dataset='Paintings',constrNet='VGGAdaIn',kind_method='FT',\
 #                   epochs=20,transformOnFinalLayer='GlobalAveragePooling2D',forLatex=True)
@@ -3123,12 +3170,12 @@ if __name__ == '__main__':
 #                        transformOnFinalLayer='GlobalAveragePooling2D',return_best_model=True)
 
 ## Test BN Refinement of ResNet50
-#    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
-#                        kind_method='TL',
-#                        constrNet='ResNet50_BNRF',batch_size_RF=16,\
-#                        style_layers=[],verbose=True,epochs_RF=20,\
-#                        transformOnFinalLayer='GlobalMaxPooling2D',\
-#                        features='activation_48',cropCenter=True)
+    # learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
+    #                     kind_method='TL',
+    #                     constrNet='ResNet50_BNRF',batch_size_RF=16,\
+    #                     style_layers=[],verbose=True,epochs_RF=20,\
+    #                     transformOnFinalLayer='GlobalMaxPooling2D',\
+    #                     features='activation_48',cropCenter=True)
 ## Test MLP2 with gridsearch
 #    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
 #                        kind_method='TL',
@@ -3145,6 +3192,6 @@ if __name__ == '__main__':
 #    testROWD_CUMUL()
 #    RunAllEvaluation_ForFeatureExtractionModel()
 #   comparaison_ResNet_baseline_ResNetROWD_as_Init()
-    RunAllEvaluation_ForFeatureExtractionModel()
-    RunAllEvaluation_FineTuning()
-    
+    #RunAllEvaluation_ForFeatureExtractionModel()
+    #RunAllEvaluation_FineTuningResNet()
+    RunAllEvaluation_FineTuningVGG()   

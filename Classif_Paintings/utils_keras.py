@@ -8,6 +8,8 @@ Created on Fri Sep 27 09:49:40 2019
 
 import os
 import tempfile
+import json
+import h5py
 
 from tensorflow.python.keras.models import load_model
 
@@ -35,9 +37,6 @@ def apply_modifications(model,include_optimizer=True, custom_objects=None,needFi
     finally:
         os.remove(model_path)
 
-import json
-import h5py
-
 def fix_layer0(filename, batch_input_shape, dtype):
     with h5py.File(filename, 'r+') as f:
         model_config = json.loads(f.attrs['model_config'].decode('utf-8'))
@@ -46,8 +45,6 @@ def fix_layer0(filename, batch_input_shape, dtype):
         layer0['dtype'] = dtype
         f.attrs['model_config'] = json.dumps(model_config).encode('utf-8')
 
-# Example
-      
 
 def update_layer_activation(model, activation, index=-1):
     model.layers[index].activation = activation

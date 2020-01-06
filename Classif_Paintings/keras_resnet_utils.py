@@ -651,3 +651,244 @@ def fit_generator_ForRefineParameters(model,
 #    callbacks._call_end_hook('train')
 #    return model.history
     return(model)
+
+def fit_generator_ForRefineParameters_v2(model,
+                  generator,
+                  steps_per_epoch=None,
+                  epochs=1,
+                  verbose=1,
+                  max_queue_size=10,
+                  workers=1,
+                  use_multiprocessing=False,
+                  shuffle=True,
+                  initial_epoch=0,controlGPUmemory=True):
+    """ The goal of this function is to run the generator to update the parameters 
+    of the batch normalisation"""
+    
+
+    sess = K.get_session()
+    
+    # Solution from https://stackoverflow.com/questions/55421984/batch-normalization-in-tf-keras-does-not-calculate-average-mean-and-average-vari
+    tf.compat.v1.add_to_collection(tf.GraphKeys.UPDATE_OPS, model.updates)
+    
+    epoch = initial_epoch
+
+    print('generator',generator)
+    use_sequence_api = is_sequence(generator)
+    print('use_sequence_api',use_sequence_api)
+    if not use_sequence_api and use_multiprocessing and workers > 1:
+        warnings.warn(
+            UserWarning('Using a generator with `use_multiprocessing=True`'
+                        ' and multiple workers may duplicate your data.'
+                        ' Please consider using the `keras.utils.Sequence'
+                        ' class.'))
+
+    # if generator is instance of Sequence and steps_per_epoch are not provided -
+    # recompute steps_per_epoch after each epoch
+    recompute_steps_per_epoch = use_sequence_api and steps_per_epoch is None
+
+    if steps_per_epoch is None:
+        if use_sequence_api:
+            steps_per_epoch = len(generator)
+        else:
+            raise ValueError('`steps_per_epoch=None` is only valid for a'
+                             ' generator based on the '
+                             '`keras.utils.Sequence`'
+                             ' class. Please specify `steps_per_epoch` '
+                             'or use the `keras.utils.Sequence` class.')
+    enqueuer = None
+    val_enqueuer = None
+    bs = tf.placeholder(tf.float32, shape=(None, 224, 224,3))
+    try:
+        if workers > 0:
+            if use_sequence_api:
+                enqueuer = utils.OrderedEnqueuer(
+                    generator,
+                    use_multiprocessing=use_multiprocessing,
+                    shuffle=shuffle)
+            else:
+                enqueuer = utils.GeneratorEnqueuer(
+                    generator,
+                    use_multiprocessing=use_multiprocessing)
+            enqueuer.start(workers=workers, max_queue_size=max_queue_size)
+            output_generator = enqueuer.get()
+        else:
+            if use_sequence_api:
+                output_generator = iter_sequence_infinite(generator)
+            else:
+                output_generator = generator
+
+#        callbacks.model.stop_training = False
+        # Construct epoch logs.
+        epoch_logs = {}
+        while epoch < epochs:
+            print('Start epoch',epoch)
+            name_layer = 'bn_conv1'
+            batchnorm_layer = model.get_layer(name_layer)
+            moving_mean = batchnorm_layer.moving_mean
+            moving_variance = batchnorm_layer.moving_variance
+            moving_mean_eval = tf.keras.backend.eval(moving_mean)
+            moving_std_eval = np.sqrt(tf.keras.backend.eval(moving_variance))
+            mean_and_std_layer = moving_mean_eval,moving_std_eval
+            print(name_layer)
+            print(mean_and_std_layer)
+            t0 = time.time()
+            #model.reset_metrics()
+#            callbacks.on_epoch_begin(epoch)
+            steps_done = 0
+            batch_index = 0
+            while steps_done < steps_per_epoch:
+                generator_output = next(output_generator)
+
+#                if not hasattr(generator_output, '__len__'):
+#                    raise ValueError('Output of generator should be '
+#                                     'a tuple `(x, y, sample_weight)` '
+#                                     'or `(x, y)`. Found: ' +
+#                                     str(generator_output))
+#
+                if len(generator_output) == 1:
+                    x = generator_output
+                    y = None
+                    sample_weight = None
+                elif len(generator_output) == 2:
+                    x, y = generator_output
+                    sample_weight = None
+                elif len(generator_output) == 3:
+                    x, y, sample_weight = generator_output
+                else:
+                    x = generator_output
+                    y = None
+                    sample_weight = None
+#                    raise ValueError('Output of generator should be '
+#                                     'a tuple `(x, y, sample_weight)` '
+#                                     'or `(x, y) or (x)`. Found: ' +
+#                                     str(generator_output))
+                if len(x.shape)==4:
+                    if x is None or len(x) == 0:
+                        # Handle data tensors support when no input given
+                        # step-size = 1 for data tensors
+                        batch_size = 1
+                    elif isinstance(x, list):
+                        batch_size = x[0].shape[0]
+                    elif isinstance(x, dict):
+                        batch_size = list(x.values())[0].shape[0]
+                    else:
+                        batch_size = x.shape[0]
+                elif len(x.shape)==3:
+                    # In this case we only have one image in the batch
+                    x = np.expand_dims(x, axis=0)
+                    batch_size = 1
+
+                # build batch logs
+#                batch_logs = {'batch': batch_index, 'size': batch_size}
+#                callbacks.on_batch_begin(batch_index, batch_logs)
+                
+                
+#                outs = model.train_on_batch(x, y,
+#                                            sample_weight=sample_weight,
+#                                            class_weight=class_weight,
+#                                            reset_metrics=False)
+                # in the train_on_batch fct they use 
+                # in _make_train_function : updates = self.updates + training_updates (from optimizer)
+
+                # Here x is a numpy array because the datagenerator load numpy array
+                
+                #print(epoch,steps_done,'BEfore train fn')
+                print(x.shape,type(x[0,0,0,0]))
+                #sess.run(model.updates,feed_dict={model.input : x})
+                updates_ops = tf.compat.v1.get_collection(tf.GraphKeys.UPDATE_OPS)
+                print('len updates op',len(updates_ops[0]))
+                sess.run(updates_ops,  {model.input : x})
+
+                print('batch_index',batch_index)
+                batchnorm_layer = model.get_layer(name_layer)
+                moving_mean = batchnorm_layer.moving_mean
+                moving_variance = batchnorm_layer.moving_variance
+                moving_mean_eval = tf.keras.backend.eval(moving_mean)
+                moving_std_eval = np.sqrt(tf.keras.backend.eval(moving_variance))
+                mean_and_std_layer = moving_mean_eval,moving_std_eval
+                print(name_layer)
+                print(mean_and_std_layer)
+                
+                #print('after train fn')
+#                print(model.updates)
+#                training_updates = model.get_updates_for(tf.convert_to_tensor(x))
+#                print('training_updates',training_updates)
+#                model.process_update(training_updates)
+#                print('model.updates',model.updates)
+#
+#                outs = to_list(outs)
+#                for l, o in zip(out_labels, outs):
+#                    batch_logs[l] = o
+#
+#                callbacks._call_batch_hook('train', 'end', batch_index, batch_logs)
+#
+                batch_index += 1
+                steps_done += 1
+#
+#                # Epoch finished.
+#                if (steps_done >= steps_per_epoch and
+#                        do_validation and
+#                        should_run_validation(validation_freq, epoch)):
+#                    # Note that `callbacks` here is an instance of
+#                    # `keras.callbacks.CallbackList`
+#                    if val_gen:
+#                        val_outs = model.evaluate_generator(
+#                            val_enqueuer_gen,
+#                            validation_steps,
+#                            callbacks=callbacks,
+#                            workers=0)
+#                    else:
+#                        # No need for try/except because
+#                        # data has already been validated.
+#                        val_outs = model.evaluate(
+#                            val_x, val_y,
+#                            batch_size=batch_size,
+#                            sample_weight=val_sample_weights,
+#                            callbacks=callbacks,
+#                            verbose=0)
+#                    val_outs = to_list(val_outs)
+#                    # Same labels assumed.
+#                    for l, o in zip(out_labels, val_outs):
+#                        epoch_logs['val_' + l] = o
+#
+#                if callbacks.model.stop_training:
+#                    break
+#
+#            callbacks.on_epoch_end(epoch, epoch_logs)
+            t1 = time.time()
+            print('End epoch',epoch,str(t1-t0),'s')
+            epoch += 1
+#            if callbacks.model.stop_training:
+#                break
+#
+            if use_sequence_api and workers == 0:
+                generator.on_epoch_end()
+
+            if recompute_steps_per_epoch:
+                if workers > 0:
+                    enqueuer.join_end_of_epoch()
+#
+#                # recomute steps per epochs in case if Sequence changes it's length
+#                steps_per_epoch = len(generator)
+#
+#                # update callbacks to make sure params are valid each epoch
+#                callbacks.set_params({
+#                    'epochs': epochs,
+#                    'steps': steps_per_epoch,
+#                    'verbose': verbose,
+#                    'do_validation': do_validation,
+#                    'metrics': callback_metrics,
+#                })
+#
+    finally:
+        try:
+            if enqueuer is not None:
+                enqueuer.stop()
+        finally:
+            if val_enqueuer is not None:
+                val_enqueuer.stop()
+
+#    callbacks._call_end_hook('train')
+#    return model.history
+    return(model)

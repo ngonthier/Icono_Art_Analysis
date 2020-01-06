@@ -967,30 +967,47 @@ class HomeMade_BatchNormalisation_Refinement(Layer):
 
     def __init__(self,batchnorm_layer,momentum, **kwargs):
         #self.moving_mean = batchnorm_layer.non_trainable_variables[0]
-        self.moving_mean = batchnorm_layer.moving_mean
+        self.moving_mean_init = tf.keras.backend.eval(batchnorm_layer.moving_mean)
+        self.gamma = tf.keras.backend.eval(batchnorm_layer.gamma)
         #self.moving_variance = batchnorm_layer.non_trainable_variables[1]
-        self.moving_variance = batchnorm_layer.moving_variance
-        batchnorm_layer.trainable = False
-        self.batchnorm_layer=batchnorm_layer
+        self.moving_variance_init = tf.keras.backend.eval(batchnorm_layer.moving_variance)
+        self.beta = tf.keras.backend.eval(batchnorm_layer.beta)
+        self.epsilon = tf.keras.backend.eval(batchnorm_layer.epsilon)
+        #batchnorm_layer.trainable = False
+        #self.batchnorm_layer=batchnorm_layer
         self.momentum = momentum 
         super(HomeMade_BatchNormalisation_Refinement, self).__init__(**kwargs)
 
     def build(self,input_shape):
+        self.moving_mean = self.add_weight(name='moving_mean',
+                                  shape=self.moving_mean_init.shape,
+                                  initializer=tf.constant_initializer(value=self.moving_mean_init),
+                                  #UNTRAINABLE 
+                                  trainable=False)
+        self.moving_variance = self.add_weight(name='moving_variance',
+                                  shape=self.moving_variance_init.shape,
+                                  initializer=tf.constant_initializer(value=self.moving_variance_init),
+                                  #UNTRAINABLE 
+                                  trainable=False)
         super(HomeMade_BatchNormalisation_Refinement, self).build(input_shape)  
         # Be sure to call this at the end
 
     def call(self, x):
-        output = self.batchnorm_layer(x)
+        #output = self.batchnorm_layer(x)
         mean,variance = tf.nn.moments(x,axes=(0,1,2),keep_dims=False)
+        batch_norm = (x - mean) * math_ops.rsqrt(variance + self.epsilon)
+        batch_norm *= self.gamma
+        output =  batch_norm + self.beta
+        # Version sous optimisee bien sur
         update_moving_mean = tf.keras.backend.moving_average_update(x=self.moving_mean,\
                                                value=mean,\
                                                momentum=self.momentum) # Returns An Operation to update the variable.
         update_moving_variance = tf.keras.backend.moving_average_update(x=self.moving_variance,\
                                                value=variance,\
                                                momentum=self.momentum) # Returns An Operation to update the variable.
-        self.add_update([update_moving_mean,update_moving_variance],x)
-        #self.add_update(update_moving_mean)
-        #self.add_update(update_moving_variance)
+        #self.add_update([update_moving_mean,update_moving_variance],x)
+        self.add_update(update_moving_mean)
+        self.add_update(update_moving_variance)
         #self.add_update((self.moving_mean, update_moving_mean), x)
         #self.add_update((self.moving_variance, update_moving_variance), x)
         
@@ -1002,10 +1019,15 @@ class HomeMade_BatchNormalisation_Refinement(Layer):
     
     def get_config(self): # Need this to save correctly the model with this kind of layer
         config = super(HomeMade_BatchNormalisation_Refinement, self).get_config()
+        config['moving_mean_init'] = self.moving_mean_init
         config['moving_mean'] = self.moving_mean
+        config['gamma'] = self.gamma
+        config['beta'] = self.beta
+        config['moving_variance_init'] = self.moving_variance_init
         config['moving_variance'] = self.moving_variance
         config['batchnorm_layer'] = self.batchnorm_layer
         config['momentum'] = self.momentum
+        config['epsilon'] = self.epsilon
         return(config) 
 
 def layers_unique(liste):
@@ -1034,8 +1056,8 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
                 network_dict['input_layers_of'].update(
                         {layer_name: [layer.name]})
             else:
-                network_dict['input_layers_of'][layer_name].append(layer.name)
-
+                if (layer.name not in network_dict['input_layers_of'][layer_name]):
+                    network_dict['input_layers_of'][layer_name].append(layer.name)
     # Set the output tensor of the input layer
     network_dict['new_output_tensor_of'].update(
             {model.layers[0].name: model.input})
@@ -1085,7 +1107,7 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
 
     return Model(inputs=model.inputs, outputs=x)
 
-def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
+def ResNet_BNRefinements_Feat_extractor_old(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
                              verbose=True,weights='imagenet',\
                              res_num_layers=50,momentum=0.9,kind_method='TL'): 
   """
@@ -1098,7 +1120,7 @@ def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer 
 #  input_tensor = Input(shape=(224, 224, 3)) 
   
   print('ResNet_BNRefinements_Feat_extractor does not work sorry, you have to use the ResNet50 base model')
-  raise(NotImplementedError)
+#  raise(NotImplementedError)
   
   if res_num_layers==50:
       pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
@@ -1108,7 +1130,7 @@ def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer 
   else:
       print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
       raise(NotImplementedError)
-  
+
   print('beginning',len(pre_model.updates))
   for layer in pre_model.layers:
       layer.trainable = False
@@ -1120,7 +1142,10 @@ def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer 
           pre_model = insert_layer_nonseq(pre_model, layer_regex, new_bn,
                         insert_layer_name=insert_layer_name, position='replace')   
           print(layer.name,len(pre_model.updates))
-#          
+          #print(layer.name,pre_model.updates)
+          # print(pre_model.summary())
+          #input('wait')
+#   
 #      
 #      if layer.name in style_layers:
 #          layer.trainable = True
@@ -1143,6 +1168,105 @@ def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer 
 #  if final_clf=='MLP2' or final_clf=='MLP1':
 #      predictions = Dense(num_of_classes, activation='sigmoid')(x)
   model = Model(inputs=pre_model.input, outputs=predictions)
+  print('Finale updates lits',len(model.updates))
+#  if lr_multiple:
+#      multipliers[model.layers[-2].name] = None
+#      multipliers[model.layers[-1].name] = None
+#      opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
+#  else:
+#      opt = opt(learning_rate=lr)
+  # Compile model
+  #pre_model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  if verbose: print(model.summary())
+  
+  return model
+
+def ResNet_BNRefinements_Feat_extractor(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
+                             verbose=True,weights='imagenet',\
+                             res_num_layers=50,momentum=0.9,kind_method='TL'): 
+  """
+  ResNet with BN statistics refinement and then features extraction TL
+  Solution adopte remplacer les batch normalisation par de nouvelles 
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  @param : momentum in the updating of the statistics of BN 
+  BNRF
+  """
+  # create model
+#  input_tensor = Input(shape=(224, 224, 3)) 
+  
+  print('ResNet_BNRefinements_Feat_extractor does not work sorry, you have to use the ResNet50 base model')
+#  raise(NotImplementedError)
+  
+  if res_num_layers==50:
+      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+                                                          input_shape= (224, 224, 3))
+      bn_layers = getBNlayersResNet50()
+      number_of_trainable_layers = 106
+  else:
+      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
+      raise(NotImplementedError)
+
+  print('beginning new fct',len(pre_model.updates))
+  for layer in pre_model.layers:
+      layer.trainable = False
+      if layer.name in bn_layers:
+          gamma_initializer = tf.constant_initializer(value=tf.keras.backend.eval(layer.gamma))
+          beta_initializer = tf.constant_initializer(value=tf.keras.backend.eval(layer.beta))
+          moving_variance_initializer = tf.constant_initializer(value=tf.keras.backend.eval(layer.moving_variance))
+          moving_mean_initializer = tf.constant_initializer(value=tf.keras.backend.eval(layer.moving_mean))
+          new_bn =  BatchNormalization(axis=-1,
+                                        momentum=momentum,
+                                        epsilon=layer.epsilon,
+                                        center=layer.center,
+                                        scale=layer.scale,
+                                        beta_initializer=beta_initializer,
+                                        gamma_initializer=gamma_initializer,
+                                        moving_mean_initializer=moving_mean_initializer,
+                                        moving_variance_initializer=moving_variance_initializer,
+                                        beta_regularizer=layer.beta_regularizer,
+                                        gamma_regularizer=layer.gamma_regularizer,
+                                        beta_constraint=layer.beta_constraint,
+                                        gamma_constraint=layer.gamma_constraint,
+                                        renorm=layer.renorm,
+                                        fused=layer.fused,
+                                        trainable=True,
+                                        virtual_batch_size=layer.virtual_batch_size,
+                                        adjustment=layer.adjustment,
+                                        name=layer.name)
+          layer_regex = layer.name
+          insert_layer_name =  layer.name
+          pre_model = insert_layer_nonseq(pre_model, layer_regex, new_bn,
+                        insert_layer_name=insert_layer_name, position='replace')   
+          print(layer.name,len(pre_model.updates))
+          pre_model=utils_keras.apply_modifications(pre_model,include_optimizer=False, custom_objects=None,needFix = False)
+          print(layer.name,len(pre_model.updates))
+          #print(layer.name,pre_model.updates)
+          # print(pre_model.summary())
+          #input('wait')
+#   
+#      
+#      if layer.name in style_layers:
+#          layer.trainable = True
+#          if lr_multiple: 
+#              multipliers[layer.name] = multiply_lrp
+#      else:
+#          layer.trainable = False
+#
+  x = pre_model.output
+  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+     x = GlobalMaxPooling2D()(x)
+  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+      x = GlobalAveragePooling2D()(x)
+  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+      x= Flatten()(x)
+  predictions = x 
+#  
+#  if final_clf=='MLP2':
+#      x = Dense(256, activation='relu')(x)
+#  if final_clf=='MLP2' or final_clf=='MLP1':
+#      predictions = Dense(num_of_classes, activation='sigmoid')(x)
+  model = Model(inputs=pre_model.input, outputs=predictions)
+  print('Finale updates lits',len(model.updates))
 #  if lr_multiple:
 #      multipliers[model.layers[-2].name] = None
 #      multipliers[model.layers[-1].name] = None
@@ -3104,6 +3228,7 @@ def Test_BatchNormRefinement():
     #tf.keras.backend.set_learning_phase(True)
     print("Model after modification")
     print(pre_model.summary())    
+    print('pre_model.updates',pre_model.updates)
     batchnorm_layer = pre_model.get_layer('home_made__batch_normalisation__refinement')
     moving_mean = batchnorm_layer.moving_mean
     moving_variance = batchnorm_layer.moving_variance
@@ -3165,51 +3290,92 @@ def Test_BatchNormRefinement_V2():
     """
     
     ### Peut etre que cela ne ùarche pas a cause de ca : 
+    # https://stackoverflow.com/questions/55421984/batch-normalization-in-tf-keras-does-not-calculate-average-mean-and-average-vari
     # https://pgaleone.eu/tensorflow/keras/2019/01/19/keras-not-yet-interface-to-tensorflow/
+    # https://github.com/tensorflow/tensorflow/blob/5eb81ea161515e18a039241b3e4eb8efbfbaa354/tensorflow/python/layers/normalization_test.py
+    
+    tf.reset_default_graph()
+    graph = tf.get_default_graph()
+    tf.keras.backend.set_learning_phase(True)
     
     bs = 64
     features_size = 24
+    training = array_ops.placeholder(dtypes.bool)
     a = Input(shape=(features_size,features_size,3))
-    b = Conv2D(filters=features_size,kernel_size=3,padding='same')(a)
-    c = BatchNormalization(axis=1,name='bn')(b)
+    xt = array_ops.placeholder(dtypes.float32, shape=(None,features_size,features_size,3))
+    #b = Conv2D(filters=features_size,kernel_size=3,padding='same')(a)
+    momentum =0.5
+    gamma_initializer = tf.constant_initializer(value=np.ones((3,)))
+    beta_initializer = tf.constant_initializer(value=-np.ones((3,)))
+    moving_variance_initializer = tf.constant_initializer(value=10.*np.ones((3,)))
+    moving_mean_initializer = tf.constant_initializer(value=-0.1*np.ones((3,)))
+    c = BatchNormalization(axis=-1,name='bn',momentum=momentum,moving_mean_initializer=moving_mean_initializer,
+                           moving_variance_initializer=moving_variance_initializer,
+                           beta_initializer=beta_initializer,
+                           gamma_initializer=gamma_initializer)(a)
     pre_model = Model(inputs=a, outputs=c)  
     pre_model.trainable = True
 #    pre_model = Sequential([b,c])
 #    pre_model = Model(inputs=b, outputs=c) 
 #    pre_model.build(input_shape=(bs,features_size,features_size,3))
     bn_layers = ['bn']
-    momentum = 0.9
+    
     print("Model before anything")
-    pre_model = set_momentum_BN(pre_model,momentum)
+    pre_model = set_momentum_BN(pre_model,momentum) # Ne marche pas
     batchnorm_layer = pre_model.get_layer('bn')
+
     # batchnorm_layer.moving_mean.trainable = True
     # batchnorm_layer.moving_variance.trainable = True
     print(pre_model.summary())   
-    
+
     moving_mean = batchnorm_layer.moving_mean
     moving_variance = batchnorm_layer.moving_variance
+    print('momentum',batchnorm_layer.momentum)
     print('moving_mean',tf.keras.backend.eval(moving_mean))
     print('moving_variance',tf.keras.backend.eval(moving_variance))
       
     epochs = 5
     print('pre_model.updates',pre_model.updates)
     sess = K.get_session()
-    train_fn = K.function(inputs=[pre_model.input], \
-            outputs=[pre_model.output], updates=pre_model.updates)
+    # train_fn = K.function(inputs=[pre_model.input], \
+    #         outputs=[pre_model.output], updates=pre_model.updates)
         # updates: Additional update ops to be run at function call.
     tf.compat.v1.add_to_collection(tf.GraphKeys.UPDATE_OPS, pre_model.updates)
     
     #tf.control_dependencies(updates_op)
+    #updates_ops = tf.compat.v1.get_collection(tf.GraphKeys.UPDATE_OPS)
+
+    from tensorflow.python.ops import variables
+    all_vars = dict([(v.name, v) for v in variables.global_variables()])
+    print('all variables :',all_vars)
     init = tf.compat.v1.global_variables_initializer()
     sess.run(init)
-    updates_ops = tf.compat.v1.get_collection(tf.GraphKeys.UPDATE_OPS)
+    #train_fn = K.function(inputs=[pre_model.input], \
+    #        outputs=[pre_model.output], updates=updates_ops)
+    running_mean = 0.0
+    running_var =1.0
     for n  in range(epochs):
-        x = 20.+2.*np.random.rand(bs,features_size,features_size,3)
+        #x = 20.+2.*np.random.rand(bs,features_size,features_size,3)
+        x = np.random.normal(loc=500.,scale=200.,size=(bs,features_size,features_size,3))
+        print(np.mean(x,axis=(0,1,2)))
+        print(np.var(x,axis=(0,1,2)))
         x = x.astype(np.float32)
+        
+        #train_fn(x)
+        updates_ops = tf.compat.v1.get_collection(tf.GraphKeys.UPDATE_OPS)
+        sess.run(updates_ops,  {pre_model.input : x})
+        #sess.run(c, {a : x})
+        #aa = sess.run(pre_model.updates,feed_dict={a : x, training: True})
+        # print(aa)
+        # with tf.control_dependencies(pre_model.updates):
+        #     sess.run(updates_ops,feed_dict={a : x})
+            # train_fn(x)
         #pre_model.predict(x)
         #print(pre_model.updates)
         #tf.keras.backend.eval(train_fn(x))
-        sess.run(updates_ops,feed_dict={a : x})
+        #sess.run(updates_ops,feed_dict={a : x})
+        #sess.run(train_fn,feed_dict={a : x})
+        #sess.run(updates_ops)
         print('pre_model.updates',pre_model.updates)
         print('updates_ops',updates_ops)
         batchnorm_layer = pre_model.get_layer('bn')
@@ -3217,6 +3383,17 @@ def Test_BatchNormRefinement_V2():
         moving_variance = batchnorm_layer.moving_variance
         print('moving_mean',tf.keras.backend.eval(moving_mean))
         print('moving_variance',tf.keras.backend.eval(moving_variance))  
+        
+        # Verify that the statistics are updated during training.
+        np_inputs = x
+        np_mean = np.mean(np_inputs, axis=(0, 1, 2))
+        np_std = np.std(np_inputs, axis=(0, 1, 2))
+        np_variance = np.square(np_std)
+        running_mean = momentum * running_mean + (1 - momentum) * np_mean
+        running_var = momentum * running_var + (1 - momentum) * np_variance
+        print('running_mean',running_mean)
+        print('running_var',running_var)
+        
         #train_fn(tf.convert_to_tensor(x))
         #sess.run(train_fn(tf.convert_to_tensor(x)))
 #        trainable_weights = pre_model.trainable_weights
@@ -3253,3 +3430,4 @@ if __name__ == '__main__':
 #  unity_test_StatsCompute()
 #  unity_test_of_vgg_InNorm()
     Test_BatchNormRefinement_V2()
+    #Test_BatchNormRefinement()
