@@ -1885,7 +1885,20 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                 labelstr = constrNet 
                 if not(constrNet=='VGG'):
                     if BV:
-                        labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                        if style_layers==['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4']:
+                            
+                            labelstr += '_all'
+                        elif style_layers==['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1']:
+                            labelstr += '*conv1' 
+                        elif style_layers==['block1_conv1','block2_conv1']:
+                            labelstr += 'b1_b2_conv1' 
+                        elif style_layers==['block1_conv1']:
+                            labelstr += 'b1_b2_conv1' 
+                        else:
+                            labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
                     else:
                         labelstr += '_'+ numeral_layers_index(style_layers)
                 plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
@@ -1927,7 +1940,20 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                 labelstr = constrNet 
                 if not(constrNet=='VGG'):
                     if BV:
-                        labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                        if style_layers==['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4']:
+                            
+                            labelstr += '_all'
+                        elif style_layers==['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1']:
+                            labelstr += '*conv1' 
+                        elif style_layers==['block1_conv1','block2_conv1']:
+                            labelstr += 'b1_b2_conv1' 
+                        elif style_layers==['block1_conv1']:
+                            labelstr += 'b1_b2_conv1' 
+                        else:
+                            labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
                     else:
                         labelstr += '_'+ numeral_layers_index(style_layers)
                 plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
@@ -1935,46 +1961,7 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                 fig_i += 1
                 
             # Case of the fine tuning with batch normalization  with the BaseCoherent initialisation
-            constrNet = 'VGGBaseNormCoherentAdaIn'
-            style_layers_tab_VGGAdaIn = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
-                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
-                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
-                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
-                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
-       
-            for style_layers in style_layers_tab_VGGAdaIn:
-    #            print(constrNet,style_layers)
-                metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
-                                          epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
-                                          forLatex=True,optimizer=optimizer,\
-                                          opt_option=[opt_option[-1]],cropCenter=cropCenter,\
-                                          style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
-                                          final_clf=final_clf,features='block5_pool',return_best_model=return_best_model,\
-                                          onlyReturnResult=onlyPlot,\
-                                          dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
-                
-                if metrics is None:
-                    continue
-                
-                metricI_per_class = metrics[metricploted_index]
-                mMetric = np.mean(metricI_per_class)
-                if fig_i in color_number_for_frozen:
-                    fig_i_c = fig_i +1 
-                    fig_i_m = fig_i
-                    fig_i += 1
-                else:
-                    fig_i_c = fig_i
-                    fig_i_m = fig_i
-                labelstr = constrNet 
-                if not(constrNet=='VGG'):
-                    if BV:
-                        labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
-                    else:
-                        labelstr += '_'+ numeral_layers_index(style_layers)
-                plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
-                         marker=list_markers[fig_i_m],linestyle='')
-                fig_i += 1
+
                 
             # Case of the fine tuning with decorellated batch normalization 
             # TODO a debugguer
@@ -2057,7 +2044,20 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                     labelstr = constrNet 
                     if not(constrNet=='VGG'):
                         if BV:
-                            labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                            if style_layers==['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4']:
+                            
+                                labelstr += '_all'
+                            elif style_layers==['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1']:
+                                labelstr += '*conv1' 
+                            elif style_layers==['block1_conv1','block2_conv1']:
+                                labelstr += 'b1_b2_conv1' 
+                            elif style_layers==['block1_conv1']:
+                                labelstr += 'b1_b2_conv1' 
+                            else:
+                                labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
                         else:
                             labelstr += '_'+ numeral_layers_index(style_layers)
                     plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
@@ -2076,6 +2076,65 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
             if short:
                 name_of_the_figure = 'Short_'+name_of_the_figure
             fname = os.path.join(output_path,name_of_the_figure)
+            
+            
+            constrNet = 'VGGBaseNormCoherentAdaIn'
+            number_im_considered = 10000
+            style_layers_tab_VGGAdaIn = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
+                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
+       
+            for style_layers in style_layers_tab_VGGAdaIn:
+    #            print(constrNet,style_layers)
+                metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
+                                          epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                                          forLatex=True,optimizer=optimizer,\
+                                          opt_option=[opt_option[-1]],cropCenter=cropCenter,\
+                                          style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
+                                          final_clf=final_clf,features='block5_pool',return_best_model=return_best_model,\
+                                          onlyReturnResult=onlyPlot,number_im_considered=number_im_considered,\
+                                          dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                
+                if metrics is None:
+                    continue
+                
+                metricI_per_class = metrics[metricploted_index]
+                mMetric = np.mean(metricI_per_class)
+                if fig_i in color_number_for_frozen:
+                    fig_i_c = fig_i +1 
+                    fig_i_m = fig_i
+                    fig_i += 1
+                else:
+                    fig_i_c = fig_i
+                    fig_i_m = fig_i
+                labelstr = constrNet 
+                if not(constrNet=='VGG'):
+                    if BV:
+                        if style_layers==['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4']:
+                            
+                            labelstr += '_all'
+                        elif style_layers==['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1']:
+                            labelstr += '*conv1' 
+                        elif style_layers==['block1_conv1','block2_conv1']:
+                            labelstr += 'b1_b2_conv1' 
+                        elif style_layers==['block1_conv1']:
+                            labelstr += 'b1_b2_conv1' 
+                        else:
+                            labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                    else:
+                        labelstr += '_'+ numeral_layers_index(style_layers)
+                plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
+                         marker=list_markers[fig_i_m],linestyle='')
+                fig_i += 1
+            
+            
     plt.show() 
     plt.pause(0.001)
 #        input('Press to close')
