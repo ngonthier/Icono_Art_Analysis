@@ -1504,7 +1504,7 @@ def extract_Norm_stats_of_ResNet(model,res_num_layers=50,model_type='normal'):
     """
     if res_num_layers==50:
       number_of_trainable_layers = 106
-      if model_type=='normal' or model_type=='ResNet50' or model_type=='BNRF' or model_type=='ResNet50_BNRF':
+      if model_type=='normal' or model_type=='ResNet50' or model_type=='BNRF' or model_type=='ResNet50_BNRF' or model_type=='ResNet50_ROWD_CUMUL_AdaIn' or model_type=='ResNet50_ROWD_CUMUL':
           list_bn_layers = getBNlayersResNet50()
           list_bn_layers_name_for_dict = list_bn_layers
 #      elif model_type=='BNRF' or model_type=='ResNet50_BNRF':
