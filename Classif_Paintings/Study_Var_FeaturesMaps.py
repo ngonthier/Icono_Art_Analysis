@@ -32,7 +32,7 @@ from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
     load_resize_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\
     get_ResNet_ROWD_gram_mean_features,get_VGGmodel_4Param_features,get_VGGmodel_features,\
-    get_cov_mean_of_InputImages
+    get_cov_mean_of_InputImages,get_those_layers_output
 from keras_resnet_utils import getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion
 from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
 from OnlineHistogram import NumericHistogram
@@ -152,12 +152,16 @@ def get_four_momentsAxis(vars_values):
     return(m,v,s,k)
     
 def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_concern_layers,number_im_considered,\
-                        dataset,set,saveformat='h5',cropCenter=True):
+                        dataset,set,saveformat='h5',cropCenter=True,histoFixe=True,bins=np.arange(-500,501)):
     """
     In this function we compute a cumulated histogram of the value of the features maps but also 
     the 4 first moments of them for the different layers involved for a given ne on a given dataset
     @param model_toUse : the model used for extracting data
     @param : Net : VGG or ResNet etc name in string
+    @param : if histoFixe == True we will use a fixe bins histogram (bins argument)
+            can be use only for the first layer of the ResNet
+            otherwise we will use an adapatative bins algorithm
+    @param : bins the bins used 
     """
 
     number_of_bins = 1000
@@ -166,7 +170,7 @@ def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_con
         store = h5py.File(filename_path, 'a')
     else:
         raise(NotImplementedError)
-    print('We will compute statistics and histogram')
+    print('We will compute statistics and histogram for ',Net)
     list_imgs,images_in_set,number_im_list = get_list_im(dataset,set=set)
     
     # 6000 images pour IconArt
@@ -196,6 +200,10 @@ def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_con
         dict_var[layer] = []
         dict_histo[layer] = {}
         
+    # Get only the concern layers : list_of_concern_layers
+    model = get_those_layers_output(model_toUse,list_of_concern_layers)
+        
+    firstIm = True
     for i,image_path in enumerate(list_imgs):
         if number_im_considered is None or i < number_im_considered:
             if i%itera==0: print(i,image_path)
@@ -214,8 +222,8 @@ def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_con
                           # For VGG or ResNet size == 224
                 else:
                     image_array = load_resize_and_process_img(image_path,Net=Net)
-                features_tab = model_toUse.predict(image_array, batch_size=1) 
-                
+                features_tab = model.predict(image_array, batch_size=1) 
+               
             except IndexError as e:
                 print(e)
                 print(i,image_path)
@@ -225,25 +233,43 @@ def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_con
                 grp = store.create_group(short_name)
                 for l,layer in enumerate(list_of_concern_layers):
                     features_l = features_tab[l][0]
-                    num_features = features_l.shape[-1]
+                    
                     
                     # Compute the statistics 
-                    print(features_l.shape)
+                    #print(layer,features_l.shape)
+                    num_features = features_l.shape[-1]
                     mean,var,skew,kurt = get_four_momentsAxis(features_l)
                     
-                    # Update the cumulated histogram
-                    if i==0: # Premiere image
-                        dict_num_f[layer] = num_features
-                        for k in range(num_features): # Number of canal
-                            hist = NumericHistogram()
-                            hist.allocate(number_of_bins)
-                            dict_histo[layer][k] = hist
+                    if histoFixe:
+                        if firstIm: # Premiere image
+                            dict_num_f[layer] = num_features
+                            for k in range(num_features):
+                                f_k = features_l[:,:,k].reshape((-1,))
+                                hist, bin_edges = np.histogram(f_k, bins=bins, density=False) 
+                                dict_histo[layer][k] = hist
+                                #print(hist)
+                            if len(list_of_concern_layers)==l+1:
+                                firstIm = False
+                        else:
+                            for k in range(num_features):
+                                f_k = features_l[:,:,k].reshape((-1,))
+                                hist, bin_edges = np.histogram(f_k, bins=bins, density=False) 
+                                dict_histo[layer][k] += hist
+                    else:
                     
-                    for k in range(num_features):   
-                        hist = dict_histo[layer][k]
-                        for elt in list(features_l[:,:,k].reshape((-1,))):
-                            hist.add(elt)
-                        dict_histo[layer][k] = hist
+                        # Update the cumulated histogram : with an adaptative bins computation
+                        if i==0: # Premiere image
+                            dict_num_f[layer] = num_features
+                            for k in range(num_features): # Number of canal
+                                hist = NumericHistogram()
+                                hist.allocate(number_of_bins)
+                                dict_histo[layer][k] = hist
+                        
+                        for k in range(num_features):   
+                            hist = dict_histo[layer][k]
+                            for elt in list(features_l[:,:,k].reshape((-1,))):
+                                hist.add(elt)
+                            dict_histo[layer][k] = hist
     
                     dict_var[layer] += [[mean,var,skew,kurt]]
                     var_str = layer + '_var'
@@ -276,7 +302,7 @@ def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_con
             pickle.dump(dict_output, handle, protocol=pickle.HIGHEST_PROTOCOL)
     if saveformat=='h5':
         store.close()
-    return(dict_var,dict_histo)
+    return(dict_var,dict_histo,dict_num_f)
     
     
     
@@ -679,8 +705,9 @@ def load_Cumulated_Hist_4Moments(filename_path,list_of_concern_layers,dataset,sa
     
     dict_var = {}
     dict_histo = {}
-#    for l,layer in enumerate(style_layers):
-#        dict_var[layer] = []
+    dict_num_f = {}
+    for l,layer in enumerate(list_of_concern_layers):
+        dict_var[layer] = []
 #    if saveformat=='pkl':
 #        with open(filename_path, 'rb') as handle:
 #           dict_output = pickle.load(handle)
@@ -709,34 +736,40 @@ def load_Cumulated_Hist_4Moments(filename_path,list_of_concern_layers,dataset,sa
 #            dict_var[layer] = stacked
             
     if saveformat=='h5':
-        store = h5py.File(filename_path, 'r')
-        for elt in store.keys():
-            net_params = store[elt]
+        try:
+            store = h5py.File(filename_path, 'r')
+            for elt in store.keys():
+                if not(elt=='Histo'):
+                    net_params = store[elt]
+                    for l,layer in enumerate(list_of_concern_layers):
+                        var_str = layer + '_var'
+                        mean_str = layer + '_mean'
+                        skew_str = layer + '_skew'
+                        kurt_str = layer + '_kurt'
+                        mean = net_params[mean_str]
+                        var = net_params[var_str]
+                        skew = net_params[skew_str]
+                        kurt = net_params[kurt_str]
+                        dict_var[layer] += [[mean,var,skew,kurt]]
             for l,layer in enumerate(list_of_concern_layers):
-                var_str = layer + '_var'
-                mean_str = layer + '_mean'
-                skew_str = layer + '_skew'
-                kurt_str = layer + '_kurt'
-                mean = net_params[mean_str]
-                var = net_params[var_str]
-                skew = net_params[skew_str]
-                kurt = net_params[kurt_str]
-                dict_var[layer] += [[mean,var,skew,kurt]]
-        for l,layer in enumerate(list_of_concern_layers):
-            stacked = np.vstack(dict_var[layer]) 
-            dict_var[layer] = stacked
-            
-        grp = store['Histo']
-        for l,layer in enumerate(list_of_concern_layers):
-            dict_histo[layer] = {}
-            num_features = grp[layer]
-            for k in range(num_features):   
-                l_str = layer+'_hist_'+str(k)
-                hist = grp[l_str]
-                dict_histo[layer][k] = hist
-            
-        store.close()
-    return(dict_var,dict_histo)
+                stacked = np.vstack(dict_var[layer]) 
+                dict_var[layer] = stacked
+                
+            grp = store['Histo']
+            for l,layer in enumerate(list_of_concern_layers):
+                dict_histo[layer] = {}
+                num_features = grp[layer]
+                dict_num_f[layer] = num_features
+                for k in range(num_features):   
+                    l_str = layer+'_hist_'+str(k)
+                    hist = grp[l_str]
+                    dict_histo[layer][k] = hist
+                
+            store.close()
+        except OSError as e:
+            print('Unable to open :',filename_path)
+            raise(e)
+    return(dict_var,dict_histo,dict_num_f)
 
 def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    whatToload,saveformat='h5',set='',getBeforeReLU=False,\
@@ -811,6 +844,9 @@ def ResNetComparison_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_consid
     @param :number_im_considered number of image considered in the computation 
         if == np.inf we will use all the image in the folder of the dataset
     @param : printoutput : print in a pdf the output Var or Mean
+    
+    Fonction non finie non testee
+    
     """
     if not(printoutput in get_partition(['Mean','Var'])):
         print(printoutput,"is unknown. It must be 'Var' or 'Mean' or this of those two terms.")
