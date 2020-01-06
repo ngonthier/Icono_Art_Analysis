@@ -569,7 +569,12 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
             stacked = np.stack(dict_var[layer]) 
             dict_var[layer] = stacked
     if saveformat=='h5':
-        store = h5py.File(filename_path, 'r')
+        try:
+            store = h5py.File(filename_path, 'r')
+        except OSError as e:
+            print('OSError: Unable to open file (bad object header version number)')
+            print('Trying to open :',filename_path)
+            raise(e)
         for elt in store.keys():
             vgg_cov_mean =  store[elt]
             for l,layer in enumerate(style_layers):
