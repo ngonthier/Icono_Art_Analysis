@@ -266,8 +266,9 @@ def compare_Models_Plot_HistoDistrib_for_ResNet(target_dataset='Paintings'):
     Model_dict_histo = {}
     dict_num_fS = {}
     list_markers = ['o','s','X','*','v','^','<','>','d','1','2','3','4','8','h','H','p','d','$f$','P']
-    alpha = 0.7
+    alpha = 0.5
     number_im_considered = None
+    #number_im_considered = 2
     
     ArtUKlist_imgs,images_in_set,number_im_list = get_list_im(dataset,set='')
     if not(number_im_considered is None):
@@ -285,7 +286,9 @@ def compare_Models_Plot_HistoDistrib_for_ResNet(target_dataset='Paintings'):
     saveformat='h5'
     cropCenter=True
     histoFixe=True
-    bins=np.arange(-500,501)
+    bins_tab = [np.arange(-500,501),np.arange(-500,501)/250,np.arange(-500,501)/250]
+    width_tab = [1,1./250,1./250]
+    #bins=np.arange(-500,501)
     
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata')
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
@@ -351,7 +354,7 @@ def compare_Models_Plot_HistoDistrib_for_ResNet(target_dataset='Paintings'):
         if not os.path.isfile(filename_path):
             dict_var,dict_histo,dict_num_f = Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_concern_layers,number_im_considered_tmp,\
                         dataset,set=set,saveformat=saveformat,cropCenter=cropCenter,histoFixe=histoFixe,\
-                        bins=bins)
+                        bins_tab=bins_tab)
         else:
             dict_var,dict_histo,dict_num_f  = load_Cumulated_Hist_4Moments(filename_path,list_of_concern_layers,dataset,saveformat='h5')
         Model_dict[str_model] = dict_var
@@ -377,18 +380,28 @@ def compare_Models_Plot_HistoDistrib_for_ResNet(target_dataset='Paintings'):
     num_features = 64
     
         
-    number_img_w = len(nets)
-    number_img_h= len(list_of_concern_layers)
+
+    # number_img_w = len(nets)
+    # number_img_h= len(list_of_concern_layers)
     num_pages = num_features
+    
     for p in range(num_pages):
+        print('Start plotting histo ',p)
         
+        # Plot All the model on one figure
+        number_img_w =  1
+        number_img_h= len(list_of_concern_layers)+1
         axes = []
         gs00 = gridspec.GridSpec(number_img_h, number_img_w)
         for j in range(number_img_w*number_img_h):
             ax = plt.subplot(gs00[j])
             axes += [ax]
-        for l,layer in enumerate(list_of_concern_layers):
-            n = 0
+        for l,z in enumerate(zip(list_of_concern_layers,bins_tab,width_tab)):
+            layer,bins,width  = z
+
+            idex = 0
+            hist_list_l_p = []
+            labels = []
             for constrNet,computeGlobalVariance,kind_method,pretrainingModif,opt_option in \
                 zip(nets,computeGlobalVariance_tab,kindmethod_tab,pretrainingModif_tab,opt_option_tab): 
                 Net = constrNet
@@ -402,25 +415,106 @@ def compare_Models_Plot_HistoDistrib_for_ResNet(target_dataset='Paintings'):
                     if len(opt_option)==2:
                        str_model +='lrp '+str(opt_option[0]) +' lr '+str(opt_option[1])
                 label = str_model.replace('ResNet50_','')
-                    
+                
+                str_model += str(idex)
+                idex += 1
+                
                 hists = Model_dict_histo[str_model][layer]
+                hist_list_l_p += [hists[p]]
+                labels += [label]
                 #num_features = dict_num_fS[str_model][layer]
 
-                ax = axes[l*number_img_h+n]
-                hist = hists[p]
-                im = ax.bar(bins+0.5, hist, width=1, label=label)
+            ax = axes[l]
+            binsMinusOne = bins[0:-1]+width/2
+            for n in range(len(hist_list_l_p)):
+                ax.bar(binsMinusOne, hist_list_l_p[n], width=width, label=labels[n],alpha=alpha)
+            ax.tick_params(axis='both', which='major', labelsize=3)
+            ax.tick_params(axis='both', which='minor', labelsize=3)
+            ax.legend(loc='upper right', prop={'size': 2})
+                # fig_title = "m: {:.2E}, v: {:.2E}, s: {:.2E}, k: {:.2E}".format(m,v,s,k)
+            fig_title = layer
+            ax.set_title(fig_title, fontsize=5)
+            if layer=='activation':
+                ax = axes[l+1]
+                
+                binsMinusOne = bins[0:-1]+width/2
+                for n in range(len(hist_list_l_p)):
+                    hist_without0 = hist_list_l_p[n]
+                    hist_without0[500]= 0
+                    hist_without0[501]= 0
+                    ax.bar(binsMinusOne,hist_without0, width=width, label=labels[n],alpha=alpha)
                 ax.tick_params(axis='both', which='major', labelsize=3)
                 ax.tick_params(axis='both', which='minor', labelsize=3)
-                    #ax.legend(loc='upper right', prop={'size': 2})
+                ax.legend(loc='upper right', prop={'size': 2})
                     # fig_title = "m: {:.2E}, v: {:.2E}, s: {:.2E}, k: {:.2E}".format(m,v,s,k)
-                    # ax.set_title(fig_title, fontsize=3)
-                n += 1 
-                titre = layer +' ' +str(p)
-                plt.suptitle(titre)
+                fig_title = layer + 'w/o 0'
+                ax.set_title(fig_title, fontsize=5)
+        titre =  'Feature ' +str(p)
+        plt.suptitle(titre)
+        plt.savefig(pp, format='pdf')
+        plt.close()
+        
+        # Plot each model on one separated figure
+        number_img_w = len(nets)
+        number_img_h = len(list_of_concern_layers)+1
+        axes = []
+        gs00 = gridspec.GridSpec(number_img_h, number_img_w)
+        for j in range(number_img_w*number_img_h):
+            ax = plt.subplot(gs00[j])
+            axes += [ax]
+        for l,z in enumerate(zip(list_of_concern_layers,bins_tab,width_tab)):
+            layer,bins,width  = z
+
+            idex = 0
+            hist_list_l_p = []
+            #labels = []
+            nn = 0
+            for constrNet,computeGlobalVariance,kind_method,pretrainingModif,opt_option in \
+                zip(nets,computeGlobalVariance_tab,kindmethod_tab,pretrainingModif_tab,opt_option_tab): 
+                Net = constrNet
+                str_model = constrNet
+                if computeGlobalVariance:
+                    str_model += 'GlobalVar' 
+                if kind_method=='FT':
+                    str_model += ' FT '
+                    if len(opt_option)==1:
+                       str_model +='lr '+str(opt_option[0]) 
+                    if len(opt_option)==2:
+                       str_model +='lrp '+str(opt_option[0]) +' lr '+str(opt_option[1])
+                label = str_model.replace('ResNet50_','')
                 
-                #gs0.tight_layout(f)
-                plt.savefig(pp, format='pdf')
-                plt.close()
+                str_model += str(idex)
+                idex += 1
+                
+                hists = Model_dict_histo[str_model][layer][p]
+                ax = axes[l*number_img_w+nn]
+                
+                binsMinusOne = bins[0:-1]+width/2
+                ax.bar(binsMinusOne, hists, width=width, label=label,alpha=alpha)
+                ax.tick_params(axis='both', which='major', labelsize=3)
+                ax.tick_params(axis='both', which='minor', labelsize=3)
+                ax.legend(loc='upper right', prop={'size': 2})
+                    # fig_title = "m: {:.2E}, v: {:.2E}, s: {:.2E}, k: {:.2E}".format(m,v,s,k)
+                fig_title = layer
+                ax.set_title(fig_title, fontsize=5)
+                if layer=='activation':
+                    ax = axes[(l+1)*number_img_w+nn]
+                    binsMinusOne = bins[0:-1]+width/2
+                    hist_without0 = hists
+                    hist_without0[500]= 0
+                    hist_without0[501]= 0
+                    ax.bar(binsMinusOne,hist_without0, width=width, label=labels[n],alpha=alpha)
+                    ax.tick_params(axis='both', which='major', labelsize=3)
+                    ax.tick_params(axis='both', which='minor', labelsize=3)
+                    ax.legend(loc='upper right', prop={'size': 2})
+                        # fig_title = "m: {:.2E}, v: {:.2E}, s: {:.2E}, k: {:.2E}".format(m,v,s,k)
+                    fig_title = layer + 'w/o 0'
+                    ax.set_title(fig_title, fontsize=5)
+                nn += 1
+        titre =  'Feature ' +str(p)
+        plt.suptitle(titre)
+        plt.savefig(pp, format='pdf')
+        plt.close()
     pp.close()
     plt.clf()
     
@@ -428,7 +522,7 @@ def compare_Models_Plot_HistoDistrib_for_ResNet(target_dataset='Paintings'):
     
         
         
-def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
+def compare_new_normStats_for_ResNet(target_dataset='Paintings',FineTunecase = 'All'):
     """ The goal of this function is to compare the new normalisation statistics of BN
     computed in the case of the adaptation of them 
     We will compare  ROWD (mean of variance) and variance global in the case 
@@ -438,36 +532,45 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     """
     
     matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
+
+    if FineTunecase=='All':
+        nets = ['ResNet50','ResNet50','ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL_AdaIn']
+        computeGlobalVariance_tab = [False,False,False,False,True,True,True]
+        kindmethod_tab = ['TL','FT','FT','TL','TL','FT','FT']
+        pretrainingModif_tab = [False,106,106,False,False,False,False]
+        opt_option_tab = [[10**(-2)],[10**(-2)],[0.1,10**(-2)],[10**(-2)],[10**(-2)],[10**(-2)],[10**(-2)]]
     
-    nets = ['ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_BNRF']
-    nets = ['ResNet50','ResNet50','ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL']
-    nets = ['ResNet50','ResNet50','ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL_AdaIn']
-    #nets = ['ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL']
+    elif FineTunecase=='Cumul':
+        nets = ['ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL_AdaIn']
+        computeGlobalVariance_tab = [False,True,True,True]
+        kindmethod_tab = ['TL','TL','FT','FT']
+        pretrainingModif_tab = [False,False,False,False]
+        opt_option_tab = [[10**(-2)],[10**(-2)],[10**(-2)],[10**(-2)]]
+    
+    elif FineTunecase=='TL':
+        nets = ['ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL']
+        computeGlobalVariance_tab = [False,False,True]
+        pretrainingModif_tab = [False,False,False]
+        kindmethod_tab = ['TL','TL','TL']
+        opt_option_tab = [[10**(-2)],[10**(-2)],[10**(-2)]]
+    
     style_layers = getBNlayersResNet50()
     features = 'activation_48'
     normalisation = False
     final_clf= 'LinearSVC' # Don t matter
     source_dataset=  'ImageNet'
-    kind_method=  'TL'
     transformOnFinalLayer='GlobalAveragePooling2D'
-    computeGlobalVariance_tab = [False,False,False,False,True]
-    computeGlobalVariance_tab = [False,False,False,False,True,True,True]
-    #computeGlobalVariance_tab = [False,False,True]
-    pretrainingModif_tab = [False,106,106,False,False]
-    pretrainingModif_tab = [False,106,106,False,False,False,False]
-    #pretrainingModif_tab = [False,False,False]
-    kindmethod_tab = ['TL','FT','FT','TL','TL']
-    kindmethod_tab = ['TL','FT','FT','TL','TL','FT','FT']
-    #kindmethod_tab = ['TL','TL','TL']
-    
+
     final_clf = 'MLP2'
     epochs = 20
     optimizer = 'SGD'
-    opt_option_tab = [[10**(-2)],[10**(-2)],[0.1,10**(-2)],[10**(-2)],[10**(-2)]]
-    opt_option_tab = [[10**(-2)],[10**(-2)],[0.1,10**(-2)],[10**(-2)],[10**(-2)],[10**(-2)],[10**(-2)]]
     return_best_model = True
     batch_size= 16
-    
+    dropout=None
+    regulOnNewLayer=None
+    nesterov=False
+    SGDmomentum=0.0
+    decay=0.0
     cropCenter = True
     # Load ResNet50 normalisation statistics
     
@@ -480,7 +583,7 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
     idex = 0 
     for constrNet,computeGlobalVariance,kind_method,pretrainingModif,opt_option in \
         zip(nets,computeGlobalVariance_tab,kindmethod_tab,pretrainingModif_tab,opt_option_tab): 
-        print('loading :',constrNet)         
+        print('loading :',constrNet,computeGlobalVariance,kind_method,pretrainingModif,opt_option)         
         output = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                constrNet,kind_method,style_layers=style_layers,
                                normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
@@ -489,6 +592,7 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
                                computeGlobalVariance=computeGlobalVariance,\
                                epochs=epochs,optimizer=optimizer,opt_option=opt_option,return_best_model=return_best_model,\
                                batch_size=batch_size,gridSearch=False)
+
 
         if 'ResNet50_ROWD_CUMUL' == constrNet and kind_method=='TL':
             dict_stats_target,list_mean_and_std_target = output
@@ -511,15 +615,17 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings'):
         idex += 1
         Model_dict[str_model] = dict_stats_target
       
-    print('Plotting the statistics')
+    print('Plotting the statistics in :')
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',\
                                target_dataset,'CompBNstats') 
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
     pltname = 'ResNet50_comparison_BN_statistics_ROWD'
     if cropCenter:
         pltname += '_cropCenter'   
+    pltname += '_'+FineTunecase 
     pltname +='.pdf'
     pltname= os.path.join(output_path,pltname)
+    print(pltname)
     pp = PdfPages(pltname)    
     
     distances_means = {}
