@@ -3,13 +3,21 @@
 """
 Created on Wed Oct  2 12:12:59 2019
 
-@author:  stante : https://github.com/stante
+Wrapper of optimizer for having different learning rate during the optimization 
+according to the layer. It only works for SGD for the moment
+
+@author:  stante : https://github.com/stante gonthier 
 https://github.com/stante/keras-contrib/blob/feature-lr-multiplier/keras_contrib/optimizers/lr_multiplier.py
 """
 
 from tensorflow.python.keras.optimizers import Optimizer
 from tensorflow.python.keras.utils import get_custom_objects
 import tensorflow as tf
+from tensorflow.python.framework import ops
+from tensorflow.python.keras import backend as K
+from tensorflow.python.ops import clip_ops
+from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import state_ops
 
 class LearningRateMultiplier(Optimizer):
     """Optimizer wrapper for per layer learning rate.
@@ -30,6 +38,8 @@ class LearningRateMultiplier(Optimizer):
     def __init__(self, optimizer, lr_multipliers=None, **kwargs):
         self._class = optimizer
         self._optimizer = optimizer(**kwargs)
+        config = self._optimizer.get_config()
+        self.kind_opt = config['name']
         self._lr_multipliers = lr_multipliers or {}
 
     def _get_multiplier(self, param):
@@ -37,21 +47,92 @@ class LearningRateMultiplier(Optimizer):
             if k in param.name:
                 return self._lr_multipliers[k]
 
+    # def get_updates(self, loss, params): # Version de base  this version works for small network
+            # ie it works for VGG19 but not for ResNet50
+    #     print('self._optimizer',self._optimizer)
+    #     print('self.updates ',self._optimizer.updates )
+    #     mult_lr_params = {p: self._get_multiplier(p) for p in params
+    #                       if self._get_multiplier(p)}
+    #     base_lr_params = [p for p in params if self._get_multiplier(p) is None]
+
+    #     updates = []
+    #     base_lr = self._optimizer.lr
+    #     for param, multiplier in mult_lr_params.items():
+    #         self._optimizer.lr.assign(tf.multiply(base_lr,multiplier))
+    #         updates.extend(self._optimizer.get_updates(loss, [param]))
+
+    #     self._optimizer.lr.assign(base_lr)
+    #     updates.extend(self._optimizer.get_updates(loss, base_lr_params))
+    #     print('updates diff lr',updates)
+    #     return updates
+    
     def get_updates(self, loss, params):
+        if self.kind_opt == 'SGD':
+            return(self.get_updates_SGD(loss, params))
+        elif self.kind_opt == 'Adam':
+            raise(NotImplementedError)
+        elif self.kind_opt == 'RMSprop':
+            raise(NotImplementedError)
+        else:
+            raise(NotImplementedError)
+        
+    def get_updates_SGD(self, loss, params):
+        
+        """
+        This fonction is inspired by the get_updates function from tensorflow keras optimizer
+        https://github.com/tensorflow/tensorflow/blob/a78fa541d83b1e5887be1f1f92d4a946623380ee/tensorflow/python/keras/optimizers.py
+        even if keras by tensorflow use the optimizer_v2 fonctions : https://github.com/tensorflow/tensorflow/blob/a78fa541d83b1e5887be1f1f92d4a946623380ee/tensorflow/python/keras/optimizer_v2/optimizer_v2.py 
+        This only works for SGD optimizer !!
+        
+        TODO : write on for adam and an other for RMSprop
+        """
+        
         mult_lr_params = {p: self._get_multiplier(p) for p in params
-                          if self._get_multiplier(p)}
-        base_lr_params = [p for p in params if self._get_multiplier(p) is None]
+                           if self._get_multiplier(p)}
+        
+        for p in params:
+            if self._get_multiplier(p) is None:
+                mult_lr_params.update({p : 1.0})
+                
+        #base_lr_params = [mult_lr_params.update({p : 1.0} for p in params if self._get_multiplier(p) is None]
 
-        updates = []
         base_lr = self._optimizer.lr
-        for param, multiplier in mult_lr_params.items():
-            self._optimizer.lr.assign(tf.multiply(base_lr,multiplier))
-            updates.extend(self._optimizer.get_updates(loss, [param]))
+        
+        grads = self.get_gradients(loss, params)
+        self.updates = [state_ops.assign_add(self._optimizer.iterations, 1)]
+    
+        if self._optimizer._initial_decay  > 0:
+          base_lr = base_lr * (  # pylint: disable=g-no-augmented-assignment
+              1. /
+              (1. +
+               self._optimizer.decay * math_ops.cast(self._optimizer.iterations, K.dtype(self._optimizer.decay))))
+        # momentum
+        shapes = [K.int_shape(p) for p in params]
+        moments = [K.zeros(shape) for shape in shapes]
+        #self._optimizer.weights = [self._optimizer.iterations] + moments
+        #self._optimizer.set_weights([self._optimizer.iterations] + moments)
+        for p, g, m in zip(params, grads, moments):
+          if self._get_multiplier(p) is None:
+              multiplier= 1.0
+          else:
+              multiplier = self._get_multiplier(p)
+              
+          v = self._optimizer.momentum * m - base_lr*multiplier * g  # velocity
+          self.updates.append(state_ops.assign(m, v))
+    
+          if self._optimizer.nesterov:
+            new_p = p + self._optimizer.momentum * v - base_lr* multiplier* g
+          else:
+            new_p = p + v
+    
+          # Apply constraints.
+          if getattr(p, 'constraint', None) is not None:
+            new_p = p.constraint(new_p)
+    
+          self.updates.append(state_ops.assign(p, new_p))
 
-        self._optimizer.lr.assign(base_lr)
-        updates.extend(self._optimizer.get_updates(loss, base_lr_params))
-
-        return updates
+        return self.updates
+    
 
     def get_config(self):
         config = {'optimizer': self._class,
