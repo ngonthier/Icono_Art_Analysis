@@ -129,18 +129,18 @@ def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,o
       model.add(Dense(128, activation='relu',kernel_regularizer=regularizers))
       if not(dropout is None): model.add(Dropout(dropout))
       if lr_multiple:
-          multipliers[model.layers[-1].name] = 1.0
+          multipliers[model.layers[-1].name] = None
   elif final_clf=='MLP2':
       model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
       if not(dropout is None): model.add(Dropout(dropout))
       if lr_multiple:
-          multipliers[model.layers[-1].name] = 1.0
+          multipliers[model.layers[-1].name] = None
   if final_clf in ['MLP3','MLP2','MLP1']:
       if final_clf=='MLP1':
           if not(dropout is None): model.add(Dropout(dropout))
       model.add(Dense(num_of_classes, activation='sigmoid',kernel_regularizer=regularizers))
       if lr_multiple:
-          multipliers[model.layers[-1].name] = 1.0
+          multipliers[model.layers[-1].name] = None
           opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)  
       else:
           opt = opt(learning_rate=lr)
@@ -221,7 +221,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
          model.add(layer)
      else:
          model.add(layer)
-     if lr_multiple:
+     if lr_multiple and layer.trainable:
          multipliers[layer.name] = multiply_lrp
      if layer.name==final_layer:
          if not(final_layer in  ['fc2','fc1','flatten']):
@@ -624,9 +624,9 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
           if not(dropout is None): x = Dropout(dropout)(x)
   model = Model(inputs=pre_model.input, outputs=predictions)
   if lr_multiple:
-      if final_clf=='MLP3': multipliers[model.layers[-3].name] = 1.0
-      if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = 1.0
-      if final_clf=='MLP3' or final_clf=='MLP2' or final_clf=='MLP1': multipliers[model.layers[-1].name] = 1.0
+      if final_clf=='MLP3': multipliers[model.layers[-3].name] = None
+      if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = None
+      if final_clf=='MLP3' or final_clf=='MLP2' or final_clf=='MLP1': multipliers[model.layers[-1].name] = None
       opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
   else:
       opt = opt(learning_rate=lr)
@@ -676,6 +676,7 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
       opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   else:
       opt =  optimizer
+      
   ilayer = 0
   for layer in pre_model.layers:
       if SomePartFreezed and (layer.count_params() > 0):
@@ -702,10 +703,10 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
              else:
                  layer.trainable = False
                  
-         ilayer += 1
-         # Only if the layer have some trainable parameters
-         if lr_multiple and layer.trainable: 
-             multipliers[layer.name] = multiply_lrp
+      ilayer += 1
+      # Only if the layer have some trainable parameters
+      if lr_multiple and layer.trainable: 
+          multipliers[layer.name] = multiply_lrp
 
   x = pre_model.output
   if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling

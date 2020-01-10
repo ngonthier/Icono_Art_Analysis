@@ -129,6 +129,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                 current_list_mean_and_std_target += [list_mean_and_std_target_i[-1]]
     else:
         # In this case we will only return the list of the mean and std on the target set
+        if verbose: print('We will use a cumulative way to compute the statistics.')
         current_list_mean_and_std_target = []
         if 'VGG' in Net:
             if BV:
@@ -152,7 +153,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
             filename += '_cropCenter'
         if computeGlobalVariance:
             filename +='_computeGlobalVariance'
-        
+
         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp')
         if os.path.isdir(output_path):
             output_path_full = os.path.join(output_path,'Covdata','data')
@@ -167,6 +168,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
             filename += '_BeforeReLU'
         filename += '.pkl'
         filename_path= os.path.join(output_path_full,filename)
+        if verbose: print('The filename is :',filename_path)
         if not os.path.isfile(filename_path):
             dict_stats_coherent = {} 
             for i_layer,layer_name in enumerate(style_layers):
@@ -472,6 +474,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         name_base +=  '_' + num_layers
     if kind_method=='FT' and (weights is None):
         name_base += '_RandInit' # Random initialisation 
+        
+    if len(opt_option)>1 and not(optimizer=='SGD'):
+        print('The multiple learning rate for optimizer is only implemented for SGD for the moments')
+        raise(NotImplementedError)        
+        
     if kind_method=='FT':
         if not(optimizer=='adam'):
             name_base += '_'+optimizer
@@ -693,9 +700,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     
                     if returnStatistics:
                         return(dict_stats_target,list_mean_and_std_target)
-                    
-                    
-                    
+
                     network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
                                    final_layer=features,\
@@ -721,7 +726,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     raise(NotImplementedError)
                     
                 if not(forLatex):
-                    print('== We will compute the bottleneck features ==')
+                    if verbose: print('== We will compute the bottleneck features ==')
                 # Compute bottleneck features on the target dataset
                 for i,name_img in  enumerate(df_label[item_name]):
                     im_path =  os.path.join(path_to_img,name_img+'.jpg')
@@ -746,7 +751,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 with open(name_pkl_im, 'wb') as pkl:
                     pickle.dump(im_net,pkl)
             else: # Load the precomputed data
-                print('We will load the precomputed bottleneck deep features :',name_pkl_values)
+                if verbose :print('We will load the precomputed bottleneck deep features :',name_pkl_values)
                 with open(name_pkl_values, 'rb') as pkl:
                     features_net = pickle.load(pkl)
                 
@@ -863,7 +868,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if weights is None:
             Latex_str += ' RandInit'
     
-    if (not(os.path.isfile(APfilePath)) or ReDo) and not(onlyReturnResult):
+    if (not(os.path.isfile(APfilePath)) or ReDo) and not(onlyReturnResult) or returnStatistics:
         
         if target_dataset=='Paintings':
             sLength = len(df_label[item_name])
@@ -896,7 +901,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if kind_method=='TL':
             # Get Train set in form of numpy array
             index_train = df_label['set']=='train'
-            if not(forLatex):
+            if not(forLatex) and verbose:
                 print('trainval + test classes_vectors.shape',classes_vectors.shape)
                 print('trainval + test features_net.shape',features_net.shape)
             X_train = features_net[index_train,:]
@@ -1041,13 +1046,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 model = ResNet_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
                                            transformOnFinalLayer=transformOnFinalLayer,weights=weights,opt_option=opt_option,\
                                            res_num_layers=50,final_clf=final_clf,verbose=verbose,\
-                                           freezingType=freezingType,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                                           freezingType=freezingType,dropout=dropout,nesterov=nesterov,\
+                                           SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer)
+                    
             elif constrNet=='ResNet50AdaIn':
                 getBeforeReLU = False
                 model = ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
                                            transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
                                            res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
-                                           dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                                           dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer)
                 
             elif constrNet=='ResNet50_ROWD_CUMUL':
                 # Refinement the batch normalisation : normalisation statistics
@@ -1133,13 +1140,20 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 print(constrNet,'is unkwon in the context of TL')
                 raise(NotImplementedError)
             
+        
+            model_path = os.path.join(model_output_path,AP_file_base+'.h5')
+            include_optimizer=False
+        
+            if returnStatistics: # We will load the model and return it
+                model = load_model(model_path)
+                return(model)
+            
             model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                                     x_col=item_name,y_col=classes,path_im=path_to_img,\
                                     str_val=str_val,num_classes=len(classes),epochs=epochs,\
                                     Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
                                     NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet)
-            model_path = os.path.join(model_output_path,AP_file_base+'.h5')
-            include_optimizer=False
+            
             model.save(model_path,include_optimizer=include_optimizer)
             # Prediction
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
@@ -1170,7 +1184,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         AP_per_class,P_per_class,R_per_class,P20_per_class = metrics
         F1_per_class = None
     
-    if not(forLatex):
+    if not(forLatex) and verbose:
         print(target_dataset,source_dataset,number_im_considered,final_clf,features,transformOnFinalLayer,\
               constrNet,kind_method,'GS',gridSearch,'norm',normalisation,'getBeforeReLU',getBeforeReLU,kind_method,\
               final_clf)
@@ -1182,7 +1196,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     str_part2 = arrayToLatex(AP_per_class,per=True)
     Latex_str += str_part2
     Latex_str = Latex_str.replace('\hline','')
-    print(Latex_str)
+    if verbose: print(Latex_str)
     
     # To clean GPU memory
     K.clear_session()
@@ -1299,6 +1313,17 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
 
     return(model)
 
+class FirstLayerBNStatsPrintingCallback(tf.keras.callbacks.Callback):
+
+  def on_train_batch_end(self, batch, logs=None):
+      batchnorm_layer = self.model.get_layer('bn_conv1')
+      moving_mean = batchnorm_layer.moving_mean
+      moving_variance = batchnorm_layer.moving_variance
+      moving_mean_eval = tf.keras.backend.eval(moving_mean)
+      moving_std_eval = np.sqrt(tf.keras.backend.eval(moving_variance))
+      print('For batch {}, moving_mean is {} moving std {}.'.format(batch, moving_mean_eval,moving_std_eval))
+
+
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
@@ -1370,6 +1395,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
 #    mcp_save = ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
 #    reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
 #    
+    #callbacks = [FirstLayerBNStatsPrintingCallback()] # To print the moving mean and std at each batch
     callbacks = []
     if return_best_model:
         tmp_model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
@@ -1389,7 +1415,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         history = model.fit_generator(generator=train_generator,
                         steps_per_epoch=STEP_SIZE_TRAIN,
                         epochs=epochs,use_multiprocessing=use_multiprocessing,
-                        workers=workers)
+                        workers=workers,callbacks=callbacks)
     
     if return_best_model: # We need to load back the best model !
         # https://github.com/keras-team/keras/issues/2768
@@ -1896,7 +1922,7 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                         elif style_layers==['block1_conv1','block2_conv1']:
                             labelstr += 'b1_b2_conv1' 
                         elif style_layers==['block1_conv1']:
-                            labelstr += 'b1_b2_conv1' 
+                            labelstr += 'b1_conv1' 
                         else:
                             labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
                     else:
@@ -1951,7 +1977,7 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                         elif style_layers==['block1_conv1','block2_conv1']:
                             labelstr += 'b1_b2_conv1' 
                         elif style_layers==['block1_conv1']:
-                            labelstr += 'b1_b2_conv1' 
+                            labelstr += 'b1_conv1' 
                         else:
                             labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
                     else:
@@ -2055,7 +2081,7 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                             elif style_layers==['block1_conv1','block2_conv1']:
                                 labelstr += 'b1_b2_conv1' 
                             elif style_layers==['block1_conv1']:
-                                labelstr += 'b1_b2_conv1' 
+                                labelstr += 'b1_conv1' 
                             else:
                                 labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
                         else:
@@ -2125,7 +2151,7 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                         elif style_layers==['block1_conv1','block2_conv1']:
                             labelstr += 'b1_b2_conv1' 
                         elif style_layers==['block1_conv1']:
-                            labelstr += 'b1_b2_conv1' 
+                            labelstr += 'b1_conv1' 
                         else:
                             labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
                     else:
@@ -2140,6 +2166,39 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
 #        input('Press to close')
     plt.savefig(fname)
 #        plt.close()
+
+def testForMovingStatsVisualisation():
+    
+    style_layers = ['bn_conv1']
+    dropout=None
+    regulOnNewLayer=None
+    nesterov=False
+    SGDmomentum=0.0
+    decay=0.0
+    target_dataset = 'Paintings'
+    onlyPlot=False
+    cropCenter=True
+    BV=True
+    final_clf = 'MLP2'
+    epochs = 20
+    optimizer = 'SGD'
+    opt_option = [10**(-2)]
+    return_best_model = True
+    batch_size = 16 
+    features = 'activation_48'
+    freezingType = 'FromTop'
+    transformOnFinalLayer = 'GlobalAveragePooling2D'
+    pretrainingModif = 106
+    network = 'ResNet50'
+    #network = 'ResNet50_ROWD_CUMUL'
+    metrics = learn_and_eval(target_dataset=target_dataset,constrNet=network,\
+                         kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                         pretrainingModif=pretrainingModif,freezingType=freezingType,\
+                         optimizer=optimizer,opt_option=opt_option,batch_size=batch_size\
+                         ,final_clf=final_clf,features=features,return_best_model=return_best_model,\
+                         onlyReturnResult=onlyPlot,style_layers=style_layers,
+                         cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                         nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,ReDo=True,verbose=True)
         
 def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',scenario=0,
                               onlyPlot=False,cropCenter=True,BV=True):
@@ -2269,6 +2328,7 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
             fig_i = 0
             if len(opt_option)==1:
                 opt_option_tab2 = [opt_option,[0.1,opt_option[0]]]
+                opt_option_tab2 = [opt_option]
             else:
                 opt_option_tab2 = [opt_option]
             plt.figure()
@@ -2279,6 +2339,7 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                 for freezingType in list_freezingType:
                     list_perf += [[]]  
                     for pretrainingModif in range_l:
+                        print('===',transformOnFinalLayer,freezingType,pretrainingModif,'opt_option :',opt_option2)
                         metrics = learn_and_eval(target_dataset=target_dataset,constrNet=network,\
                                                  kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                                  pretrainingModif=pretrainingModif,freezingType=freezingType,\
@@ -2365,31 +2426,6 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                          marker=list_markers[fig_i_m],linestyle='')
                 fig_i += 1
     #            
-            optstr  = ''        
-            for o in opt_option:     
-                optstr += ' ' +str(o)
-            optstr += ' ' +str(epochs)
-            optstr_ = optstr.replace(' ','_')
-            title = optimizer+ optstr + ' ' + transformOnFinalLayer + ' ' +final_clf + ' ' + metricploted
-            plt.ion()
-            plt.xlabel('Number of layers retrained')
-            if target_dataset=='Paintings':
-                target_dataset_str = 'ArtUK'
-            else:
-                target_dataset_str  = target_dataset
-            plt.ylabel(metricploted+' '+target_dataset_str)
-            plt.title(title)
-            plt.legend(loc='best')
-            output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
-            pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
-            name_of_the_figure = 'Summary_'+str(scenario)+'_'+ target_dataset+network+'_Unfreezed_'+\
-                optimizer+optstr_+'_'+transformOnFinalLayer+final_clf+target_dataset_str
-            if cropCenter:
-                name_of_the_figure += '_CropCenter'   
-            name_of_the_figure+='.png'
-            fname = os.path.join(output_path,name_of_the_figure)
-            plt.show() 
-            plt.pause(0.001)
             
             # Case BNRF
             net_tab = ['ResNet50_BNRF','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL_AdaIn']
@@ -2404,7 +2440,7 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
             normalisation = False
             getBeforeReLU = True
             forLatex = True
-            fig_i = 0
+
             for constrNet in net_tab:
                 print('~~~ ',constrNet,' ~~~')
                 if constrNet=='ResNet50_ROWD_CUMUL' or constrNet=='ResNet50_ROWD_CUMUL_AdaIn':
@@ -2455,7 +2491,240 @@ def PlotSomePerformanceResNet(metricploted='mAP',target_dataset = 'Paintings',sc
                              marker=list_markers[fig_i_m],linestyle='')
                     fig_i += 1
             
+            
+            # At the end
+            
+            optstr  = ''        
+            for o in opt_option:     
+                optstr += ' ' +str(o)
+            optstr += ' ' +str(epochs)
+            optstr_ = optstr.replace(' ','_')
+            title = optimizer+ optstr + ' ' + transformOnFinalLayer + ' ' +final_clf + ' ' + metricploted
+            plt.ion()
+            plt.xlabel('Number of layers retrained')
+            if target_dataset=='Paintings':
+                target_dataset_str = 'ArtUK'
+            else:
+                target_dataset_str  = target_dataset
+            plt.ylabel(metricploted+' '+target_dataset_str)
+            plt.title(title)
+            plt.legend(loc='best')
+            output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
+            pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
+            name_of_the_figure = 'Summary_'+str(scenario)+'_'+ target_dataset+network+'_Unfreezed_'+\
+                optimizer+optstr_+'_'+transformOnFinalLayer+final_clf+target_dataset_str
+            if cropCenter:
+                name_of_the_figure += '_CropCenter'   
+            name_of_the_figure+='.png'
+            fname = os.path.join(output_path,name_of_the_figure)
+            plt.show() 
+            plt.pause(0.001)
+            
+            
+            
             plt.savefig(fname)
+            
+def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
+                              onlyPlot=False,cropCenter=True,BV=True):
+    """
+    Plot some mAP  on ArtUK Paintings dataset with different model just to see
+    if we can say someting 
+    
+    But we will focus on the fact of unfreezing some part of the network even when we use 
+    ResNet_ROWD as initialisation of the model
+    """
+    
+    network = 'ResNet50'
+    # Normally metric = AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class but sometimes F1 is missing
+    if metricploted=='mAP':
+        metricploted_index = 0
+    elif metricploted=='Precision':
+        metricploted_index = 1
+    elif metricploted=='Recall':
+        metricploted_index = 2
+    else:
+        print(metricploted,' is unknown')
+        raise(NotImplementedError)
+        
+    list_markers = ['o','s','X','*','v','^','<','>','d','1','2','3','4','8','h','H','p','d','$f$','P']
+    # Les 3 frozen : 'o','s','X'
+    # VGG : '*'
+    
+    NUM_COLORS = 20
+    #color_number_for_frozen = [0,NUM_COLORS//2,NUM_COLORS-1]
+    #color_number_for_frozen = [0,NUM_COLORS//5,2*NUM_COLORS//5,3*NUM_COLORS//5,4*NUM_COLORS//5,NUM_COLORS-1]
+    color_number_for_frozen = []
+    cm = plt.get_cmap('gist_rainbow')
+    cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
+    scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)
+    list_freezingType = ['FromTop','FromBottom','Alter']
+    list_freezingType = ['FromTop']
+    
+    transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D'] # Not the flatten case for the moment
+    transformOnFinalLayer_tab = ['GlobalAveragePooling2D'] # Not the flatten case for the moment
+    #transformOnFinalLayer_tab = ['GlobalMaxPooling2D'] # Not the flatten case for the moment
+    style_layers = ['bn_conv1']
+    dropout=None
+    regulOnNewLayer=None
+    nesterov=False
+    SGDmomentum=0.0
+    decay=0.0
+    
+    print("Attention les histoires de scenario ne serve a rien ici !!! ")
+
+    range_l = [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96, 102,106] # For Resnet50
+    batch_size = 16 
+    features = 'activation_48'
+    
+    final_clf = 'MLP2'
+    
+    return_best_model = True
+    opt_option_tab = [[10**(-2)],[0.1,10**(-2)],[10**(-3)],[0.1,10**(-3)]]
+    epochs_tab = [20,20,200,200]
+    optimizer = 'SGD'
+    
+    # ResNetCase
+    for transformOnFinalLayer in transformOnFinalLayer_tab:
+        plt.figure()
+        for opt_option,epochs in zip(opt_option_tab,epochs_tab): 
+            j = 0
+            fig_i = 0
+            
+            
+            list_perf = []
+                
+            # Plot the value with a certain number of freeze or unfreeze layer
+            for freezingType in list_freezingType:
+                list_perf += [[]]  
+                for pretrainingModif in range_l:
+                    print('===',transformOnFinalLayer,freezingType,pretrainingModif,'opt_option :',opt_option)
+                    metrics = learn_and_eval(target_dataset=target_dataset,constrNet=network,\
+                                             kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                                             pretrainingModif=pretrainingModif,freezingType=freezingType,\
+                                             optimizer=optimizer,opt_option=opt_option,batch_size=batch_size\
+                                             ,final_clf=final_clf,features=features,return_best_model=return_best_model,\
+                                             onlyReturnResult=onlyPlot,style_layers=style_layers,
+                                             cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                                             nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                                            # il faudra checker cela avec le ResNet 
+        
+                    if metrics is None:
+                        continue
+                    metricI_per_class = metrics[metricploted_index]
+                    list_perf[j] += [np.mean(metricI_per_class)]
+                    
+                if not(len(list(range_l))==len(list_perf[j])):
+                    layers_j = list(range_l)[0:len(list_perf[j])]
+                else:
+                    layers_j = list(range_l)
+                    
+                labelstr = freezingType
+                if len(opt_option)==2:
+                    labelstr += ' lrp '+str(opt_option[0])
+                labelstr += ' lr '+str(opt_option[-1])
+                labelstr += ' e '+str(epochs)
+                    
+                plt.plot(layers_j,list_perf[j],label=labelstr,color=scalarMap.to_rgba(fig_i),\
+                         marker=list_markers[fig_i],linestyle=':')
+                fig_i += 1
+                j += 1
+                    
+    # # ResNet50_ROWD_CUMUL as initialisation 
+    # style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
+    #                                      getBNlayersResNet50()]
+    # constrNet = 'ResNet50_ROWD_CUMUL'
+    # for opt_option,epochs in zip(opt_option_tab,epochs_tab): 
+    #     for transformOnFinalLayer in transformOnFinalLayer_tab:
+    #         j = 0
+    #         fig_i = 0
+    #         if len(opt_option)==1:
+    #             opt_option_tab2 = [opt_option,[0.1,opt_option[0]]]
+    #             opt_option_tab2 = [opt_option]
+    #         else:
+    #             opt_option_tab2 = [opt_option]
+    #         plt.figure()
+    #         list_perf = []
+    #         for jj, opt_option2 in enumerate(opt_option_tab2):
+                
+    #             # Plot the value with a certain number of freeze or unfreeze layer
+    #             for freezingType in list_freezingType:
+    #                 list_perf += [[]]  
+    #                 for style_layers in style_layers_tab_ResNet50AdaIn:
+    # #            print(constrNet,style_layers)
+                
+    #                     for pretrainingModif in range_l:
+    #                         metrics = learn_and_eval(target_dataset=target_dataset,constrNet=constrNet,\
+    #                                          kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+    #                                          pretrainingModif=pretrainingModif,freezingType=freezingType,\
+    #                                          optimizer=optimizer,opt_option=opt_option,batch_size=batch_size\
+    #                                          ,final_clf=final_clf,features=features,return_best_model=return_best_model,\
+    #                                          onlyReturnResult=onlyPlot,style_layers=style_layers,
+    #                                          cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+    #                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)                                                # il faudra checker cela avec le ResNet 
+            
+    #                     if metrics is None:
+    #                         continue
+    #                     metricI_per_class = metrics[metricploted_index]
+    #                     list_perf[j] += [np.mean(metricI_per_class)]
+                        
+    #                 if not(len(list(range_l))==len(list_perf[j])):
+    #                     layers_j = list(range_l)[0:len(list_perf[j])]
+    #                 else:
+    #                     layers_j = list(range_l)
+                        
+    #                 labelstr = freezingType
+    #                 if len(opt_option)==2:
+    #                     labelstr += ' lrp '+str(opt_option[0])
+    #                 labelstr += ' lr '+str(opt_option[-1])
+    #                 if BV:
+    #                     if getResNetLayersNumeral_bitsVersion(style_layers) == getResNetLayersNumeral_bitsVersion(getBNlayersResNet50()):
+    #                         labelstr += '_all'
+    #                     elif style_layers == ['bn_conv1']:
+    #                         labelstr += '_bnc1'
+    #                     elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
+    #                         labelstr += '_bn_*1'
+    #                     else:
+    #                         labelstr += '_'+  getResNetLayersNumeral_bitsVersion(style_layers)
+    #                 else:
+    #                     if getResNetLayersNumeral(style_layers) == getResNetLayersNumeral(getBNlayersResNet50()):
+    #                         labelstr += '_all'
+    #                     elif style_layers == ['bn_conv1']:
+    #                         labelstr += '_bnc1'
+    #                     elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
+    #                         labelstr += '_bn_*1'
+    #                     else:
+    #                         labelstr += '_'+  getResNetLayersNumeral(style_layers)
+                    
+                        
+    #                 plt.plot(layers_j,list_perf[j],label=labelstr,color=scalarMap.to_rgba(fig_i),\
+    #                          marker=list_markers[fig_i],linestyle=':')
+    #                 fig_i += 1
+    #                 j += 1
+    
+    #         title = optimizer + ' ' + transformOnFinalLayer + ' ' +final_clf + ' ' + metricploted
+    #         plt.ion()
+    #         plt.xlabel('Number of layers retrained')
+    #         if target_dataset=='Paintings':
+    #             target_dataset_str = 'ArtUK'
+    #         else:
+    #             target_dataset_str  = target_dataset
+    #         plt.ylabel(metricploted+' '+target_dataset_str)
+    #         plt.title(title)
+    #         plt.legend(loc='best')
+    #         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
+    #         pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
+    #         name_of_the_figure = 'Summary_'+str(scenario)+'_'+ target_dataset+network+'_Unfreezed_DiffModels_'+\
+    #             optimizer+optstr_+'_'+transformOnFinalLayer+final_clf+target_dataset_str
+    #         if cropCenter:
+    #             name_of_the_figure += '_CropCenter'   
+    #         name_of_the_figure+='.png'
+    #         fname = os.path.join(output_path,name_of_the_figure)
+    #         plt.show() 
+    #         plt.pause(0.001)
+            
+            
+            
+    #         plt.savefig(fname)
 
                     
 def RunEval_MLP_onConvBlock():
@@ -2540,15 +2809,31 @@ def RunAllEvaluation(target_dataset='Paintings',forLatex=False):
                                        transformOnFinalLayer=transformOnFinalLayer,\
                                        forLatex=forLatex)
                             
-def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
+def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False,printForTabularLatex=False):
     """
     Le but de cette fonction est de faire les calculs avec les differentes methodes 
     et voir ce que cela donne dans le cadre de l'extraction de features
     """
+    verbose = True
+    if printForTabularLatex:
+        forLatex = False
+        verbose=False
+    
+    metricploted = 'mAP'
+    if metricploted=='mAP':
+        metricploted_index = 0
+    elif metricploted=='Precision':
+        metricploted_index = 1
+    elif metricploted=='Recall':
+        metricploted_index = 2
+    else:
+        print(metricploted,' is unknown')
+        raise(NotImplementedError)
+    
     source_dataset = 'ImageNet'
     normalisation = False
     kind_method = 'TL'
-    verbose = True
+
     
     final_clf_list = ['LinearSVC','MLP2','MLP2bis'] # LinearSVC but also MLP : pas encore fini
     gridSearchTab =[True,False,False] # LinearSVC but also MLP : pas encore fini
@@ -2560,57 +2845,107 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
     
     for target_dataset in dataset_tab:
         print('===',target_dataset,'===')
-        for final_clf,gridSearch in zip(final_clf_list,gridSearchTab): 
-            print('==',final_clf,'==')
-            # VGG case 
-            for features,transformOnFinalLayer in zip(['fc2','block5_pool','block5_pool'],['','GlobalMaxPooling2D','GlobalAveragePooling2D']):
-                
+        
+        # VGG case 
+        for features,transformOnFinalLayer in zip(['fc2','block5_pool','block5_pool'],['','GlobalMaxPooling2D','GlobalAveragePooling2D']):
+            
+            if printForTabularLatex:
+                str_print_base = '& '
+                if features=='block5_pool':
+                   str_print_base += 'b5p'
+                else:
+                   str_print_base +=  features
+                if transformOnFinalLayer=='GlobalMaxPooling2D':
+                   str_print_base += ' Max' 
+                if transformOnFinalLayer=='GlobalAveragePooling2D':
+                   str_print_base += ' Avg' 
+            else:
+                print(features,transformOnFinalLayer)
+                  
+            constrNet = 'VGG'
+            if printForTabularLatex: str_print = constrNet + str_print_base + '& Feature extraction & •'
+            for final_clf,gridSearch in zip(final_clf_list,gridSearchTab): 
+                if not(printForTabularLatex): 
+                    print('==',final_clf,'==')
+
                 # Baseline Case
-                constrNet = 'VGG'
+                
                 if final_clf=='LinearSVC':
-                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                    metrics = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                   ReDo=False)
                 elif final_clf=='MLP2':
-                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                    metrics =learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
                 elif final_clf=='MLP2bis':
-                    learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
+                    metrics =learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
                                   constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
                                   normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                   optimizer='SGD',opt_option=[10**(-2)],\
                                   epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
+                        
                 
-                # Statistics model
-                net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
-                style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                            ['block1_conv1','block2_conv1'],['block1_conv1']]
-                style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                            ['block1_conv1','block2_conv1']]
-                number_im_considered = 10000
-                getBeforeReLU = True
+                if printForTabularLatex:
+                    metricI_per_class = metrics[metricploted_index]
+                    mMetric = np.mean(metricI_per_class)
+                    str_print += '& {0:.2f}'.format(100*mMetric)
+                    
+            if printForTabularLatex: print(str_print.replace('_','\_')+'\\\\')
+                
+            # Statistics model
+            net_tab = ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']
+            style_layers_tab_forOther = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                        ['block1_conv1','block2_conv1'],['block1_conv1']]
+            style_layers_tab_foVGGBaseNormCoherentr = [['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                        ['block1_conv1','block2_conv1']]
+            number_im_considered = 10000
+            getBeforeReLU = True
     
-                for constrNet in net_tab:
-                    if constrNet=='VGGBaseNormCoherent':
-                        style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
-                    else:
-                        style_layers_tab = style_layers_tab_forOther
-                    for style_layers in style_layers_tab:
-                        if not(forLatex): print('--- getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,\
+            for constrNet in net_tab:
+                
+
+                
+                if constrNet=='VGGBaseNormCoherent':
+                    style_layers_tab = style_layers_tab_foVGGBaseNormCoherentr
+                else:
+                    style_layers_tab = style_layers_tab_forOther
+                for style_layers in style_layers_tab:
+                    if printForTabularLatex: 
+                        str_print = '' + str_print_base + '& ' +constrNet +' &'
+                        if style_layers==['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4']:
+                            
+                            str_print += 'all'
+                        elif style_layers==['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1']:
+                            str_print += '*conv1' 
+                        elif style_layers==['block1_conv1','block2_conv1']:
+                            str_print += 'b1_b2_conv1' 
+                        elif style_layers==['block1_conv1']:
+                            str_print += 'b1_conv1'
+                        
+                    for final_clf,gridSearch in zip(final_clf_list,gridSearchTab): 
+                        if not(printForTabularLatex): 
+                            print('==',final_clf,'==')
+                        
+                        if not(forLatex): 
+                            if not(printForTabularLatex):
+                                print('--- getBeforeReLU',getBeforeReLU,'constrNet',constrNet,'final_clf',final_clf,\
                               'features',features,'transformOnFinalLayer',transformOnFinalLayer,'number_im_considered',number_im_considered,'style_layers',style_layers)
                         if final_clf=='LinearSVC':
-                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                            metrics =learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
                                   number_im_considered=number_im_considered,\
                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
                                   forLatex=forLatex,transformOnFinalLayer=transformOnFinalLayer,
                                   ReDo=False)
                         elif final_clf=='MLP2':
-                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                            metrics =learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                   constrNet,kind_method,style_layers,gridSearch=gridSearch,
                                   number_im_considered=number_im_considered,\
                                   normalisation=normalisation,getBeforeReLU=getBeforeReLU,\
@@ -2618,81 +2953,137 @@ def RunAllEvaluation_ForFeatureExtractionModel(forLatex=False):
                                   dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
                                   epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
                         elif final_clf=='MLP2bis':
-                            learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
+                            metrics =learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
                                           constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
                                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                           optimizer='SGD',opt_option=[10**(-2)],\
                                           epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
+                                
+                        if printForTabularLatex:
+                            metricI_per_class = metrics[metricploted_index]
+                            mMetric = np.mean(metricI_per_class)
+                            str_print += '& {0:.2f}'.format(100*mMetric)
+                            
+                    if printForTabularLatex: print(str_print.replace('_','\_')+'\\\\')
+                                
             
 #            # ResNet50 case
-            for features,transformOnFinalLayer in zip(['activation_48','activation_48'],['GlobalMaxPooling2D','GlobalAveragePooling2D']):
-                
-                # Baseline Case
-                constrNet = 'ResNet50'
+        for features,transformOnFinalLayer in zip(['activation_48','activation_48'],['GlobalMaxPooling2D','GlobalAveragePooling2D']):
+            
+            # Baseline Case
+            constrNet = 'ResNet50'
+            
+            if printForTabularLatex:
+                str_print_base = '& '
+                if features=='activation_48':
+                   str_print_base += 'ac48p'
+                if transformOnFinalLayer=='GlobalMaxPooling2D':
+                   str_print_base += ' Max' 
+                if transformOnFinalLayer=='GlobalAveragePooling2D':
+                   str_print_base += ' Avg' 
+            else:
+               print(features,transformOnFinalLayer) 
+                  
+            str_print = constrNet + str_print_base + '& Feature extraction & •'
+            for final_clf,gridSearch in zip(final_clf_list,gridSearchTab): 
+                if not(printForTabularLatex): 
+                    print('==',final_clf,'==')
                 if final_clf=='LinearSVC':
-                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                    metrics =learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                    constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
                                    normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                    ReDo=False)
                 elif final_clf=='MLP2':
-                    learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                    metrics =learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                    constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
                                    normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                    dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-43)],\
                                    epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
                 elif final_clf=='MLP2bis':
-                    learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
+                    metrics =learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
                                    constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
                                    normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                    optimizer='SGD',opt_option=[10**(-2)],\
                                    epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
+                        
+                if printForTabularLatex:
+                    metricI_per_class = metrics[metricploted_index]
+                    mMetric = np.mean(metricI_per_class)
+                    str_print += '& {0:.2f}'.format(100*mMetric)
+                    
+            if printForTabularLatex: print(str_print.replace('_','\_')+'\\\\')
+            
+            # Statistics model
+            style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
+                                         getBNlayersResNet50()]
+            
+            constrNet = 'ResNet50_ROWD_CUMUL'
+             
+            for computeGlobalVariance in [False,True]:
+                if not(printForTabularLatex): print('------ computeGlobalVariance = ',computeGlobalVariance,'------')
                 
-                # Statistics model
-                style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
-                                             getBNlayersResNet50()]
-                
-                constrNet = 'ResNet50_ROWD_CUMUL'
-                for computeGlobalVariance in [False,True]:
-                    print('------ computeGlobalVariance = ',computeGlobalVariance,'------')
-                    for style_layers in style_layers_tab_forResNet50_ROWD:
+                for style_layers in style_layers_tab_forResNet50_ROWD:
+                    if printForTabularLatex:
+                        str_print = '' + str_print_base + '& ' +constrNet
+                        if computeGlobalVariance:
+                            str_print += 'GlobalVar'
+                        str_print += '&'
+                        
+                        if getResNetLayersNumeral(style_layers) == getResNetLayersNumeral(getBNlayersResNet50()):
+                            str_print += 'all'
+                        elif style_layers == ['bn_conv1']:
+                            str_print += 'bnc1'
+                        elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
+                            str_print += 'bn_*1'
+                    
+                    for final_clf,gridSearch in zip(final_clf_list,gridSearchTab): 
+                        if not(printForTabularLatex): 
+                            print('==',final_clf,'==')
+                    
                         if final_clf=='LinearSVC':
-                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                            metrics =learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                        constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
                                        normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                        ReDo=False,computeGlobalVariance=computeGlobalVariance,verbose=verbose)
                         elif final_clf=='MLP2':
-                            learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                            metrics =learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                                        constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
                                        normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                        dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
                                        epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False,computeGlobalVariance=computeGlobalVariance)
                         elif final_clf=='MLP2bis':
-                            learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
+                            metrics =learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
                                    constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
                                    normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                                    optimizer='SGD',opt_option=[10**(-2)],\
                                    epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
-                    
+                        if printForTabularLatex:
+                            metricI_per_class = metrics[metricploted_index]
+                            mMetric = np.mean(metricI_per_class)
+                            str_print += '& {0:.2f}'.format(100*mMetric)
+                            
+                    if printForTabularLatex: print(str_print.replace('_','\_')+'\\\\')
                 
-                # constrNet = 'ResNet50_BNRF'
-                # if final_clf=='LinearSVC':
-                #     learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                #                     constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                #                     normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                #                     batch_size_RF=16,epochs_RF=20,momentum=0.9,ReDo=False)
-                # elif final_clf=='MLP2':
-                #     learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                #                     constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
-                #                     normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                #                     batch_size_RF=16,epochs_RF=20,momentum=0.9,
-                #                     dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
-                #                 epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
-                # elif final_clf=='MLP2bis':
-                #     learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
-                #             constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
-                #             normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                #             optimizer='SGD',opt_option=[10**(-2)],\
-                #             epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
+            
+            # constrNet = 'ResNet50_BNRF'
+            # if final_clf=='LinearSVC':
+            #     learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+            #                     constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+            #                     normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+            #                     batch_size_RF=16,epochs_RF=20,momentum=0.9,ReDo=False)
+            # elif final_clf=='MLP2':
+            #     learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+            #                     constrNet,kind_method,style_layers=[],gridSearch=gridSearch,
+            #                     normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+            #                     batch_size_RF=16,epochs_RF=20,momentum=0.9,
+            #                     dropout=0.2,regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-3)],\
+            #                 epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,ReDo=False)
+            # elif final_clf=='MLP2bis':
+            #     learn_and_eval(target_dataset,source_dataset,'MLP2',features,\
+            #             constrNet,kind_method,style_layers=style_layers,gridSearch=gridSearch,
+            #             normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+            #             optimizer='SGD',opt_option=[10**(-2)],\
+            #             epochs=20,SGDmomentum=0.9,decay=10**(-4),ReDo=False)
        
 
 def RunAllEvaluation_FineTuningResNet(onlyPlot=False):
@@ -2856,8 +3247,18 @@ def testResNet_FineTuning():
            constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=True,\
            transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
            regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
-           epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,return_best_model=True) 
-    # ResNet50 GlobalAveragePooling2D ep :20 BFReLU 
+           epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,return_best_model=True,\
+           pretrainingModif=True,verbose=True)  # Trainable params: 24,061,706 - Non-trainable params: 53,120
+    # ResNet50 GlobalAveragePooling2D ep :20  
+    #  & 16.9 & 13.2 & 64.9 & 34.1 & 14.5 & 33.2 & 17.7 & 30.7 & 16.7 & 48.8 & 29.1 \\
+        
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+           constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=True,\
+           transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+           regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+           epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,return_best_model=True,\
+           pretrainingModif=106,verbose=True)  # A tester : à comparer a au dessus 
+    # ResNet50 GlobalAveragePooling2D ep :20  
     #& 18.7 & 13.1 & 60.6 & 42.4 & 19.7 & 28.8 & 19.0 & 41.8 & 26.6 & 48.7 & 31.9 \\ 
     
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
@@ -3251,6 +3652,9 @@ if __name__ == '__main__':
 #    testROWD_CUMUL()
 #    RunAllEvaluation_ForFeatureExtractionModel()
 #   comparaison_ResNet_baseline_ResNetROWD_as_Init()
+    #RunAllEvaluation_ForFeatureExtractionModel(printForTabularLatex=True)
     #RunAllEvaluation_ForFeatureExtractionModel()
     #RunAllEvaluation_FineTuningResNet()
-    RunAllEvaluation_FineTuningVGG()   
+    PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
+                              onlyPlot=False,cropCenter=True,BV=True)
+    #RunAllEvaluation_FineTuningVGG()   
