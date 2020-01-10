@@ -533,7 +533,14 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings',FineTunecase = '
     
     matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
 
-    if FineTunecase=='All':
+    if FineTunecase=='All2':
+        nets = ['ResNet50','ResNet50','ResNet50','ResNet50','ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL_AdaIn']
+        computeGlobalVariance_tab = [False,False,False,False,False,False,True,True,True]
+        kindmethod_tab = ['TL','FT','FT','FT','FT','TL','TL','FT','FT']
+        pretrainingModif_tab = [False,106,106,106,106,False,False,False,False]
+        opt_option_tab = [[10**(-2)],[10**(-2)],[0.1,10**(-2)],[10**(-3)],[0.1,10**(-3)],[10**(-2)],[10**(-2)],[10**(-2)],[10**(-2)]]
+    
+    elif FineTunecase=='All':
         nets = ['ResNet50','ResNet50','ResNet50','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL','ResNet50_ROWD_CUMUL_AdaIn']
         computeGlobalVariance_tab = [False,False,False,False,True,True,True]
         kindmethod_tab = ['TL','FT','FT','TL','TL','FT','FT']
@@ -591,7 +598,7 @@ def compare_new_normStats_for_ResNet(target_dataset='Paintings',FineTunecase = '
                                returnStatistics=True,cropCenter=cropCenter,\
                                computeGlobalVariance=computeGlobalVariance,\
                                epochs=epochs,optimizer=optimizer,opt_option=opt_option,return_best_model=return_best_model,\
-                               batch_size=batch_size,gridSearch=False)
+                               batch_size=batch_size,gridSearch=False,verbose=False)
 
 
         if 'ResNet50_ROWD_CUMUL' == constrNet and kind_method=='TL':

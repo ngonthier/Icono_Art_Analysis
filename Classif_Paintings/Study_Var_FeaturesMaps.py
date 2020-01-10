@@ -152,7 +152,7 @@ def get_four_momentsAxis(vars_values):
     return(m,v,s,k)
     
 def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_concern_layers,number_im_considered,\
-                        dataset,set,saveformat='h5',cropCenter=True,histoFixe=True,bins=np.arange(-500,501)):
+                        dataset,set,saveformat='h5',cropCenter=True,histoFixe=True,bins_tab=None):
     """
     In this function we compute a cumulated histogram of the value of the features maps but also 
     the 4 first moments of them for the different layers involved for a given ne on a given dataset
@@ -231,13 +231,15 @@ def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_con
             
             if saveformat=='h5':
                 grp = store.create_group(short_name)
-                for l,layer in enumerate(list_of_concern_layers):
+                for l,z in enumerate(zip(list_of_concern_layers,bins_tab)):
+                    layer,bins = z
                     features_l = features_tab[l][0]
                     
                     
                     # Compute the statistics 
                     #print(layer,features_l.shape)
                     num_features = features_l.shape[-1]
+
                     mean,var,skew,kurt = get_four_momentsAxis(features_l)
                     
                     if histoFixe:
@@ -290,7 +292,7 @@ def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_con
     grp = store.create_group('Histo')
     for l,layer in enumerate(list_of_concern_layers):
         num_features = dict_num_f[layer]
-        grp.create_dataset(layer,data=num_features)
+        grp.create_dataset(layer,data=[int(num_features)])
         for k in range(num_features):   
             hist = dict_histo[layer][k]
             l_str = layer+'_hist_'+str(k)
@@ -746,10 +748,10 @@ def load_Cumulated_Hist_4Moments(filename_path,list_of_concern_layers,dataset,sa
                         mean_str = layer + '_mean'
                         skew_str = layer + '_skew'
                         kurt_str = layer + '_kurt'
-                        mean = net_params[mean_str]
-                        var = net_params[var_str]
-                        skew = net_params[skew_str]
-                        kurt = net_params[kurt_str]
+                        mean = np.array(net_params[mean_str])
+                        var = np.array(net_params[var_str])
+                        skew = np.array(net_params[skew_str])
+                        kurt = np.array(net_params[kurt_str])
                         dict_var[layer] += [[mean,var,skew,kurt]]
             for l,layer in enumerate(list_of_concern_layers):
                 stacked = np.vstack(dict_var[layer]) 
@@ -758,12 +760,12 @@ def load_Cumulated_Hist_4Moments(filename_path,list_of_concern_layers,dataset,sa
             grp = store['Histo']
             for l,layer in enumerate(list_of_concern_layers):
                 dict_histo[layer] = {}
-                num_features = grp[layer]
+                num_features = grp[layer][0]
                 dict_num_f[layer] = num_features
                 for k in range(num_features):   
                     l_str = layer+'_hist_'+str(k)
                     hist = grp[l_str]
-                    dict_histo[layer][k] = hist
+                    dict_histo[layer][k] = np.array(hist)
                 
             store.close()
         except OSError as e:
