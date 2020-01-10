@@ -434,6 +434,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         style_layers = getBNlayersResNet50()
         print('Need to be all BN layers of ResNet')
         
+    if final_clf=='LinearSVC' and kind_method=='FT':
+        print('You can not have LinearSVC and finetuning ie FT option at the same time')
+        print('With FT option you have to use MLP final classifier')
+        raise(NotImplementedError)
+        
         
     assert(not(returnStatistics and returnFeatures)) # Need to choose between both
     assert(freezingType in ['FromBottom','FromTop','Alter'])
@@ -829,6 +834,16 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
        if RandomValdiationSet:
            AP_file +='_RnDValSet'
     
+    if constrNet in ['ResNet50_ROWD','ResNet50_ROWD_CUMUL','ResNet50_BNRF'] and kind_method=='FT':
+        # In the case of the fine tuning of the ResNet50_ROWD model with only some part freezing or not
+        if type(pretrainingModif)==bool:
+            if pretrainingModif==False:
+                name_base +=  '_wholePretrainedNetFreeze'
+        else:
+            if not(freezingType=='FromTop'):
+                name_base += '_'+freezingType
+            name_base += '_unfreeze'+str(pretrainingModif)
+    
     AP_file_base =  AP_file
     AP_file_pkl =AP_file_base+'_AP.pkl'
     APfilePath =  os.path.join(output_path,AP_file_pkl)
@@ -1079,7 +1094,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                weights='imagenet')
 
                 model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
-                             final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                             final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
+                             pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet)
                     
             elif constrNet=='ResNet50_ROWD_CUMUL_AdaIn':
                 # Refinement the batch normalisation : normalisation statistics
@@ -1133,7 +1149,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
 #                               weights='imagenet')
                 
                 model = add_head_and_trainable(network_features_extractionBNRF,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
-                             final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                             final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
+                                 pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet)
+                    ## Non tester !!!
                 
                 
             else:
@@ -2580,24 +2598,23 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
     
     return_best_model = True
     opt_option_tab = [[10**(-2)],[0.1,10**(-2)],[10**(-3)],[0.1,10**(-3)]]
+    opt_option_tab = [[10**(-2)]]
     epochs_tab = [20,20,200,200]
     optimizer = 'SGD'
     
     # ResNetCase
     for transformOnFinalLayer in transformOnFinalLayer_tab:
         plt.figure()
+        fig_i = 0
+        list_perf = []
+        j = 0
         for opt_option,epochs in zip(opt_option_tab,epochs_tab): 
-            j = 0
-            fig_i = 0
-            
-            
-            list_perf = []
-                
+    
             # Plot the value with a certain number of freeze or unfreeze layer
             for freezingType in list_freezingType:
                 list_perf += [[]]  
                 for pretrainingModif in range_l:
-                    print('===',transformOnFinalLayer,freezingType,pretrainingModif,'opt_option :',opt_option)
+                    #print('===',transformOnFinalLayer,freezingType,pretrainingModif,'opt_option :',opt_option)
                     metrics = learn_and_eval(target_dataset=target_dataset,constrNet=network,\
                                              kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                              pretrainingModif=pretrainingModif,freezingType=freezingType,\
@@ -2629,102 +2646,88 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
                 fig_i += 1
                 j += 1
                     
-    # # ResNet50_ROWD_CUMUL as initialisation 
-    # style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
-    #                                      getBNlayersResNet50()]
-    # constrNet = 'ResNet50_ROWD_CUMUL'
-    # for opt_option,epochs in zip(opt_option_tab,epochs_tab): 
-    #     for transformOnFinalLayer in transformOnFinalLayer_tab:
-    #         j = 0
-    #         fig_i = 0
-    #         if len(opt_option)==1:
-    #             opt_option_tab2 = [opt_option,[0.1,opt_option[0]]]
-    #             opt_option_tab2 = [opt_option]
-    #         else:
-    #             opt_option_tab2 = [opt_option]
-    #         plt.figure()
-    #         list_perf = []
-    #         for jj, opt_option2 in enumerate(opt_option_tab2):
-                
-    #             # Plot the value with a certain number of freeze or unfreeze layer
-    #             for freezingType in list_freezingType:
-    #                 list_perf += [[]]  
-    #                 for style_layers in style_layers_tab_ResNet50AdaIn:
-    # #            print(constrNet,style_layers)
-                
-    #                     for pretrainingModif in range_l:
-    #                         metrics = learn_and_eval(target_dataset=target_dataset,constrNet=constrNet,\
-    #                                          kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
-    #                                          pretrainingModif=pretrainingModif,freezingType=freezingType,\
-    #                                          optimizer=optimizer,opt_option=opt_option,batch_size=batch_size\
-    #                                          ,final_clf=final_clf,features=features,return_best_model=return_best_model,\
-    #                                          onlyReturnResult=onlyPlot,style_layers=style_layers,
-    #                                          cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
-    #                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)                                                # il faudra checker cela avec le ResNet 
-            
-    #                     if metrics is None:
-    #                         continue
-    #                     metricI_per_class = metrics[metricploted_index]
-    #                     list_perf[j] += [np.mean(metricI_per_class)]
-                        
-    #                 if not(len(list(range_l))==len(list_perf[j])):
-    #                     layers_j = list(range_l)[0:len(list_perf[j])]
-    #                 else:
-    #                     layers_j = list(range_l)
-                        
-    #                 labelstr = freezingType
-    #                 if len(opt_option)==2:
-    #                     labelstr += ' lrp '+str(opt_option[0])
-    #                 labelstr += ' lr '+str(opt_option[-1])
-    #                 if BV:
-    #                     if getResNetLayersNumeral_bitsVersion(style_layers) == getResNetLayersNumeral_bitsVersion(getBNlayersResNet50()):
-    #                         labelstr += '_all'
-    #                     elif style_layers == ['bn_conv1']:
-    #                         labelstr += '_bnc1'
-    #                     elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
-    #                         labelstr += '_bn_*1'
-    #                     else:
-    #                         labelstr += '_'+  getResNetLayersNumeral_bitsVersion(style_layers)
-    #                 else:
-    #                     if getResNetLayersNumeral(style_layers) == getResNetLayersNumeral(getBNlayersResNet50()):
-    #                         labelstr += '_all'
-    #                     elif style_layers == ['bn_conv1']:
-    #                         labelstr += '_bnc1'
-    #                     elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
-    #                         labelstr += '_bn_*1'
-    #                     else:
-    #                         labelstr += '_'+  getResNetLayersNumeral(style_layers)
+            # ResNet50_ROWD_CUMUL as initialisation 
+            style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
+                                          getBNlayersResNet50()]
+            constrNet = 'ResNet50_ROWD_CUMUL'
+
+            # Plot the value with a certain number of freeze or unfreeze layer
+            for freezingType in list_freezingType:
+                for style_layers in style_layers_tab_forResNet50_ROWD:
+#            print(constrNet,style_layers)
+                    list_perf += [[]]
+                    for pretrainingModif in range_l:
+                        metrics = learn_and_eval(target_dataset=target_dataset,constrNet=constrNet,\
+                                          kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                                          pretrainingModif=pretrainingModif,freezingType=freezingType,\
+                                          optimizer=optimizer,opt_option=opt_option,batch_size=batch_size\
+                                          ,final_clf=final_clf,features=features,return_best_model=return_best_model,\
+                                          onlyReturnResult=onlyPlot,style_layers=style_layers,
+                                          cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)                                                # il faudra checker cela avec le ResNet 
+        
+                    if metrics is None:
+                        continue
+                    metricI_per_class = metrics[metricploted_index]
+                    list_perf[j] += [np.mean(metricI_per_class)]
                     
+                    if not(len(list(range_l))==len(list_perf[j])):
+                        layers_j = list(range_l)[0:len(list_perf[j])]
+                    else:
+                        layers_j = list(range_l)
                         
-    #                 plt.plot(layers_j,list_perf[j],label=labelstr,color=scalarMap.to_rgba(fig_i),\
-    #                          marker=list_markers[fig_i],linestyle=':')
-    #                 fig_i += 1
-    #                 j += 1
+                    labelstr = freezingType
+                    if len(opt_option)==2:
+                        labelstr += ' lrp '+str(opt_option[0])
+                    labelstr += ' lr '+str(opt_option[-1])
+                    labelstr += ' e '+str(epochs)
+                    if BV:
+                        if getResNetLayersNumeral_bitsVersion(style_layers) == getResNetLayersNumeral_bitsVersion(getBNlayersResNet50()):
+                            labelstr += '_all'
+                        elif style_layers == ['bn_conv1']:
+                            labelstr += '_bnc1'
+                        elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
+                            labelstr += '_bn_*1'
+                        else:
+                            labelstr += '_'+  getResNetLayersNumeral_bitsVersion(style_layers)
+                    else:
+                        if getResNetLayersNumeral(style_layers) == getResNetLayersNumeral(getBNlayersResNet50()):
+                            labelstr += '_all'
+                        elif style_layers == ['bn_conv1']:
+                            labelstr += '_bnc1'
+                        elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
+                            labelstr += '_bn_*1'
+                        else:
+                            labelstr += '_'+  getResNetLayersNumeral(style_layers)
+                        
+                            
+                        plt.plot(layers_j,list_perf[j],label=labelstr,color=scalarMap.to_rgba(fig_i),\
+                             marker=list_markers[fig_i],linestyle=':')
+                        fig_i += 1
+                        j += 1
     
-    #         title = optimizer + ' ' + transformOnFinalLayer + ' ' +final_clf + ' ' + metricploted
-    #         plt.ion()
-    #         plt.xlabel('Number of layers retrained')
-    #         if target_dataset=='Paintings':
-    #             target_dataset_str = 'ArtUK'
-    #         else:
-    #             target_dataset_str  = target_dataset
-    #         plt.ylabel(metricploted+' '+target_dataset_str)
-    #         plt.title(title)
-    #         plt.legend(loc='best')
-    #         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
-    #         pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
-    #         name_of_the_figure = 'Summary_'+str(scenario)+'_'+ target_dataset+network+'_Unfreezed_DiffModels_'+\
-    #             optimizer+optstr_+'_'+transformOnFinalLayer+final_clf+target_dataset_str
-    #         if cropCenter:
-    #             name_of_the_figure += '_CropCenter'   
-    #         name_of_the_figure+='.png'
-    #         fname = os.path.join(output_path,name_of_the_figure)
-    #         plt.show() 
-    #         plt.pause(0.001)
-            
-            
-            
-    #         plt.savefig(fname)
+        title = optimizer + ' ' + transformOnFinalLayer + ' ' +final_clf + ' ' + metricploted
+        plt.ion()
+        plt.xlabel('Number of layers retrained')
+        if target_dataset=='Paintings':
+            target_dataset_str = 'ArtUK'
+        else:
+            target_dataset_str  = target_dataset
+        plt.ylabel(metricploted+' '+target_dataset_str)
+        plt.title(title)
+        plt.legend(loc='best')
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
+        pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
+        name_of_the_figure = 'Summary_CompInitalisation_'+ target_dataset+network+'_Unfreezed_DiffModels_'+\
+            optimizer+'_'+transformOnFinalLayer+final_clf+target_dataset_str
+        if cropCenter:
+            name_of_the_figure += '_CropCenter'   
+        name_of_the_figure+='.png'
+        fname = os.path.join(output_path,name_of_the_figure)
+        plt.show() 
+        plt.pause(0.001)
+
+        plt.savefig(fname)
 
                     
 def RunEval_MLP_onConvBlock():
@@ -3327,6 +3330,14 @@ def testROWD_CUMUL():
                     useFloat32=True,computeGlobalVariance=True)
     #& 62.0 & 40.4 & 89.5 & 69.8 & 44.7 & 66.1 & 41.4 & 68.8 & 58.8 & 81.3 & 62.3 \\
     # Contre 72.2 pour LinearSVC sur les features directement...
+        
+def testROWD_CUMUL_FT_freezingLayers():
+    learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
+                    kind_method='FT',ReDo=False,gridSearch=False,
+                    constrNet='ResNet50_ROWD_CUMUL',transformOnFinalLayer='GlobalAveragePooling2D',
+                    style_layers=getBNlayersResNet50(),verbose=True,features='activation_48',\
+                    useFloat32=True,computeGlobalVariance=True,opt_option=[0.1,0.01],pretrainingModif=66,optimizer='SGD')
+
     
 def test_avec_normalisation_ROWD_CUMUL():
 #    learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\

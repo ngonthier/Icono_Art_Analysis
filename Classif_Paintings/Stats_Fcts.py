@@ -868,7 +868,9 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
       raise(NotImplementedError)
       
   if not(final_layer in getResNet50layersName()):
-      print(final_layer,'is not in ResNet')
+      print(final_layer,'is not in ResNet layers')
+      if 'block' in final_layer:
+          print('You certainly provide VGG layers name.')
       raise(NotImplementedError)
   if not(transformOnFinalLayer in [None,'','GlobalMaxPooling2D','GlobalAveragePooling2D']):
       print(transformOnFinalLayer,'is unknwon')
@@ -913,11 +915,17 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
   
 def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=[0.01],\
                              final_clf='MLP2',dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
-                             verbose=False,AdaIn_mode=False,style_layers=[]):
+                             verbose=False,AdaIn_mode=False,style_layers=[],pretrainingModif=True,\
+                             freezingType='FromTop',net_model='ResNet50'):
     """
-    This function makes the model trainable and add it a head (MLP at 1 2 or 3 layers)
+    This function makes the model trainable and add it a head (MLP at 1 2 or 3 layers) only for ResNet
     @param AdaIn_mode : if True means that only batch normalisation are trainable
     """
+    
+    if 'ResNet50' in net_model: 
+        number_of_trainable_layers = 106
+    else:
+        raise(NotImplementedError)
     
     lr_multiple = False
     multiply_lrp, lr  = None,None
@@ -948,10 +956,44 @@ def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=
           else:
               layer.trainable = False
     else:
-        pre_model.trainable = True
+        SomePartFreezed = False
+        if type(pretrainingModif)==bool:
+          pre_model.trainable = pretrainingModif
+        else:
+          SomePartFreezed = True # We will unfreeze pretrainingModif==int layers from the end of the net
+          assert(number_of_trainable_layers >= pretrainingModif)
+          
+        ilayer = 0
         for layer in pre_model.layers:
-          if lr_multiple: 
-              multipliers[layer.name] = multiply_lrp
+            
+            if SomePartFreezed and (layer.count_params() > 0):
+             
+             if freezingType=='FromTop':
+                 if ilayer >= number_of_trainable_layers - pretrainingModif:
+                     layer.trainable = True
+                     #print('FromTop',layer.name,ilayer,pretrainingModif,number_of_trainable_layers - pretrainingModif)
+                 else:
+                     layer.trainable = False
+             elif freezingType=='FromBottom':
+                 if ilayer < pretrainingModif:
+                     layer.trainable = True
+                     #print('FromBottom',layer.name,ilayer,pretrainingModif,number_of_trainable_layers - pretrainingModif)
+                 else:
+                     layer.trainable = False
+             elif freezingType=='Alter':
+                 pretrainingModif_bottom = pretrainingModif//2
+                 pretrainingModif_top = pretrainingModif//2 + pretrainingModif%2
+                 if (ilayer < pretrainingModif_bottom) or\
+                     (ilayer >= number_of_trainable_layers - pretrainingModif_top):
+                     layer.trainable = True
+                     #print('Alter',layer.name,ilayer,pretrainingModif_bottom,pretrainingModif_top)
+                 else:
+                     layer.trainable = False
+                     
+            ilayer += 1
+            # Only if the layer have some trainable parameters
+            if lr_multiple and layer.trainable:
+                multipliers[layer.name] = multiply_lrp
     
     x= pre_model.output
     model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout)
