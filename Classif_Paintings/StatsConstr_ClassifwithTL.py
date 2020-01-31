@@ -1691,11 +1691,6 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
     # Les 3 frozen : 'o','s','X'
     # VGG : '*'
     
-    NUM_COLORS = 20
-    color_number_for_frozen = [0,NUM_COLORS//2,NUM_COLORS-1]
-    cm = plt.get_cmap('gist_rainbow')
-    cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
-    scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)
     list_freezingType = ['FromTop','FromBottom','Alter']
     #list_freezingType = ['FromTop']
     
@@ -1807,6 +1802,39 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
         optimizer_tab = ['SGD']
         opt_option_tab = [[0.1,0.001]]
         list_freezingType = ['FromTop']
+        
+    style_layers_tab_VGGAdaIn = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
+                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
+           
+    style_layers_tab_VGGFRN = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
+                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
+      
+    style_layers_tab_VGGshuffle = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
+                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
+            
+    kind_of_shuffling_tab=['roll','shuffle']
+    
+    NUM_COLORS = len(list_freezingType) + len(style_layers_tab_VGGAdaIn) +\
+        len(style_layers_tab_VGGFRN) + len(kind_of_shuffling_tab)*len(style_layers_tab_VGGshuffle)
+    # ResNet + VGGAdaIn + VGGFRN + VGGshuffle
+    # Besoin de rajouter les autres a  l occasion
+    color_number_for_frozen = [0,NUM_COLORS//2,NUM_COLORS-1]
+    cm = plt.get_cmap('gist_rainbow')
+    cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
+    scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)
+        
 #    opt_option_tab = [[0.1,0.01]]
 #    optimizer_tab = ['SGD']
     for optimizer,opt_option in zip(optimizer_tab,opt_option_tab): 
@@ -1896,13 +1924,7 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
             
             # Case of the fine tuning with batch normalization 
             constrNet = 'VGGAdaIn'
-            style_layers_tab_VGGAdaIn = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
-                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
-                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
-                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
-                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
-       
+            
             for style_layers in style_layers_tab_VGGAdaIn:
     #            print(constrNet,style_layers)
                 metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
@@ -1952,14 +1974,8 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                 
             # Case of the fine tuning with an other kind of batch normalisation VGGFRN
             constrNet = 'VGGFRN'
-            style_layers_tab_VGGAdaIn = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
-                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
-                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
-                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
-                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
-       
-            for style_layers in style_layers_tab_VGGAdaIn:
+
+            for style_layers in style_layers_tab_VGGFRN:
     #            print(constrNet,style_layers)
                 metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
                                           epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
@@ -2053,16 +2069,9 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
 #                
             # Case of tthe stats (mean,var) shuffling
             constrNet = 'VGGsuffleInStats'
-            style_layers_tab_VGGAdaDBN = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
-                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
-                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
-                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
-                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
-            
-            kind_of_shuffling_tab=['roll','shuffle']
+
             for kind_of_shuffling in kind_of_shuffling_tab:
-                for style_layers in style_layers_tab_VGGAdaDBN:
+                for style_layers in style_layers_tab_VGGshuffle:
         #            print(constrNet,style_layers)
                     metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
                                               epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
@@ -2110,7 +2119,13 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                              marker=list_markers[fig_i_m],linestyle='')
                     fig_i += 1
                     
-            title = optimizer + ' ' + transformOnFinalLayer + ' ' + metricploted + ' ' + final_clf
+            optstr  = ''        
+            for o in opt_option:     
+                optstr += ' ' +str(o)
+            optstr += ' ' +str(epochs)
+            optstr_ = optstr.replace(' ','_')
+                    
+            title = optimizer+ optstr + ' ' + transformOnFinalLayer + ' ' + metricploted + ' ' + final_clf
             plt.ion()
             plt.xlabel('Number of layers retrained')
             plt.ylabel(metricploted+' ArtUK')
@@ -2118,7 +2133,7 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
             plt.legend(loc='best')
             output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset,'fig')
             pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
-            name_of_the_figure = 'Summary_'+str(scenario)+'_'+ target_dataset+'_'+final_clf+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png'
+            name_of_the_figure = 'Summary_'+str(scenario)+'_'+ target_dataset+'_'+final_clf+optstr_+'_Unfreezed_'+ optimizer+'_'+transformOnFinalLayer+'.png'
             if short:
                 name_of_the_figure = 'Short_'+name_of_the_figure
             fname = os.path.join(output_path,name_of_the_figure)
@@ -2560,7 +2575,7 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
     ResNet_ROWD as initialisation of the model
     """
     
-    
+    ReDo = False
     # Normally metric = AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class but sometimes F1 is missing
     if metricploted=='mAP':
         metricploted_index = 0
@@ -2576,13 +2591,7 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
     # Les 3 frozen : 'o','s','X'
     # VGG : '*'
     
-    NUM_COLORS = 20
-    #color_number_for_frozen = [0,NUM_COLORS//2,NUM_COLORS-1]
-    #color_number_for_frozen = [0,NUM_COLORS//5,2*NUM_COLORS//5,3*NUM_COLORS//5,4*NUM_COLORS//5,NUM_COLORS-1]
-    color_number_for_frozen = []
-    cm = plt.get_cmap('gist_rainbow')
-    cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
-    scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)
+
     list_freezingType = ['FromTop','FromBottom','Alter']
     list_freezingType = ['FromTop']
     
@@ -2599,6 +2608,7 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
     print("Attention les histoires de scenario ne serve a rien ici !!! ")
 
     range_l = [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96, 102,106] # For Resnet50
+    range_l = [0, 30, 60, 90, 106] # For Resnet50
     batch_size = 16 
     features = 'activation_48'
     
@@ -2606,8 +2616,22 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
     
     return_best_model = True
     opt_option_tab = [[10**(-2)],[0.1,10**(-2)],[10**(-3)],[0.1,10**(-3)]]
+    #opt_option_tab = [[10**(-2)],[0.1,10**(-2)]]
     epochs_tab = [20,20,200,200]
+    opt_option_tab = [[10**(-2)],[0.1,10**(-2)],[10**(-1)],[0.1,10**(-1)],[10**(-3)],[0.1,10**(-3)],[1.0],[0.1,1.0],[10**(-3)],[0.1,10**(-3)]]
+    #opt_option_tab = [[10**(-2)],[0.1,10**(-2)]]
+    epochs_tab = [20,20,20,20,20,20,20,20,200,200]
     optimizer = 'SGD'
+    
+    style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
+                              getBNlayersResNet50()]
+    style_layers_tab_forResNet50_ROWD = [getBNlayersResNet50()]
+    
+    NUM_COLORS =len(list_freezingType)*len(transformOnFinalLayer_tab)*len(opt_option_tab)*(1+len(style_layers_tab_forResNet50_ROWD))
+    color_number_for_frozen = []
+    cm = plt.get_cmap('gist_rainbow')
+    cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
+    scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm)
     
     # ResNetCase
     for transformOnFinalLayer in transformOnFinalLayer_tab:
@@ -2618,11 +2642,12 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
         for opt_option,epochs in zip(opt_option_tab,epochs_tab): 
     
             network = 'ResNet50'
+            print('For ResNet50',opt_option,epochs)
             # Plot the value with a certain number of freeze or unfreeze layer
             for freezingType in list_freezingType:
                 list_perf += [[]]  
                 for pretrainingModif in range_l:
-                    #print('===',transformOnFinalLayer,freezingType,pretrainingModif,'opt_option :',opt_option)
+                    print('===','ResNet50',transformOnFinalLayer,freezingType,pretrainingModif,'opt_option :',opt_option)
                     metrics = learn_and_eval(target_dataset=target_dataset,constrNet=network,\
                                              kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                              pretrainingModif=pretrainingModif,freezingType=freezingType,\
@@ -2630,7 +2655,7 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
                                              ,final_clf=final_clf,features=features,return_best_model=return_best_model,\
                                              onlyReturnResult=onlyPlot,style_layers=style_layers,
                                              cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
-                                             nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                                             nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,ReDo=ReDo)
                                             # il faudra checker cela avec le ResNet 
         
                     if metrics is None:
@@ -2643,7 +2668,7 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
                 else:
                     layers_j = list(range_l)
                     
-                labelstr = freezingType
+                labelstr = 'ImageNet Init ' + freezingType
                 if len(opt_option)==2:
                     labelstr += ' lrp '+str(opt_option[0])
                 labelstr += ' lr '+str(opt_option[-1])
@@ -2655,17 +2680,16 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
                 j += 1
                     
             # ResNet50_ROWD_CUMUL as initialisation 
-            style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
-                                          getBNlayersResNet50()]
             constrNet = 'ResNet50_ROWD_CUMUL'
 
             # Plot the value with a certain number of freeze or unfreeze layer
             for freezingType in list_freezingType:
                 for style_layers in style_layers_tab_forResNet50_ROWD:
+                    print('For ResNet50_ROWD_CUMUL',opt_option,epochs,style_layers)
 #            print(constrNet,style_layers)
                     list_perf += [[]]
                     for pretrainingModif in range_l:
-                        print(constrNet,pretrainingModif)
+                        print('~~~',constrNet,pretrainingModif,opt_option,epochs)
                         metrics = learn_and_eval(target_dataset=target_dataset,constrNet=constrNet,\
                                           kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                                           pretrainingModif=pretrainingModif,freezingType=freezingType,\
@@ -2673,7 +2697,7 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
                                           ,final_clf=final_clf,features=features,return_best_model=return_best_model,\
                                           onlyReturnResult=onlyPlot,style_layers=style_layers,
                                           cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
-                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)                                                # il faudra checker cela avec le ResNet 
+                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,ReDo=ReDo)                                                # il faudra checker cela avec le ResNet 
                         print(metrics)
                         if metrics is None:
                             continue
@@ -2685,37 +2709,36 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
                     else:
                         layers_j = list(range_l)
                         
-                    labelstr = freezingType
+                    labelstr = 'ROWD as Init ' + freezingType
                     if len(opt_option)==2:
                         labelstr += ' lrp '+str(opt_option[0])
                     labelstr += ' lr '+str(opt_option[-1])
                     labelstr += ' e '+str(epochs)
                     if BV:
                         if getResNetLayersNumeral_bitsVersion(style_layers) == getResNetLayersNumeral_bitsVersion(getBNlayersResNet50()):
-                            labelstr += '_all'
+                            labelstr += ' all'
                         elif style_layers == ['bn_conv1']:
-                            labelstr += '_bnc1'
+                            labelstr += ' bnc1'
                         elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
-                            labelstr += '_bn_*1'
+                            labelstr += ' bn_*1'
                         else:
                             labelstr += '_'+  getResNetLayersNumeral_bitsVersion(style_layers)
                     else:
                         if getResNetLayersNumeral(style_layers) == getResNetLayersNumeral(getBNlayersResNet50()):
-                            labelstr += '_all'
+                            labelstr += ' all'
                         elif style_layers == ['bn_conv1']:
-                            labelstr += '_bnc1'
+                            labelstr += ' bnc1'
                         elif style_layers == ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']:
-                            labelstr += '_bn_*1'
+                            labelstr += ' bn_*1'
                         else:
-                            labelstr += '_'+  getResNetLayersNumeral(style_layers)
+                            labelstr += ' '+  getResNetLayersNumeral(style_layers)
                         
-                            
-                        plt.plot(layers_j,list_perf[j],label=labelstr,color=scalarMap.to_rgba(fig_i),\
-                             marker=list_markers[fig_i],linestyle=':')
-                        fig_i += 1
-                        j += 1
+                    plt.plot(layers_j,list_perf[j],label=labelstr,color=scalarMap.to_rgba(fig_i),\
+                         marker=list_markers[fig_i],linestyle=':')
+                    fig_i += 1
+                    j += 1
     
-        title = optimizer + ' ' + transformOnFinalLayer + ' ' +final_clf + ' ' + metricploted
+        title = 'ResNet50 ' + optimizer + ' ' + transformOnFinalLayer + ' ' +final_clf + ' ' + metricploted
         plt.ion()
         plt.xlabel('Number of layers retrained')
         if target_dataset=='Paintings':
@@ -3677,6 +3700,6 @@ if __name__ == '__main__':
     #RunAllEvaluation_FineTuningResNet()
     PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
                               onlyPlot=False,cropCenter=True,BV=True)
-    RunAllEvaluation_FineTuningResNet()
-    RunAllEvaluation_FineTuningVGG()   
+    #RunAllEvaluation_FineTuningResNet() # a regrouper
+    RunAllEvaluation_FineTuningVGG()   # a regrouper
     
