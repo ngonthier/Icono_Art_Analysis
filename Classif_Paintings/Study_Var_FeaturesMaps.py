@@ -21,6 +21,8 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib
+import matplotlib.cm as mplcm
+import matplotlib.colors as colors
 import pathlib
 #from pandas import HDFStore
 #import pandas as pd
@@ -1057,7 +1059,6 @@ def Net_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
     
     set = None
     
-    dict_of_dict = {}
 #    config = tf.ConfigProto()
 #    config.gpu_options.allow_growth = True
 #    vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers)
@@ -1065,49 +1066,9 @@ def Net_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
 #    sess.run(tf.global_variables_initializer())
 #    sess.run(tf.local_variables_initializer())
     for printoutput in list_printoutput:
-        if printoutput=='Var':
-            whatToload= 'var'
-        elif printoutput=='Mean':
-            whatToload= 'mean' 
-        for dataset in dataset_tab:
-            print('===',dataset,'===')
-            list_imgs,images_in_set,number_im_list = get_list_im(dataset,set='')
-            if not(number_im_considered is None):
-                if number_im_considered >= number_im_list:
-                    number_im_considered_tmp =None
-                else:
-                    number_im_considered_tmp=number_im_considered
-            if BV:
-                str_layers = numeral_layers_index_bitsVersion(style_layers)
-            else:
-                str_layers = numeral_layers_index(style_layers)
-            filename = dataset + '_' + str(number_im_considered_tmp) + '_CovMean'+\
-                '_'+str_layers
-            if not(set=='' or set is None):
-                filename += '_'+set
-            if getBeforeReLU:
-                filename += '_BeforeReLU'
-            if cropCenter:
-                filename += '_cropCenter'
-            if saveformat=='pkl':
-                filename += '.pkl'
-            if saveformat=='h5':
-                filename += '.h5'
-            filename_path= os.path.join(output_path,filename)
-            
-            if not os.path.isfile(filename_path):
-                dict_var = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered_tmp,\
-                                               dataset=dataset,set=set,saveformat=saveformat,
-                                               whatToload=whatToload,getBeforeReLU=getBeforeReLU,cropCenter=cropCenter,\
-                                               Net=Net)
-                dict_of_dict[dataset] = dict_var
-            else:
-                print('We will load the features ')
-                dict_var =load_precomputed_mean_cov(filename_path,style_layers,dataset,
-                                                    saveformat=saveformat,whatToload=whatToload,
-                                                    Net=Net)
-                dict_of_dict[dataset] = dict_var
-    
+        dict_of_dict = return_dicts_of_Var_or_Mean_for_VGGfeatures(dataset_tab,printoutput,output_path,\
+           style_layers,number_im_considered,set,getBeforeReLU,cropCenter,\
+           saveformat,Net,BV)
     
         print('Start plotting ',printoutput)
         # Plot the histograms (one per kernel for the different layers and save all in a pdf file)
@@ -1116,6 +1077,7 @@ def Net_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
             pltname+=Net+'_'
         labels = []
         for dataset in dataset_tab:
+            
             pltname +=  dataset+'_'
             if dataset == 'ImageNet':
                 labels += ['ImNet']
@@ -1183,6 +1145,269 @@ def Net_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
                     ax.tick_params(axis='both', which='major', labelsize=3)
                     ax.tick_params(axis='both', which='minor', labelsize=3)
                     ax.legend(loc='upper right', prop={'size': 2})
+                titre = layer +' ' +str(p)
+                plt.suptitle(titre)
+                
+                #gs0.tight_layout(f)
+                plt.savefig(pp, format='pdf')
+                plt.close()
+        pp.close()
+        plt.clf()
+ 
+def return_dicts_of_Var_or_Mean_for_VGGfeatures(dataset_tab,printoutput,output_path,\
+           style_layers,number_im_considered,set,getBeforeReLU,cropCenter,\
+           saveformat,Net,BV):
+    dict_of_dict = {}
+    if printoutput=='Var':
+        whatToload= 'var'
+    elif printoutput=='Mean':
+        whatToload= 'mean' 
+    for dataset in dataset_tab:
+        print('===',dataset,'===')
+        list_imgs,images_in_set,number_im_list = get_list_im(dataset,set='')
+        if not(number_im_considered is None):
+            if number_im_considered >= number_im_list:
+                number_im_considered_tmp =None
+            else:
+                number_im_considered_tmp=number_im_considered
+        else:
+             number_im_considered_tmp=number_im_considered
+        if BV:
+            str_layers = numeral_layers_index_bitsVersion(style_layers)
+        else:
+            str_layers = numeral_layers_index(style_layers)
+        filename = dataset + '_' + str(number_im_considered_tmp) + '_CovMean'+\
+            '_'+str_layers
+        if not(set=='' or set is None):
+            filename += '_'+set
+        if getBeforeReLU:
+            filename += '_BeforeReLU'
+        if cropCenter:
+            filename += '_cropCenter'
+        if saveformat=='pkl':
+            filename += '.pkl'
+        if saveformat=='h5':
+            filename += '.h5'
+        filename_path= os.path.join(output_path,filename)
+        
+        #print('filename_path',filename_path)
+        
+        if not os.path.isfile(filename_path):
+            dict_var = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered_tmp,\
+                                           dataset=dataset,set=set,saveformat=saveformat,
+                                           whatToload=whatToload,getBeforeReLU=getBeforeReLU,cropCenter=cropCenter,\
+                                           Net=Net)
+            dict_of_dict[dataset] = dict_var
+        else:
+            print('We will load the features ')
+            dict_var =load_precomputed_mean_cov(filename_path,style_layers,dataset,
+                                                saveformat=saveformat,whatToload=whatToload)
+            dict_of_dict[dataset] = dict_var
+    return(dict_of_dict)
+       
+def classSlitted_Net_Boxplots_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,\
+                        dataset_tab=None
+                        ,getBeforeReLU=False,printoutput='Var',cropCenter=False,BV=False,
+                        Net = 'VGG'):
+    """
+    In this function we will compute the first or second moments of VGG or ResNet networks
+    for different subsets such as a small part of ImageNet validation set 
+    Paintings datasets
+    @param : saveformat use h5 if you use more than 1000 images
+    @param :number_im_considered number of image considered in the computation 
+        if == np.inf we will use all the image in the folder of the dataset
+    @param : printoutput : print in a pdf the output Var or Mean
+    
+    Output files in SemanticDiff folder 
+    
+    """
+    matplotlib.use('Agg') 
+    ## Fonction pas du tout tester a finir !!!
+    # 
+    
+    if not(printoutput in get_partition(['Mean','Var'])):
+        print(printoutput,"is unknown. It must be 'Var' or 'Mean' or this of those two terms.")
+        raise(NotImplementedError)
+    if type(printoutput)==list:
+        list_printoutput = printoutput
+    else:
+        list_printoutput = [printoutput]
+
+    for dataset in dataset_tab:
+        if 'OIV5' in dataset or 'ImageNet' in dataset:
+            print(dataset,'is not implemented yet for class split plotting')
+            raise(NotImplementedError)
+
+    if dataset_tab is None:
+        dataset_tab = ['Paintings','watercolor','IconArt_v1']
+    output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata')
+    pdf_output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','SemanticDiff')
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    pathlib.Path(pdf_output_path).mkdir(parents=True, exist_ok=True) 
+
+    
+    if Net=='VGG':
+        style_layers = ['block1_conv1',
+                'block2_conv1',
+                'block3_conv1', 
+                'block4_conv1', 
+                'block5_conv1'
+               ]
+    elif Net=='ResNet50':
+        style_layers = ['conv1',
+                        'bn_conv1',
+                        'activation']
+
+#    num_style_layers = len(style_layers)
+    # Load the VGG model
+#    vgg_inter =  get_intermediate_layers_vgg(style_layers) 
+    
+    set = None
+    
+
+#    config = tf.ConfigProto()
+#    config.gpu_options.allow_growth = True
+#    vgg_get_cov = get_VGGmodel_gram_mean_features(style_layers)
+#    sess = tf.Session(config=config)
+#    sess.run(tf.global_variables_initializer())
+#    sess.run(tf.local_variables_initializer())
+    for printoutput in list_printoutput:
+        dict_of_dict = return_dicts_of_Var_or_Mean_for_VGGfeatures(dataset_tab,printoutput,output_path,\
+           style_layers,number_im_considered,set,getBeforeReLU,cropCenter,\
+           saveformat,Net,BV)
+    
+    
+        print('Start plotting ',printoutput)
+        # Plot the histograms (one per kernel for the different layers and save all in a pdf file)
+        pltname = 'Class_split_Bar_of_'+printoutput+'_fm_'
+        if not(Net=='VGG'):
+            pltname+=Net+'_'
+        labels = []
+        
+        NUM_COLORS = 10*len(dataset_tab)
+        cm = plt.get_cmap('gist_rainbow')
+        cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
+        scalarMap = mplcm.ScalarMappable(norm=cNorm, cmap=cm) # use : color=scalarMap.to_rgba(fig_i)
+        
+        for dataset in dataset_tab:
+            
+            pltname +=  dataset+'_'
+            if dataset == 'ImageNet':
+                labels += ['ImNet']
+            if dataset == 'ImageNetTest':
+                labels += ['ImNetTest']
+            if dataset == 'ImageNetTrain': # Warning in this case the images are ordered 
+                # So we have a semantic bias
+                labels += ['ImNetTrain']
+            elif dataset == 'Paintings':
+                labels += ['ArtUK']
+            elif dataset == 'watercolor':
+                labels += ['w2k']
+            elif dataset == 'IconArt_v1':
+                labels += ['icon']
+            elif dataset == 'OIV5':
+                labels += ['OIV5']
+        pltname +=  str(number_im_considered)
+        if getBeforeReLU:
+            pltname+= '_BeforeReLU'
+        if cropCenter:
+            pltname += '_cropCenter'   
+        pltname +='.pdf'
+        pltname= os.path.join(pdf_output_path,pltname)
+        pp = PdfPages(pltname)
+        
+        alpha=0.7
+        n_bins = 100
+
+        
+    #    style_layers = [style_layers[0]]
+        
+# /!\ En fatit ca serait plutot la valeur moyenne + std de la statistics ce que tu voudrais  afficher
+        plt.ioff()
+        fig_i = 0
+        
+        new_labels = []
+        colors_tab = []
+        FirstTime = True
+        for l,layer in enumerate(style_layers):
+            print("Layer",layer)
+            tab_vars = []
+
+            for dataset,label_dataset in zip(dataset_tab,labels): 
+                item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+                    path_data,Not_on_NicolasPC = get_database(dataset)
+                    
+                if FirstTime:
+                    if dataset=='Paintings':
+                        sLength = len(df_label[item_name])
+                        classes_vectors = np.zeros((sLength,num_classes))
+                        for i in range(sLength):
+                            for j in range(num_classes):
+                                if( classes[j] in df_label['classe'][i]):
+                                    classes_vectors[i,j] = 1
+                                
+                #print(df_label.head(5))
+                vars_ = dict_of_dict[dataset][layer]
+                num_images,num_features = vars_.shape
+                #print('num_images,num_features ',num_images,num_features)
+                for c_i,c in enumerate(classes):
+                     
+                    if dataset=='Paintings':
+                        vars_c = vars_[classes_vectors[:,c_i]==1.0]
+                    else:
+                        vars_c = vars_[df_label[c]==1.0]
+                    tab_vars +=[vars_c]
+                        
+                    #print(c,'vars_c.shape',vars_c.shape)
+                    if FirstTime:
+                        colors_tab += [scalarMap.to_rgba(fig_i)]
+                        fig_i += 1
+                        new_labels +=  [label_dataset + ' ' + c]
+     
+            FirstTime =  False
+        
+            number_img_w = 4
+            number_img_h= 4
+            num_pages = num_features//(number_img_w*number_img_h)
+            x_pos = np.arange(len(tab_vars))
+            for p in range(num_pages):
+                #f = plt.figure()  # Do I need this ?
+                axes = []
+                gs00 = gridspec.GridSpec(number_img_h, number_img_w)
+                for j in range(number_img_w*number_img_h):
+                    ax = plt.subplot(gs00[j])
+                    axes += [ax]
+                for k,ax in enumerate(axes):
+                    f_k = k + p*number_img_w*number_img_h
+                    mean_of_stats = []
+                    mean_of_stats = []
+                    X_stats = []
+                    for l in range(len(tab_vars)):
+                        vars_values = tab_vars[l][:,f_k].reshape((-1,))
+                        X_stats += [vars_values]
+                        #mean_of_stats += [np.mean(vars_values)]
+                        #std_of_stats += [np.std(vars_values)]
+                        #print('number points',len(vars_values),'mean',mean_of_stats,'std :',std_of_stats)
+                        #xtab += [vars_values]
+                    flierprops = dict(marker='+', markersize=3,
+                                      linestyle='none')
+                    im = ax.boxplot(X_stats,flierprops=flierprops,notch=True,patch_artist=True,labels=new_labels)
+                    # im = ax.bar(x_pos, mean_of_stats, yerr=std_of_stats, align='center', 
+                    #             alpha=alpha, ecolor='black',capsize=3,color=colors_tab,label=new_labels)
+                    #ax.set_xticks(x_pos)
+                    #ax.set_xticklabels(new_labels)
+
+    #                 xtab = []
+    #                 for l in range(len(dataset_tab)):
+    # #                    x = np.vstack([tab_vars[0][:,f_k],tab_vars[1][:,f_k]])# Each line is a dataset 
+    # #                    x = x.reshape((-1,2))
+    #                     vars_values = tab_vars[l][:,f_k].reshape((-1,))
+    #                     xtab += [vars_values]
+    #                 im = ax.hist(xtab,n_bins, density=True, histtype='step',color=colors_tab,\
+    #                              stacked=False,alpha=alpha,label=new_labels)
+                    ax.tick_params(axis='both', which='major', labelsize=3)
+                    ax.tick_params(axis='both', which='minor', labelsize=3)
+                   # ax.legend(loc='upper right', prop={'size': 2})
                 titre = layer +' ' +str(p)
                 plt.suptitle(titre)
                 
@@ -1591,13 +1816,13 @@ if __name__ == '__main__':
 #    VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =10000,
 #                        dataset_tab= ['ImageNet'],
 #                        getBeforeReLU=True,printoutput=['Mean','Var'])
-    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
-                        dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet','Paintings','watercolor','IconArt_v1'],
-                        getBeforeReLU=True,printoutput=['Mean','Var','Skewness','Kurtosis'],cropCenter =True)
+    # VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
+    #                     dataset_tab= ['ImageNetTrain','ImageNetTest','ImageNet','Paintings','watercolor','IconArt_v1'],
+    #                     getBeforeReLU=True,printoutput=['Mean','Var','Skewness','Kurtosis'],cropCenter =True)
 #    VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered =10000,
 #                        dataset_tab= ['ImageNetTrain'],
 #                        getBeforeReLU=True,printoutput=['Var'],cropCenter =True)
-    #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])
-    
-                    
-        
+    #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])              
+    classSlitted_Net_Boxplots_of_featuresMaps(saveformat='h5',number_im_considered =None,
+                        dataset_tab= ['Paintings'],
+                        getBeforeReLU=True,printoutput=['Var'],cropCenter =True)
