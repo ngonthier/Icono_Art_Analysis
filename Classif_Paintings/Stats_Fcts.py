@@ -145,6 +145,7 @@ def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,o
       else:
           opt = opt(learning_rate=lr)
   # Compile model
+
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])  
   return(model)     
   
@@ -449,7 +450,7 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
 
   custom_objects = {}
-  custom_objects['DecorrelatedBN']= DecorrelatedBN
+  custom_objects['DecorrelatedBN']= partial(DecorrelatedBN,m_per_group=m_per_group, affine=dbn_affine)
 
   lr_multiple = False
   multipliers = {}
@@ -505,12 +506,12 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
           elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
               model.add(Flatten())
       break
-  
-  model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout)
 
   if getBeforeReLU:# refresh the non linearity 
-      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True,\
+      model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True,\
                                               custom_objects=custom_objects)
+          
+  model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout)
   
   if verbose: print(model.summary())
   return model
@@ -552,6 +553,7 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
       lr = opt_option[-1]
   else:
       lr = 0.01
+      
   if optimizer=='SGD': 
       opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
   elif optimizer=='adam': 
@@ -599,12 +601,13 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
               model.add(Flatten())
       break
   
-  model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout)
-
   if getBeforeReLU:# refresh the non linearity 
-      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True,\
+      model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True,\
                                               custom_objects=custom_objects)
-  
+    
+  model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,\
+                           opt,regularizers,dropout)
+
   if verbose: print(model.summary())
   return model
 
