@@ -199,7 +199,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
 
   ilayer = 0
   for layer in pre_model.layers:
-     if SomePartFreezed and 'conv' in layer.name:
+     if SomePartFreezed and ('conv' in layer.name or 'fc' in layer.name):
          if freezingType=='FromTop':
              if ilayer >= number_of_trainable_layers - pretrainingModif:
                  layer.trainable = True
@@ -520,7 +520,8 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
               transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
               weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
-              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle'):
+              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle',
+              pretrainingModif=True,freezingType='FromTop'):
   """
   VGG with a shuffling the mean and standard deviation of the features maps between
   instance
@@ -530,8 +531,7 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
   # TODO : faire une multiplication par du bruit des statistics
   model = tf.keras.Sequential()
   vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
-  vgg_layers = vgg.layers
-  vgg.trainable = False
+
   i = 0
   
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
@@ -542,6 +542,16 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
   if kind_of_shuffling=='roll':
       custom_objects['Roll_MeanAndVar']= Roll_MeanAndVar
 
+  SomePartFreezed = False
+  if type(pretrainingModif)==bool:
+      vgg.trainable = pretrainingModif
+  else:
+      SomePartFreezed = True # We will unfreeze pretrainingModif==int layers from the end of the net
+      number_of_trainable_layers =  16
+      assert(number_of_trainable_layers >= pretrainingModif)
+      
+  vgg_layers = vgg.layers
+  
   lr_multiple = False
   multipliers = {}
   multiply_lrp, lr = None,None
@@ -575,8 +585,34 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
     print(final_layer,'is not in VGG net')
     raise(NotImplementedError)    
     
+  ilayer = 0
   for layer in vgg_layers:
     name_layer = layer.name
+    
+    if SomePartFreezed and ('conv' in layer.name or 'fc' in layer.name):
+         if freezingType=='FromTop':
+             if ilayer >= number_of_trainable_layers - pretrainingModif:
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         elif freezingType=='FromBottom':
+             if ilayer < pretrainingModif:
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         elif freezingType=='Alter':
+             pretrainingModif_bottom = pretrainingModif//2
+             pretrainingModif_top = pretrainingModif//2 + pretrainingModif%2
+             if (ilayer < pretrainingModif_bottom) or\
+                 (ilayer >= number_of_trainable_layers - pretrainingModif_top):
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         ilayer += 1
+    
+    if lr_multiple and layer.trainable:
+      multipliers[layer.name] = multiply_lrp
+    
     if i < len(style_layers) and name_layer==style_layers[i]:
       if getBeforeReLU:# remove the non linearity
           layer.activation = activations.linear # i.e. identity
@@ -591,6 +627,8 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
       i += 1
     else:
       model.add(layer)
+    
+    # Head of the model / final layer
     if layer.name==final_layer:
       if not(final_layer in  ['fc2','fc1','flatten']):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling

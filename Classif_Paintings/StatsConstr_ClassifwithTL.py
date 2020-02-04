@@ -995,7 +995,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                            regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam
                                            ,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 
-            elif constrNet=='VGGAdaIn':
+            elif constrNet=='VGGAdaIn': # Only the Normalisation BN  layer are trainable
                 model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
                           transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
                           final_clf=final_clf,final_layer=features,verbose=verbose,\
@@ -1032,14 +1032,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                           SGDmomentum=SGDmomentum,decay=decay,\
                           list_mean_and_std_source=list_mean_and_std_source,list_mean_and_std_target=list_mean_and_std_target)
                 
-            elif constrNet=='VGGFRN':
+            elif constrNet=='VGGFRN': # Only the FRN layer are trainable
                 model = vgg_FRN(style_layers,num_of_classes=num_classes,weights=weights,\
                           transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
                           final_clf=final_clf,final_layer=features,verbose=verbose,\
                           optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                           regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
                 
-            elif constrNet=='VGGAdaDBN':
+            elif constrNet=='VGGAdaDBN': # Only the DBN decorrelated layer are trainable
                 model = vgg_adaDBN(style_layers,num_of_classes=num_classes,\
                           transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,verbose=verbose,\
                           weights=weights,final_layer=features,final_clf=final_clf,\
@@ -1054,7 +1054,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                           optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                           regulOnNewLayerParam=regulOnNewLayerParam,\
                           dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
-                          kind_of_shuffling=kind_of_shuffling)
+                          kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,freezingType=freezingType)
             
             elif constrNet=='ResNet50':
                 getBeforeReLU = False
@@ -1824,14 +1824,22 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                                                         ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
                                                         ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
             
+    style_layers_tab_VGGAdaDBN = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
+                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
+                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
+    
     kind_of_shuffling_tab=['roll','shuffle'] # Roll means to apply the same modification at all the layers
     
     NUM_COLORS = len(list_freezingType) + len(style_layers_tab_VGGAdaIn) +\
-        len(style_layers_tab_VGGFRN) + len(kind_of_shuffling_tab)*len(style_layers_tab_VGGshuffle)
+        len(style_layers_tab_VGGFRN) + len(kind_of_shuffling_tab)*len(style_layers_tab_VGGshuffle) \
+            + len(style_layers_tab_VGGAdaDBN)
     if len(list_markers) < NUM_COLORS :
         list_markers = list_markers*(NUM_COLORS//len(list_markers) + 1)
     
-    # ResNet + VGGAdaIn + VGGFRN + VGGshuffle
+    # ResNet + VGGAdaIn + VGGFRN + VGGshuffle + VGGAdaDBN
     # Besoin de rajouter les autres a  l occasion
     color_number_for_frozen = [0,NUM_COLORS//2,NUM_COLORS-1]
     cm = plt.get_cmap('gist_rainbow')
@@ -2033,46 +2041,56 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
 
                 
             # Case of the fine tuning with decorellated batch normalization 
-            # TODO a debugguer
-#            constrNet = 'VGGAdaDBN'
-#            style_layers_tab_VGGAdaDBN = [['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
-#                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
-#                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
-#                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4'],
-#                                                        ['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1'],
-#                                                        ['block1_conv1','block2_conv1'],['block2_conv1'],['block1_conv1']]
-#            for style_layers in style_layers_tab_VGGAdaDBN:
-#    #            print(constrNet,style_layers)
-#                metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
-#                                          epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
-#                                          forLatex=True,optimizer=optimizer,\
-#                                          opt_option=[opt_option[-1]],cropCenter=cropCenter,\
-#                                          style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
-#                                          final_clf=final_clf,features='block5_pool',return_best_model=return_best_model,\
-#                                          onlyReturnResult=onlyPlot,dbn_affine=True,m_per_group=16,\
-#                                          dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
-#                
-#                if metrics is None:
-#                    continue
-#                
-#                metricI_per_class = metrics[metricploted_index]
-#                mMetric = np.mean(metricI_per_class)
-#                if fig_i in color_number_for_frozen:
-#                    fig_i_c = fig_i +1 
-#                    fig_i_m = fig_i
-#                    fig_i += 1
-#                else:
-#                    fig_i_c = fig_i
-#                    fig_i_m = fig_i
-#                labelstr = constrNet 
-#                if not(constrNet=='VGG'):
-#                    if BV:
-#                        labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
-#                    else:
-#                        labelstr += '_'+ numeral_layers_index(style_layers)
-#                plt.plot([0],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
-#                         marker=list_markers[fig_i_m],linestyle='')
-#                fig_i += 1
+
+            constrNet = 'VGGAdaDBN'
+
+            for style_layers in style_layers_tab_VGGAdaDBN:
+    #            print(constrNet,style_layers)
+                metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
+                                          epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                                          forLatex=True,optimizer=optimizer,\
+                                          opt_option=opt_option_local,cropCenter=cropCenter,\
+                                          style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
+                                          final_clf=final_clf,features='block5_pool',return_best_model=return_best_model,\
+                                          onlyReturnResult=onlyPlot,dbn_affine=True,m_per_group=16,\
+                                          dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                
+                if metrics is None:
+                    continue
+                
+                metricI_per_class = metrics[metricploted_index]
+                mMetric = np.mean(metricI_per_class)
+                if fig_i in color_number_for_frozen:
+                    fig_i_c = fig_i +1 
+                    fig_i_m = fig_i
+                    fig_i += 1
+                else:
+                    fig_i_c = fig_i
+                    fig_i_m = fig_i
+
+                labelstr = constrNet 
+                if not(constrNet=='VGG'):
+                    if BV:
+                        if style_layers==['block1_conv1','block1_conv2','block2_conv1','block2_conv2',
+                                                        'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
+                                                        'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
+                                                        'block5_conv1','block5_conv2','block5_conv3','block5_conv4']:
+                            
+                            labelstr += '_all'
+                        elif style_layers==['block1_conv1','block2_conv1','block3_conv1','block4_conv1', 'block5_conv1']:
+                            labelstr += '*conv1' 
+                        elif style_layers==['block1_conv1','block2_conv1']:
+                            labelstr += 'b1_b2_conv1' 
+                        elif style_layers==['block1_conv1']:
+                            labelstr += 'b1_conv1' 
+                        else:
+                            labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                    else:
+                        labelstr += '_'+ numeral_layers_index(style_layers)
+                x = len(style_layers)
+                plt.plot([x],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
+                        marker=list_markers[fig_i_m],linestyle='')
+                fig_i += 1
 #                
             # Case of tthe stats (mean,var) shuffling
             constrNet = 'VGGsuffleInStats'
@@ -2626,13 +2644,16 @@ def PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings'
     opt_option_tab = [[10**(-2)],[0.1,10**(-2)],[10**(-1)],[0.1,10**(-1)],[10**(-3)],[0.1,10**(-3)],[1.0],[0.1,1.0],[10**(-3)],[0.1,10**(-3)]]
     #opt_option_tab = [[10**(-2)],[0.1,10**(-2)]]
     epochs_tab = [20,20,20,20,20,20,20,20,200,200]
+    epochs_tab = [20,20,20,20,20,20,20,20]
     optimizer = 'SGD'
     
     style_layers_tab_forResNet50_ROWD = [['bn_conv1'],['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1'],
                               getBNlayersResNet50()]
-    style_layers_tab_forResNet50_ROWD = [getBNlayersResNet50()]
+    #style_layers_tab_forResNet50_ROWD = [getBNlayersResNet50()]
     
     NUM_COLORS =len(list_freezingType)*len(transformOnFinalLayer_tab)*len(opt_option_tab)*(1+len(style_layers_tab_forResNet50_ROWD))
+    if len(list_markers) < NUM_COLORS:
+        list_markers = list_markers*((NUM_COLORS//len(list_markers))+1)
     color_number_for_frozen = []
     cm = plt.get_cmap('gist_rainbow')
     cNorm  = colors.Normalize(vmin=0, vmax=NUM_COLORS-1)
@@ -3354,7 +3375,7 @@ def testVGGShuffle():
                epochs=epochs,nesterov=True,SGDmomentum=0.9,decay=0.0005)
 
 
-def testPerformanceVGGnetwork():
+def testPerformanceVGGShuffle():
     """
     The goal is just to compare the VGG 19 all layers against the shuffle version
     """
@@ -3385,6 +3406,51 @@ def testPerformanceVGGnetwork():
                     SGDmomentum=SGDmomentum,decay=decay,verbose=True)
     ## VGG GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop 
         # & 28.3 & 17.7 & 83.4 & 55.2 & 24.0 & 42.6 & 20.1 & 50.9 & 38.4 & 60.0 & 42.1 \\
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
+                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                    pretrainingModif=pretrainingModif,freezingType=freezingType,
+                    optimizer=optimizer,opt_option=[0.1,10**(-2)],cropCenter=cropCenter
+                    ,final_clf=final_clf,features='block5_pool',ReDo=ReDo,\
+                    return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                    dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
+                    SGDmomentum=0.0,decay=decay,verbose=True)
+    ## VGG GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop 
+    # & 25.5 & 21.6 & 79.9 & 60.4 & 28.7 & 45.1 & 27.5 & 56.4 & 35.9 & 61.0 & 44.2 \\
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
+                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                    pretrainingModif=pretrainingModif,freezingType=freezingType,
+                    optimizer=optimizer,opt_option=[10**(-2)],cropCenter=cropCenter
+                    ,final_clf=final_clf,features='block5_pool',ReDo=ReDo,\
+                    return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                    dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
+                    SGDmomentum=SGDmomentum,decay=decay,verbose=True)
+    ## VGG GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop 
+    # Here loss explosed
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
+                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                    pretrainingModif=pretrainingModif,freezingType=freezingType,
+                    optimizer=optimizer,opt_option=[0.1,10**(-2)],cropCenter=cropCenter
+                    ,final_clf='MLP1',features='fc2',ReDo=ReDo,\
+                    return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                    dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
+                    SGDmomentum=0.0,decay=decay,verbose=True)
+    ## VGG GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop 
+    # & 63.5 & 45.6 & 93.0 & 74.3 & 57.8 & 70.1 & 52.2 & 77.9 & 69.1 & 82.2 & 68.6 \\ 
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
+                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                    pretrainingModif=pretrainingModif,freezingType=freezingType,
+                    optimizer=optimizer,opt_option=[10**(-4)],cropCenter=cropCenter
+                    ,final_clf=final_clf,features='block5_pool',ReDo=ReDo,\
+                    return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                    dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
+                    SGDmomentum=SGDmomentum,decay=decay,verbose=True)
+    ## VGG GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop 
+    #  & 7.6 & 12.7 & 66.9 & 43.4 & 13.6 & 34.2 & 17.2 & 27.4 & 18.4 & 8.5 & 25.0 \\
+
     
     # VGGsuffleInStats
     kind_of_shuffling = 'roll'
@@ -3413,7 +3479,32 @@ def testPerformanceVGGnetwork():
                     SGDmomentum=SGDmomentum,decay=decay,kind_of_shuffling=kind_of_shuffling,verbose=True)
     #['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
     # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU 
-    # & 37.2 & 14.9 & 84.6 & 52.4 & 33.5 & 49.3 & 33.7 & 61.0 & 35.8 & 60.3 & 46.3 \\ 
+    # 
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
+                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                    pretrainingModif=pretrainingModif,freezingType=freezingType,
+                    optimizer='adam',opt_option=opt_option,cropCenter=cropCenter
+                    ,final_clf=final_clf,features='block5_pool',ReDo=ReDo,\
+                    return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                    dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
+                    SGDmomentum=SGDmomentum,decay=decay,kind_of_shuffling=kind_of_shuffling,verbose=True)
+    #['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
+    # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU 
+    #  
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
+                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                    pretrainingModif=pretrainingModif,freezingType=freezingType,
+                    optimizer='SGD',opt_option=opt_option,cropCenter=cropCenter
+                    ,final_clf=final_clf,features='block5_pool',ReDo=ReDo,\
+                    return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                    dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
+                    SGDmomentum=SGDmomentum,decay=decay,kind_of_shuffling=kind_of_shuffling,verbose=True,\
+                    style_layers=['block1_conv1'])
+    #['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
+    # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU 
+    # 
         
     opt_option = [10**(-1)]
     kind_of_shuffling = 'roll'
@@ -3427,9 +3518,65 @@ def testPerformanceVGGnetwork():
                     SGDmomentum=SGDmomentum,decay=decay,kind_of_shuffling=kind_of_shuffling,verbose=True)
    # ['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
    # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU 
-   #& 3.0 & 10.8 & 33.1 & 46.1 & 8.1 & 13.3 & 13.4 & 56.7 & 11.6 & 4.3 & 20.0 \\ 
-
-
+   #
+        
+    opt_option = [10**(-1)]
+    kind_of_shuffling = 'roll'
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
+                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                    pretrainingModif=pretrainingModif,freezingType=freezingType,
+                    optimizer=optimizer,opt_option=opt_option,cropCenter=cropCenter
+                    ,final_clf=final_clf,features='block5_pool',ReDo=ReDo,\
+                    return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                    dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
+                    SGDmomentum=SGDmomentum,decay=decay,kind_of_shuffling=kind_of_shuffling,verbose=True,
+                    style_layers=['block1_conv1'])
+   # ['block1_conv1']
+   # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU 
+    #
+        
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
+                kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
+                pretrainingModif=pretrainingModif,freezingType=freezingType,
+                optimizer=optimizer,opt_option=[10**(-2)],cropCenter=cropCenter
+                ,final_clf='MLP1',features='fc2',ReDo=ReDo,\
+                return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
+                SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'roll')
+    #Paintings ImageNet 10000 MLP1 fc2  VGGsuffleInStats FT GS True norm False getBeforeReLU True FT MLP1
+    #['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
+    #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU
+    # 
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
+                kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
+                pretrainingModif=True,freezingType='FromTop',
+                optimizer=optimizer,opt_option=[10**(-2)],cropCenter=cropCenter
+                ,final_clf='MLP1',features='fc2',ReDo=ReDo,\
+                return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
+                SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'roll',
+                style_layers=['block1_conv1'])
+    #Paintings ImageNet 10000 MLP1 fc2  VGGsuffleInStats FT GS True norm False getBeforeReLU True FT MLP1
+    #['block1_conv1']
+    #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU 
+    #  & 65.8 & 45.0 & 93.1 & 74.6 & 66.0 & 70.6 & 53.0 & 79.7 & 70.1 & 81.4 & 69.9 \\ 
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
+                kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
+                pretrainingModif=pretrainingModif,freezingType=freezingType,
+                optimizer=optimizer,opt_option=[10**(-2)],cropCenter=cropCenter
+                ,final_clf='MLP1',features='fc2',ReDo=ReDo,\
+                return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
+                SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'shuffle',
+                style_layers=['block1_conv1'])
+    #Paintings ImageNet 10000 MLP1 fc2  VGGsuffleInStats FT GS True norm False getBeforeReLU True FT MLP1
+    #['block1_conv1']
+    #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU 
+    #  
+        
 def testROWD_CUMUL():
     learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
                     kind_method='TL',ReDo=False,gridSearch=False,
@@ -3444,6 +3591,9 @@ def testROWD_CUMUL():
                     useFloat32=True,computeGlobalVariance=True)
     #& 62.0 & 40.4 & 89.5 & 69.8 & 44.7 & 66.1 & 41.4 & 68.8 & 58.8 & 81.3 & 62.3 \\
     # Contre 72.2 pour LinearSVC sur les features directement...
+        
+        
+    
         
 def testROWD_CUMUL_FT_freezingLayers():
     learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
@@ -3780,8 +3930,8 @@ if __name__ == '__main__':
     #RunAllEvaluation_ForFeatureExtractionModel(printForTabularLatex=True)
     #RunAllEvaluation_ForFeatureExtractionModel()
     #RunAllEvaluation_FineTuningResNet()
-    # PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
-    #                           onlyPlot=False,cropCenter=True,BV=True)
+    PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
+                              onlyPlot=False,cropCenter=True,BV=True)
     #RunAllEvaluation_FineTuningResNet() # a regrouper
-    RunAllEvaluation_FineTuningVGG()   # a regrouper
+    #RunAllEvaluation_FineTuningVGG()   # a regrouper
     
