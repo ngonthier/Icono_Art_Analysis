@@ -996,204 +996,45 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 raise(NotImplementedError)
                 
         elif kind_method=='FT':
-            # We fineTune a VGG
-            if constrNet=='VGG':
-                getBeforeReLU = False
-                model = VGG_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
-                                           transformOnFinalLayer=transformOnFinalLayer,weights=weights,
-                                           optimizer=optimizer,opt_option=opt_option,freezingType=freezingType,
-                                           final_clf=final_clf,final_layer=features,verbose=verbose,
-                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam
-                                           ,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
-                
-            elif constrNet=='VGGAdaIn': # Only the Normalisation BN  layer are trainable
-                model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
-                          transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
-                          final_clf=final_clf,final_layer=features,verbose=verbose,\
-                          optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
-                          regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
-              
-            elif constrNet=='VGGBaseNormCoherentAdaIn':
-                print('VGGBaseNormCoherentAdaIn for FT : cela ne fonctionne pas et je ne sais pas pourquoi')
-                raise(NotImplementedError)
-                   # cela ne fonctionne pas et je ne sais pas pourquoi
-                
-                # A more coherent way to compute the VGGBaseNormalisation
-                # We will pass the dataset several time through the net modify bit after bit to 
-                # get the coherent mean and std of the target domain
-                whatToload = 'varmean'
-                dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
-                       cropCenter=cropCenter,BV=BV)
-                # Compute the reference statistics
-                list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
-                                                     imageUsed='all',whatToload =whatToload,
-                                                     applySqrtOnVar=True)
-                target_number_im_considered = None
-                target_set = 'trainval'
-                dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
-                       style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
-                       getBeforeReLU=getBeforeReLU,target_set=target_set,\
-                       applySqrtOnVar=True,cropCenter=cropCenter,BV=BV,verbose=verbose) # It also computes the reference statistics (mean,var)
-                
-                # We use the vgg_BaseNorm as the initialisation of the VGGAdaIn one 
-                # That means we allow to fine-tune the batch normalisation
-                
-                model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
-                      transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
-                      final_clf=final_clf,final_layer=features,verbose=verbose,\
-                      optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
-                      regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
-                      SGDmomentum=SGDmomentum,decay=decay,\
-                      list_mean_and_std_source=list_mean_and_std_source,list_mean_and_std_target=list_mean_and_std_target)
             
-            elif constrNet=='VGGFRN': # Only the FRN layer are trainable
-                model = vgg_FRN(style_layers,num_of_classes=num_classes,weights=weights,\
-                          transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
-                          final_clf=final_clf,final_layer=features,verbose=verbose,\
-                          optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
-                          regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+            BaysianOptimFT = False
+            if not(BaysianOptimFT):
                 
-            elif constrNet=='VGGAdaDBN': # Only the DBN decorrelated layer are trainable
-                model = vgg_adaDBN(style_layers,num_of_classes=num_classes,\
-                          transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,verbose=verbose,\
-                          weights=weights,final_layer=features,final_clf=final_clf,\
-                          optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
-                          regulOnNewLayerParam=regulOnNewLayerParam,\
-                          dbn_affine=dbn_affine,m_per_group=m_per_group,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
-            
-            elif constrNet=='VGGsuffleInStats':
-                model = vgg_suffleInStats(style_layers,num_of_classes=num_classes,\
-                          transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,verbose=verbose,\
-                          weights=weights,final_layer=features,final_clf=final_clf,\
-                          optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
-                          regulOnNewLayerParam=regulOnNewLayerParam,\
-                          dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
-                          kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
-                          freezingType=freezingType,p=p)
-            
-            elif constrNet=='ResNet50':
-                getBeforeReLU = False
-                model = ResNet_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
-                                           transformOnFinalLayer=transformOnFinalLayer,weights=weights,opt_option=opt_option,\
-                                           res_num_layers=50,final_clf=final_clf,verbose=verbose,\
-                                           freezingType=freezingType,dropout=dropout,nesterov=nesterov,\
-                                           SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer)
+                model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
+                            transformOnFinalLayer,weights,
+                            optimizer,opt_option,freezingType,
+                            final_clf,features,verbose,
+                            regulOnNewLayer,regulOnNewLayerParam
+                            ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                            source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                            BV,p,
+                            dbn_affine,m_per_group,kind_method,\
+                            batch_size_RF,momentum,\
+                            epochs_RF,output_path,kind_of_shuffling,useFloat32)
                     
-            elif constrNet=='ResNet50AdaIn':
-                getBeforeReLU = False
-                model = ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
-                                           transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
-                                           res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
-                                           dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer)
-                
-            elif constrNet=='ResNet50_ROWD_CUMUL':
-                # Refinement the batch normalisation : normalisation statistics
-                # Once on the Whole train val Dataset on new dataset
-                # In a cumulative way to be more efficient
-                # Il faudrait peut etre mieux gerer les cas ou la variances est négatives
-                list_mean_and_std_source = None
-                target_number_im_considered = None
-                whatToload = 'varmean'
-                target_set = 'trainval'
-                dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(
-                        target_dataset,source_dataset,target_number_im_considered,\
-                        style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
-                        getBeforeReLU=getBeforeReLU,target_set=target_set,\
-                        applySqrtOnVar=True,Net=constrNet,cropCenter=cropCenter,\
-                        BV=BV,cumulativeWay=True,verbose=verbose,useFloat32=useFloat32) # It also computes the reference statistics (mean,var)
-                
-                network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
-                               style_layers,list_mean_and_std_target=list_mean_and_std_target,\
-                               final_layer=features,\
-                               transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
-                               weights='imagenet')
-
-                model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
-                             final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
-                             pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet)
-                    
-            elif constrNet=='ResNet50_ROWD_CUMUL_AdaIn':
-                # Refinement the batch normalisation : normalisation statistics
-                # Once on the Whole train val Dataset on new dataset
-                # In a cumulative way to be more efficient
-                # Il faudrait peut etre mieux gerer les cas ou la variances est négatives
-                list_mean_and_std_source = None
-                target_number_im_considered = None
-                whatToload = 'varmean'
-                target_set = 'trainval'
-                dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(
-                        target_dataset,source_dataset,target_number_im_considered,\
-                        style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
-                        getBeforeReLU=getBeforeReLU,target_set=target_set,\
-                        applySqrtOnVar=True,Net='ResNet50_ROWD_CUMUL',cropCenter=cropCenter,\
-                        BV=BV,cumulativeWay=True,verbose=verbose,useFloat32=useFloat32) # It also computes the reference statistics (mean,var)
-                
-                network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
-                               style_layers,list_mean_and_std_target=list_mean_and_std_target,\
-                               final_layer=features,\
-                               transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
-                               weights='imagenet')
-
-                model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
-                             final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
-                             AdaIn_mode=True,style_layers=style_layers)
-                    
-            elif constrNet=='ResNet50_BNRF':
-                res_num_layers = 50
-                network_features_extractionBNRF= get_ResNet_BNRefin(df=df_label,\
-                                x_col=item_name,path_im=path_to_img,\
-                                str_val=str_val,num_of_classes=len(classes),Net=constrNet,\
-                                weights=weights,res_num_layers=res_num_layers,\
-                                transformOnFinalLayer=transformOnFinalLayer,\
-                                kind_method=kind_method,\
-                                batch_size=batch_size_RF,momentum=momentum,\
-                                num_epochs_BN=epochs_RF,output_path=output_path,\
-                                cropCenter=cropCenter)
-                
-#                dict_stats_target,list_mean_and_std_target = extract_Norm_stats_of_ResNet(network_features_extractionBNRF,\
-#                                                    res_num_layers=res_num_layers,model_type=constrNet)
-#                # To the network name
-#                K.clear_session()
-#                s = tf.InteractiveSession()
-#                K.set_session(s)
-#                
-#                network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
-#                               style_layers,list_mean_and_std_target=list_mean_and_std_target,\
-#                               final_layer=features,\
-#                               transformOnFinalLayer=transformOnFinalLayer,res_num_layers=res_num_layers,\
-#                               weights='imagenet')
-                
-                model = add_head_and_trainable(network_features_extractionBNRF,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
-                             final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
-                                 pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet)
-                    ## Non tester !!!
-                
-                
-            else:
-                print(constrNet,'is unkwon in the context of TL')
-                raise(NotImplementedError)
-            
+                model_path = os.path.join(model_output_path,AP_file_base+'.h5')
+                include_optimizer=False
         
-            model_path = os.path.join(model_output_path,AP_file_base+'.h5')
-            include_optimizer=False
-        
-            if returnStatistics: # We will load the model and return it
-                model = load_model(model_path)
-                return(model)
-            
-            model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
-                                    x_col=item_name,y_col=classes,path_im=path_to_img,\
-                                    str_val=str_val,num_classes=len(classes),epochs=epochs,\
-                                    Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
-                                    NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet)
-            
+                if returnStatistics: # We will load the model and return it
+                    model = load_model(model_path)
+                    return(model)
+                
+                model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
+                                        x_col=item_name,y_col=classes,path_im=path_to_img,\
+                                        str_val=str_val,num_classes=len(classes),epochs=epochs,\
+                                        Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
+                                        NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet)
+                
+
+            else: # Baysian optimization of the model
+                raise(NotImplementedError)
+                
             model.save(model_path,include_optimizer=include_optimizer)
             # Prediction
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
                                            y_col=classes,path_im=path_to_img,Net=constrNet,\
                                            cropCenter=cropCenter)
-
+                
             try:
                 metrics = evaluationScore(y_test,predictions)    
             except ValueError as e:
@@ -1246,6 +1087,204 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     #cuda.close()
     
     return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
+
+def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
+                            transformOnFinalLayer,weights,
+                            optimizer,opt_option,freezingType,
+                            final_clf,features,verbose,
+                            regulOnNewLayer,regulOnNewLayerParam
+                            ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                            source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                            BV,p,
+                            dbn_affine,m_per_group,kind_method,\
+                            batch_size_RF,momentum,\
+                            epochs_RF,output_path,kind_of_shuffling,useFloat32):
+    
+    # We fineTune a VGG
+    if constrNet=='VGG':
+        getBeforeReLU = False
+        model = VGG_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
+                                   transformOnFinalLayer=transformOnFinalLayer,weights=weights,
+                                   optimizer=optimizer,opt_option=opt_option,freezingType=freezingType,
+                                   final_clf=final_clf,final_layer=features,verbose=verbose,
+                                   regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam
+                                   ,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+        
+    elif constrNet=='VGGAdaIn': # Only the Normalisation BN  layer are trainable
+        model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
+                  transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
+                  final_clf=final_clf,final_layer=features,verbose=verbose,\
+                  optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
+                  regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
+                  SGDmomentum=SGDmomentum,decay=decay)
+      
+    elif constrNet=='VGGBaseNormCoherentAdaIn':
+        print('VGGBaseNormCoherentAdaIn for FT : cela ne fonctionne pas et je ne sais pas pourquoi')
+        raise(NotImplementedError)
+           # cela ne fonctionne pas et je ne sais pas pourquoi
+        
+        # A more coherent way to compute the VGGBaseNormalisation
+        # We will pass the dataset several time through the net modify bit after bit to 
+        # get the coherent mean and std of the target domain
+        whatToload = 'varmean'
+        dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+               whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
+               cropCenter=cropCenter,BV=BV)
+        # Compute the reference statistics
+        list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
+                                             imageUsed='all',whatToload =whatToload,
+                                             applySqrtOnVar=True)
+        target_number_im_considered = None
+        target_set = 'trainval'
+        dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
+               style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
+               getBeforeReLU=getBeforeReLU,target_set=target_set,\
+               applySqrtOnVar=True,cropCenter=cropCenter,BV=BV,verbose=verbose) # It also computes the reference statistics (mean,var)
+        
+        # We use the vgg_BaseNorm as the initialisation of the VGGAdaIn one 
+        # That means we allow to fine-tune the batch normalisation
+        
+        model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
+              transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
+              final_clf=final_clf,final_layer=features,verbose=verbose,\
+              optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
+              regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
+              SGDmomentum=SGDmomentum,decay=decay,\
+              list_mean_and_std_source=list_mean_and_std_source,list_mean_and_std_target=list_mean_and_std_target)
+    
+    elif constrNet=='VGGFRN': # Only the FRN layer are trainable
+        model = vgg_FRN(style_layers,num_of_classes=num_classes,weights=weights,\
+                  transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
+                  final_clf=final_clf,final_layer=features,verbose=verbose,\
+                  optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
+                  regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+        
+    elif constrNet=='VGGAdaDBN': # Only the DBN decorrelated layer are trainable
+        model = vgg_adaDBN(style_layers,num_of_classes=num_classes,\
+                  transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,verbose=verbose,\
+                  weights=weights,final_layer=features,final_clf=final_clf,\
+                  optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
+                  regulOnNewLayerParam=regulOnNewLayerParam,\
+                  dbn_affine=dbn_affine,m_per_group=m_per_group,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+    
+    elif constrNet=='VGGsuffleInStats':
+        model = vgg_suffleInStats(style_layers,num_of_classes=num_classes,\
+                  transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,verbose=verbose,\
+                  weights=weights,final_layer=features,final_clf=final_clf,\
+                  optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
+                  regulOnNewLayerParam=regulOnNewLayerParam,\
+                  dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
+                  kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
+                  freezingType=freezingType,p=p)
+    
+    elif constrNet=='ResNet50':
+        getBeforeReLU = False
+        model = ResNet_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
+                                   transformOnFinalLayer=transformOnFinalLayer,weights=weights,opt_option=opt_option,\
+                                   res_num_layers=50,final_clf=final_clf,verbose=verbose,\
+                                   freezingType=freezingType,dropout=dropout,nesterov=nesterov,\
+                                   SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer)
+            
+    elif constrNet=='ResNet50AdaIn':
+        getBeforeReLU = False
+        model = ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
+                                   transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
+                                   res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
+                                   dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer)
+        
+    elif constrNet=='ResNet50_ROWD_CUMUL':
+        # Refinement the batch normalisation : normalisation statistics
+        # Once on the Whole train val Dataset on new dataset
+        # In a cumulative way to be more efficient
+        # Il faudrait peut etre mieux gerer les cas ou la variances est négatives
+        list_mean_and_std_source = None
+        target_number_im_considered = None
+        whatToload = 'varmean'
+        target_set = 'trainval'
+        dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(
+                target_dataset,source_dataset,target_number_im_considered,\
+                style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
+                getBeforeReLU=getBeforeReLU,target_set=target_set,\
+                applySqrtOnVar=True,Net=constrNet,cropCenter=cropCenter,\
+                BV=BV,cumulativeWay=True,verbose=verbose,useFloat32=useFloat32) # It also computes the reference statistics (mean,var)
+        
+        network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
+                       style_layers,list_mean_and_std_target=list_mean_and_std_target,\
+                       final_layer=features,\
+                       transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
+                       weights='imagenet')
+
+        model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
+                     final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
+                     pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet)
+            
+    elif constrNet=='ResNet50_ROWD_CUMUL_AdaIn':
+        # Refinement the batch normalisation : normalisation statistics
+        # Once on the Whole train val Dataset on new dataset
+        # In a cumulative way to be more efficient
+        # Il faudrait peut etre mieux gerer les cas ou la variances est négatives
+        list_mean_and_std_source = None
+        target_number_im_considered = None
+        whatToload = 'varmean'
+        target_set = 'trainval'
+        dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(
+                target_dataset,source_dataset,target_number_im_considered,\
+                style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
+                getBeforeReLU=getBeforeReLU,target_set=target_set,\
+                applySqrtOnVar=True,Net='ResNet50_ROWD_CUMUL',cropCenter=cropCenter,\
+                BV=BV,cumulativeWay=True,verbose=verbose,useFloat32=useFloat32) # It also computes the reference statistics (mean,var)
+        
+        network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
+                       style_layers,list_mean_and_std_target=list_mean_and_std_target,\
+                       final_layer=features,\
+                       transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
+                       weights='imagenet')
+
+        model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
+                     final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
+                     AdaIn_mode=True,style_layers=style_layers)
+            
+    elif constrNet=='ResNet50_BNRF':
+        
+        # Load info about dataset
+        item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+        path_data,Not_on_NicolasPC = get_database(target_dataset)
+        
+        res_num_layers = 50
+        network_features_extractionBNRF= get_ResNet_BNRefin(df=df_label,\
+                        x_col=item_name,path_im=path_to_img,\
+                        str_val=str_val,num_of_classes=num_classes,Net=constrNet,\
+                        weights=weights,res_num_layers=res_num_layers,\
+                        transformOnFinalLayer=transformOnFinalLayer,\
+                        kind_method=kind_method,\
+                        batch_size=batch_size_RF,momentum=momentum,\
+                        num_epochs_BN=epochs_RF,output_path=output_path,\
+                        cropCenter=cropCenter)
+        
+#                dict_stats_target,list_mean_and_std_target = extract_Norm_stats_of_ResNet(network_features_extractionBNRF,\
+#                                                    res_num_layers=res_num_layers,model_type=constrNet)
+#                # To the network name
+#                K.clear_session()
+#                s = tf.InteractiveSession()
+#                K.set_session(s)
+#                
+#                network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
+#                               style_layers,list_mean_and_std_target=list_mean_and_std_target,\
+#                               final_layer=features,\
+#                               transformOnFinalLayer=transformOnFinalLayer,res_num_layers=res_num_layers,\
+#                               weights='imagenet')
+        
+        model = add_head_and_trainable(network_features_extractionBNRF,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
+                     final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
+                         pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet)
+            ## Non tester !!!
+        
+        
+    else:
+        print(constrNet,'is unkwon in the context of TL')
+        raise(NotImplementedError)
+    
+    return(model)
 
 def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                        weights,res_num_layers,transformOnFinalLayer,kind_method,\
