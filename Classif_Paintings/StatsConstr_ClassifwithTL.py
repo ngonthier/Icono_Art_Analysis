@@ -363,7 +363,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
                                    kind_of_shuffling='shuffle',useFloat32=True,\
                                    computeGlobalVariance=True,returnStatistics=False,returnFeatures=False,\
-                                   NoValidationSetUsed=False,RandomValdiationSet=False):
+                                   NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -424,6 +424,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : returnFeatures : if True in the case of ResNet, ROWD and BNRF, we return the features precomputed along with the labels
     @param : NoValidationSetUsed : means that we don't use a validation set for selecting the best model or other stuff, we will use the whole trainval dataset for training
     @param : RandomValdiationSet : means that we don't use a provide validation set for selecting the best model but a fraction of the trainval set
+    @param : p probability in the case of roll_partial of VGGshuflleAdaIn model 
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -543,6 +544,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     if constrNet=='VGGsuffleInStats':
         if not(kind_of_shuffling=='shuffle'):
             name_base += '_'+ kind_of_shuffling
+        if kind_of_shuffling=='roll_partial':
+            name_base += '_p'+str(p)
    
     if constrNet=='ResNet50_ROWD_CUMUL' and useFloat32:
         name_base += '_useFloat32'
@@ -979,7 +982,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                  verbose=verbose,plotConv=plotConv,return_best_model=return_best_model,\
                                  NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet)
                 predictions = model.predict(X_test, batch_size=1)
-                metrics = evaluationScore(y_test,predictions)  
+                
+                try:
+                    metrics = evaluationScore(y_test,predictions)  
+                except ValueError as e:
+                    print(e)
+                    print('This is certainly due to the divergence of the model')
+                    metrics = None
+                    return(metrics)
+                
             else:
                 print(final_clf,'doesn t exist')
                 raise(NotImplementedError)
@@ -1003,35 +1014,39 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                           regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
               
             elif constrNet=='VGGBaseNormCoherentAdaIn':
-                    # A more coherent way to compute the VGGBaseNormalisation
-                    # We will pass the dataset several time through the net modify bit after bit to 
-                    # get the coherent mean and std of the target domain
-                    whatToload = 'varmean'
-                    dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
-                           whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
-                           cropCenter=cropCenter,BV=BV)
-                    # Compute the reference statistics
-                    list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
-                                                         imageUsed='all',whatToload =whatToload,
-                                                         applySqrtOnVar=True)
-                    target_number_im_considered = None
-                    target_set = 'trainval'
-                    dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
-                           style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
-                           getBeforeReLU=getBeforeReLU,target_set=target_set,\
-                           applySqrtOnVar=True,cropCenter=cropCenter,BV=BV,verbose=verbose) # It also computes the reference statistics (mean,var)
-                    
-                    # We use the vgg_BaseNorm as the initialisation of the VGGAdaIn one 
-                    # That means we allow to fine-tune the batch normalisation
-                    
-                    model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
-                          transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
-                          final_clf=final_clf,final_layer=features,verbose=verbose,\
-                          optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
-                          regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
-                          SGDmomentum=SGDmomentum,decay=decay,\
-                          list_mean_and_std_source=list_mean_and_std_source,list_mean_and_std_target=list_mean_and_std_target)
+                print('VGGBaseNormCoherentAdaIn for FT : cela ne fonctionne pas et je ne sais pas pourquoi')
+                raise(NotImplementedError)
+                   # cela ne fonctionne pas et je ne sais pas pourquoi
                 
+                # A more coherent way to compute the VGGBaseNormalisation
+                # We will pass the dataset several time through the net modify bit after bit to 
+                # get the coherent mean and std of the target domain
+                whatToload = 'varmean'
+                dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                       whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
+                       cropCenter=cropCenter,BV=BV)
+                # Compute the reference statistics
+                list_mean_and_std_source = compute_ref_stats(dict_stats_source,style_layers,type_ref='mean',\
+                                                     imageUsed='all',whatToload =whatToload,
+                                                     applySqrtOnVar=True)
+                target_number_im_considered = None
+                target_set = 'trainval'
+                dict_stats_target,list_mean_and_std_target = get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_im_considered,\
+                       style_layers,list_mean_and_std_source,whatToload,saveformat='h5',\
+                       getBeforeReLU=getBeforeReLU,target_set=target_set,\
+                       applySqrtOnVar=True,cropCenter=cropCenter,BV=BV,verbose=verbose) # It also computes the reference statistics (mean,var)
+                
+                # We use the vgg_BaseNorm as the initialisation of the VGGAdaIn one 
+                # That means we allow to fine-tune the batch normalisation
+                
+                model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
+                      transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
+                      final_clf=final_clf,final_layer=features,verbose=verbose,\
+                      optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
+                      regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
+                      SGDmomentum=SGDmomentum,decay=decay,\
+                      list_mean_and_std_source=list_mean_and_std_source,list_mean_and_std_target=list_mean_and_std_target)
+            
             elif constrNet=='VGGFRN': # Only the FRN layer are trainable
                 model = vgg_FRN(style_layers,num_of_classes=num_classes,weights=weights,\
                           transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
@@ -1054,7 +1069,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                           optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                           regulOnNewLayerParam=regulOnNewLayerParam,\
                           dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
-                          kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,freezingType=freezingType)
+                          kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
+                          freezingType=freezingType,p=p)
             
             elif constrNet=='ResNet50':
                 getBeforeReLU = False
@@ -1178,7 +1194,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                            y_col=classes,path_im=path_to_img,Net=constrNet,\
                                            cropCenter=cropCenter)
 
-            metrics = evaluationScore(y_test,predictions)    
+            try:
+                metrics = evaluationScore(y_test,predictions)    
+            except ValueError as e:
+                print(e)
+                print('This is certainly due to the divergence of the model')
+                metrics = None
+                return(metrics)
+            
             del model
             
         with open(APfilePath, 'wb') as pkl:
@@ -3405,7 +3428,18 @@ def testPerformanceVGGShuffle():
                     dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
                     SGDmomentum=SGDmomentum,decay=decay,verbose=True)
     ## VGG GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop 
-        # & 28.3 & 17.7 & 83.4 & 55.2 & 24.0 & 42.6 & 20.1 & 50.9 & 38.4 & 60.0 & 42.1 \\
+    # & 28.3 & 17.7 & 83.4 & 55.2 & 24.0 & 42.6 & 20.1 & 50.9 & 38.4 & 60.0 & 42.1 \\
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
+                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                    pretrainingModif=pretrainingModif,freezingType=freezingType,
+                    optimizer=optimizer,opt_option=opt_option,cropCenter=cropCenter
+                    ,final_clf=final_clf,features='block5_pool',ReDo=ReDo,\
+                    return_best_model=False,onlyReturnResult=onlyPlot,\
+                    dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
+                    SGDmomentum=SGDmomentum,decay=decay,verbose=True,NoValidationSetUsed=True)
+    ## VGG GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop 
+    # & 31.7 & 20.0 & 85.8 & 56.7 & 26.7 & 46.1 & 22.4 & 53.6 & 39.8 & 66.7 & 44.9 \\ 
         
     learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
                     kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
@@ -3565,6 +3599,20 @@ def testPerformanceVGGShuffle():
         
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
                 kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
+                pretrainingModif=True,freezingType='FromTop',
+                optimizer=optimizer,opt_option=[0.1,10**(-2)],cropCenter=cropCenter
+                ,final_clf='MLP1',features='fc2',ReDo=ReDo,\
+                return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
+                SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'roll',
+                style_layers=['block1_conv1'])
+    #Paintings ImageNet 10000 MLP1 fc2  VGGsuffleInStats FT GS True norm False getBeforeReLU True FT MLP1
+    #['block1_conv1']
+    #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU 
+    #  & 64.6 & 48.7 & 93.7 & 73.1 & 62.2 & 71.1 & 52.5 & 79.0 & 70.7 & 84.0 & 70.0 \\ 
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
+                kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
                 pretrainingModif=pretrainingModif,freezingType=freezingType,
                 optimizer=optimizer,opt_option=[10**(-2)],cropCenter=cropCenter
                 ,final_clf='MLP1',features='fc2',ReDo=ReDo,\
@@ -3576,6 +3624,17 @@ def testPerformanceVGGShuffle():
     #['block1_conv1']
     #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU 
     #  
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
+                kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
+                pretrainingModif=True,freezingType='FromTop',
+                optimizer=optimizer,opt_option=[0.1,10**(-2)],cropCenter=cropCenter
+                ,final_clf='MLP1',features='fc2',ReDo=ReDo,\
+                return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
+                SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'roll_partial',
+                style_layers=['block1_conv1'])
+    #& 64.5 & 48.4 & 93.2 & 74.7 & 61.5 & 71.3 & 53.8 & 80.2 & 70.6 & 82.6 & 70.1 \\ 
         
 def testROWD_CUMUL():
     learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
@@ -3930,8 +3989,9 @@ if __name__ == '__main__':
     #RunAllEvaluation_ForFeatureExtractionModel(printForTabularLatex=True)
     #RunAllEvaluation_ForFeatureExtractionModel()
     #RunAllEvaluation_FineTuningResNet()
+    testPerformanceVGGShuffle()
     PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
                               onlyPlot=False,cropCenter=True,BV=True)
     #RunAllEvaluation_FineTuningResNet() # a regrouper
-    #RunAllEvaluation_FineTuningVGG()   # a regrouper
+    RunAllEvaluation_FineTuningVGG()   # a regrouper
     
