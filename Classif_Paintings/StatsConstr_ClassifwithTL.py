@@ -1103,6 +1103,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         print(target_dataset,source_dataset,number_im_considered,final_clf,features,transformOnFinalLayer,\
               constrNet,kind_method,'GS',gridSearch,'norm',normalisation,'getBeforeReLU',getBeforeReLU,kind_method,\
               final_clf)
+        if 'suffleInStats' in constrNet:
+            print(kind_of_shuffling)
         print(style_layers)
     
     
@@ -3662,7 +3664,7 @@ def test_BaysianOptimFT():
     """
     target_dataset = 'Paintings'
     final_clf = 'MLP2'
-    epochs = 1
+    epochs = 20
     optimizer = 'SGD'
     opt_option = [0.1,10**(-2)]
     return_best_model = True
@@ -3676,7 +3678,7 @@ def test_BaysianOptimFT():
     cropCenter = True
     onlyPlot= False
     pretrainingModif = True
-    ReDo = True
+    ReDo = False
     learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
                     kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                     pretrainingModif=pretrainingModif,freezingType=freezingType,
@@ -3686,6 +3688,15 @@ def test_BaysianOptimFT():
                     dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
                     SGDmomentum=SGDmomentum,decay=decay,verbose=True,BaysianOptimFT=True)
         
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
+                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                    pretrainingModif=pretrainingModif,freezingType=freezingType,
+                    optimizer=optimizer,opt_option=opt_option,cropCenter=cropCenter
+                    ,final_clf=final_clf,features='block5_pool',ReDo=ReDo,\
+                    return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                    dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
+                    SGDmomentum=SGDmomentum,decay=decay,verbose=True,BaysianOptimFT=True, \
+                    kind_of_shuffling = 'roll_partial',style_layers=['block1_conv1'])
         
 def testPerformanceVGGShuffle():
     """
@@ -3840,7 +3851,7 @@ def testPerformanceVGGShuffle():
                     dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
                     SGDmomentum=SGDmomentum,decay=decay,kind_of_shuffling=kind_of_shuffling,verbose=True)
    # ['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
-   # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU 
+   # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU : it seems to diverge 
    #
         
     opt_option = [10**(-1)]
@@ -3855,7 +3866,7 @@ def testPerformanceVGGShuffle():
                     SGDmomentum=SGDmomentum,decay=decay,kind_of_shuffling=kind_of_shuffling,verbose=True,
                     style_layers=['block1_conv1'])
    # ['block1_conv1']
-   # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU 
+   # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU : it seems to diverge 
     #
         
         
@@ -3898,20 +3909,6 @@ def testPerformanceVGGShuffle():
     #Paintings ImageNet 10000 MLP1 fc2  VGGsuffleInStats FT GS True norm False getBeforeReLU True FT MLP1
     #['block1_conv1']
     #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU 
-    #  & 64.6 & 48.7 & 93.7 & 73.1 & 62.2 & 71.1 & 52.5 & 79.0 & 70.7 & 84.0 & 70.0 \\ 
-        
-    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
-                kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
-                pretrainingModif=pretrainingModif,freezingType=freezingType,
-                optimizer=optimizer,opt_option=[10**(-2)],cropCenter=cropCenter
-                ,final_clf='MLP1',features='fc2',ReDo=ReDo,\
-                return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
-                dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
-                SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'shuffle',
-                style_layers=['block1_conv1'])
-    #Paintings ImageNet 10000 MLP1 fc2  VGGsuffleInStats FT GS True norm False getBeforeReLU True FT MLP1
-    #['block1_conv1']
-    #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU 
     #  
         
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
@@ -3921,9 +3918,34 @@ def testPerformanceVGGShuffle():
                 ,final_clf='MLP1',features='fc2',ReDo=ReDo,\
                 return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
                 dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
+                SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'shuffle',
+                style_layers=['block1_conv1'])
+    #Paintings ImageNet 10000 MLP1 fc2  VGGsuffleInStats FT GS True norm False getBeforeReLU True FT MLP1
+    #['block1_conv1']
+    #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU 
+    #  
+                
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
+                kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
+                pretrainingModif=True,freezingType='FromTop',
+                optimizer=optimizer,opt_option=[0.1,10**(-2)],cropCenter=cropCenter
+                ,final_clf='MLP1',features='fc2',ReDo=ReDo,\
+                return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
                 SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'roll_partial',
                 style_layers=['block1_conv1'])
-    #& 64.5 & 48.4 & 93.2 & 74.7 & 61.5 & 71.3 & 53.8 & 80.2 & 70.6 & 82.6 & 70.1 \\ 
+    #
+        
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
+                kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
+                pretrainingModif=True,freezingType='FromTop',
+                optimizer=optimizer,opt_option=[10**(-2)],cropCenter=cropCenter
+                ,final_clf='MLP1',features='fc2',ReDo=ReDo,\
+                return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
+                SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'roll_partial',
+                style_layers=['block1_conv1'])
+    #
         
 def testROWD_CUMUL():
     learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
@@ -4279,8 +4301,8 @@ if __name__ == '__main__':
     #RunAllEvaluation_ForFeatureExtractionModel()
     #RunAllEvaluation_FineTuningResNet()
     testPerformanceVGGShuffle()
-    PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
-                              onlyPlot=False,cropCenter=True,BV=True)
-    #RunAllEvaluation_FineTuningResNet() # a regrouper
-    RunAllEvaluation_FineTuningVGG()   # a regrouper
+    # PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
+    #                           onlyPlot=False,cropCenter=True,BV=True)
+    # #RunAllEvaluation_FineTuningResNet() # a regrouper
+    # RunAllEvaluation_FineTuningVGG()   # a regrouper
     
