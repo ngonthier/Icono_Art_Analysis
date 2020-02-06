@@ -55,7 +55,11 @@ from functools import partial
 from sklearn.metrics import average_precision_score,make_scorer
 from sklearn.model_selection import GridSearchCV
 
+# Bayesian optimization of the hyper parameters of the networks
 from bayes_opt import BayesianOptimization
+from bayes_opt.util import load_logs
+from bayes_opt import JSONLogger
+from bayes_opt.event import Events
 
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
@@ -896,7 +900,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if weights is None:
             Latex_str += ' RandInit'
     
-    if (not(os.path.isfile(APfilePath)) or ReDo) and not(onlyReturnResult) or returnStatistics:
+    if ((not(os.path.isfile(APfilePath)) or ReDo) and not(onlyReturnResult)) or returnStatistics:
         
         if target_dataset=='Paintings':
             sLength = len(df_label[item_name])
@@ -1053,7 +1057,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                         epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                         df_label,\
                         item_name,classes,path_to_img,\
-                        str_val,epochs,batch_size)
+                        str_val,epochs,batch_size,AP_file_base)
                 
             model.save(model_path,include_optimizer=include_optimizer)
             if returnStatistics: # We will load the model and return it
@@ -1388,7 +1392,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                         df_label,\
                         item_name,classes,path_to_img,\
-                        str_val,epochs,batch_size):
+                        str_val,epochs,batch_size,AP_file_base):
     """
     Fine Tuned a deep model with bayesian optimization of the hyper-parameters, the one concerned are :
         - log10_learning_rate
@@ -1399,6 +1403,8 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
     """
     # hyper parameters bounds
     pbounds = {'log10_learning_rate':(-4.,-1.),'log10_multi_learning_rate':(-2.,0.0),'SGDmomentum':(0.0,0.99),'log10_decay': (-10**3,-2)}
+    
+    print('pbounds :',pbounds)
     
     functio_to_miximaze = partial(get_partial_model_def,
                           constrNet=constrNet,target_dataset=target_dataset,num_classes=num_classes,pretrainingModif=pretrainingModif,
@@ -1422,7 +1428,18 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
         random_state=1,
     )
     
-    init_points = 16
+    
+    hyperopt_path =  os.path.join(output_path,'BayesiaHyperOpt')
+    pathlib.Path(hyperopt_path).mkdir(parents=True, exist_ok=True)
+    hyperopt_log_path = os.path.join(hyperopt_path,AP_file_base+'_log.json')
+    logger = JSONLogger(path=hyperopt_log_path)
+    hyperoptimizer.subscribe(Events.OPTMIZATION_STEP, logger)
+    # Results will be saved in hyperopt_log_path
+    # New optimizer is loaded with previously seen points if the file already exists
+    if os.path.isfile(hyperopt_log_path):
+        load_logs(hyperoptimizer, logs=[hyperopt_log_path])
+    
+    init_points = 3
     hyperoptimizer.maximize(
         init_points=init_points,
         n_iter=init_points*3,
@@ -1702,11 +1719,13 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     else: # we will return the demanded element of the history
         metric_history = history.history[returnWhat] #'val_loss'
         if return_best_model:
-            metric = -np.min(metric_history)
-            if math.isnan(metric) :
-                metric = - float(10**6)
+            metric = np.min(metric_history)
         else:
-            metric = -metric_history[-1]
+            metric = metric_history[-1]
+            
+        if math.isnan(metric) or np.isnan(metric) :
+            metric = float(10**6)
+        metric = - metric
         return(metric)
 
 def plotKerasHistory(history):
@@ -3657,7 +3676,7 @@ def test_BaysianOptimFT():
     cropCenter = True
     onlyPlot= False
     pretrainingModif = True
-    ReDo = False
+    ReDo = True
     learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
                     kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
                     pretrainingModif=pretrainingModif,freezingType=freezingType,
