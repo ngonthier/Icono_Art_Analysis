@@ -14,6 +14,7 @@ from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerato
 
 from trouver_classes_parmi_K import TrainClassif
 import numpy as np
+import math
 import matplotlib
 import os.path
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index,numeral_layers_index_bitsVersion
@@ -54,6 +55,7 @@ from functools import partial
 from sklearn.metrics import average_precision_score,make_scorer
 from sklearn.model_selection import GridSearchCV
 
+from bayes_opt import BayesianOptimization
 
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
@@ -363,7 +365,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
                                    kind_of_shuffling='shuffle',useFloat32=True,\
                                    computeGlobalVariance=True,returnStatistics=False,returnFeatures=False,\
-                                   NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5):
+                                   NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
+                                   BaysianOptimFT = False):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -425,6 +428,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : NoValidationSetUsed : means that we don't use a validation set for selecting the best model or other stuff, we will use the whole trainval dataset for training
     @param : RandomValdiationSet : means that we don't use a provide validation set for selecting the best model but a fraction of the trainval set
     @param : p probability in the case of roll_partial of VGGshuflleAdaIn model 
+    @param : BaysianOptimFT = False if True use a bayseianoptimisation on some of the hyperparameters of the model
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -443,6 +447,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         
     assert(not(returnStatistics and returnFeatures)) # Need to choose between both
     assert(freezingType in ['FromBottom','FromTop','Alter'])
+    
     
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset)
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
@@ -488,17 +493,20 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     if kind_method=='FT':
         if not(optimizer=='adam'):
             name_base += '_'+optimizer
-        if len(opt_option)==2:
-            multiply_lrp, lr = opt_option
-            name_base += '_lrp'+str(multiply_lrp)+'_lr'+str(lr)
-        if len(opt_option)==1:
-            lr = opt_option[0]
-            name_base += '_lr'+str(lr)
+        if not(BaysianOptimFT):
+            if len(opt_option)==2:
+                multiply_lrp, lr = opt_option
+                name_base += '_lrp'+str(multiply_lrp)+'_lr'+str(lr)
+            if len(opt_option)==1:
+                lr = opt_option[0]
+                name_base += '_lr'+str(lr)
         # Default value used
         if constrNet=='VGGAdaDBN':
             name_base += '_MPG'+str(m_per_group)
             if dbn_affine:
                 name_base += '_Affine'
+        if BaysianOptimFT:
+            name_base += '_BayHyperOpt'
                 
     if constrNet=='ResNet50_BNRF': # BN Refinement
         name_base += '_m'+str(momentum)+'_bsRF'+str(batch_size_RF)+'_ep'+str(epochs_RF)
@@ -823,13 +831,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
        if optimizer=='SGD':
            if nesterov:
                 AP_file += '_nes'
-           if not(SGDmomentum==0.0):
-                AP_file += '_sgdm'+str(SGDmomentum)
+           if not(BaysianOptimFT):
+               if not(SGDmomentum==0.0):
+                   AP_file += '_sgdm'+str(SGDmomentum)
        if optimizer=='RMSprop':
            if not(SGDmomentum==0.0):
                 AP_file += '_m'+str(SGDmomentum)
-       if not(decay==0.0):
-           AP_file += '_dec'+str(decay)
+       if not(BaysianOptimFT):
+           if not(decay==0.0):
+               AP_file += '_dec'+str(decay)
        if return_best_model:
            AP_file += '_BestOnVal'
        if NoValidationSetUsed:
@@ -997,7 +1007,16 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 
         elif kind_method=='FT':
             
-            BaysianOptimFT = False
+            model_path = os.path.join(model_output_path,AP_file_base+'.h5')
+            include_optimizer=False
+        
+            # This have not been tested maybe you have to put it after the get_deep_model_for_FT function
+            if returnStatistics and  os.path.exists(model_path): # We will load the model and return it
+                model = load_model(model_path)
+                return(model)
+            else:
+                print('We will need to train the model before provide it to you !')
+            
             if not(BaysianOptimFT):
                 
                 model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
@@ -1012,24 +1031,34 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                             batch_size_RF,momentum,\
                             epochs_RF,output_path,kind_of_shuffling,useFloat32)
                     
-                model_path = os.path.join(model_output_path,AP_file_base+'.h5')
-                include_optimizer=False
-        
-                if returnStatistics: # We will load the model and return it
-                    model = load_model(model_path)
-                    return(model)
+
                 
                 model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                                         x_col=item_name,y_col=classes,path_im=path_to_img,\
                                         str_val=str_val,num_classes=len(classes),epochs=epochs,\
                                         Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
                                         NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet)
-                
-
+                    
             else: # Baysian optimization of the model
-                raise(NotImplementedError)
+                model =  FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,pretrainingModif,
+                        transformOnFinalLayer,weights,
+                        optimizer,freezingType,
+                        final_clf,features,verbose,
+                        regulOnNewLayer,regulOnNewLayerParam
+                        ,dropout,nesterov,style_layers,
+                        source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                        BV,p,
+                        dbn_affine,m_per_group,kind_method,\
+                        batch_size_RF,momentum,\
+                        epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                        df_label,\
+                        item_name,classes,path_to_img,\
+                        str_val,epochs,batch_size)
                 
             model.save(model_path,include_optimizer=include_optimizer)
+            if returnStatistics: # We will load the model and return it
+                model = load_model(model_path)
+                return(model)
             # Prediction
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
                                            y_col=classes,path_im=path_to_img,Net=constrNet,\
@@ -1286,6 +1315,160 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
     
     return(model)
 
+def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomentum,log10_decay,\
+                          constrNet,target_dataset,num_classes,pretrainingModif,
+                        transformOnFinalLayer,weights,
+                        optimizer,freezingType,
+                        final_clf,features,verbose,
+                        regulOnNewLayer,regulOnNewLayerParam
+                        ,dropout,nesterov,style_layers,
+                        source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                        BV,p,
+                        dbn_affine,m_per_group,kind_method,\
+                        batch_size_RF,momentum,\
+                        epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                        df_label,\
+                        item_name,classes,path_to_img,\
+                        str_val,epochs,batch_size):
+        
+    curr_session = tf.get_default_session()
+    # close current session
+    if curr_session is not None:
+        curr_session.close()
+    # reset graph
+    #K.clear_session()
+    # create new session
+    s = tf.InteractiveSession()
+    K.set_session(s)
+    
+    # Elements prdefined here !
+    RandomValdiationSet = True
+    NoValidationSetUsed = False
+    plotConv = False
+    
+    opt_option = [float(10**(log10_multi_learning_rate)),float(10**log10_learning_rate)]
+    decay = float(10**log10_decay)
+    SGDmomentum = float(SGDmomentum)
+    
+    model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
+                                transformOnFinalLayer,weights,
+                                optimizer,opt_option,freezingType,
+                                final_clf,features,verbose,
+                                regulOnNewLayer,regulOnNewLayerParam
+                                ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                                source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                                BV,p,
+                                dbn_affine,m_per_group,kind_method,\
+                                batch_size_RF,momentum,\
+                                epochs_RF,output_path,kind_of_shuffling,useFloat32)
+                
+    fined_model_best_metric = FineTuneModel(model,dataset=target_dataset,df=df_label,\
+                            x_col=item_name,y_col=classes,path_im=path_to_img,\
+                            str_val=str_val,num_classes=num_classes,epochs=epochs,\
+                            Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
+                            NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet,\
+                            returnWhat='val_loss')
+        
+    # To clean GPU memory
+    K.clear_session()
+    gc.collect()
+        
+    return(fined_model_best_metric)
+
+def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,pretrainingModif,
+                        transformOnFinalLayer,weights,
+                        optimizer,freezingType,
+                        final_clf,features,verbose,
+                        regulOnNewLayer,regulOnNewLayerParam
+                        ,dropout,nesterov,style_layers,
+                        source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                        BV,p,
+                        dbn_affine,m_per_group,kind_method,\
+                        batch_size_RF,momentum,\
+                        epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                        df_label,\
+                        item_name,classes,path_to_img,\
+                        str_val,epochs,batch_size):
+    """
+    Fine Tuned a deep model with bayesian optimization of the hyper-parameters, the one concerned are :
+        - log10_learning_rate
+        - log10_multi_learning_rate
+        - SGDmomentum
+        - log10_decay
+
+    """
+    # hyper parameters bounds
+    pbounds = {'log10_learning_rate':(-4.,-1.),'log10_multi_learning_rate':(-2.,0.0),'SGDmomentum':(0.0,0.99),'log10_decay': (-10**3,-2)}
+    
+    functio_to_miximaze = partial(get_partial_model_def,
+                          constrNet=constrNet,target_dataset=target_dataset,num_classes=num_classes,pretrainingModif=pretrainingModif,
+                        transformOnFinalLayer=transformOnFinalLayer,weights=weights,
+                        optimizer=optimizer,freezingType=freezingType,
+                        final_clf=final_clf,features=features,verbose=verbose,
+                        regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam
+                        ,dropout=dropout,nesterov=nesterov,style_layers=style_layers,
+                        source_dataset=source_dataset,number_im_considered=number_im_considered,getBeforeReLU=getBeforeReLU,\
+                        BV=BV,p=p,
+                        dbn_affine=dbn_affine,m_per_group=m_per_group,kind_method=kind_method,\
+                        batch_size_RF=batch_size_RF,momentum=momentum,\
+                        epochs_RF=epochs_RF,output_path=output_path,kind_of_shuffling=kind_of_shuffling,useFloat32=useFloat32,\
+                        df_label=df_label,\
+                        item_name=item_name,classes=classes,path_to_img=path_to_img,\
+                        str_val=str_val,epochs=epochs,batch_size=batch_size,cropCenter=cropCenter)
+    
+    hyperoptimizer = BayesianOptimization(
+        f=functio_to_miximaze,
+        pbounds=pbounds,
+        random_state=1,
+    )
+    
+    init_points = 16
+    hyperoptimizer.maximize(
+        init_points=init_points,
+        n_iter=init_points*3,
+    )
+        
+    d_max = hyperoptimizer.max
+    print('Best hyper parameters :',d_max)
+    log10_learning_rate = float(d_max['params']['log10_learning_rate'])
+    log10_multi_learning_rate = float(d_max['params']['log10_multi_learning_rate'])
+    SGDmomentum = float(d_max['params']['SGDmomentum'])
+    log10_decay = float(d_max['params']['log10_decay'])
+    
+    curr_session = tf.get_default_session()
+    # close current session
+    if curr_session is not None:
+        curr_session.close()
+    # reset graph
+    #K.clear_session()
+    # create new session
+    s = tf.InteractiveSession()
+    K.set_session(s)
+    
+    opt_option = [10**(log10_multi_learning_rate),10**log10_learning_rate]
+    decay = 10**log10_decay
+    
+    model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
+                                transformOnFinalLayer,weights,
+                                optimizer,opt_option,freezingType,
+                                final_clf,features,verbose,
+                                regulOnNewLayer,regulOnNewLayerParam
+                                ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                                source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                                BV,p,
+                                dbn_affine,m_per_group,kind_method,\
+                                batch_size_RF,momentum,\
+                                epochs_RF,output_path,kind_of_shuffling,useFloat32)
+                
+    model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
+                            x_col=item_name,y_col=classes,path_im=path_to_img,\
+                            str_val=str_val,num_classes=num_classes,epochs=epochs,\
+                            Net=constrNet,plotConv=False,batch_size=batch_size,cropCenter=cropCenter,\
+                            NoValidationSetUsed=False,RandomValdiationSet=True,\
+                            returnWhat=None)
+    return(model)
+    
+
 def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
                        weights,res_num_layers,transformOnFinalLayer,kind_method,\
                        batch_size=16,momentum=0.9,num_epochs_BN=5,output_path='',cropCenter=False):
@@ -1407,7 +1590,7 @@ class FirstLayerBNStatsPrintingCallback(tf.keras.callbacks.Callback):
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
-                  RandomValdiationSet=False):
+                  RandomValdiationSet=False,returnWhat=None):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -1478,8 +1661,14 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     #callbacks = [FirstLayerBNStatsPrintingCallback()] # To print the moving mean and std at each batch
     callbacks = []
     if return_best_model:
+        if returnWhat is None:
+            monitor = 'val_loss'
+            mode='min'
+        else:
+            monitor = returnWhat
+            mode='min'
         tmp_model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
-        mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor='val_loss', mode='min')
+        mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor=monitor, mode=mode)
         callbacks += [mcp_save]
         
     workers=8
@@ -1507,7 +1696,18 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     if cropCenter:
         kp.image.iterator.load_img = old_loading_img_fct
         
-    return(model)
+    if returnWhat is None:
+        # We will return the model itself
+        return(model)
+    else: # we will return the demanded element of the history
+        metric_history = history.history[returnWhat] #'val_loss'
+        if return_best_model:
+            metric = -np.min(metric_history)
+            if math.isnan(metric) :
+                metric = - float(10**6)
+        else:
+            metric = -metric_history[-1]
+        return(metric)
 
 def plotKerasHistory(history):
     plt.ion()
@@ -3437,6 +3637,37 @@ def testVGGShuffle():
                epochs=epochs,nesterov=True,SGDmomentum=0.9,decay=0.0005)
 
 
+def test_BaysianOptimFT():
+    """
+    The goal is just to compare the VGG 19 all layers against the shuffle version
+    """
+    target_dataset = 'Paintings'
+    final_clf = 'MLP2'
+    epochs = 1
+    optimizer = 'SGD'
+    opt_option = [0.1,10**(-2)]
+    return_best_model = True
+    dropout=None
+    regulOnNewLayer=None
+    nesterov=False
+    SGDmomentum=0.0
+    decay=0.0
+    transformOnFinalLayer = 'GlobalMaxPooling2D'
+    freezingType = 'FromTop'
+    cropCenter = True
+    onlyPlot= False
+    pretrainingModif = True
+    ReDo = False
+    learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
+                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                    pretrainingModif=pretrainingModif,freezingType=freezingType,
+                    optimizer=optimizer,opt_option=opt_option,cropCenter=cropCenter
+                    ,final_clf=final_clf,features='block5_pool',ReDo=ReDo,\
+                    return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                    dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
+                    SGDmomentum=SGDmomentum,decay=decay,verbose=True,BaysianOptimFT=True)
+        
+        
 def testPerformanceVGGShuffle():
     """
     The goal is just to compare the VGG 19 all layers against the shuffle version

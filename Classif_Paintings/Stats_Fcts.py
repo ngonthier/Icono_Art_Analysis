@@ -521,7 +521,7 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
               weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle',
-              pretrainingModif=True,freezingType='FromTop'):
+              pretrainingModif=True,freezingType='FromTop',p=0.5):
   """
   VGG with a shuffling the mean and standard deviation of the features maps between
   instance
@@ -541,6 +541,8 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
       custom_objects['Shuffle_MeanAndVar']= Shuffle_MeanAndVar
   if kind_of_shuffling=='roll':
       custom_objects['Roll_MeanAndVar']= Roll_MeanAndVar
+  if kind_of_shuffling=='roll_partial':
+      custom_objects['Roll_MeanAndVar_binomialChoice']= Roll_MeanAndVar_binomialChoice
 
   SomePartFreezed = False
   if type(pretrainingModif)==bool:
@@ -621,6 +623,8 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
           model.add(Shuffle_MeanAndVar())
       if kind_of_shuffling=='roll':
           model.add(Roll_MeanAndVar())
+      if kind_of_shuffling=='roll_partial':
+          model.add(Roll_MeanAndVar_binomialChoice(p=p))
         
       if getBeforeReLU: # add back the non linearity
           model.add(Activation('relu'))
@@ -1991,6 +1995,45 @@ class Roll_MeanAndVar(Layer):
     def get_config(self): # Need this to save correctly the model with this kind of layer
         config = super(Roll_MeanAndVar, self).get_config()
         config['epsilon'] = self.epsilon
+        return(config)
+    
+class Roll_MeanAndVar_binomialChoice(Layer):
+    """
+    In this case we only roll the mean and variance the the other element of the 
+    batch and then randwomly choice to keep the original features maps or the 
+    modified one
+    @param : p probability of binomial distribution.
+    """
+
+    def __init__(self,p=0.5,epsilon = 0.0000001, **kwargs):
+        self.epsilon = epsilon # Small float added to variance to avoid dividing by zero.
+        self.p = p # Small float added to variance to avoid dividing by zero.
+        super(Roll_MeanAndVar_binomialChoice, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(Roll_MeanAndVar_binomialChoice, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
+        std = math_ops.sqrt(variance)
+        new_mean= tf.roll(mean,shift=1,axis=0)
+        new_std= tf.roll(std,shift=1,axis=0)
+        modified_x =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
+        shape = [K.shape(x)[-1]]
+        selector = K.random_binomial(shape,p=self.p)
+        output = tf.multiply(selector,modified_x) + tf.multiply(tf.add(1.0,-selector),x)
+        return K.in_train_phase(output,x)
+
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        return input_shape
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(Roll_MeanAndVar_binomialChoice, self).get_config()
+        config['epsilon'] = self.epsilon
+        config['p'] = self.p
         return(config)
         
 class Shuffle_MeanAndVar(Layer):
