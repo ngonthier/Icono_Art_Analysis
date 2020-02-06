@@ -620,7 +620,9 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
           layer.activation = activations.linear # i.e. identity
       model.add(layer)
       if kind_of_shuffling=='shuffle':
-          model.add(Shuffle_MeanAndVar())
+          new_layer = Shuffle_MeanAndVar()
+          new_layer.trainable = False
+          model.add(new_layer)
       if kind_of_shuffling=='roll':
           model.add(Roll_MeanAndVar())
       if kind_of_shuffling=='roll_partial':
@@ -2050,10 +2052,12 @@ class Shuffle_MeanAndVar(Layer):
         mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
         std = math_ops.sqrt(variance)
         mean_and_std = tf.stack([mean,std])
-        rand_mean_and_std = tf.random.shuffle(mean_and_std) #  The tensor is shuffled along dimension 0, such that each value[j] is mapped to one and only one output[i]
+        #rand_mean_and_std = tf.random.shuffle(mean_and_std) #  The tensor is shuffled along dimension 0, such that each value[j] is mapped to one and only one output[i]
+        rand_mean_and_std = tf.gather(mean_and_std, tf.random.shuffle(tf.range(tf.shape(mean_and_std)[0])))
         new_mean = rand_mean_and_std[0,:]
         new_std = rand_mean_and_std[1,:]
         output =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
+        
         return K.in_train_phase(output,x)
 
 
