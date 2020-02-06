@@ -1803,6 +1803,9 @@ def VGG_4Param_of_featuresMaps(saveformat='h5',number_im_considered = np.inf,dat
         pp.close()
         plt.clf()
     
+## Potentiellement pour calculer une distance entre matrices de Gram : 
+# https://github.com/pymanopt/pymanopt/blob/master/pymanopt/manifolds/psd.py
+    
 if __name__ == '__main__':         
     #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab=None)
     #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =1000,dataset_tab= ['ImageNet','OIV5'])
