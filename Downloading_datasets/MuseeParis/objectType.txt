@@ -1,0 +1,25 @@
+{
+
+  taxonomyTermQuery(
+
+    filter: {conditions: [{field: "vid", value: "domaine"}]}
+
+    limit: 20
+
+  ) {
+
+    count
+
+    entities {
+
+      entityLabel
+
+     entityId
+
+ 
+
+    }
+
+  }
+
+}

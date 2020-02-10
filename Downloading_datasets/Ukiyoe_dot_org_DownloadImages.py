@@ -21,9 +21,11 @@ import time
 from bs4 import BeautifulSoup
 from urllib.error import HTTPError
 
+import os
+import struct
+import re
 
 path_data = '/media/gonthier/HDD2/data/Ukiyoe/'
-
 
 def downloadAndSave(original_url,image_id,folder,path_data = ''):
     #print(original_url)
@@ -40,7 +42,101 @@ def downloadAndSave(original_url,image_id,folder,path_data = ''):
     copyfile(local_filename, dst) # We copy the file to a new folder
 
 
-def get_all_images():
+
+class UnknownImageFormat(Exception):
+    pass
+
+def get_image_size(file_path):
+    """
+    Return (width, height) for a given img file content - no external
+    dependencies except the os and struct modules from core
+    """
+    size = os.path.getsize(file_path)
+
+    with open(file_path) as input:
+        height = -1
+        width = -1
+        data = input.read(25)
+
+        if (size >= 10) and data[:6] in ('GIF87a', 'GIF89a'):
+            # GIFs
+            w, h = struct.unpack("<HH", data[6:10])
+            width = int(w)
+            height = int(h)
+        elif ((size >= 24) and data.startswith('\211PNG\r\n\032\n')
+              and (data[12:16] == 'IHDR')):
+            # PNGs
+            w, h = struct.unpack(">LL", data[16:24])
+            width = int(w)
+            height = int(h)
+        elif (size >= 16) and data.startswith('\211PNG\r\n\032\n'):
+            # older PNGs?
+            w, h = struct.unpack(">LL", data[8:16])
+            width = int(w)
+            height = int(h)
+        elif (size >= 2) and data.startswith('\377\330'):
+            # JPEG
+            msg = " raised while trying to decode as JPEG."
+            input.seek(0)
+            input.read(2)
+            b = input.read(1)
+            try:
+                while (b and ord(b) != 0xDA):
+                    while (ord(b) != 0xFF): b = input.read(1)
+                    while (ord(b) == 0xFF): b = input.read(1)
+                    if (ord(b) >= 0xC0 and ord(b) <= 0xC3):
+                        input.read(3)
+                        h, w = struct.unpack(">HH", input.read(4))
+                        break
+                    else:
+                        input.read(int(struct.unpack(">H", input.read(2))[0])-2)
+                    b = input.read(1)
+                width = int(w)
+                height = int(h)
+            except struct.error:
+                raise UnknownImageFormat("StructError" + msg)
+            except ValueError:
+                raise UnknownImageFormat("ValueError" + msg)
+            except Exception as e:
+                raise UnknownImageFormat(e.__class__.__name__ + msg)
+        else:
+            raise UnknownImageFormat(
+                "Sorry, don't know how to get information from this file."
+            )
+
+    return width, height
+
+def count_number_of_images_WithsizeSuperiorTo(size=1024):
+    """
+    Count the number of images with a size superior to size**2
+    """
+    number_of_pixels = size**2
+    databasetxt = path_data+'Ukiyoe_full_dataset.csv'
+    path_im = path_data + '/' +'im'
+    df = pd.read_csv(databasetxt,sep=",")
+    number_total_img = len(df)
+    print('Number of total images :',number_total_img)
+    number_img_bigger = 0
+    number_artwork_without_image = 0
+    for row in df.iterrows():
+        name_img = row['item_name']
+        print(name_img)
+        img_path = path_im + name_img + '.jpg'
+        if os.path.isfile(img_path):
+            h,w = get_image_size(img_path)
+            h_int = int(h)
+            w_int = int(w)
+            if h_int*w_int >= number_of_pixels:
+                number_img_bigger += 1 
+        else: 
+            number_artwork_without_image += 1 
+    print('We have ',number_img_bigger,'images bigger than',size,'**2')
+    print('We have ',number_artwork_without_image,'artworks without an image.')
+        
+
+def get_all_images(downloadImage=False):
+    
+    print('Beginning get_all_images function')
     
     df = pd.DataFrame(columns=['item_name','url','artist','title','date'])
     number_elt_per_page = 100
@@ -75,11 +171,12 @@ def get_all_images():
             numberPrints_int = int(numberPrints.replace(',',''))
             #print(numberPrints_int,type(numberPrints_int))
             break
-    
+
     nb_prints = 0
     nb_pages = 0
     
-    forbidden_images = open(path_data+'Forbidden_images.txt', 'w')
+    if downloadImage:
+        forbidden_images = open(path_data+'Forbidden_images.txt', 'w')
     
     while nb_prints < numberPrints_int:
         if not(nb_prints==0):
@@ -156,7 +253,8 @@ def get_all_images():
                     item_name = '.'.join(item_name_tab)
                     df.loc[nb_prints] = [item_name,main_url_img,artist,title,date]
                     try:
-                        downloadAndSave(main_url_img,item_name,'im',path_data)
+                        if downloadImage:
+                            downloadAndSave(main_url_img,item_name,'im',path_data)
                     except HTTPError as e:
                         print(e,'for',main_url_img)
                         forbidden_images.write(main_url_img)
@@ -166,8 +264,11 @@ def get_all_images():
                     MainImageDownloaded = True
                 if MainImageDownloaded:
                     continue
-    forbidden_images.close()     
+    if downloadImage:
+        forbidden_images.close()     
     print(df)
     df.to_csv(path_data+'Ukiyoe_full_dataset.csv',sep=',')
-                            
-get_all_images()
+   
+
+if __name__ == '__main__':                          
+    get_all_images()

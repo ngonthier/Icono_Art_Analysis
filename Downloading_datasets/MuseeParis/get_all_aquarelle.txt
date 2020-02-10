@@ -1,0 +1,35 @@
+{
+
+  nodeQuery(filter: {conditions: [
+
+    {field: "field_materiaux_technique", value: "213549"}, 
+
+    {field: "field_visuels_principals.entity.field_image_libre", value: "1"}
+
+ 
+
+  ]}) {
+
+    count
+
+    entities {
+
+      entityId
+
+      entityLabel
+
+ 
+
+      ... on NodeOeuvre {
+
+        fieldLrefAdlib
+
+        absolutePath
+
+      }
+
+    }
+
+  }
+
+}

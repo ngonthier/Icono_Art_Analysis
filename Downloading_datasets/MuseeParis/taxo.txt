@@ -1,0 +1,23 @@
+{
+
+  taxonomyTermQuery(
+
+    filter: {conditions: [{field: "vid", value: "materiaux_technique"}]}
+
+    limit: 20
+
+  ) {
+
+    count
+
+    entities {
+
+      entityLabel
+
+ 
+
+    }
+
+  }
+
+}
