@@ -1073,7 +1073,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             except ValueError as e:
                 print(e)
                 print('This is certainly due to the divergence of the model')
-                metrics = None
+                metric = [0.0]*len(classes) # We will return 0.0 for all the metrics 
+                metrics = metric,metric,metric,metric,metric 
                 return(metrics)
             
             del model
@@ -3761,7 +3762,7 @@ def testPerformanceVGGShuffle():
                     dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
                     SGDmomentum=SGDmomentum,decay=decay,verbose=True)
     ## VGG GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop 
-    # Here loss explosed
+    # 83.0 & 62.1 & 25.7 & 46.7 & 22.5 & 60.9 & 35.9 & 62.0 & 45.5 \\ 
         
     learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
                     kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
@@ -3799,7 +3800,7 @@ def testPerformanceVGGShuffle():
     
     # ['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
     # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU 
-    # & 40.3 & 14.4 & 85.6 & 54.8 & 27.7 & 39.4 & 29.5 & 60.0 & 37.9 & 71.0 & 46.1 \\ 
+    #  & 4.8 & 13.5 & 74.4 & 49.9 & 18.4 & 32.9 & 20.6 & 52.6 & 21.2 & 18.9 & 30.7 \\ 
         
     opt_option = [10**(-2)]
     kind_of_shuffling = 'roll'
@@ -3813,7 +3814,7 @@ def testPerformanceVGGShuffle():
                     SGDmomentum=SGDmomentum,decay=decay,kind_of_shuffling=kind_of_shuffling,verbose=True)
     #['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
     # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU 
-    # 
+    #  & 2.6 & 9.6 & 24.7 & 13.2 & 7.4 & 13.6 & 12.8 & 16.5 & 9.4 & 3.8 & 11.4 \\ 
         
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
                     kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
@@ -3825,7 +3826,7 @@ def testPerformanceVGGShuffle():
                     SGDmomentum=SGDmomentum,decay=decay,kind_of_shuffling=kind_of_shuffling,verbose=True)
     #['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
     # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU 
-    #  
+    #   & 2.6 & 9.6 & 24.7 & 13.2 & 7.4 & 13.6 & 12.8 & 16.5 & 9.4 & 3.8 & 11.4 \\
         
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
                     kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
@@ -3838,7 +3839,7 @@ def testPerformanceVGGShuffle():
                     style_layers=['block1_conv1'])
     #['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
     # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU 
-    # 
+    # & 2.6 & 9.6 & 24.6 & 13.2 & 7.4 & 13.6 & 12.8 & 16.5 & 9.4 & 3.8 & 11.4 \\ 
         
     opt_option = [10**(-1)]
     kind_of_shuffling = 'roll'
@@ -3852,24 +3853,9 @@ def testPerformanceVGGShuffle():
                     SGDmomentum=SGDmomentum,decay=decay,kind_of_shuffling=kind_of_shuffling,verbose=True)
    # ['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
    # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU : it seems to diverge 
-   #
-        
-    opt_option = [10**(-1)]
-    kind_of_shuffling = 'roll'
-    learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
-                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
-                    pretrainingModif=pretrainingModif,freezingType=freezingType,
-                    optimizer=optimizer,opt_option=opt_option,cropCenter=cropCenter
-                    ,final_clf=final_clf,features='block5_pool',ReDo=ReDo,\
-                    return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
-                    dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
-                    SGDmomentum=SGDmomentum,decay=decay,kind_of_shuffling=kind_of_shuffling,verbose=True,
-                    style_layers=['block1_conv1'])
-   # ['block1_conv1']
-   # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU : it seems to diverge 
-    #
-        
-        
+   # & 2.6 & 9.6 & 24.6 & 13.2 & 7.4 & 13.6 & 12.8 & 16.5 & 9.4 & 3.8 & 11.4 \\ 
+         
+    print("HERE")
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
                 kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
                 pretrainingModif=pretrainingModif,freezingType=freezingType,
@@ -3881,7 +3867,7 @@ def testPerformanceVGGShuffle():
     #Paintings ImageNet 10000 MLP1 fc2  VGGsuffleInStats FT GS True norm False getBeforeReLU True FT MLP1
     #['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
     #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU
-    # 
+    # & 63.9 & 37.8 & 91.2 & 71.7 & 59.8 & 67.5 & 48.2 & 74.9 & 71.4 & 80.2 & 66.6 \\
         
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
                 kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
@@ -3895,7 +3881,7 @@ def testPerformanceVGGShuffle():
     #Paintings ImageNet 10000 MLP1 fc2  VGGsuffleInStats FT GS True norm False getBeforeReLU True FT MLP1
     #['block1_conv1']
     #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU 
-    #  & 65.8 & 45.0 & 93.1 & 74.6 & 66.0 & 70.6 & 53.0 & 79.7 & 70.1 & 81.4 & 69.9 \\ 
+    #  & 61.2 & 46.7 & 93.4 & 74.9 & 61.8 & 71.3 & 54.1 & 79.9 & 71.7 & 80.6 & 69.6 \\
         
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
                 kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
@@ -3909,7 +3895,7 @@ def testPerformanceVGGShuffle():
     #Paintings ImageNet 10000 MLP1 fc2  VGGsuffleInStats FT GS True norm False getBeforeReLU True FT MLP1
     #['block1_conv1']
     #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU 
-    #  
+    # & 64.6 & 48.7 & 93.7 & 73.1 & 62.2 & 71.1 & 52.5 & 79.0 & 70.7 & 84.0 & 70.0 \\ 
         
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
                 kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
@@ -3923,8 +3909,9 @@ def testPerformanceVGGShuffle():
     #Paintings ImageNet 10000 MLP1 fc2  VGGsuffleInStats FT GS True norm False getBeforeReLU True FT MLP1
     #['block1_conv1']
     #VGGsuffleInStats  ep :20 Unfreeze 16 FromTop BFReLU 
-    #  
-                
+    #  & 70.4 & 48.5 & 93.6 & 72.5 & 59.7 & 73.7 & 56.3 & 80.3 & 68.3 & 84.8 & 70.8 \\
+    #### Note a moi meme : plus d iterations pourrait aider encore plus
+        
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
                 kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
                 pretrainingModif=True,freezingType='FromTop',
@@ -3934,7 +3921,7 @@ def testPerformanceVGGShuffle():
                 dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
                 SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'roll_partial',
                 style_layers=['block1_conv1'])
-    #
+    # & 64.5 & 48.4 & 93.2 & 74.7 & 61.5 & 71.3 & 53.8 & 80.2 & 70.6 & 82.6 & 70.1 \\ 
         
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
                 kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
@@ -3945,7 +3932,7 @@ def testPerformanceVGGShuffle():
                 dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
                 SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'roll_partial',
                 style_layers=['block1_conv1'])
-    #
+    # 
         
 def testROWD_CUMUL():
     learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
@@ -4301,8 +4288,9 @@ if __name__ == '__main__':
     #RunAllEvaluation_ForFeatureExtractionModel()
     #RunAllEvaluation_FineTuningResNet()
     testPerformanceVGGShuffle()
+    test_BaysianOptimFT()
     # PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
     #                           onlyPlot=False,cropCenter=True,BV=True)
     # #RunAllEvaluation_FineTuningResNet() # a regrouper
-    # RunAllEvaluation_FineTuningVGG()   # a regrouper
+    RunAllEvaluation_FineTuningVGG()   # a regrouper
     
