@@ -123,6 +123,14 @@ def get_regularizers(regulOnNewLayer=None,regulOnNewLayerParam=[]):
 ### To fine Tune a VGG
   
 def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout):
+  """
+  Ajout  d une ou plusieurs couches a la fin du VGG
+  
+  Pour le regularizer, il s agit juste d un kernel regularizer et non d un activation 
+      ou bias one
+  
+  """
+    
   if final_clf=='MLP3':
       model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
       if not(dropout is None): model.add(Dropout(dropout))
@@ -145,7 +153,6 @@ def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,o
       else:
           opt = opt(learning_rate=lr)
   # Compile model
-
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])  
   return(model)     
   
