@@ -826,10 +826,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
        if not(regulOnNewLayer is None):
            AP_file += '_'+regulOnNewLayer
            if len(regulOnNewLayerParam)>0:
-               if regulOnNewLayer=='l1' or  regulOnNewLayer=='l1':
-                   AP_file += '_'+  regulOnNewLayerParam[0]
+               if regulOnNewLayer=='l1' or  regulOnNewLayer=='l2':
+                   AP_file += '_'+  str(regulOnNewLayerParam[0])
                elif regulOnNewLayer=='l1_l2':
-                   AP_file += '_'+  regulOnNewLayerParam[0]+'_'+ regulOnNewLayerParam[1]
+                   AP_file += '_'+  str(regulOnNewLayerParam[0])+'_'+ str(regulOnNewLayerParam[1])
        if not(dropout is None):
             AP_file += '_dropout'+str(dropout) 
        if optimizer=='SGD':
@@ -1019,7 +1019,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 model = load_model(model_path)
                 return(model)
             else:
-                print('We will need to train the model before provide it to you !')
+                if returnStatistics: print('We will need to train the model before provide it to you !')
             
             if not(BaysianOptimFT):
                 
@@ -1432,8 +1432,12 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
     )
     
     
+    init_points = 16
+    n_iter = init_points*3
+    
     hyperopt_path =  os.path.join(output_path,'BayesiaHyperOpt')
     pathlib.Path(hyperopt_path).mkdir(parents=True, exist_ok=True)
+    AP_file_base += '_initP'+str(init_points) + '_n'+str(n_iter)
     hyperopt_log_path = os.path.join(hyperopt_path,AP_file_base+'_log.json')
     logger = JSONLogger(path=hyperopt_log_path)
     hyperoptimizer.subscribe(Events.OPTMIZATION_STEP, logger)
@@ -1441,11 +1445,10 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
     # New optimizer is loaded with previously seen points if the file already exists
     if os.path.isfile(hyperopt_log_path):
         load_logs(hyperoptimizer, logs=[hyperopt_log_path])
-    
-    init_points = 3
+
     hyperoptimizer.maximize(
         init_points=init_points,
-        n_iter=init_points*3,
+        n_iter=n_iter,
     )
         
     d_max = hyperoptimizer.max
@@ -3612,7 +3615,95 @@ def testResNet_FineTuning():
        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,NoValidationSetUsed=True)
     #  & 12.2 & 11.0 & 67.5 & 34.0 & 15.7 & 29.5 & 20.2 & 31.8 & 23.9 & 23.6 & 26.9 \\ 
-    
+        
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True)
+    # Paintings ImageNet 10000 MLP2 block5_pool GlobalAveragePooling2D ResNet50 FT GS False norm False getBeforeReLU False FT MLP2
+    # ['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
+    # ResNet50 GlobalAveragePooling2D ep :20 
+    # & 68.1 & 47.8 & 93.0 & 73.5 & 61.6 & 72.4 & 56.1 & 79.0 & 71.4 & 86.8 & 71.0 \\ 
+        
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.001],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True)
+    # ResNet50 GlobalAveragePooling2D ep :20 
+    # & 63.3 & 46.3 & 92.6 & 72.8 & 54.7 & 69.0 & 51.5 & 78.4 & 64.0 & 82.5 & 67.5 \\
+        
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
+       constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       style_layers=['bn_conv1'])
+    #  & 70.4 & 48.4 & 93.5 & 73.0 & 62.7 & 72.8 & 56.3 & 78.3 & 72.8 & 86.7 & 71.5 \\ 
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
+       constrNet='ResNet50_ROWD_CUMUL',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       style_layers=['bn_conv1'])
+    #  & 70.1 & 49.1 & 93.5 & 72.8 & 64.5 & 72.8 & 55.1 & 78.8 & 71.3 & 86.7 & 71.5 \\ 
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
+       constrNet='ResNet50_ROWD_CUMUL',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       style_layers=getBNlayersResNet50())
+    #  & 67.6 & 47.6 & 93.4 & 73.5 & 62.6 & 71.4 & 55.6 & 79.0 & 71.4 & 87.2 & 70.9 \\ 
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
+       constrNet='ResNet50AdaIn',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       style_layers=getBNlayersResNet50())
+    # & 66.0 & 45.5 & 92.2 & 72.8 & 59.0 & 70.8 & 50.6 & 78.5 & 65.3 & 85.9 & 68.7 \\
+     
+def VGGotherParameterersTry():
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       style_layers=[])
+    # & 66.2 & 44.1 & 92.7 & 71.2 & 65.5 & 69.2 & 53.3 & 78.7 & 70.7 & 84.0 & 69.6 \\ 
+        
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       style_layers=['block1_conv1'],kind_of_shuffling='roll_partial')
+    #  & 55.3 & 36.6 & 91.0 & 65.4 & 55.5 & 60.5 & 38.9 & 77.1 & 60.1 & 76.5 & 61.7 \\ 
+        
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       style_layers=['block1_conv1'],kind_of_shuffling='roll_partial')
+    #  & 64.7 & 40.7 & 92.6 & 70.5 & 61.3 & 67.8 & 46.4 & 77.8 & 69.3 & 80.2 & 67.1 \\ 
+        
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       style_layers=['block1_conv1'],kind_of_shuffling='roll')
+    # & 58.7 & 38.8 & 91.8 & 70.3 & 55.6 & 66.5 & 47.6 & 77.8 & 68.8 & 80.2 & 65.6 \\ 
+        
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial')
+    # & 60.7 & 38.8 & 92.2 & 69.0 & 57.3 & 63.9 & 46.4 & 77.7 & 69.8 & 80.1 & 65.6 \\ 
+        
 def testVGGShuffle():
     target_dataset = 'Paintings'
     ReDo = False
@@ -3698,6 +3789,53 @@ def test_BaysianOptimFT():
                     dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
                     SGDmomentum=SGDmomentum,decay=decay,verbose=True,BaysianOptimFT=True, \
                     kind_of_shuffling = 'roll_partial',style_layers=['block1_conv1'])
+        
+def testPerformance_VGG_l2regul():
+    """
+    GridSearch by hand on the l2 weight of the networl regulation
+    """
+    metricploted_index = 0 # For mAP
+    
+    target_dataset = 'Paintings'
+    final_clf = 'MLP2'
+    epochs = 20
+    optimizer = 'SGD'
+    opt_option = [0.1,10**(-2)]
+    return_best_model = True
+    dropout=None
+    regulOnNewLayer='l2'
+    nesterov=False
+    SGDmomentum=0.0
+    decay=0.0
+    transformOnFinalLayer = 'GlobalMaxPooling2D'
+    freezingType = 'FromTop'
+    cropCenter = True
+    onlyPlot= False
+    pretrainingModif = 16
+    ReDo = False
+
+    regulOnNewLayerParamLambda_tab = [10.,1.0,0.1,0.01,0.001,0.0001,0.00001,0.000001]
+    
+    list_perf = []
+    for regulOnNewLayerParamLambda in regulOnNewLayerParamLambda_tab:
+        metrics = learn_and_eval(target_dataset=target_dataset,constrNet='VGG',\
+                    kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                    pretrainingModif=pretrainingModif,freezingType=freezingType,
+                    optimizer=optimizer,opt_option=opt_option,cropCenter=cropCenter
+                    ,final_clf=final_clf,features='block5_pool',ReDo=ReDo,\
+                    return_best_model=return_best_model,onlyReturnResult=onlyPlot,\
+                    dropout=dropout,regulOnNewLayer=regulOnNewLayer,nesterov=nesterov,\
+                    SGDmomentum=SGDmomentum,decay=decay,verbose=True,\
+                    regulOnNewLayerParam=[regulOnNewLayerParamLambda])
+        metricI_per_class = metrics[metricploted_index]
+        list_perf += [np.mean(metricI_per_class)]
+    plt.figure()
+    plt.plot(regulOnNewLayerParamLambda_tab, list_perf)
+    plt.xscale('log')
+    plt.xlabel('Log of Regularisation weight')
+    plt.ylabel('ArtUK AP')
+    plt.title('Influence of the regularisation weight for VGG baseline')
+
         
 def testPerformanceVGGShuffle():
     """
@@ -3786,7 +3924,6 @@ def testPerformanceVGGShuffle():
     ## VGG GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop 
     #  & 7.6 & 12.7 & 66.9 & 43.4 & 13.6 & 34.2 & 17.2 & 27.4 & 18.4 & 8.5 & 25.0 \\
 
-    
     # VGGsuffleInStats
     kind_of_shuffling = 'roll'
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
@@ -3855,7 +3992,6 @@ def testPerformanceVGGShuffle():
    # VGGsuffleInStats GlobalMaxPooling2D ep :20 Unfreeze 16 FromTop BFReLU : it seems to diverge 
    # & 2.6 & 9.6 & 24.6 & 13.2 & 7.4 & 13.6 & 12.8 & 16.5 & 9.4 & 3.8 & 11.4 \\ 
          
-    print("HERE")
     learn_and_eval(target_dataset=target_dataset,constrNet='VGGsuffleInStats',\
                 kind_method='FT',epochs=epochs,transformOnFinalLayer='',\
                 pretrainingModif=pretrainingModif,freezingType=freezingType,
@@ -3932,7 +4068,7 @@ def testPerformanceVGGShuffle():
                 dropout=dropout,regulOnNewLayer='l2',nesterov=nesterov,\
                 SGDmomentum=0.0,decay=decay,verbose=True,kind_of_shuffling = 'roll_partial',
                 style_layers=['block1_conv1'])
-    # 
+    # & 68.7 & 47.8 & 93.5 & 72.8 & 62.1 & 73.2 & 53.8 & 80.0 & 73.6 & 82.9 & 70.9 \\
         
 def testROWD_CUMUL():
     learn_and_eval(target_dataset='Paintings',final_clf='LinearSVC',\
@@ -3949,8 +4085,6 @@ def testROWD_CUMUL():
     #& 62.0 & 40.4 & 89.5 & 69.8 & 44.7 & 66.1 & 41.4 & 68.8 & 58.8 & 81.3 & 62.3 \\
     # Contre 72.2 pour LinearSVC sur les features directement...
         
-        
-    
         
 def testROWD_CUMUL_FT_freezingLayers():
     learn_and_eval(target_dataset='Paintings',final_clf='MLP2',\
@@ -4287,10 +4421,13 @@ if __name__ == '__main__':
     #RunAllEvaluation_ForFeatureExtractionModel(printForTabularLatex=True)
     #RunAllEvaluation_ForFeatureExtractionModel()
     #RunAllEvaluation_FineTuningResNet()
-    testPerformanceVGGShuffle()
-    test_BaysianOptimFT()
+    #testPerformanceVGGShuffle()
+    
+    testPerformance_VGG_l2regul()
+    
+    #test_BaysianOptimFT() # A refaire !
     # PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
     #                           onlyPlot=False,cropCenter=True,BV=True)
     # #RunAllEvaluation_FineTuningResNet() # a regrouper
-    RunAllEvaluation_FineTuningVGG()   # a regrouper
+    #RunAllEvaluation_FineTuningVGG(onlyPlot=False)   # a regrouper
     

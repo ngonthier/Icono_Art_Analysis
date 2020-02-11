@@ -899,7 +899,7 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
                                    transformOnFinalLayer=None,res_num_layers=50,\
                                    weights='imagenet',verbose=True):
   """
-  VGG with an Instance normalisation : we impose the mean and std of reference 
+  ResNet with an Instance normalisation : we impose the mean and std of reference 
   instance per instance
   @param : final_layer final layer provide for feature extraction
   @param : transformOnFinalLayer : on va modifier la derniere couche du réseau
