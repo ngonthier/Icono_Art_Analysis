@@ -270,6 +270,6 @@ def get_database(database):
     elif database in ['VOC2007','watercolor','clipart','PeopleArt','CASPApaintings','comic','RASTA']:
         str_val = 'val'
         df_label[classes] = df_label[classes].apply(lambda x:(x + 1.0)/2.0)
-        # To cast from -1 1 to 0. 1.1
+        # To cast from -1 1 to 0.0 1.0
     
     return(item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC)
