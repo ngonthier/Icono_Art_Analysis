@@ -152,17 +152,18 @@ def simpleRASTAclassification_withGramMatrices():
 
         for sizeIm in sizeIm_tab: # Il va falloir modifier cela a un moment : calculer la taille minimale du dataset RASTA
             
-            name = 'Triu_cov_of_VGG_'+ layer_used + '_ImSize'+str(sizeIm)
-            outfile_test = os.path.join(output_path, name + '_test.npy')
-            outfile_trainval = os.path.join(output_path,name + '_trainval.npy')
+            name = 'Triu_cov_of_VGG_'+ layer_used 
+            name_feat = name+ '_ImSize'+str(sizeIm)
+            outfile_test = os.path.join(output_path, name_feat + '_test.npy')
+            outfile_trainval = os.path.join(output_path,name_feat + '_trainval.npy')
             outfile_test_y_get = os.path.join(output_path, name + '_test_labels.npy')
             outfile_trainval_y_gt = os.path.join(output_path,name + '_trainval_labels.npy')
             
             if os.path.isfile(outfile_test) and  os.path.isfile(outfile_trainval):
                 Xtest=np.load(outfile_test)
-                Xtrain=np.save(outfile_trainval)
-                Ytest_gt=np.save(outfile_test_y_get)
-                Ytrain_gt=np.save(outfile_trainval_y_gt)
+                Xtrain=np.load(outfile_trainval)
+                Ytest_gt=np.load(outfile_test_y_get)
+                Ytrain_gt=np.load(outfile_trainval_y_gt)
                 Ytest_pred_minOfDist = np.empty(Ytest_gt.shape, dtype=np.float32)
                 Ytest_pred_meanOfDist = np.empty(Ytest_gt.shape, dtype=np.float32)       
                 Ytest_pred_meanOf_kNN_Dist = np.empty(Ytest_gt.shape, dtype=np.float32)  
@@ -172,6 +173,7 @@ def simpleRASTAclassification_withGramMatrices():
                 itera = 1000
                 
                 Xtrain = None
+                Xtest = None
                 Xtrain_dict = {}
                 Xtest_dict = {}
                 for l,layer in enumerate(style_layers):
@@ -224,7 +226,7 @@ def simpleRASTAclassification_withGramMatrices():
                             Xtrain = np.empty((len(df_trainval),len(X_i)), dtype=np.float32)
                         Xtrain[i,:] = X_i
         
-                Xtest = None
+                
                 Ytest_gt = np.empty((len(df_test),num_classes), dtype=np.float32)
                 Ytest_pred_minOfDist = np.empty((len(df_test),num_classes), dtype=np.float32)
                 Ytest_pred_meanOfDist = np.empty((len(df_test),num_classes), dtype=np.float32)       
@@ -276,6 +278,8 @@ def simpleRASTAclassification_withGramMatrices():
                 np.save(outfile_trainval, Xtrain)
                 np.save(outfile_test_y_get, Ytest_gt)
                 np.save(outfile_trainval_y_gt, Ytrain_gt)
+                
+                del net_get_cov
             
             #argmin_test = pairwise_distances_argmin() # Y[argmin[i], :] is the row in Y that is closest to X[i, :].
             
@@ -307,8 +311,8 @@ def simpleRASTAclassification_withGramMatrices():
                 
             top_k = [1,3,5]
             
-            print('For layer :',layer_used,'and size :',sizeIm)
-            print('\nMinimal distance')
+            print('\nFor layer :',layer_used,'and size :',sizeIm)
+            if allMethod: print('\nMinimal distance')
             scores = get_top_scores(Ytest_gt,Ytest_pred_minOfDist,top_k=top_k)
             for val,pred in zip(top_k,scores):
                 print('Top-{} accuracy : {}%'.format(val,pred*100))
