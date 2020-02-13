@@ -693,7 +693,7 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
     
   model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,\
                            opt,regularizers,dropout,\
-                           inal_activation=final_activation,metrics=metrics,loss=loss)
+                           final_activation=final_activation,metrics=metrics,loss=loss)
   if verbose: print(model.summary())
   return model
 
