@@ -367,10 +367,10 @@ def simpleRASTAclassification_withGramMatrices():
                 
                     
             # SVM classification
-            class_weight = 'balanced'
-            C_finalSVM = 1.0
-            classifier = LinearSVC(penalty='l2',class_weight=class_weight,
-            loss='squared_hinge',max_iter=1000,dual=False,C=C_finalSVM) # dual=False if number of samples > num of features
+            # class_weight = 'balanced'
+            # C_finalSVM = 1.0
+            # classifier = LinearSVC(penalty='l2',class_weight=class_weight,
+            # loss='squared_hinge',max_iter=1000,dual=False,C=C_finalSVM) # dual=False if number of samples > num of features
             
             print(Xtrain.shape)
             
@@ -395,10 +395,18 @@ def simpleRASTAclassification_withGramMatrices():
             # Yi1 = Yi[1]
             # classifier.fit(X_train_small,Yi1)
 
-            scaler = StandardScaler()
+            scaler = StandardScaler(copy=False)
             Xtrain = scaler.fit_transform(Xtrain)
             Xtest = scaler.transform(Xtest)
-            batch_size = 2048
+            if layer_used=='block1_conv1':
+                batch_size =2048
+            elif layer_used=='block3_conv1': # Dans ce cas là on a un vector de features de
+                # taille 32896
+                batch_size = 64
+            else:
+                batch_size = 1024*2048//Xtrain.shape[1] 
+            print('batch_size :';batch_size)
+                
             model = TrainMLP(model,Xtrain,Ytrain_gt,None,None,batch_size=batch_size,epochs=20,\
              verbose=True,plotConv=False,return_best_model=True,\
              NoValidationSetUsed=False,RandomValdiationSet=True)

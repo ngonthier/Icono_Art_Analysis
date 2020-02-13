@@ -37,7 +37,7 @@ def TrainClassifierOnAllClass(X,y,clf='LinearSVC',gridSearch=True):
     return(dico_clf)
 
 def TrainLinearSVC(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=-1,
-                 C_finalSVM=1,cskind=None):
+                 C_finalSVM=1,cskind=None,scoring_type='AP'):
     """
     @param clf : LinearSVC, defaultSGD or SGDsquared_hinge  
     Trained on one class uniquely
@@ -62,9 +62,12 @@ def TrainLinearSVC(X,y,clf='LinearSVC',class_weight=None,gridSearch=True,n_jobs=
             clf = SGDClassifier(max_iter=1000, tol=0.0001,loss='squared_hinge')
             param_grid = dict(alpha=cs)
 
+        if scoring_type == 'AP':
+            scoring = make_scorer(average_precision_score,
+                                                       needs_threshold=True)
+
         classifier = GridSearchCV(clf, refit=True,
-                                  scoring =make_scorer(average_precision_score,
-                                                       needs_threshold=True),
+                                  scoring =scoring,
                                   param_grid=param_grid,n_jobs=n_jobs)
     else:
         # ,class_weight='balanced'
