@@ -31,7 +31,7 @@ import pathlib
 from Classifier_On_Features import TrainClassifierOnAllClass,PredictOnTestSet
 from sklearn.metrics import average_precision_score,recall_score,make_scorer,\
     precision_score,label_ranking_average_precision_score,classification_report
-from sklearn.metrics import matthews_corrcoef,f1_score
+from sklearn.metrics import matthews_corrcoef,f1_score,accuracy_score,average_precision_score
 from sklearn.preprocessing import StandardScaler
 from Custom_Metrics import ranking_precision_score
 from LatexOuput import arrayToLatex
@@ -52,7 +52,6 @@ from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getRes
 import keras_preprocessing as kp
 
 from functools import partial
-from sklearn.metrics import average_precision_score,make_scorer
 from sklearn.model_selection import GridSearchCV
 
 # Bayesian optimization of the hyper parameters of the networks
@@ -439,6 +438,18 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     
     #tf.compat.v1.enable_eager_execution()
     
+    if target_dataset=='RASTA':
+        if final_clf=='LinearSVC':
+            print('LinearSVC is not implemented yet with the RASTA dataset, the number of images is too big')
+            raise(NotImplementedError)
+        final_activation='softmax'
+        metrics='top_k_categorical_accuracy'
+        loss='categorical_crossentropy'
+    else:
+        final_activation='sigmoid'
+        metrics='accuracy'
+        loss='binary_crossentropy'
+
     if constrNet=='ResNet50_BNRF' and kind_method=='FT':
         style_layers = getBNlayersResNet50()
         print('Need to be all BN layers of ResNet')
@@ -965,15 +976,18 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     if final_clf=='MLP2':
                         builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                          nesterov=nesterov,decay=decay,verbose=verbose)
+                                          nesterov=nesterov,decay=decay,verbose=verbose,\
+                                          final_activation=final_activation,metrics=metrics,loss=loss)
                     if final_clf=='MLP3':
                         builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,num_layers=3,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                          nesterov=nesterov,decay=decay,verbose=verbose)
+                                          nesterov=nesterov,decay=decay,verbose=verbose,\
+                                          final_activation=final_activation,metrics=metrics,loss=loss)
                     elif final_clf=='MLP1':
                         builder_model = partial(Perceptron_model,num_of_classes=num_classes,optimizer=optimizer,\
                                                 regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                                nesterov=nesterov,decay=decay,verbose=verbose)
+                                                nesterov=nesterov,decay=decay,verbose=verbose,\
+                                                final_activation=final_activation,metrics=metrics,loss=loss)
                         
                     model = TrainMLPwithGridSearch(builder_model,Xtrainval,ytrainval,batch_size,epochs)
                     
@@ -982,15 +996,18 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     if final_clf=='MLP2':
                         model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose)
+                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose,\
+                                          final_activation=final_activation,metrics=metrics,loss=loss)
                     if final_clf=='MLP3':
                         model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,num_layers=3,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose)
+                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose,\
+                                          final_activation=final_activation,metrics=metrics,loss=loss)
                     elif final_clf=='MLP1':
                         model = Perceptron_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
                                                 regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
-                                                nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose)
+                                                nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose,\
+                                                final_activation=final_activation,metrics=metrics,loss=loss)
                     
                     model = TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,\
                                  verbose=verbose,plotConv=plotConv,return_best_model=return_best_model,\
@@ -998,7 +1015,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 predictions = model.predict(X_test, batch_size=1)
                 
                 try:
-                    metrics = evaluationScore(y_test,predictions)  
+                    if target_dataset=='RASTA':
+                        metrics = evaluationScoreRASTA(y_test,predictions)  
+                    else:
+                        metrics = evaluationScore(y_test,predictions)  
                 except ValueError as e:
                     print(e)
                     print('This is certainly due to the divergence of the model')
@@ -1033,7 +1053,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                             BV,p,
                             dbn_affine,m_per_group,kind_method,\
                             batch_size_RF,momentum,\
-                            epochs_RF,output_path,kind_of_shuffling,useFloat32)
+                            epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                            final_activation,metrics,loss)
                     
 
                 
@@ -1057,7 +1078,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                         epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                         df_label,\
                         item_name,classes,path_to_img,\
-                        str_val,epochs,batch_size,AP_file_base)
+                        str_val,epochs,batch_size,AP_file_base,\
+                        final_activation,metrics,loss)
                 
             model.save(model_path,include_optimizer=include_optimizer)
             if returnStatistics: # We will load the model and return it
@@ -1069,7 +1091,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                            cropCenter=cropCenter)
                 
             try:
-                metrics = evaluationScore(y_test,predictions)    
+                if target_dataset=='RASTA':
+                    metrics = evaluationScoreRASTA(y_test,predictions)  
+                else:
+                    metrics = evaluationScore(y_test,predictions)    
             except ValueError as e:
                 print(e)
                 print('This is certainly due to the divergence of the model')
@@ -1078,6 +1103,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 return(metrics)
             
             del model
+            
+        print(metrics)
             
         with open(APfilePath, 'wb') as pkl:
             pickle.dump(metrics,pkl)
@@ -1094,11 +1121,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             else:
                 raise(e)
                 
-    if len(metrics)==5:
-        AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
-    if len(metrics)==4:
-        AP_per_class,P_per_class,R_per_class,P20_per_class = metrics
-        F1_per_class = None
+    if not(target_dataset=='RASTA'):
+        if len(metrics)==5:
+            AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
+        if len(metrics)==4:
+            AP_per_class,P_per_class,R_per_class,P20_per_class = metrics
+            F1_per_class = None
+    else:
+        top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class= metrics
     
     if not(forLatex) and verbose:
         print(target_dataset,source_dataset,number_im_considered,final_clf,features,transformOnFinalLayer,\
@@ -1115,6 +1145,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     Latex_str += str_part2
     Latex_str = Latex_str.replace('\hline','')
     if verbose: print(Latex_str)
+    
+    if target_dataset=='RASTA':
+        for k,top_k_acc in zip([1,3,5],top_k_accs):
+            print(top_k_acc.shape)
+            print('Top-{0} accuracy : {1.2f}%'.format(k,top_k_acc*100))
     
     # To clean GPU memory
     K.clear_session()
@@ -1134,7 +1169,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                             BV,p,
                             dbn_affine,m_per_group,kind_method,\
                             batch_size_RF,momentum,\
-                            epochs_RF,output_path,kind_of_shuffling,useFloat32):
+                            epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                            final_activation,metrics,loss):
     
     # We fineTune a VGG
     if constrNet=='VGG':
@@ -1144,7 +1180,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    optimizer=optimizer,opt_option=opt_option,freezingType=freezingType,
                                    final_clf=final_clf,final_layer=features,verbose=verbose,
                                    regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam
-                                   ,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                                   ,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,
+                                   final_activation=final_activation,metrics=metrics,loss=loss)
         
     elif constrNet=='VGGAdaIn': # Only the Normalisation BN  layer are trainable
         model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
@@ -1152,7 +1189,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   final_clf=final_clf,final_layer=features,verbose=verbose,\
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                   regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
-                  SGDmomentum=SGDmomentum,decay=decay)
+                  SGDmomentum=SGDmomentum,decay=decay,
+                  final_activation=final_activation,metrics=metrics,loss=loss)
       
     elif constrNet=='VGGBaseNormCoherentAdaIn':
         print('VGGBaseNormCoherentAdaIn for FT : cela ne fonctionne pas et je ne sais pas pourquoi')
@@ -1186,14 +1224,17 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
               optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
               regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
               SGDmomentum=SGDmomentum,decay=decay,\
-              list_mean_and_std_source=list_mean_and_std_source,list_mean_and_std_target=list_mean_and_std_target)
+              list_mean_and_std_source=list_mean_and_std_source,list_mean_and_std_target=list_mean_and_std_target,
+              final_activation=final_activation,metrics=metrics,loss=loss)
     
     elif constrNet=='VGGFRN': # Only the FRN layer are trainable
         model = vgg_FRN(style_layers,num_of_classes=num_classes,weights=weights,\
                   transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
                   final_clf=final_clf,final_layer=features,verbose=verbose,\
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
-                  regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                  regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
+                  SGDmomentum=SGDmomentum,decay=decay,
+                  final_activation=final_activation,metrics=metrics,loss=loss)
         
     elif constrNet=='VGGAdaDBN': # Only the DBN decorrelated layer are trainable
         model = vgg_adaDBN(style_layers,num_of_classes=num_classes,\
@@ -1201,7 +1242,9 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   weights=weights,final_layer=features,final_clf=final_clf,\
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                   regulOnNewLayerParam=regulOnNewLayerParam,\
-                  dbn_affine=dbn_affine,m_per_group=m_per_group,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+                  dbn_affine=dbn_affine,m_per_group=m_per_group,dropout=dropout,nesterov=nesterov,\
+                  SGDmomentum=SGDmomentum,decay=decay,
+                  final_activation=final_activation,metrics=metrics,loss=loss)
     
     elif constrNet=='VGGsuffleInStats':
         model = vgg_suffleInStats(style_layers,num_of_classes=num_classes,\
@@ -1211,7 +1254,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   regulOnNewLayerParam=regulOnNewLayerParam,\
                   dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                   kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
-                  freezingType=freezingType,p=p)
+                  freezingType=freezingType,p=p,\
+                  final_activation=final_activation,metrics=metrics,loss=loss)
     
     elif constrNet=='ResNet50':
         getBeforeReLU = False
@@ -1219,14 +1263,16 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,opt_option=opt_option,\
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,\
                                    freezingType=freezingType,dropout=dropout,nesterov=nesterov,\
-                                   SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer)
+                                   SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
+                                   final_activation=final_activation,metrics=metrics,loss=loss)
             
     elif constrNet=='ResNet50AdaIn':
         getBeforeReLU = False
         model = ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
-                                   dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer)
+                                   dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
+                                   final_activation=final_activation,metrics=metrics,loss=loss)
         
     elif constrNet=='ResNet50_ROWD_CUMUL':
         # Refinement the batch normalisation : normalisation statistics
@@ -1252,7 +1298,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
 
         model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
                      final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
-                     pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet)
+                     pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet,\
+                     final_activation=final_activation,metrics=metrics,loss=loss)
             
     elif constrNet=='ResNet50_ROWD_CUMUL_AdaIn':
         # Refinement the batch normalisation : normalisation statistics
@@ -1278,7 +1325,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
 
         model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
                      final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
-                     AdaIn_mode=True,style_layers=style_layers)
+                     AdaIn_mode=True,style_layers=style_layers,\
+                     final_activation=final_activation,metrics=metrics,loss=loss)
             
     elif constrNet=='ResNet50_BNRF':
         
@@ -1312,7 +1360,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
         
         model = add_head_and_trainable(network_features_extractionBNRF,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
                      final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
-                         pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet)
+                     pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet,\
+                     final_activation=final_activation,metrics=metrics,loss=loss)
             ## Non tester !!!
         
         
@@ -1336,7 +1385,7 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                         epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                         df_label,\
                         item_name,classes,path_to_img,\
-                        str_val,epochs,batch_size):
+                        str_val,epochs,batch_size,final_activation,metrics,loss):
         
     curr_session = tf.get_default_session()
     # close current session
@@ -1367,7 +1416,8 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                                 BV,p,
                                 dbn_affine,m_per_group,kind_method,\
                                 batch_size_RF,momentum,\
-                                epochs_RF,output_path,kind_of_shuffling,useFloat32)
+                                epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                                final_activation,metrics,loss)
                 
     fined_model_best_metric = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                             x_col=item_name,y_col=classes,path_im=path_to_img,\
@@ -1395,7 +1445,8 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                         df_label,\
                         item_name,classes,path_to_img,\
-                        str_val,epochs,batch_size,AP_file_base):
+                        str_val,epochs,batch_size,AP_file_base,\
+                        final_activation,metrics,loss):
     """
     Fine Tuned a deep model with bayesian optimization of the hyper-parameters, the one concerned are :
         - log10_learning_rate
@@ -1409,7 +1460,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
     
     print('pbounds :',pbounds)
     
-    functio_to_miximaze = partial(get_partial_model_def,
+    function_to_miximaze = partial(get_partial_model_def,
                           constrNet=constrNet,target_dataset=target_dataset,num_classes=num_classes,pretrainingModif=pretrainingModif,
                         transformOnFinalLayer=transformOnFinalLayer,weights=weights,
                         optimizer=optimizer,freezingType=freezingType,
@@ -1423,10 +1474,11 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         epochs_RF=epochs_RF,output_path=output_path,kind_of_shuffling=kind_of_shuffling,useFloat32=useFloat32,\
                         df_label=df_label,\
                         item_name=item_name,classes=classes,path_to_img=path_to_img,\
-                        str_val=str_val,epochs=epochs,batch_size=batch_size,cropCenter=cropCenter)
+                        str_val=str_val,epochs=epochs,batch_size=batch_size,cropCenter=cropCenter,\
+                        final_activation=final_activation,metrics=metrics,loss=loss)
     
     hyperoptimizer = BayesianOptimization(
-        f=functio_to_miximaze,
+        f=function_to_miximaze,
         pbounds=pbounds,
         random_state=1,
     )
@@ -1696,7 +1748,8 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         
     workers=8
     use_multiprocessing = True
-    if not(NoValidationSetUsed):
+
+    if not(NoValidationSetUsed): # IE use a validation set
         history = model.fit_generator(generator=train_generator,
                         steps_per_epoch=STEP_SIZE_TRAIN,
                         validation_data=valid_generator,
@@ -1914,6 +1967,52 @@ def evaluationScore(y_gt,y_pred,verbose=False,k = 20,seuil=0.5):
         P20_per_class += [precision_at_k]
         if verbose: print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}, precision a rank k=20  = {3:.2f}.".format(test_precision,test_recall,F1,precision_at_k))
     return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
+
+def evaluationScoreRASTA(y_gt,y_pred,verbose=False,seuil=0.5):
+    """
+    y_gt must be between 0 or 1
+    y_predmust be between 0 and 1
+    It will evaluate the top k accuracy score too
+    """
+    
+    top_k = [1,3,5]
+    num_samples,num_classes = y_gt.shape
+    AP_per_class = []
+    P_per_class = []
+    F1_per_class = []
+    R_per_class = []
+    P20_per_class = []
+    acc_per_class = []
+    
+    top_k_accs = []
+    for k in top_k:
+        top_k_acc = tf.keras.metrics.top_k_categorical_accuracy(y_gt,y_pred,k=k)
+        top_k_accs += [np.mean(top_k_acc.eval())]
+        if verbose: print('Top {0} accuracy : {1:2f}'.foramat(k,top_k_acc))
+    
+    for c in range(num_classes):
+        y_gt_c = y_gt[:,c]
+        y_predict_confidence_score = y_pred[:,c] # The prediction by the model
+        y_predict_test = (y_predict_confidence_score>seuil).astype(int)
+        if verbose:
+            print('classe num',c)
+            print('GT',y_gt_c)
+            print('Pred',y_predict_confidence_score)
+        AP = average_precision_score(y_gt_c,y_predict_confidence_score,average=None)
+        if verbose: print("Average Precision ofpickn all the data for classe",c," = ",AP)  
+        AP_per_class += [AP] 
+        test_precision = precision_score(y_gt_c,y_predict_test)
+        test_recall = recall_score(y_gt_c,y_predict_test)
+        test_acc = accuracy_score(y_gt_c,y_predict_test)
+        R_per_class += [test_recall]
+        P_per_class += [test_precision]
+        acc_per_class += [test_acc]
+        F1 = f1_score(y_gt_c,y_predict_test)
+        F1_per_class +=[F1]
+        precision_at_k = ranking_precision_score(np.array(y_gt_c), y_predict_confidence_score,k)
+        P20_per_class += [precision_at_k]
+        if verbose: print("Test on all the data precision = {0:.2f}, recall = {1:.2f}, F1 = {2:.2f}, precision a rank k=20  = {3:.2f}, accuracy = {4:.2f}.".format(test_precision,test_recall,F1,precision_at_k,acc_per_class))
+    return(top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class)
 
 def RunUnfreezeLayerPerformanceVGG(plot=False):
     """
@@ -3703,7 +3802,15 @@ def VGGotherParameterersTry():
        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
        kind_of_shuffling='roll_partial')
     # & 60.7 & 38.8 & 92.2 & 69.0 & 57.3 & 63.9 & 46.4 & 77.7 & 69.8 & 80.1 & 65.6 \\ 
-        
+ 
+
+def RASTAclassifTest():
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=1,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=False,verbose=True)
+       
 def testVGGShuffle():
     target_dataset = 'Paintings'
     ReDo = False

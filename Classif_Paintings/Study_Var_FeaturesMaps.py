@@ -313,7 +313,8 @@ def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_con
 def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                         dataset='ImageNet',set='',saveformat='h5',whatToload='var',\
                         getBeforeReLU=False,Net='VGG',style_layers_imposed=[],\
-                        list_mean_and_std_source=[],list_mean_and_std_target=[],cropCenter=False):
+                        list_mean_and_std_source=[],list_mean_and_std_target=[],\
+                        cropCenter=False,sizeIm=224):
     """
     In this function we precompute the mean and cov for certain dataset
     @param : whatToload mention what you want to load by default only return variances
@@ -348,8 +349,13 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
     dict_output = {}
     dict_var = {}
     
+    if not(sizeIm==224) and not(Net=='VGG'):
+        print('/!\ I did not implement the gram matrices computation for a size different from 224*244 for the moment !')
+        raise(NotImplementedError)
+    
     if Net=='VGG':
         net_get_cov =  get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
+        # Don t need sizeIm because we don t load the head of the model
     elif Net=='VGGBaseNorm' or Net=='VGGBaseNormCoherent':
         style_layers_exported = style_layers
         net_get_cov = get_BaseNorm_gram_mean_features(style_layers_exported,\
@@ -383,11 +389,11 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             try:
                 #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
                 if cropCenter:
-                    image_array= load_and_crop_img(path=image_path,Net=Net,target_size=224,
-                                            crop_size=224,interpolation='lanczos:center')
-                          # For VGG or ResNet size == 224
+                    image_array= load_and_crop_img(path=image_path,Net=Net,target_size=sizeIm,
+                                            crop_size=sizeIm,interpolation='lanczos:center')
+                    # For VGG or ResNet with classification head size == 224
                 else:
-                    image_array = load_resize_and_process_img(image_path,Net=Net)
+                    image_array = load_resize_and_process_img(image_path,Net=Net,sizeIm=sizeIm)
                 net_cov_mean = net_get_cov.predict(image_array, batch_size=1)
             except IndexError as e:
                 print(e)
@@ -779,7 +785,7 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    whatToload,saveformat='h5',set='',getBeforeReLU=False,\
                    Net='VGG',style_layers_imposed=[],\
                    list_mean_and_std_source=[],list_mean_and_std_target=[],\
-                   cropCenter=False,BV=True):
+                   cropCenter=False,BV=True,sizeIm=224):
     if 'VGG' in Net:
         if BV:
             str_layers = numeral_layers_index(style_layers)
@@ -793,6 +799,9 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
     else:
         raise(NotImplementedError)
     filename = source_dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
+    
+    if not(sizeIm==224):
+        filename += '_ImSize'+str(sizeIm)
     
     if not(Net=='VGG'):
         if 'VGG' in Net:
@@ -830,7 +839,8 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                                        dataset=source_dataset,set=set,saveformat=saveformat,\
                                        whatToload=whatToload,Net=Net,style_layers_imposed=style_layers_imposed,\
                                        list_mean_and_std_source=list_mean_and_std_source,\
-                                       list_mean_and_std_target=list_mean_and_std_target,cropCenter=cropCenter)
+                                       list_mean_and_std_target=list_mean_and_std_target,\
+                                       cropCenter=cropCenter,sizeIm=sizeIm)
     else:
         dict_stats = load_precomputed_mean_cov(filename_path,style_layers,source_dataset,\
                                             saveformat=saveformat,whatToload=whatToload)
