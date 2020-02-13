@@ -47,11 +47,19 @@ from functools import partial
 ### Multi Layer perceptron
 def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers=2,\
               regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,\
-              nesterov=False,SGDmomentum=0.9,decay=0.0):
+              nesterov=False,SGDmomentum=0.9,decay=0.0,final_activation='sigmoid',metrics='accuracy',\
+              loss='binary_crossentropy'):
   """ Return a MLP model ready to fit
   @param : dropout if None : not dropout otherwise must be a value between 0 and 1
+  For the multi-label case : use the binary_crossentropy loss 
+  For the multi-class use the categorical_crossentropy loss
   """
     
+  if metrics=='accuracy':
+      metrics = [metrics]
+  elif metrics=='top_k_categorical_accuracy':
+      metrics = [tf.keras.metrics.top_k_categorical_accuracy]
+  
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
     
   if optimizer=='SGD':
@@ -64,22 +72,28 @@ def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers
   if num_layers==2:
       model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
       if not(dropout is None): model.add(Dropout(dropout))
-      model.add(Dense(num_of_classes, activation='sigmoid',kernel_regularizer=regularizers))
+      model.add(Dense(num_of_classes, activation=final_activation,kernel_regularizer=regularizers))
   elif num_layers==3:
       model.add(Dense(256, activation='relu', kernel_regularizer=regularizers))
       if not(dropout is None): model.add(Dropout(dropout))
       model.add(Dense(128, activation='relu', kernel_regularizer=regularizers))
       if not(dropout is None): model.add(Dropout(dropout))
-      model.add(Dense(num_of_classes, activation='sigmoid', kernel_regularizer=regularizers))
+      model.add(Dense(num_of_classes, activation=final_activation, kernel_regularizer=regularizers))
   # Compile model
-  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  model.compile(loss=loss, optimizer=opt, metrics=metrics)
   
   return(model)
   
 ### one Layer perceptron
 def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
                      regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,\
-                     nesterov=False,SGDmomentum=0.9,decay=0.0):
+                     nesterov=False,SGDmomentum=0.9,decay=0.0,final_activation='sigmoid',metrics='accuracy',
+                     loss='binary_crossentropy'):
+    
+  if metrics=='accuracy':
+      metrics = [metrics]
+  elif metrics=='top_k_categorical_accuracy':
+      metrics = [tf.keras.metrics.top_k_categorical_accuracy]
     
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
 
@@ -91,9 +105,9 @@ def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
       opt= RMSprop(learning_rate=lr,decay=decay,momentum=SGDmomentum)
   model =  tf.keras.Sequential()
   if not(dropout is None): model.add(Dropout(dropout))
-  model.add(Dense(num_of_classes, activation='sigmoid', kernel_regularizer=regularizers))
+  model.add(Dense(num_of_classes, activation=final_activation, kernel_regularizer=regularizers))
   # Compile model
-  model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+  model.compile(loss=loss, optimizer=opt, metrics=metrics)
 
   return(model)
 

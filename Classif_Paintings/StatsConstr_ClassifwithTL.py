@@ -1770,7 +1770,7 @@ def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
     use_multiprocessing = True
     
     STEP_SIZE_TRAIN=len(X_train)//batch_size
-    if (not(len(X_val)==0) and not(NoValidationSetUsed)) and not(RandomValdiationSet):
+    if not(X_val is None) and ((not(len(X_val)==0) and not(NoValidationSetUsed)) and not(RandomValdiationSet)):
         STEP_SIZE_VALID=len(X_val)//batch_size
         history = model.fit(X_train, y_train,batch_size=batch_size,epochs=epochs,\
                             validation_data=(X_val, y_val),\
@@ -4423,11 +4423,11 @@ if __name__ == '__main__':
     #RunAllEvaluation_FineTuningResNet()
     #testPerformanceVGGShuffle()
     
-    testPerformance_VGG_l2regul()
+    #testPerformance_VGG_l2regul()
     
-    #test_BaysianOptimFT() # A refaire !
+    test_BaysianOptimFT() # A refaire !
     # PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
     #                           onlyPlot=False,cropCenter=True,BV=True)
     # #RunAllEvaluation_FineTuningResNet() # a regrouper
-    #RunAllEvaluation_FineTuningVGG(onlyPlot=False)   # a regrouper
+    RunAllEvaluation_FineTuningVGG(onlyPlot=False)   # a regrouper
     
