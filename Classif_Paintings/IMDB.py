@@ -18,7 +18,7 @@ def get_database(database):
         path_to_img = 'Painting_Dataset/'
         classes = ['aeroplane','bird','boat','chair','cow','diningtable','dog','horse','sheep','train']
     elif database=='RASTA':
-        path_to_img = '/media/gonthier/HDD2/data/RASTA_LAMSADE/wikipaintings_full'
+        path_to_img = 'RASTA_LAMSADE/wikipaintings_full'
         ext = '.csv'
         item_name = 'name_img'
         default_path_imdb = '/media/gonthier/HDD2/data/'

@@ -50,6 +50,8 @@ from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getRes
     fit_generator_ForRefineParameters,fit_generator_ForRefineParameters_v2
 import keras_preprocessing as kp
 
+from Classifier_On_Features import TrainClassifierOnAllClass,PredictOnTestSet
+
 from functools import partial
 from sklearn.metrics import average_precision_score,make_scorer
 from sklearn.model_selection import GridSearchCV
@@ -63,6 +65,13 @@ from bayes_opt.event import Events
 from scipy.spatial.distance import pdist
 
 from sklearn.metrics import pairwise_distances
+from PIL import Image
+from sklearn.svm import LinearSVC
+from sklearn.model_selection import GridSearchCV 
+from sklearn.model_selection import train_test_split
+from StatsConstr_ClassifwithTL import TrainMLP
+
+from sklearn.preprocessing import StandardScaler
 
 #both preds and truths are same shape m by n (m is number of predictions and n is number of classes)
 def top_k_accuracy(truths,preds, k):
@@ -79,8 +88,6 @@ def get_top_scores(y,y_pred,top_k=[1,3,5]):
     for k in top_k:
         scores.append(top_k_accuracy(y,y_pred, k))
     return scores
-
-from PIL import Image
 
 
 def minimal_sizeOfRASTAImages():
@@ -112,6 +119,23 @@ def minimal_sizeOfRASTAImages():
     # Median width 800.0
     # Median height 800.0
 
+# def get_per_class_accuracy(labels,preds):
+#     names = []
+#     accs = []
+#     dico = get_dico()
+#     inv_dico = invert_dico(dico)
+#     for value in set(labels):
+#         s = 0
+#         n = 0
+#         for i in range(len(labels)):
+#             if (labels[i] == value):
+#                 n = n + 1
+#                 if (preds[i] == value):
+#                     s = s + 1
+#         names.append(inv_dico.get(value))
+#         accs.append(s / n * 100,)
+#     return accs,names
+
 def simpleRASTAclassification_withGramMatrices():
     """
     In this function we just try to see if one distance of the Gram matrices at 
@@ -133,7 +157,12 @@ def simpleRASTAclassification_withGramMatrices():
             'block4_conv1', 
             'block5_conv1'
            ]
+    style_layers_all = ['block3_conv1'
+           ]
+    layer_used = style_layers_all[0]
+    
     sizeIm_tab = [224,800]
+    sizeIm = sizeIm_tab[1]
     
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
         path_data,Not_on_NicolasPC = get_database(source_dataset)    
@@ -283,50 +312,133 @@ def simpleRASTAclassification_withGramMatrices():
             
             #argmin_test = pairwise_distances_argmin() # Y[argmin[i], :] is the row in Y that is closest to X[i, :].
             
-            metrics = ['euclidean','l2','manhattan']
-            allMethod = False
-            dist_metric = 'l2'
-            #dist_metric = 'manhattan'
+            # metrics = ['euclidean','l2','manhattan']
+            # allMethod = False
+            # dist_metric = 'l2'
+            # #dist_metric = 'manhattan'
             
-            pairwise_dist = pairwise_distances(Xtest,Xtrain,metric=dist_metric)
-            # D_{i, j} is the distance between the ith array from X and the jth array from Y
+            # pairwise_dist = pairwise_distances(Xtest,Xtrain,metric=dist_metric)
+            # # D_{i, j} is the distance between the ith array from X and the jth array from Y
             
-            max_distance = np.max(pairwise_dist)
-            min_distance = np.min(pairwise_dist)
-            mean_distance = np.mean(pairwise_dist)
+            # # Problem ici avec block3_conv1
+            # # MemoryError: Unable to allocate array with shape (4268, 131328) and data type float64
             
-            k_n = 5
-            for c,classe in enumerate(classes):
-                index_c_trainval_samples = np.where(Ytrain_gt[:,c]==1.0)[0]
-                for j in range(len(df_test)):
-                    image_j_pairwise_dist_images_classe_c = pairwise_dist[j,index_c_trainval_samples]
-                    min_image_j_images_classe_c = np.min(image_j_pairwise_dist_images_classe_c)
+            # max_distance = np.max(pairwise_dist)
+            # min_distance = np.min(pairwise_dist)
+            # mean_distance = np.mean(pairwise_dist)
+            
+            # k_n = 5
+            # for c,classe in enumerate(classes):
+            #     index_c_trainval_samples = np.where(Ytrain_gt[:,c]==1.0)[0]
+            #     for j in range(len(df_test)):
+            #         image_j_pairwise_dist_images_classe_c = pairwise_dist[j,index_c_trainval_samples]
+            #         min_image_j_images_classe_c = np.min(image_j_pairwise_dist_images_classe_c)
                     
-                    Ytest_pred_minOfDist[j,c] = np.exp(-min_image_j_images_classe_c)
-                    if allMethod:
-                        best_k = np.argsort(image_j_pairwise_dist_images_classe_c, axis=0)[:k_n]
-                        Ytest_pred_meanOfDist[j,c] = np.exp(-np.mean(image_j_pairwise_dist_images_classe_c))
-                        Ytest_pred_meanOf_kNN_Dist[j,c] = np.exp(-np.mean(image_j_pairwise_dist_images_classe_c[best_k]))
+            #         # if j < 2:
+            #         #     argmin_image_j_images_classe_c = np.argmin(image_j_pairwise_dist_images_classe_c)
+                        
+                    
+            #         Ytest_pred_minOfDist[j,c] = np.exp(-min_image_j_images_classe_c)
+            #         if allMethod:
+            #             best_k = np.argsort(image_j_pairwise_dist_images_classe_c, axis=0)[:k_n]
+            #             Ytest_pred_meanOfDist[j,c] = np.exp(-np.mean(image_j_pairwise_dist_images_classe_c))
+            #             Ytest_pred_meanOf_kNN_Dist[j,c] = np.exp(-np.mean(image_j_pairwise_dist_images_classe_c[best_k]))
         
                 
             top_k = [1,3,5]
             
+            # print('\nFor layer :',layer_used,'and size :',sizeIm)
+            # if allMethod: print('\nMinimal distance')
+            # scores = get_top_scores(Ytest_gt,Ytest_pred_minOfDist,top_k=top_k)
+            # for val,pred in zip(top_k,scores):
+            #     print('Top-{} accuracy : {}%'.format(val,pred*100))
+              
+            # if allMethod:
+            #     print('\nMean distance')
+            #     scores = get_top_scores(Ytest_gt,Ytest_pred_meanOfDist,top_k=top_k)
+            #     for val,pred in zip(top_k,scores):
+            #         print('Top-{} accuracy : {}%'.format(val,pred*100))
+                    
+            #     print('\nMean distance of',k_n,'NN')
+            #     scores = get_top_scores(Ytest_gt,Ytest_pred_meanOf_kNN_Dist,top_k=top_k)
+            #     for val,pred in zip(top_k,scores):
+            #         print('Top-{} accuracy : {}%'.format(val,pred*100))
+                    
+                
+                    
+            # SVM classification
+            class_weight = 'balanced'
+            C_finalSVM = 1.0
+            classifier = LinearSVC(penalty='l2',class_weight=class_weight,
+            loss='squared_hinge',max_iter=1000,dual=False,C=C_finalSVM) # dual=False if number of samples > num of features
+            
+            print(Xtrain.shape)
+            
+            num_classes = 25
+            optimizer = 'SGD'
+            regulOnNewLayer = None
+            regulOnNewLayerParam = []
+            dropout = None
+            verbose = True
+            decay = 10**(-4)
+            SGDmomentum= 0.9
+            lr = 0.001
+            nesterov = False
+            model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
+                                          regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
+                                          nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose,\
+                                          final_activation='softmax',metrics='top_k_categorical_accuracy',loss='categorical_crossentropy')
+            
+            # X_train_big, X_train_small, y_train_big, y_train_small = train_test_split(Xtrain, Ytrain_gt, test_size=0.1, random_state=42)
+            
+            # Yi = np.where(y_train_small==1.0)
+            # Yi1 = Yi[1]
+            # classifier.fit(X_train_small,Yi1)
+
+            scaler = StandardScaler()
+            Xtrain = scaler.fit_transform(Xtrain)
+            Xtest = scaler.transform(Xtest)
+            batch_size = 2048
+            model = TrainMLP(model,Xtrain,Ytrain_gt,None,None,batch_size=batch_size,epochs=20,\
+             verbose=True,plotConv=False,return_best_model=True,\
+             NoValidationSetUsed=False,RandomValdiationSet=True)
+
+            Y_clf_prediction = model.predict(Xtest)
             print('\nFor layer :',layer_used,'and size :',sizeIm)
-            if allMethod: print('\nMinimal distance')
-            scores = get_top_scores(Ytest_gt,Ytest_pred_minOfDist,top_k=top_k)
+            scores = get_top_scores(Ytest_gt,Y_clf_prediction,top_k=top_k)
             for val,pred in zip(top_k,scores):
                 print('Top-{} accuracy : {}%'.format(val,pred*100))
-              
-            if allMethod:
-                print('\nMean distance')
-                scores = get_top_scores(Ytest_gt,Ytest_pred_meanOfDist,top_k=top_k)
-                for val,pred in zip(top_k,scores):
-                    print('Top-{} accuracy : {}%'.format(val,pred*100))
-                    
-                print('\nMean distance of',k_n,'NN')
-                scores = get_top_scores(Ytest_gt,Ytest_pred_meanOf_kNN_Dist,top_k=top_k)
-                for val,pred in zip(top_k,scores):
-                    print('Top-{} accuracy : {}%'.format(val,pred*100))
+                
+           # Avec dropout 
+            #Top-1 accuracy : 12.303377636873552%
+            #Top-3 accuracy : 14.961590049993903%
+            #Top-5 accuracy : 18.68064870137788%
+                
+            # Sans dropout 
+            # Top-1 accuracy : 9.55980977929521%
+            # Top-3 accuracy : 12.242409462260701%
+            # Top-5 accuracy : 15.998049018412388%
+                
+            # Sans dropout et lr at 0.1
+            #     For layer : block1_conv1 and size : 224
+            # Top-1 accuracy : 12.303377636873552%
+            # Top-3 accuracy : 14.961590049993903%
+            # Top-5 accuracy : 18.68064870137788%
+                
+             # Avec sizeIm 800 et lr = 0.1 et standardisation of the input image
+            # Top-1 accuracy : 25.57005243263017%
+            # Top-3 accuracy : 48.8477014998171%
+            # Top-5 accuracy : 62.077795390806%
+                
+            # # For lr = 0.01
+            # For layer : block1_conv1 and size : 800
+            # Top-1 accuracy : 26.155346908913547%
+            # Top-3 accuracy : 50.49384221436411%
+            # Top-5 accuracy : 63.723936105353005%
+                
+            #dico_clf=TrainClassifierOnAllClass(Xtrainval,ytrainval,clf=final_clf,gridSearch=gridSearch)
+            # Prediction
+            #dico_pred = PredictOnTestSet(X_test,dico_clf,clf=final_clf)
           
     # For the first layer !         
     # For euclidian distance 
