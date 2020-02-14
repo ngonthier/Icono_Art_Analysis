@@ -1317,6 +1317,8 @@ def classSlitted_Net_Boxplots_of_featuresMaps(saveformat='h5',number_im_consider
                 labels += ['icon']
             elif dataset == 'OIV5':
                 labels += ['OIV5']
+            elif dataset == 'RASTA':
+                labels += ['RASTA']
         pltname +=  str(number_im_considered)
         if getBeforeReLU:
             pltname+= '_BeforeReLU'
@@ -1836,6 +1838,9 @@ if __name__ == '__main__':
 #                        dataset_tab= ['ImageNetTrain'],
 #                        getBeforeReLU=True,printoutput=['Var'],cropCenter =True)
     #VGG_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered =np.inf,dataset_tab=  ['ImageNet','Paintings','watercolor','IconArt_v1'])              
+    # classSlitted_Net_Boxplots_of_featuresMaps(saveformat='h5',number_im_considered =None,
+    #                     dataset_tab= ['Paintings'],
+    #                     getBeforeReLU=True,printoutput=['Var'],cropCenter =True)
     classSlitted_Net_Boxplots_of_featuresMaps(saveformat='h5',number_im_considered =None,
-                        dataset_tab= ['Paintings'],
+                        dataset_tab= ['RASTA'],
                         getBeforeReLU=True,printoutput=['Var'],cropCenter =True)

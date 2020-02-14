@@ -3811,12 +3811,18 @@ def RASTAclassifTest():
        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=False,verbose=True)
+     # Top-1 accuracy :48.04%
+     # Top-3 accuracy : 75.26%
+     # Top-5 accuracy : 85.72%
         
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
        constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True)
+    #Top-1 accuracy : 55.52%
+    #Top-3 accuracy : 81.89%
+    #Top-5 accuracy : 90.51%
         
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
        constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
@@ -3824,6 +3830,17 @@ def RASTAclassifTest():
        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True,\
        kind_of_shuffling='roll')
+        
+    #Top-1 accuracy : 41.65%
+    #Top-3 accuracy : 70.87%
+    #Top-5 accuracy : 82.75%
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll',style_layers = ['block1_conv1'])
+        
         
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
        constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
