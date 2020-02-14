@@ -1148,16 +1148,17 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     
     if target_dataset=='RASTA':
         for k,top_k_acc in zip([1,3,5],top_k_accs):
-            print(top_k_acc.shape)
-            print('Top-{0} accuracy : {1.2f}%'.format(k,top_k_acc*100))
+            print('Top-{0} accuracy : {1:.2f}%'.format(k,top_k_acc*100))
     
     # To clean GPU memory
     K.clear_session()
     gc.collect()
     #cuda.select_device(0)
     #cuda.close()
-    
-    return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
+    if not(target_dataset=='RASTA'):
+        return(AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class)
+    else:
+        return(top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class)
 
 def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                             transformOnFinalLayer,weights,
@@ -3809,7 +3810,27 @@ def RASTAclassifTest():
        constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
-       epochs=1,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=False,verbose=True)
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=False,verbose=True)
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True)
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll')
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial')
        
 def testVGGShuffle():
     target_dataset = 'Paintings'
@@ -4531,7 +4552,7 @@ if __name__ == '__main__':
     #testPerformanceVGGShuffle()
     
     #testPerformance_VGG_l2regul()
-    
+    RASTAclassifTest()
     test_BaysianOptimFT() # A refaire !
     # PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
     #                           onlyPlot=False,cropCenter=True,BV=True)
