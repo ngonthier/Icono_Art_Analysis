@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on  Feb 2020
+
+This script is to download the Ukiyo-e images
+
+@author: gonthier
+"""
+
 import json
 import urllib
 from shutil import copyfile
@@ -20,11 +30,13 @@ import urllib.request
 import time
 from bs4 import BeautifulSoup
 from urllib.error import HTTPError
-
+import re
 from PIL import Image
 
+from sklearn.model_selection import train_test_split
+
+
 path_data = '/media/gonthier/HDD2/data/Ukiyoe/'
-path_data = '/media/gonthier/HDD2/data/Ukiyoe2/'
 
 def downloadAndSave(original_url,image_id,folder,path_data = ''):
     #print(original_url)
@@ -68,7 +80,116 @@ def count_number_of_images_WithsizeSuperiorTo(size=1024):
             number_artwork_without_image += 1 
     print('We have ',number_img_bigger,'images bigger than',size,'**2')
     print('We have ',number_artwork_without_image,'artworks without an image.')
+    
+    
+def CheckIfInDataframe(size=1024):
+    """
+    The goal of this function is to select the image that are big enough but 
+    also select the correct date information 
+    Count the number of images with a size superior to size**2
+    """
+    
+    list_imgs = glob.glob(os.path.join(path_data,'im','*.jpg'))
+    
+    lsit_of_selected_image = []
+    number_of_pixels = size**2
+    number_img_bigger = 0
+    number_artwork_without_image = 0
+    
+    path_df_big_images = path_data+'Ukiyoe_ImageSup1024x2.csv'
+    
+    
+    if not(os.path.isfile(path_df_big_images)): 
+        for path_to_image in list_imgs:
+            if os.path.isfile(path_to_image):
+                try:
+                    im = Image.open(path_to_image)
+                    w, h = im.size
+                    h_int = int(h)
+                    w_int = int(w)
+                except OSError as e:
+                    h_int = 0
+                    w_int = 0
+                if h_int*w_int >= number_of_pixels:
+                    number_img_bigger += 1 
+                    img_name_tab = path_to_image.split('/')[-1]
+                    short_name = img_name_tab.replace('.jpg','')
+                    lsit_of_selected_image += [short_name]
+            else: 
+                number_artwork_without_image += 1
+                
+        df_a = pd.DataFrame(lsit_of_selected_image) 
+        df_a.to_csv(path_df_big_images,sep=',', encoding="utf-8")
+    else:
+        df_a = pd.read_csv(path_df_big_images)  
+        lsit_of_selected_image = list(df_a.values[:,1])
+
+    databasetxt = path_data+'Ukiyoe_full_dataset.csv'
+    path_im = path_data + '/' +'im'
+    df = pd.read_csv(databasetxt,sep=",")
+    number_total_img = len(df)
+    print('Number of total images in the csv file :',number_total_img)
+
+    df['Big'] = [0.]*number_total_img
+    #df['MissingInfo'] = [0.]*number_total_img
+
+    df['DateClasses'] = [-1]*number_total_img
+    # The different classes considered :
+    # 0 : Early Ukiyo-e (Early-Mid 1700s)
+    # 1 : Birth of Full-Color Printing (1740s to 1780s)
+    # 2 : Golden Age of Ukiyo-e (1780 to 1804)
+    # 3 : Popularization of Woodblock Printing (1804 to 1868)
+    # 4 : Meiji Period (1868 to 1912)
+    # 5 : Shin Hanga and Sosaku Hanga Movements (1915 to 1940s)
+    # 6 : Modern and Contemporary (1950s to Now)
+    time_limits = [1740,1780,1804,1868,1912,1940]
+
+    lsit_image_in_df = lsit_of_selected_image.copy()
+    
+    image_that_could_be_multipleRow = []
+    
+    for row in df.iterrows():
+        rowData = row[1]
+        name_img = rowData['item_name']
+        date = rowData['date']
+
+        try:
+            match = re.findall('\d{4}', date)
+        except TypeError as e:
+            pass
+        if len(match)>0:
+            if len(match)>1:
+                year_middle =  (int(match[0])+int(match[1]))/2
+            else:
+                year_middle =int(match[0])
+            ind_sups = np.where(year_middle>np.array(time_limits))
+            d_classe = len(ind_sups)
+            df.loc[df['item_name']==name_img,'DateClasses'] =  d_classe
+                    
+        if name_img in lsit_of_selected_image:
+            # Instead of df[df['item_name']==name_img]['Big'] = 1.0
+            df.loc[df['item_name']==name_img,'Big'] = 1.0
+            try:
+                lsit_image_in_df.remove(name_img)
+            except ValueError as e:
+                image_that_could_be_multipleRow += [name_img]
+            
+    df.to_csv(path_data+'Ukiyoe_full_dataset_withAnnotations.csv',sep=',', encoding="utf-8")
+    df_with_classes = df[df['Big']==1.0]
+    df_with_classes = df_with_classes[df_with_classes['DateClasses']>=0.0]
+    df_with_classes.to_csv(path_data+'Ukiyoe_dataset_bigImages_and_dateClasses.csv',sep=',', encoding="utf-8")
+    print('Number of image with big image and date :',len(df_with_classes))
+    
+    print('We have ',len(lsit_image_in_df),'images without reference.')
+    
+    df_missing_info = pd.DataFrame(lsit_image_in_df) 
+    df_missing_info.to_csv(path_data+'Ukiyoe_Images_but_noInfo.csv',sep=',', encoding="utf-8")
+    df_2 = pd.DataFrame(image_that_could_be_multipleRow) 
+    df_2.to_csv(path_data+'Ukiyoe_Images_Multipletimes.csv',sep=',', encoding="utf-8")
         
+    dftrain, dftest = train_test_split(df_with_classes,stratify=df_with_classes['DateClasses'].values,test_size=)
+    
+    # A terme tu pouras utiliser les nom des artistes pour retrouver la periode
 
 def get_all_images(downloadImage=True):
     
@@ -206,6 +327,7 @@ def get_all_images(downloadImage=True):
     df.to_csv(path_data+'Ukiyoe_full_dataset.csv',sep=',', encoding="utf-8")
     df.to_csv(path_data+'Ukiyoe_full_dataset_copie.csv',sep=',', encoding="utf-8")
    
+#SSLError: HTTPSConnectionPool(host='ukiyo-e.org', port=443): Max retries exceeded with url: /image/bm/AN00534730_001_l (Caused by SSLError(SSLError("bad handshake: SysCallError(-1, 'Unexpected EOF')")))
 
 if __name__ == '__main__':                          
     get_all_images()
