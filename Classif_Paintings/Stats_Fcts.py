@@ -44,6 +44,14 @@ from functools import partial
 #import time
 #import functools
 
+### Metrics function 
+def top_1_categorical_accuracy(y_true, y_pred):
+    return tf.keras.metrics.top_k_categorical_accuracy(y_true, y_pred, k=1) 
+def top_3_categorical_accuracy(y_true, y_pred):
+    return tf.keras.metrics.top_k_categorical_accuracy(y_true, y_pred, k=3) 
+def top_5_categorical_accuracy(y_true, y_pred):
+    return tf.keras.metrics.top_k_categorical_accuracy(y_true, y_pred, k=5) 
+
 ### Multi Layer perceptron
 def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers=2,\
               regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,\
@@ -58,7 +66,7 @@ def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers
   if metrics=='accuracy':
       metrics = [metrics]
   elif metrics=='top_k_categorical_accuracy':
-      metrics = [partial(tf.keras.metrics.top_k_categorical_accuracy,k=1)]
+      metrics = [top_1_categorical_accuracy]
   
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
     
@@ -93,7 +101,7 @@ def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
   if metrics=='accuracy':
       metrics = [metrics]
   elif metrics=='top_k_categorical_accuracy':
-      metrics = [partial(tf.keras.metrics.top_k_categorical_accuracy,k=1)]
+      metrics = [top_1_categorical_accuracy]
     
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
 
@@ -134,8 +142,7 @@ def get_regularizers(regulOnNewLayer=None,regulOnNewLayerParam=[]):
       regularizers = None
   return(regularizers)
 
-### To fine Tune a VGG
-  
+### To fine Tune a VGG 
 def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout,\
                      final_activation='sigmoid',metrics='accuracy',
                      loss='binary_crossentropy'):
@@ -150,7 +157,7 @@ def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,o
   if metrics=='accuracy':
       metrics = [metrics]
   elif metrics=='top_k_categorical_accuracy':
-      metrics = [partial(tf.keras.metrics.top_k_categorical_accuracy,k=1)]
+      metrics = [top_1_categorical_accuracy]
   
   if final_clf=='MLP3':
       model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
@@ -707,7 +714,7 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
   if metrics=='accuracy':
       metrics = [metrics]
   elif metrics=='top_k_categorical_accuracy':
-      metrics = [partial(tf.keras.metrics.top_k_categorical_accuracy,k=1)]
+      metrics = [top_1_categorical_accuracy]
     
   if final_clf=='MLP2' or final_clf=='MLP3' :
       x = Dense(256, activation='relu')(x)
@@ -2082,7 +2089,7 @@ class Roll_MeanAndVar_binomialChoice(Layer):
         new_std= tf.roll(std,shift=1,axis=0)
         modified_x =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
         shape = [K.shape(x)[-1]]
-        selector = K.random_binomial(shape,p=self.p)
+        selector = K.random_binomial(shape,p=self.p) # p is the probability that selector =1
         output = tf.multiply(selector,modified_x) + tf.multiply(tf.add(1.0,-selector),x)
         return K.in_train_phase(output,x)
 
