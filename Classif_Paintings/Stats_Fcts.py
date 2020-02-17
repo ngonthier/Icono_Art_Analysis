@@ -58,7 +58,7 @@ def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers
   if metrics=='accuracy':
       metrics = [metrics]
   elif metrics=='top_k_categorical_accuracy':
-      metrics = [tf.keras.metrics.top_k_categorical_accuracy]
+      metrics = [partial(tf.keras.metrics.top_k_categorical_accuracy,k=1)]
   
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
     
@@ -93,7 +93,7 @@ def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
   if metrics=='accuracy':
       metrics = [metrics]
   elif metrics=='top_k_categorical_accuracy':
-      metrics = [tf.keras.metrics.top_k_categorical_accuracy]
+      metrics = [partial(tf.keras.metrics.top_k_categorical_accuracy,k=1)]
     
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
 
@@ -150,7 +150,7 @@ def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,o
   if metrics=='accuracy':
       metrics = [metrics]
   elif metrics=='top_k_categorical_accuracy':
-      metrics = [tf.keras.metrics.top_k_categorical_accuracy]
+      metrics = [partial(tf.keras.metrics.top_k_categorical_accuracy,k=1)]
   
   if final_clf=='MLP3':
       model.add(Dense(256, activation='relu',kernel_regularizer=regularizers))
@@ -707,7 +707,7 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
   if metrics=='accuracy':
       metrics = [metrics]
   elif metrics=='top_k_categorical_accuracy':
-      metrics = [tf.keras.metrics.top_k_categorical_accuracy]
+      metrics = [partial(tf.keras.metrics.top_k_categorical_accuracy,k=1)]
     
   if final_clf=='MLP2' or final_clf=='MLP3' :
       x = Dense(256, activation='relu')(x)
