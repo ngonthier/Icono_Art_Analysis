@@ -369,7 +369,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    kind_of_shuffling='shuffle',useFloat32=True,\
                                    computeGlobalVariance=True,returnStatistics=False,returnFeatures=False,\
                                    NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
-                                   BaysianOptimFT = False):
+                                   BaysianOptimFT = False,imSize=224):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -432,6 +432,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : RandomValdiationSet : means that we don't use a provide validation set for selecting the best model but a fraction of the trainval set
     @param : p probability in the case of roll_partial of VGGshuflleAdaIn model 
     @param : BaysianOptimFT = False if True use a bayseianoptimisation on some of the hyperparameters of the model
+    @param : imSize : 224 by default the size of tge input image
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -500,6 +501,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         name_base +=  '_' + num_layers
     if kind_method=='FT' and (weights is None):
         name_base += '_RandInit' # Random initialisation 
+    
+    if not(imSize==224):
+        name_base +='imSize'+str(imSize)
         
     if len(opt_option)>1 and not(optimizer=='SGD'):
         print('The multiple learning rate for optimizer is only implemented for SGD for the moments')
@@ -1534,7 +1538,8 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                                 BV,p,
                                 dbn_affine,m_per_group,kind_method,\
                                 batch_size_RF,momentum,\
-                                epochs_RF,output_path,kind_of_shuffling,useFloat32)
+                                epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                                final_activation=final_activation,metrics=metrics,loss=loss)
                 
     model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                             x_col=item_name,y_col=classes,path_im=path_to_img,\
@@ -3834,13 +3839,16 @@ def RASTAclassifTest():
     #Top-1 accuracy : 41.65%
     #Top-3 accuracy : 70.87%
     #Top-5 accuracy : 82.75%
+        
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
        constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True,\
        kind_of_shuffling='roll',style_layers = ['block1_conv1'])
-        
+    # Top-1 accuracy : 52.02%
+    # Top-3 accuracy : 79.33%
+    # Top-5 accuracy : 89.34%   
         
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
        constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
@@ -3848,6 +3856,30 @@ def RASTAclassifTest():
        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
        kind_of_shuffling='roll_partial')
+    # Top-1 accuracy : 45.58%
+    # Top-3 accuracy : 73.91%
+    # Top-5 accuracy : 85.70%
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial',style_layers = ['block1_conv1'],p=0.0626)
+    # Top-1 accuracy : 56.41%
+    # Top-3 accuracy : 82.73%
+    # Top-5 accuracy : 91.26%
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial',p=0.0626)
+    #Top-1 accuracy : 54.81%
+    #Top-3 accuracy : 81.72%
+    #Top-5 accuracy : 90.64%
+     
        
 def testVGGShuffle():
     target_dataset = 'Paintings'
