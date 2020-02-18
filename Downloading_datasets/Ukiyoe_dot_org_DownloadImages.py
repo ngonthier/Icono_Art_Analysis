@@ -187,8 +187,8 @@ def CheckIfInDataframe(size=1024):
     df_2 = pd.DataFrame(image_that_could_be_multipleRow) 
     df_2.to_csv(path_data+'Ukiyoe_Images_Multipletimes.csv',sep=',', encoding="utf-8")
         
-    dftrain, dftest = train_test_split(df_with_classes,stratify=df_with_classes['DateClasses'].values,test_size=)
-    
+    dftrain, dftest = train_test_split(df_with_classes,stratify=df_with_classes['DateClasses'].values,test_size=0.00120)
+    dftest.to_csv(path_data+'SmallUkiyoe_dataset_bigImages_and_dateClasses.csv',sep=',', encoding="utf-8")
     # A terme tu pouras utiliser les nom des artistes pour retrouver la periode
 
 def get_all_images(downloadImage=True):
