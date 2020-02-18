@@ -136,6 +136,20 @@ def get_list_im(dataset,set=''):
             images_in_set = df_label[df_label['set']==set][item_name].values
     else:
         images_in_set = None
+    
+    if dataset=='RASTA':
+        if not(images_in_set is None):
+            images_in_set_tmp = []
+            for elt in images_in_set:
+                elt_split = elt.split('/')[-1]
+                images_in_set_tmp += [elt_split]
+            images_in_set = images_in_set_tmp
+        item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+        path_data,Not_on_NicolasPC = get_database(dataset)
+        list_imgs = df_label[item_name].values
+        list_imgs =path_to_img +'/'+ list_imgs +'.jpg'
+        list_imgs = list(list_imgs)       
+
     number_im_list = len(list_imgs)
     return(list_imgs,images_in_set,number_im_list)
  
@@ -393,7 +407,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                                             crop_size=sizeIm,interpolation='lanczos:center')
                     # For VGG or ResNet with classification head size == 224
                 else:
-                    image_array = load_resize_and_process_img(image_path,Net=Net,sizeIm=sizeIm)
+                    image_array = load_resize_and_process_img(image_path,Net=Net,max_dim=sizeIm)
                 net_cov_mean = net_get_cov.predict(image_array, batch_size=1)
             except IndexError as e:
                 print(e)
@@ -1174,7 +1188,7 @@ def return_dicts_of_Var_or_Mean_for_VGGfeatures(dataset_tab,printoutput,output_p
         whatToload= 'mean' 
     for dataset in dataset_tab:
         print('===',dataset,'===')
-        list_imgs,images_in_set,number_im_list = get_list_im(dataset,set='')
+        list_imgs,images_in_set,number_im_list = get_list_im(dataset,set=set)
         if not(number_im_considered is None):
             if number_im_considered >= number_im_list:
                 number_im_considered_tmp =None
@@ -1272,7 +1286,7 @@ def classSlitted_Net_Boxplots_of_featuresMaps(saveformat='h5',number_im_consider
     # Load the VGG model
 #    vgg_inter =  get_intermediate_layers_vgg(style_layers) 
     
-    set = None
+    set = 'test'
     
 
 #    config = tf.ConfigProto()
@@ -1348,6 +1362,12 @@ def classSlitted_Net_Boxplots_of_featuresMaps(saveformat='h5',number_im_consider
             for dataset,label_dataset in zip(dataset_tab,labels): 
                 item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
                     path_data,Not_on_NicolasPC = get_database(dataset)
+                    
+                if not(set is None) and not(set==''):
+                    if set == 'trainval' or set=='trainvalidation':
+                        df_label=df_label[df_label['set']=='train'].append(df_label[df_label['set']==str_val])
+                    else:
+                        df_label = df_label[df_label['set']==set]
                     
                 if FirstTime:
                     if dataset=='Paintings':
