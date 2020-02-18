@@ -11,7 +11,8 @@ https://github.com/stante/keras-contrib/blob/feature-lr-multiplier/keras_contrib
 """
 
 from tensorflow.python.keras.optimizers import Optimizer
-from tensorflow.python.keras.utils import get_custom_objects
+#from tensorflow.python.keras.utils import get_custom_objects
+from keras.utils.generic_utils import get_custom_objects
 import tensorflow as tf
 from tensorflow.python.framework import ops
 from tensorflow.python.keras import backend as K
