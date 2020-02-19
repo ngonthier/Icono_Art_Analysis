@@ -523,7 +523,8 @@ def Recall_all_databases():
 def eval_Recall_Boxes(database='IconArt_v1',metamodel='FasterRCNN',demonet='res152_COCO',
                       k_per_bag=300):
     """
-    The goal of this function is to compute the recall of the 
+    The goal of this function is to compute the recall of the boxes proposal for
+    different methods FasterRCNN or EdgeBoxes ones
     """
     tf.reset_default_graph()
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
