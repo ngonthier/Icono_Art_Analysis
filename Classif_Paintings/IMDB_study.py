@@ -52,6 +52,83 @@ import os
 from FasterRCNN import _int64_feature,_bytes_feature,_floats_feature
 from IMDB import get_database
 
+def get_imdb_and_listImagesInTestSet(database):
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
+   
+    if database=='IconArt_v1':
+        imdb = get_imdb('IconArt_v1_test')
+        list_im_withanno = list(df_label[df_label['Anno']==1][item_name].values)
+    elif database=='watercolor':
+        imdb = get_imdb('watercolor_test')
+        list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
+    elif database=='comic':
+        imdb = get_imdb('comic_test')
+        list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
+    elif database=='clipart':
+        imdb = get_imdb('clipart_test')
+        list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
+    elif database=='CASPApaintings':
+        imdb = get_imdb('CASPApaintings_test')
+        list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
+    elif database=='PeopleArt':
+        imdb = get_imdb('PeopleArt_test')
+        list_im_withanno = list(df_label[df_label['set']=='test'][item_name].values)
+    else:
+        print(database,'is unkown in this function')
+        raise(NotImplementedError)
+        
+    return(imdb,list_im_withanno)
+
+def getDictBoxesProposals(database,k_per_bag,metamodel,demonet):
+    tf.reset_default_graph()
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
+   
+    imdb,list_im_withanno = get_imdb_and_listImagesInTestSet(database)
+        
+    dict_name_file = getDictFeaturesPrecomputed(database,k_per_bag=k_per_bag,\
+                                               metamodel=metamodel,demonet=demonet)
+    name_file = dict_name_file['test']
+    if metamodel=='EdgeBoxes':
+        dim_rois = 4
+    else:
+        dim_rois = 5
+    #print(name_file)
+    next_element = getTFRecordDataset(name_file,k_per_bag =k_per_bag,dim_rois = dim_rois,
+                                      num_classes = num_classes)
+
+    # Load the Faster RCNN proposals
+    dict_rois = {}
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+   
+    sess = tf.Session(config=config)
+   # sum_of_classes = []
+    while True:
+        try:
+            fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
+            for k in range(len(labels)):
+                name_im = name_imgs[k].decode("utf-8")
+                if database=='IconArt_v1' and not(name_im in list_im_withanno): 
+                    continue
+                
+                complet_name = path_to_img + str(name_im) + '.jpg'
+                im = cv2.imread(complet_name)
+                blobs, im_scales = get_blobs(im)
+                roi = roiss[k,:]
+                if metamodel=='EdgeBoxes':
+                    roi_boxes =  roi / im_scales[0] 
+                else:
+                    roi_boxes =  roi[:,1:5] / im_scales[0] 
+                dict_rois[name_im] = roi_boxes
+                    #sum_of_classes += [np.sum(labels[k,:])]
+        except tf.errors.OutOfRangeError:
+            break
+
+    sess.close()
+    #print('End read the boxes proposals')
+    return(dict_rois)
+
+
 def getDictFeaturesPrecomputed(database,k_per_bag = 300,demonet='res152_COCO',\
                                metamodel = 'FasterRCNN'):
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
