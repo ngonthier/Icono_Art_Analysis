@@ -586,11 +586,14 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
 
   custom_objects = {}
-  if kind_of_shuffling=='shuffle':
+  if kind_of_shuffling=='roll_partial_copy':
+      custom_objects['Roll_MeanAndVar_ToPartOfInput']= Roll_MeanAndVar_ToPartOfInput
+      custom_objects['RemovePartOfElementOfBatch']= RemovePartOfElementOfBatch
+  elif kind_of_shuffling=='shuffle':
       custom_objects['Shuffle_MeanAndVar']= Shuffle_MeanAndVar
-  if kind_of_shuffling=='roll':
+  elif kind_of_shuffling=='roll':
       custom_objects['Roll_MeanAndVar']= Roll_MeanAndVar
-  if kind_of_shuffling=='roll_partial':
+  elif kind_of_shuffling=='roll_partial':
       custom_objects['Roll_MeanAndVar_binomialChoice']= Roll_MeanAndVar_binomialChoice
 
   SomePartFreezed = False
@@ -668,14 +671,22 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
       if getBeforeReLU:# remove the non linearity
           layer.activation = activations.linear # i.e. identity
       model.add(layer)
+      
       if kind_of_shuffling=='shuffle':
           new_layer = Shuffle_MeanAndVar()
-          new_layer.trainable = False
-          model.add(new_layer)
-      if kind_of_shuffling=='roll':
-          model.add(Roll_MeanAndVar())
-      if kind_of_shuffling=='roll_partial':
-          model.add(Roll_MeanAndVar_binomialChoice(p=p))
+      elif kind_of_shuffling=='roll':
+          new_layer = Roll_MeanAndVar()
+      elif kind_of_shuffling=='roll_partial':
+          new_layer = Roll_MeanAndVar_binomialChoice(p=p)
+      elif kind_of_shuffling=='roll_partial_copy':
+          if i==0:
+              FirstLayer= True
+          else: 
+              FirstLayer = False
+          new_layer = Roll_MeanAndVar_ToPartOfInput(p=p,FirstLayer=FirstLayer)
+          
+      new_layer.trainable = False
+      model.add(new_layer)
         
       if getBeforeReLU: # add back the non linearity
           model.add(Activation('relu'))
@@ -685,6 +696,8 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
     
     # Head of the model / final layer
     if layer.name==final_layer:
+      if kind_of_shuffling=='roll_partial_copy':
+          model.add(RemovePartOfElementOfBatch(p=p))
       if not(final_layer in  ['fc2','fc1','flatten']):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
               model.add(GlobalMaxPooling2D()) 
@@ -2181,12 +2194,16 @@ class Roll_MeanAndVar(Layer):
         # Be sure to call this at the end
 
     def call(self, x):
-        mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
-        std = math_ops.sqrt(variance)
-        new_mean= tf.roll(mean,shift=1,axis=0)
-        new_std= tf.roll(std,shift=1,axis=0)
-        output =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
-        return K.in_train_phase(output,x)
+        
+        def coloring_by_rolling():
+            mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
+            std = math_ops.sqrt(variance)
+            new_mean= tf.roll(mean,shift=1,axis=0)
+            new_std= tf.roll(std,shift=1,axis=0)
+            output =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
+            return(output)
+            
+        return K.in_train_phase(coloring_by_rolling(),x)
 
 
     def compute_output_shape(self, input_shape):
@@ -2216,15 +2233,19 @@ class Roll_MeanAndVar_binomialChoice(Layer):
         # Be sure to call this at the end
 
     def call(self, x):
-        mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
-        std = math_ops.sqrt(variance)
-        new_mean= tf.roll(mean,shift=1,axis=0)
-        new_std= tf.roll(std,shift=1,axis=0)
-        modified_x =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
-        shape = [K.shape(x)[-1]]
-        selector = K.random_binomial(shape,p=self.p) # p is the probability that selector =1
-        output = tf.multiply(selector,modified_x) + tf.multiply(tf.add(1.0,-selector),x)
-        return K.in_train_phase(output,x)
+        
+        def coloring_by_rolling_bc():
+            mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
+            std = math_ops.sqrt(variance)
+            new_mean= tf.roll(mean,shift=1,axis=0)
+            new_std= tf.roll(std,shift=1,axis=0)
+            modified_x =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
+            shape = [K.shape(x)[-1]]
+            selector = K.random_binomial(shape,p=self.p) # p is the probability that selector =1
+            output = tf.multiply(selector,modified_x) + tf.multiply(tf.add(1.0,-selector),x)
+            return(output)
+            
+        return K.in_train_phase(coloring_by_rolling_bc(),x)
 
 
     def compute_output_shape(self, input_shape):
@@ -2238,8 +2259,8 @@ class Roll_MeanAndVar_binomialChoice(Layer):
         return(config)
 
 def get_bs_origin_and_bs_modif(bs,p):
-    bs_origin =  round(bs/(1+p))
-    bs_modif = round(bs_origin*p)
+    bs_origin =  tf.math.round(bs/(1+p))
+    bs_modif = tf.math.round(bs_origin*p)
     assert(bs==bs_origin+bs_modif)
     return(bs_origin,bs_modif)
    
@@ -2262,20 +2283,22 @@ class Roll_MeanAndVar_ToPartOfInput(Layer):
         super(Roll_MeanAndVar_ToPartOfInput, self).__init__(**kwargs)
 
     def build(self,input_shape):
-        self.input_shape = input_shape 
-         
-        if self.FirstLayer:
-            self.bs_origin =input_shape[0] # batch size
-            self.bs_modif = round(self.bs_origin*self.p)  # size of the modified image in the batch
-            self.bs = self.bs_origin  + self.bs_modif 
-        else:
-            self.bs =input_shape[0] # batch size
-            self.bs_origin,self.bs_modif  = get_bs_origin_and_bs_modif(self.bs,self.p)
             
         super(Roll_MeanAndVar_ToPartOfInput, self).build(input_shape)  
         # Be sure to call this at the end
 
     def call(self, x):
+        input_shape = tf.shape(x) 
+        if self.FirstLayer:
+            print(input_shape[0])
+            self.bs_origin = tf.cast(input_shape[0],tf.float32) # batch size
+            print(self.bs_origin)
+            self.bs_modif = tf.math.round(self.bs_origin*self.p)  # size of the modified image in the batch
+            self.bs = self.bs_origin  + self.bs_modif 
+        else:
+            self.bs = tf.cast(input_shape[0],tf.float32) # batch size
+            self.bs_origin,self.bs_modif  = get_bs_origin_and_bs_modif(self.bs,self.p)
+        
         # Slice the original data points
         if self.FirstLayer:
             x_original = x
@@ -2314,10 +2337,60 @@ class Roll_MeanAndVar_ToPartOfInput(Layer):
         config['bs_modif'] = self.bs_modif
         config['bs_origin'] = self.bs_origin
         return(config)
+    
+class RemovePartOfElementOfBatch(Layer):
+    """
+    The goal of this layer is just to keep only the modified instance of the 
+    batch and the other one to keep a batch size equal to the original batch size
+    to easily match the y ground truth vector
+    @param : p proportion of  the batch use must be between 0 and 1 
+    The output batch size will be batch size // 1+p
+    """
+
+    def __init__(self,p=0.5, **kwargs):
+        assert(p>=0.)
+        assert(p<=1.)
+        self.p = p # Small float added to variance to avoid dividing by zero.
+        super(RemovePartOfElementOfBatch, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        # self.bs =input_shape[0].value # batch size
+        # self.bs_origin,self.bs_modif  = get_bs_origin_and_bs_modif(self.bs,self.p)
+            
+        super(RemovePartOfElementOfBatch, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        input_shape = tf.shape(x) 
+        self.bs = tf.cast(input_shape[0],tf.float32) # batch size
+        self.bs_origin,self.bs_modif  = get_bs_origin_and_bs_modif(self.bs,self.p)
+        
+        x_modified = tf.slice(x, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
+        
+        # sample a subset of the datapoint
+        not_x_sample = tf.slice(x, [self.bs_origin, 0, 0,0], [-1,-1,-1,-1])
+
+        output = tf.concat([x_modified,not_x_sample],axis=0)
+
+        return K.in_train_phase(output,x)
+
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        input_shape[0] = input_shape[0] + round(input_shape[0]*self.p)
+        return input_shape
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(RemovePartOfElementOfBatch, self).get_config()
+        config['p'] = self.p
+        config['bs'] = self.bs
+        config['bs_modif'] = self.bs_modif
+        config['bs_origin'] = self.bs_origin
+        return(config)
         
 class Shuffle_MeanAndVar(Layer):
 
-    def __init__(self,epsilon = 0.00001, **kwargs):
+    def __init__(self,epsilon = 0.0000001, **kwargs):
         self.epsilon = epsilon # Small float added to variance to avoid dividing by zero.
         super(Shuffle_MeanAndVar, self).__init__(**kwargs)
 
@@ -2326,16 +2399,19 @@ class Shuffle_MeanAndVar(Layer):
         # Be sure to call this at the end
 
     def call(self, x):
-        mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
-        std = math_ops.sqrt(variance)
-        mean_and_std = tf.stack([mean,std])
-        #rand_mean_and_std = tf.random.shuffle(mean_and_std) #  The tensor is shuffled along dimension 0, such that each value[j] is mapped to one and only one output[i]
-        rand_mean_and_std = tf.gather(mean_and_std, tf.random.shuffle(tf.range(tf.shape(mean_and_std)[0])))
-        new_mean = rand_mean_and_std[0,:]
-        new_std = rand_mean_and_std[1,:]
-        output =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
         
-        return K.in_train_phase(output,x)
+        def coloring_by_shuffling():
+            mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
+            std = math_ops.sqrt(variance)
+            mean_and_std = tf.stack([mean,std])
+            #rand_mean_and_std = tf.random.shuffle(mean_and_std) #  The tensor is shuffled along dimension 0, such that each value[j] is mapped to one and only one output[i]
+            rand_mean_and_std = tf.gather(mean_and_std, tf.random.shuffle(tf.range(tf.shape(mean_and_std)[0])))
+            new_mean = rand_mean_and_std[0,:]
+            new_std = rand_mean_and_std[1,:]
+            output =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
+            return(output)
+        
+        return K.in_train_phase(coloring_by_shuffling(),x)
 
 
     def compute_output_shape(self, input_shape):
