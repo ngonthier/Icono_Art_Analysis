@@ -876,8 +876,141 @@ def set_momentum_BN(model,momentum):
           layer.momentum = momentum
     return(model)
 
-### Resnet adaptative layers 
+### Resnet with statistics shuffling layers: work in progress
 
+def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
+                             verbose=True,weights='imagenet',\
+                             res_num_layers=50,\
+                             optimizer='adam',opt_option=[0.01],\
+                             final_clf='MLP2',dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0
+                             ,final_activation='sigmoid',metrics='accuracy',
+                             loss='binary_crossentropy',kind_of_shuffling='shuffle',
+                             pretrainingModif=True,freezingType='FromTop',p=0.5): 
+  """
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  We only allow to shuffle the statistics after the layer in the style_layers list
+  @param 
+  """
+  # create model
+  
+  ResNet_layers_names= getResNet50layersName()
+  print(ResNet_layers_names)
+  for layer_name in style_layers:
+      if not(layer_name in ResNet_layers_names):
+          print(layer_name,'is not in the ResNet layers, did you provide the correct list ?')
+          if 'block' in layer_name:
+              print('You certainly provide VGG layers name.')
+
+  if res_num_layers==50:
+      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+                                                          input_shape= (224, 224, 3))
+      number_of_trainable_layers = 106
+  else:
+      print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
+      raise(NotImplementedError)
+  
+  SomePartFreezed = False
+  if type(pretrainingModif)==bool:
+      pre_model.trainable = pretrainingModif
+  else:
+      SomePartFreezed = True # We will unfreeze pretrainingModif==int layers from the end of the net
+      assert(number_of_trainable_layers >= pretrainingModif)
+  
+  custom_objects = {}
+  if kind_of_shuffling=='shuffle':
+      custom_objects['Shuffle_MeanAndVar']= Shuffle_MeanAndVar
+  if kind_of_shuffling=='roll':
+      custom_objects['Roll_MeanAndVar']= Roll_MeanAndVar
+  if kind_of_shuffling=='roll_partial':
+      custom_objects['Roll_MeanAndVar_binomialChoice']= Roll_MeanAndVar_binomialChoice
+      
+  lr_multiple = False
+  multipliers = {}
+  multiply_lrp, lr = None,None
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
+  else:
+      lr = 0.01
+  if optimizer=='SGD': 
+      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
+  elif optimizer=='adam': 
+      opt = partial(Adam,decay=decay)
+  elif optimizer=='RMSprop':
+      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
+  else:
+      opt =  optimizer
+      
+  ilayer = 0
+  i = 0
+  for layer in pre_model.layers:
+      name_layer = layer.name
+      if SomePartFreezed and (layer.count_params() > 0):
+         
+         if freezingType=='FromTop':
+             if ilayer >= number_of_trainable_layers - pretrainingModif:
+                 layer.trainable = True
+                 #print('FromTop',layer.name,ilayer,pretrainingModif,number_of_trainable_layers - pretrainingModif)
+             else:
+                 layer.trainable = False
+         elif freezingType=='FromBottom':
+             if ilayer < pretrainingModif:
+                 layer.trainable = True
+                 #print('FromBottom',layer.name,ilayer,pretrainingModif,number_of_trainable_layers - pretrainingModif)
+             else:
+                 layer.trainable = False
+         elif freezingType=='Alter':
+             pretrainingModif_bottom = pretrainingModif//2
+             pretrainingModif_top = pretrainingModif//2 + pretrainingModif%2
+             if (ilayer < pretrainingModif_bottom) or\
+                 (ilayer >= number_of_trainable_layers - pretrainingModif_top):
+                 layer.trainable = True
+                 #print('Alter',layer.name,ilayer,pretrainingModif_bottom,pretrainingModif_top)
+             else:
+                 layer.trainable = False
+                 
+      if i < len(style_layers) and name_layer==style_layers[i]:
+          layer_regex = name_layer
+          # Fro ResNet there is no getBeforeReLU because the activation are provide layer by layer
+          if kind_of_shuffling=='shuffle':
+              new_layer = Shuffle_MeanAndVar()
+              new_layer.trainable = False
+          elif kind_of_shuffling=='roll':
+              new_layer = Roll_MeanAndVar()
+          elif kind_of_shuffling=='roll_partial':
+              new_layer = Roll_MeanAndVar_binomialChoice(p=p)
+          insert_layer_name = kind_of_shuffling + '_'+str(i)
+          # Attention ici il faut bien verifier ou la nouvelle couche est placée 
+          # TODO !
+          pre_model = insert_layer_nonseq(pre_model, layer_regex, new_layer,
+                        insert_layer_name=insert_layer_name, position='after')   
+          print(layer.name,len(pre_model.updates)) 
+
+          i += 1
+                 
+      ilayer += 1
+      # Only if the layer have some trainable parameters
+      if lr_multiple and layer.trainable: 
+          multipliers[layer.name] = multiply_lrp
+
+  x = pre_model.output
+  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+     x = GlobalMaxPooling2D()(x)
+  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+      x = GlobalAveragePooling2D()(x)
+  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+      x= Flatten()(x)
+  
+  model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
+                          final_activation=final_activation,metrics=metrics,loss=loss)
+ 
+  if verbose: print(model.summary())
+  return model
+
+### Resnet adaptative layers 
+      
 def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
                              verbose=True,weights='imagenet',\
                              res_num_layers=50,\
@@ -2067,7 +2200,7 @@ class Roll_MeanAndVar(Layer):
     
 class Roll_MeanAndVar_binomialChoice(Layer):
     """
-    In this case we only roll the mean and variance the the other element of the 
+    In this case we only roll the mean and variance of the other element of the 
     batch and then randwomly choice to keep the original features maps or the 
     modified one
     @param : p probability of binomial distribution.
@@ -2102,6 +2235,84 @@ class Roll_MeanAndVar_binomialChoice(Layer):
         config = super(Roll_MeanAndVar_binomialChoice, self).get_config()
         config['epsilon'] = self.epsilon
         config['p'] = self.p
+        return(config)
+
+def get_bs_origin_and_bs_modif(bs,p):
+    bs_origin =  round(bs/(1+p))
+    bs_modif = round(bs_origin*p)
+    assert(bs==bs_origin+bs_modif)
+    return(bs_origin,bs_modif)
+   
+class Roll_MeanAndVar_ToPartOfInput(Layer):
+    """
+    In this case we only roll the mean and variance of the other element of the 
+    batch and then use them to colorize a fraction of the batch 
+    The batch is copied that means you will have a modify version of the instance 
+    of the batch and the original one
+    @param : p proportion of  the batch use must be between 0 and 1 
+    The output batch size will be batch size + round(p * batch size)
+    """
+
+    def __init__(self,FirstLayer,p=0.5,epsilon = 0.0000001, **kwargs):
+        self.epsilon = epsilon # Small float added to variance to avoid dividing by zero.
+        assert(p>=0.)
+        assert(p<=1.)
+        self.p = p # Small float added to variance to avoid dividing by zero.
+        self.FirstLayer = FirstLayer
+        super(Roll_MeanAndVar_ToPartOfInput, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        self.input_shape = input_shape 
+         
+        if self.FirstLayer:
+            self.bs_origin =input_shape[0] # batch size
+            self.bs_modif = round(self.bs_origin*self.p)  # size of the modified image in the batch
+            self.bs = self.bs_origin  + self.bs_modif 
+        else:
+            self.bs =input_shape[0] # batch size
+            self.bs_origin,self.bs_modif  = get_bs_origin_and_bs_modif(self.bs,self.p)
+            
+        super(Roll_MeanAndVar_ToPartOfInput, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        # Slice the original data points
+        if self.FirstLayer:
+            x_original = x
+            x_modified = tf.slice(x, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
+        else:
+            x_original = tf.slice(x, [self.bs_modif, 0, 0,0], self.input_shape)
+            x_modified = tf.slice(x, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
+        
+        # sample a subset of the datapoint
+        x_sample = tf.slice(x_original, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
+        # Compute the mean and variance
+        mean,variance = tf.nn.moments(x_sample,axes=(1,2),keep_dims=True)
+        std = math_ops.sqrt(variance)
+        new_mean= tf.roll(mean,shift=1,axis=0)
+        new_std= tf.roll(std,shift=1,axis=0)
+        
+        
+        modified_x =  (((x_modified - mean) * new_std )/ (std+self.epsilon))  + new_mean
+        
+        output = tf.concat([modified_x,x],axis=0)
+
+        return K.in_train_phase(output,x)
+
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        input_shape[0] = input_shape[0] + round(input_shape[0]*self.p)
+        return input_shape
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(Roll_MeanAndVar_ToPartOfInput, self).get_config()
+        config['epsilon'] = self.epsilon
+        config['p'] = self.p
+        config['FirstLayer'] = self.FirstLayer
+        config['bs'] = self.bs
+        config['bs_modif'] = self.bs_modif
+        config['bs_origin'] = self.bs_origin
         return(config)
         
 class Shuffle_MeanAndVar(Layer):

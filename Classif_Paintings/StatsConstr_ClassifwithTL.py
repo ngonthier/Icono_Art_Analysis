@@ -24,7 +24,7 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,ResNet_cut,vgg_suffleInStats,\
     get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,\
     get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet,\
-    vgg_FRN,set_momentum_BN
+    vgg_FRN,set_momentum_BN,ResNet_suffleInStats
 from IMDB import get_database
 import pickle
 import pathlib
@@ -392,6 +392,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         VGGFRN
         VGGAdaDBN
         VGGsuffleInStats
+        ResNet50suffleInStats
         ResNet50AdaIn
         ResNet50_ROWD_CUMUL_AdaIn : fine tune only the batch normalisation refined
 
@@ -568,7 +569,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             if not((transformOnFinalLayer is None) or (transformOnFinalLayer=='')):
                name_base += '_'+ transformOnFinalLayer
    
-    if constrNet=='VGGsuffleInStats':
+    if constrNet=='VGGsuffleInStats' or constrNet=='ResNet50suffleInStats':
         if not(kind_of_shuffling=='shuffle'):
             name_base += '_'+ kind_of_shuffling
         if kind_of_shuffling=='roll_partial':
@@ -1277,6 +1278,26 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
                                    dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
+                                   final_activation=final_activation,metrics=metrics,loss=loss)
+            
+    elif constrNet=='ResNet50suffleInStats':
+        getBeforeReLU = False
+        model = ResNet_suffleInStats(style_layers,final_layer=features,num_of_classes=num_classes,\
+                                   transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
+                                   res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
+                                   dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
+                                   final_activation=final_activation,metrics=metrics,loss=loss,
+                                   kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
+                                   freezingType=freezingType,p=p)
+    
+    elif constrNet=='ResNet50suffleInStats':
+        getBeforeReLU = False
+        model = ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
+                                   transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
+                                   res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
+                                   dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
+                                   kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
+                                   freezingType=freezingType,p=p,\
                                    final_activation=final_activation,metrics=metrics,loss=loss)
         
     elif constrNet=='ResNet50_ROWD_CUMUL':
@@ -3879,6 +3900,89 @@ def RASTAclassifTest():
     #Top-1 accuracy : 54.81%
     #Top-3 accuracy : 81.72%
     #Top-5 accuracy : 90.64%
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+        constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=5,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+        kind_of_shuffling='roll_partial',p=0.125,NoValidationSetUsed=True)
+    # Top-1 accuracy : 14.83%
+    # Top-3 accuracy : 35.13%
+    # Top-5 accuracy : 49.55%
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+        constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=5,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+        kind_of_shuffling='roll_partial',style_layers = ['block1_conv1'],p=0.125,NoValidationSetUsed=True)
+    #Top-1 accuracy : 53.93%
+    #Top-3 accuracy : 81.34%
+    #Top-5 accuracy : 90.68%
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial',style_layers = ['block1_conv1'],p=0.5)
+    # Top-1 accuracy : 14.83%
+    # Top-3 accuracy : 35.13%
+    # Top-5 accuracy : 49.55%
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial',style_layers = ['block1_conv1'],p=0.25)
+    # Top-1 accuracy : 54.75%
+    # Top-3 accuracy : 81.38%
+    # Top-5 accuracy : 90.48%
+        
+    # For testing the new fonction ! 
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+        constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=1,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+        kind_of_shuffling='roll_partial',style_layers = ['conv1'],p=0.06)
+    #Top-1 accuracy : 53.08%
+    #Top-3 accuracy : 80.70%
+    #Top-5 accuracy : 90.51%
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+        constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=1,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+        kind_of_shuffling='roll',style_layers = ['conv1'],p=0.06)
+    # Top-1 accuracy : 49.02%
+    # Top-3 accuracy : 78.45%
+    # Top-5 accuracy : 88.67%
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+        constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=1,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+        kind_of_shuffling='shuffle',style_layers = ['conv1'],p=0.06)
+    # Top-1 accuracy : 44.23%
+    # Top-3 accuracy : 73.70%
+    # Top-5 accuracy : 85.44%
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+        constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+        kind_of_shuffling='roll_partial',style_layers = ['conv1'],p=0.06)
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+        constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+        kind_of_shuffling='roll_partial',style_layers = ['conv1'],p=0.5)
+
      
        
 def testVGGShuffle():
