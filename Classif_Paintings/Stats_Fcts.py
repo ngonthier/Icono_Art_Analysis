@@ -697,7 +697,7 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
     # Head of the model / final layer
     if layer.name==final_layer:
       if kind_of_shuffling=='roll_partial_copy':
-          model.add(RemovePartOfElementOfBatch(p=p))
+           model.add(RemovePartOfElementOfBatch(p=p))
       if not(final_layer in  ['fc2','fc1','flatten']):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
               model.add(GlobalMaxPooling2D()) 
@@ -907,7 +907,6 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
   # create model
   
   ResNet_layers_names= getResNet50layersName()
-  print(ResNet_layers_names)
   for layer_name in style_layers:
       if not(layer_name in ResNet_layers_names):
           print(layer_name,'is not in the ResNet layers, did you provide the correct list ?')
@@ -932,9 +931,9 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
   custom_objects = {}
   if kind_of_shuffling=='shuffle':
       custom_objects['Shuffle_MeanAndVar']= Shuffle_MeanAndVar
-  if kind_of_shuffling=='roll':
+  elif kind_of_shuffling=='roll':
       custom_objects['Roll_MeanAndVar']= Roll_MeanAndVar
-  if kind_of_shuffling=='roll_partial':
+  elif kind_of_shuffling=='roll_partial':
       custom_objects['Roll_MeanAndVar_binomialChoice']= Roll_MeanAndVar_binomialChoice
       
   lr_multiple = False
@@ -2261,7 +2260,10 @@ class Roll_MeanAndVar_binomialChoice(Layer):
 def get_bs_origin_and_bs_modif(bs,p):
     bs_origin =  tf.math.round(bs/(1+p))
     bs_modif = tf.math.round(bs_origin*p)
-    assert(bs==bs_origin+bs_modif)
+    #print(bs_modif)
+    #print(bs_origin)
+    #print(bs)
+    #assert(bs==bs_origin+bs_modif)
     return(bs_origin,bs_modif)
    
 class Roll_MeanAndVar_ToPartOfInput(Layer):
@@ -2283,49 +2285,50 @@ class Roll_MeanAndVar_ToPartOfInput(Layer):
         super(Roll_MeanAndVar_ToPartOfInput, self).__init__(**kwargs)
 
     def build(self,input_shape):
-            
         super(Roll_MeanAndVar_ToPartOfInput, self).build(input_shape)  
         # Be sure to call this at the end
 
     def call(self, x):
-        input_shape = tf.shape(x) 
-        if self.FirstLayer:
-            print(input_shape[0])
-            self.bs_origin = tf.cast(input_shape[0],tf.float32) # batch size
-            print(self.bs_origin)
-            self.bs_modif = tf.math.round(self.bs_origin*self.p)  # size of the modified image in the batch
-            self.bs = self.bs_origin  + self.bs_modif 
-        else:
-            self.bs = tf.cast(input_shape[0],tf.float32) # batch size
-            self.bs_origin,self.bs_modif  = get_bs_origin_and_bs_modif(self.bs,self.p)
         
-        # Slice the original data points
-        if self.FirstLayer:
-            x_original = x
-            x_modified = tf.slice(x, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
-        else:
-            x_original = tf.slice(x, [self.bs_modif, 0, 0,0], self.input_shape)
-            x_modified = tf.slice(x, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
-        
-        # sample a subset of the datapoint
-        x_sample = tf.slice(x_original, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
-        # Compute the mean and variance
-        mean,variance = tf.nn.moments(x_sample,axes=(1,2),keep_dims=True)
-        std = math_ops.sqrt(variance)
-        new_mean= tf.roll(mean,shift=1,axis=0)
-        new_std= tf.roll(std,shift=1,axis=0)
-        
-        
-        modified_x =  (((x_modified - mean) * new_std )/ (std+self.epsilon))  + new_mean
-        
-        output = tf.concat([modified_x,x],axis=0)
+        def coloring_by_rolling_part():
+            input_shape = tf.shape(x) 
+            if self.FirstLayer:
+                self.bs_origin = tf.cast(input_shape[0],tf.float32) # batch size
+                self.bs_modif = tf.math.round(self.bs_origin*self.p)  # size of the modified image in the batch
+                self.bs = self.bs_origin  + self.bs_modif 
+            else:
+                self.bs = tf.cast(input_shape[0],tf.float32) # batch size
+                self.bs_origin,self.bs_modif  = get_bs_origin_and_bs_modif(self.bs,self.p)
+            self.bs_modif = tf.cast(self.bs_modif,tf.int32)
+            
+            # Slice the original data points
+            if self.FirstLayer:
+                x_original = x
+                x_modified = tf.slice(x, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
+            else:
+                x_modified = tf.slice(x, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
+                x_original = tf.slice(x, [self.bs_modif, 0, 0,0],[-1,-1,-1,-1])
+            
+            # sample a subset of the datapoint
+            x_sample = tf.slice(x_original, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
+            # Compute the mean and variance
+            mean,variance = tf.nn.moments(x_sample,axes=(1,2),keep_dims=True)
+            std = math_ops.sqrt(variance)
+            new_mean= tf.roll(mean,shift=1,axis=0)
+            new_std= tf.roll(std,shift=1,axis=0)
+            
+            modified_x =  (((x_modified - mean) * new_std )/ (std+self.epsilon))  + new_mean
+            
+            output = tf.concat([modified_x,x_original],axis=0)
+            return(output)
 
-        return K.in_train_phase(output,x)
+        return K.in_train_phase(coloring_by_rolling_part(),x)
 
 
     def compute_output_shape(self, input_shape):
         assert isinstance(input_shape, list)
-        input_shape[0] = input_shape[0] + round(input_shape[0]*self.p)
+        if self.FirstLayer: 
+            input_shape[0] = self.bs
         return input_shape
     
     def get_config(self): # Need this to save correctly the model with this kind of layer
@@ -2333,10 +2336,13 @@ class Roll_MeanAndVar_ToPartOfInput(Layer):
         config['epsilon'] = self.epsilon
         config['p'] = self.p
         config['FirstLayer'] = self.FirstLayer
-        config['bs'] = self.bs
-        config['bs_modif'] = self.bs_modif
-        config['bs_origin'] = self.bs_origin
+        # config['bs'] = self.bs
+        # config['bs_modif'] = self.bs_modif
+        # config['bs_origin'] = self.bs_origin
         return(config)
+ 
+# keras TypeError: can't pickle _thread.RLock objects deep copy can be due to the fact taht you provide 
+# elements in the config that are not computed yet
     
 class RemovePartOfElementOfBatch(Layer):
     """
@@ -2361,31 +2367,37 @@ class RemovePartOfElementOfBatch(Layer):
         # Be sure to call this at the end
 
     def call(self, x):
-        input_shape = tf.shape(x) 
-        self.bs = tf.cast(input_shape[0],tf.float32) # batch size
-        self.bs_origin,self.bs_modif  = get_bs_origin_and_bs_modif(self.bs,self.p)
         
-        x_modified = tf.slice(x, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
-        
-        # sample a subset of the datapoint
-        not_x_sample = tf.slice(x, [self.bs_origin, 0, 0,0], [-1,-1,-1,-1])
+        def removeMiddelPart():
+            input_shape = tf.shape(x) 
+            self.bs = tf.cast(input_shape[0],tf.float32) # batch size
+            self.bs_origin,self.bs_modif  = get_bs_origin_and_bs_modif(self.bs,self.p)
+            self.bs_origin = tf.cast(self.bs_origin,tf.int32)
+            self.bs_modif = tf.cast(self.bs_modif,tf.int32)
+            x_modified = tf.slice(x, begin=[0, 0, 0,0], size=[self.bs_modif,-1,-1,-1])
+            # If size[i] is -1, all remaining elements in dimension i are 
+            # included in the slice.
+            
+            # sample a subset of the datapoint
+            not_x_sample = tf.slice(x, begin=[2*self.bs_modif, 0, 0,0], size=[-1,-1,-1,-1])
+            output = tf.concat([x_modified,not_x_sample],axis=0)
+            
+            return(output)
 
-        output = tf.concat([x_modified,not_x_sample],axis=0)
-
-        return K.in_train_phase(output,x)
+        return K.in_train_phase(removeMiddelPart,x)
 
 
     def compute_output_shape(self, input_shape):
         assert isinstance(input_shape, list)
-        input_shape[0] = input_shape[0] + round(input_shape[0]*self.p)
+        input_shape[0] = input_shape[0] - round(input_shape[0]*self.p)
         return input_shape
     
     def get_config(self): # Need this to save correctly the model with this kind of layer
         config = super(RemovePartOfElementOfBatch, self).get_config()
         config['p'] = self.p
-        config['bs'] = self.bs
-        config['bs_modif'] = self.bs_modif
-        config['bs_origin'] = self.bs_origin
+        # config['bs'] = self.bs
+        # config['bs_modif'] = self.bs_modif
+        # config['bs_origin'] = self.bs_origin
         return(config)
         
 class Shuffle_MeanAndVar(Layer):
