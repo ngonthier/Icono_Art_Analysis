@@ -929,7 +929,10 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
       assert(number_of_trainable_layers >= pretrainingModif)
   
   custom_objects = {}
-  if kind_of_shuffling=='shuffle':
+  if kind_of_shuffling=='roll_partial_copy':
+      custom_objects['Roll_MeanAndVar_ToPartOfInput']= Roll_MeanAndVar_ToPartOfInput
+      custom_objects['RemovePartOfElementOfBatch']= RemovePartOfElementOfBatch
+  elif kind_of_shuffling=='shuffle':
       custom_objects['Shuffle_MeanAndVar']= Shuffle_MeanAndVar
   elif kind_of_shuffling=='roll':
       custom_objects['Roll_MeanAndVar']= Roll_MeanAndVar
@@ -957,7 +960,8 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
       
   ilayer = 0
   i = 0
-  for layer in pre_model.layers:
+  list_layers = pre_model.layers
+  for layer in list_layers:
       name_layer = layer.name
       if SomePartFreezed and (layer.count_params() > 0):
          
@@ -985,20 +989,29 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
                  
       if i < len(style_layers) and name_layer==style_layers[i]:
           layer_regex = name_layer
+          insert_layer_name = kind_of_shuffling + '_'+str(i)
           # Fro ResNet there is no getBeforeReLU because the activation are provide layer by layer
           if kind_of_shuffling=='shuffle':
-              new_layer = Shuffle_MeanAndVar()
-              new_layer.trainable = False
+              new_layer = Shuffle_MeanAndVar(name=insert_layer_name)
           elif kind_of_shuffling=='roll':
-              new_layer = Roll_MeanAndVar()
+              new_layer = Roll_MeanAndVar(name=insert_layer_name)
           elif kind_of_shuffling=='roll_partial':
-              new_layer = Roll_MeanAndVar_binomialChoice(p=p)
-          insert_layer_name = kind_of_shuffling + '_'+str(i)
+              new_layer = Roll_MeanAndVar_binomialChoice(p=p,name=insert_layer_name)
+          elif kind_of_shuffling=='roll_partial_copy':
+              if i==0:
+                 FirstLayer= True
+              else: 
+                 FirstLayer = False
+              new_layer = Roll_MeanAndVar_ToPartOfInput(p=p,FirstLayer=FirstLayer,name=insert_layer_name)
+
           # Attention ici il faut bien verifier ou la nouvelle couche est placée 
           # TODO !
-          pre_model = insert_layer_nonseq(pre_model, layer_regex, new_layer,
-                        insert_layer_name=insert_layer_name, position='after')   
-          print(layer.name,len(pre_model.updates)) 
+          new_layer.trainable = False
+          pre_model = insert_layer_nonseq(pre_model, layer_regex, new_layer, position='after') 
+          print('after one insert layer',layer.name,len(pre_model.updates)) 
+          # cela semble necessaire pour mettre a jour le modele par contre c est couteux en temps
+          pre_model = utils_keras.apply_modifications(pre_model,include_optimizer=False,needFix = True,\
+                                              custom_objects=custom_objects)
 
           i += 1
                  
@@ -1008,13 +1021,18 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
           multipliers[layer.name] = multiply_lrp
 
   x = pre_model.output
+
+  if kind_of_shuffling=='roll_partial_copy':
+     removeLayer = RemovePartOfElementOfBatch(p=p)
+     x = removeLayer(x)
+
   if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
      x = GlobalMaxPooling2D()(x)
   elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
-      x = GlobalAveragePooling2D()(x)
+     x = GlobalAveragePooling2D()(x)
   elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
-      x= Flatten()(x)
-  
+     x= Flatten()(x)
+
   model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
                           final_activation=final_activation,metrics=metrics,loss=loss)
  
@@ -1365,18 +1383,26 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
 
     # Iterate over all layers after the input
     for layer in model.layers[1:]:
-
+        print('layer in the loop',layer.name)
+        print('layers input :',network_dict['input_layers_of'][layer.name])
         # Determine input tensors
         layer_input = [network_dict['new_output_tensor_of'][layer_aux] 
                 for layer_aux in network_dict['input_layers_of'][layer.name]]
-
+        
         if len(layer_input) >1:
             layer_input = layers_unique(layer_input)
         if len(layer_input) == 1:
             layer_input = layer_input[0]
 
         # Insert layer if name matches the regular expression
-        if re.match(layer_regex, layer.name):
+        #if re.match(layer_regex, layer.name):
+        # Il semblerati que le match regex cause des problemes dans les cas 
+        # ou  il y a des couches dont le nom est compose du nom d autre couche !!! 
+        # Tout ce qui utilise cela est a refaire en quelque sorte /!\
+        
+        if layer_regex==layer.name:
+            print('layer in the test ==',layer.name)
+            print('layer_input',layer_input)
             if position == 'replace':
                 x = layer_input
             elif position == 'after':
@@ -1387,13 +1413,16 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
                 raise ValueError('position must be: before, after or replace')
 
             new_layer = insert_layer_factory
+            print('insertion new layer',new_layer)
             # new_layer = insert_layer_factory() 
             # Change by Nicolas Gonthier
-#            if insert_layer_name:
-#                new_layer.name = insert_layer_name
-#            else:
-#                new_layer.name = '{}_{}'.format(layer.name, 
-#                                                new_layer.name)
+            # because :  Can't set the attribute "name", 
+            # likely because it conflicts with an existing read-only @property of the object.
+            # if insert_layer_name:
+            #     new_layer.name = insert_layer_name
+            # else:
+            #     new_layer.name = '{}_{}'.format(layer.name, 
+            #                                     new_layer.name)
             x = new_layer(x)
 #            print('Layer {} inserted after layer {}'.format(new_layer.name,
 #                                                            layer.name))
@@ -1404,7 +1433,9 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
 
         # Set new output tensor (the original one, or the one of the inserted
         # layer)
+        #print(network_dict['new_output_tensor_of'][layer.name])
         network_dict['new_output_tensor_of'].update({layer.name: x})
+        #print(network_dict['new_output_tensor_of'][layer.name])
 
     return Model(inputs=model.inputs, outputs=x)
 
@@ -1437,12 +1468,14 @@ def ResNet_BNRefinements_Feat_extractor_old(num_of_classes=10,transformOnFinalLa
       layer.trainable = False
       if layer.name in bn_layers:
           
-          new_bn = HomeMade_BatchNormalisation_Refinement(layer,momentum)
+          
           layer_regex = layer.name
           insert_layer_name =  layer.name +'_rf'
+          new_bn = HomeMade_BatchNormalisation_Refinement(layer,momentum,name=insert_layer_name)
           pre_model = insert_layer_nonseq(pre_model, layer_regex, new_bn,
                         insert_layer_name=insert_layer_name, position='replace')   
           print(layer.name,len(pre_model.updates))
+          raise(NotImplementedError) # ici il faut rajouter une etape d update !
           #print(layer.name,pre_model.updates)
           # print(pre_model.summary())
           #input('wait')
@@ -1585,6 +1618,7 @@ def ResNet_Split_batchNormalisation(num_of_classes=10,transformOnFinalLayer ='Gl
                              verbose=True,weights='imagenet',\
                              res_num_layers=50,momentum=0.9,kind_method='TL'): 
   """
+  This function have never been used !!
   ResNet with BN statistics refinement and then features extraction TL
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   @param : momentum in the updating of the statistics of BN 
@@ -1603,11 +1637,13 @@ def ResNet_Split_batchNormalisation(num_of_classes=10,transformOnFinalLayer ='Gl
   for layer in pre_model.layers:
       layer.trainable = False
       if layer.name in bn_layers:
-          new_bn = HomeMade_BatchNormalisation_Refinement(layer,momentum)
+          
           layer_regex = layer.name
           insert_layer_name =  layer.name +'_rf'
+          new_bn = HomeMade_BatchNormalisation_Refinement(layer,momentum,name=insert_layer_name)
           pre_model = insert_layer_nonseq(pre_model, layer_regex, new_bn,
-                        insert_layer_name=insert_layer_name, position='replace')          
+                        insert_layer_name=insert_layer_name, position='replace')    
+          raise(NotImplementedError) # ici il faut rajouter une etape d update !
 #          
 #      
 #      if layer.name in style_layers:
