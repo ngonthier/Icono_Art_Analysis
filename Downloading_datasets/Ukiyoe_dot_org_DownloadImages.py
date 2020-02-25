@@ -129,7 +129,7 @@ def CheckIfInDataframe(size=1024):
     df = pd.read_csv(databasetxt,sep=",")
     number_total_img = len(df)
     print('Number of total images in the csv file :',number_total_img)
-
+    
     df['Big'] = [0.]*number_total_img
     #df['MissingInfo'] = [0.]*number_total_img
 
@@ -142,9 +142,14 @@ def CheckIfInDataframe(size=1024):
     # 4 : Meiji Period (1868 to 1912)
     # 5 : Shin Hanga and Sosaku Hanga Movements (1915 to 1940s)
     # 6 : Modern and Contemporary (1950s to Now)
+    restartAfterError = True
+    if restartAfterError:
+        df = pd.read_csv(path_data+'Ukiyoe_full_dataset_withAnnotations.csv',sep=',', encoding="utf-8")
+    else:
+        lsit_image_in_df = lsit_of_selected_image.copy()
     time_limits = [1740,1780,1804,1868,1912,1940]
 
-    lsit_image_in_df = lsit_of_selected_image.copy()
+    
     
     image_that_could_be_multipleRow = []
     
@@ -162,17 +167,17 @@ def CheckIfInDataframe(size=1024):
                 year_middle =  (int(match[0])+int(match[1]))/2
             else:
                 year_middle =int(match[0])
-            ind_sups = np.where(year_middle>np.array(time_limits))
+            ind_sups = np.where(year_middle>np.array(time_limits))[0]
             d_classe = len(ind_sups)
             df.loc[df['item_name']==name_img,'DateClasses'] =  d_classe
-                    
-        if name_img in lsit_of_selected_image:
-            # Instead of df[df['item_name']==name_img]['Big'] = 1.0
-            df.loc[df['item_name']==name_img,'Big'] = 1.0
-            try:
-                lsit_image_in_df.remove(name_img)
-            except ValueError as e:
-                image_that_could_be_multipleRow += [name_img]
+        if not(restartAfterError):
+            if name_img in lsit_of_selected_image:
+                # Instead of df[df['item_name']==name_img]['Big'] = 1.0
+                df.loc[df['item_name']==name_img,'Big'] = 1.0
+                try:
+                    lsit_image_in_df.remove(name_img)
+                except ValueError as e:
+                    image_that_could_be_multipleRow += [name_img]
             
     df.to_csv(path_data+'Ukiyoe_full_dataset_withAnnotations.csv',sep=',', encoding="utf-8")
     df_with_classes = df[df['Big']==1.0]
@@ -180,14 +185,16 @@ def CheckIfInDataframe(size=1024):
     df_with_classes.to_csv(path_data+'Ukiyoe_dataset_bigImages_and_dateClasses.csv',sep=',', encoding="utf-8")
     print('Number of image with big image and date :',len(df_with_classes))
     
-    print('We have ',len(lsit_image_in_df),'images without reference.')
+    if not(restartAfterError):
+        print('We have ',len(lsit_image_in_df),'images without reference.')
     
-    df_missing_info = pd.DataFrame(lsit_image_in_df) 
-    df_missing_info.to_csv(path_data+'Ukiyoe_Images_but_noInfo.csv',sep=',', encoding="utf-8")
+        df_missing_info = pd.DataFrame(lsit_image_in_df) 
+        df_missing_info.to_csv(path_data+'Ukiyoe_Images_but_noInfo.csv',sep=',', encoding="utf-8")
     df_2 = pd.DataFrame(image_that_could_be_multipleRow) 
     df_2.to_csv(path_data+'Ukiyoe_Images_Multipletimes.csv',sep=',', encoding="utf-8")
         
     dftrain, dftest = train_test_split(df_with_classes,stratify=df_with_classes['DateClasses'].values,test_size=0.00120)
+    # Problem ici cela a tirer que des images avec des 1 !
     dftest.to_csv(path_data+'SmallUkiyoe_dataset_bigImages_and_dateClasses.csv',sep=',', encoding="utf-8")
     # A terme tu pouras utiliser les nom des artistes pour retrouver la periode
 
