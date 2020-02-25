@@ -9,6 +9,10 @@ Created on Mon Feb 17 15:30:01 2020
 from keras import backend as K
 import numpy as np
 
+
+# Ici je pense que tu as besoin de définir une classe qui instancie la fonction 
+# le gradient etc et ensuite tu l'utilise pour calculer le résultats pour une image donnée
+
 def GetSmoothedMask(
       x_value,model,c_i, stdev_spread=.15, nsamples=25,
       magnitude=True):
@@ -42,6 +46,59 @@ def GetSmoothedMask(
         total_gradients += grad
 
     return total_gradients / nsamples
+
+class SmoothedMask(object):
+    def __init__(self,model,c_i, stdev_spread=.15, nsamples=25,
+      magnitude=True):
+        """
+          Define the smoothGrad Mask class to return the smooth grad mask
+          model : the deep model used
+          c_i : the index of the class concerned
+          stdev_spread: Amount of noise to add to the input, as fraction of the
+                        total spread (x_max - x_min). Defaults to 15%. Level of noise
+          nsamples: Number of samples to average across to get the smooth gradient.
+          magnitude: If true, computes the sum of squares of gradients instead of
+                     just the sum. Defaults to true.
+        """
+        self.magnitude = magnitude
+        self.c_i = c_i
+        self.nsamples = nsamples
+        self.stdev_spread = stdev_spread
+
+        loss_c = model.output[0][c_i]
+        grad_symbolic = K.gradients(loss_c, model.input)[0]
+        self.iterate = K.function([model.input], grad_symbolic)
+    
+    def GetMask(self,x_value):
+        """Returns a mask that is smoothed with the SmoothGrad method.
+        The average of gradient of noisy image
+        Args:
+          x_value: Input value, not batched. Ie the input image
+        """
+        total_gradients = np.zeros_like(x_value)
+        stdev = self.stdev_spread * (np.max(x_value) - np.min(x_value))
+    
+        total_gradients = np.zeros_like(x_value)
+        x_shape = list(x_value.shape)
+        x_shape[0] = self.nsamples
+        noise = np.random.normal(0, stdev, x_value.shape)
+        x_plus_noise = x_value + noise
+        grad = self.iterate(x_plus_noise)
+        if self.magnitude: # Non teste
+            grad = (grad * grad)
+        total_gradients = np.mean(grad,axis=0,keepdims=True)
+        return(total_gradients)
+        
+        # for i in range(self.nsamples):
+        #   noise = np.random.normal(0, stdev, x_value.shape)
+        #   x_plus_noise = x_value + noise
+        #   grad = self.iterate(x_plus_noise)
+        #   if self.magnitude:
+        #     total_gradients += (grad * grad)
+        #   else:
+        #     total_gradients += grad
+    
+        # return total_gradients / self.nsamples
 
 
 def GetMask_IntegratedGradients( x_value, model,c_i, x_baseline=None, x_steps=50):
