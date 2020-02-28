@@ -589,6 +589,9 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
   if kind_of_shuffling=='roll_partial_copy':
       custom_objects['Roll_MeanAndVar_ToPartOfInput']= Roll_MeanAndVar_ToPartOfInput
       custom_objects['RemovePartOfElementOfBatch']= RemovePartOfElementOfBatch
+  if kind_of_shuffling=='roll_partial_copy_dataAug':
+      custom_objects['Roll_MeanAndVar_ToPartOfInput']= Roll_MeanAndVar_ToPartOfInput
+      custom_objects['RemovePartOfElementOfBatch_ForDataAugment']= RemovePartOfElementOfBatch_ForDataAugment
   elif kind_of_shuffling=='shuffle':
       custom_objects['Shuffle_MeanAndVar']= Shuffle_MeanAndVar
   elif kind_of_shuffling=='roll':
@@ -678,7 +681,7 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
           new_layer = Roll_MeanAndVar()
       elif kind_of_shuffling=='roll_partial':
           new_layer = Roll_MeanAndVar_binomialChoice(p=p)
-      elif kind_of_shuffling=='roll_partial_copy':
+      elif kind_of_shuffling=='roll_partial_copy' or kind_of_shuffling=='roll_partial_copy_dataAug':
           if i==0:
               FirstLayer= True
           else: 
@@ -698,6 +701,16 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
     if layer.name==final_layer:
       if kind_of_shuffling=='roll_partial_copy':
            model.add(RemovePartOfElementOfBatch(p=p))
+        # In this case we will align the output vector with the label one such as 
+        # the label correspond to the corlored feature map, so we are doing a style 
+        # invariant training (the style ie mean and variance), don't have to influence 
+        # the results
+      elif kind_of_shuffling=='roll_partial_copy_dataAug':
+           model.add(RemovePartOfElementOfBatch_ForDataAugment(p=p))
+        # In this case we will align the output vector with the label one such as 
+        # the label correspond to the corlored feature map, so we are doing a style 
+        # invariant training (the style ie mean and variance), don't have to influence 
+        # the results
       if not(final_layer in  ['fc2','fc1','flatten']):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
               model.add(GlobalMaxPooling2D()) 
@@ -932,6 +945,9 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
   if kind_of_shuffling=='roll_partial_copy':
       custom_objects['Roll_MeanAndVar_ToPartOfInput']= Roll_MeanAndVar_ToPartOfInput
       custom_objects['RemovePartOfElementOfBatch']= RemovePartOfElementOfBatch
+  elif kind_of_shuffling=='roll_partial_copy_dataAug':
+      custom_objects['Roll_MeanAndVar_ToPartOfInput']= Roll_MeanAndVar_ToPartOfInput
+      custom_objects['RemovePartOfElementOfBatch_ForDataAugment']= RemovePartOfElementOfBatch_ForDataAugment
   elif kind_of_shuffling=='shuffle':
       custom_objects['Shuffle_MeanAndVar']= Shuffle_MeanAndVar
   elif kind_of_shuffling=='roll':
@@ -997,7 +1013,7 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
               new_layer = Roll_MeanAndVar(name=insert_layer_name)
           elif kind_of_shuffling=='roll_partial':
               new_layer = Roll_MeanAndVar_binomialChoice(p=p,name=insert_layer_name)
-          elif kind_of_shuffling=='roll_partial_copy':
+          elif kind_of_shuffling=='roll_partial_copy' or kind_of_shuffling=='roll_partial_copy_dataAug':
               if i==0:
                  FirstLayer= True
               else: 
@@ -1008,7 +1024,7 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
           # TODO !
           new_layer.trainable = False
           pre_model = insert_layer_nonseq(pre_model, layer_regex, new_layer, position='after') 
-          print('after one insert layer',layer.name,len(pre_model.updates)) 
+          #print('after one insert layer',layer.name,len(pre_model.updates)) 
           # cela semble necessaire pour mettre a jour le modele par contre c est couteux en temps
           pre_model = utils_keras.apply_modifications(pre_model,include_optimizer=False,needFix = True,\
                                               custom_objects=custom_objects)
@@ -1025,6 +1041,13 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
   if kind_of_shuffling=='roll_partial_copy':
      removeLayer = RemovePartOfElementOfBatch(p=p)
      x = removeLayer(x)
+    # In this case we will align the output vector with the label one such as 
+    # the label correspond to the corlored feature map, so we are doing a style 
+    # invariant training (the style ie mean and variance), don't have to influence 
+    # the results
+  elif kind_of_shuffling=='roll_partial_copy_dataAug':
+     removeLayer = RemovePartOfElementOfBatch_ForDataAugment(p=p)
+     x = removeLayer(x)
 
   if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
      x = GlobalMaxPooling2D()(x)
@@ -1032,6 +1055,16 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
      x = GlobalAveragePooling2D()(x)
   elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
      x= Flatten()(x)
+     
+  if kind_of_shuffling=='roll_partial_copy_dataAug':
+     if transformOnFinalLayer is None or transformOnFinalLayer=='' :
+         raise(NotImplementedError)
+     # This is just a dirty solution for the fact the RemovePartOfElementOfBatch_ForDataAugment lost the size information
+     reshape_layer = tf.keras.layers.Reshape([2048])
+     # target_shape: Target shape. Tuple of integers, does not include the samples dimension (batch size)
+     x = reshape_layer(x)
+     print('x',x)
+
 
   model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
                           final_activation=final_activation,metrics=metrics,loss=loss)
@@ -1383,8 +1416,6 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
 
     # Iterate over all layers after the input
     for layer in model.layers[1:]:
-        print('layer in the loop',layer.name)
-        print('layers input :',network_dict['input_layers_of'][layer.name])
         # Determine input tensors
         layer_input = [network_dict['new_output_tensor_of'][layer_aux] 
                 for layer_aux in network_dict['input_layers_of'][layer.name]]
@@ -1401,8 +1432,6 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
         # Tout ce qui utilise cela est a refaire en quelque sorte /!\
         
         if layer_regex==layer.name:
-            print('layer in the test ==',layer.name)
-            print('layer_input',layer_input)
             if position == 'replace':
                 x = layer_input
             elif position == 'after':
@@ -1413,7 +1442,6 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
                 raise ValueError('position must be: before, after or replace')
 
             new_layer = insert_layer_factory
-            print('insertion new layer',new_layer)
             # new_layer = insert_layer_factory() 
             # Change by Nicolas Gonthier
             # because :  Can't set the attribute "name", 
@@ -2231,7 +2259,7 @@ class Roll_MeanAndVar(Layer):
     def call(self, x):
         
         def coloring_by_rolling():
-            mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
+            mean,variance = K.stop_gradient(tf.nn.moments(x,axes=(1,2),keep_dims=True))
             std = math_ops.sqrt(variance)
             new_mean= tf.roll(mean,shift=1,axis=0)
             new_std= tf.roll(std,shift=1,axis=0)
@@ -2270,7 +2298,7 @@ class Roll_MeanAndVar_binomialChoice(Layer):
     def call(self, x):
         
         def coloring_by_rolling_bc():
-            mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
+            mean,variance = K.stop_gradient(tf.nn.moments(x,axes=(1,2),keep_dims=True))
             std = math_ops.sqrt(variance)
             new_mean= tf.roll(mean,shift=1,axis=0)
             new_std= tf.roll(std,shift=1,axis=0)
@@ -2348,8 +2376,12 @@ class Roll_MeanAndVar_ToPartOfInput(Layer):
             # sample a subset of the datapoint
             x_sample = tf.slice(x_original, [0, 0, 0,0], [self.bs_modif,-1,-1,-1])
             # Compute the mean and variance
-            mean,variance = tf.nn.moments(x_sample,axes=(1,2),keep_dims=True)
+            #mean,variance = tf.nn.moments(x_sample,axes=(1,2),keep_dims=True)
+            mean,variance = K.stop_gradient(tf.nn.moments(x_sample,axes=(1,2),keep_dims=True))
+            # When building ops to compute gradients, this op prevents the contribution 
+            # of its inputs to be taken into account
             std = math_ops.sqrt(variance)
+            # The elements are shifted positively (towards larger indices) by the offset of shift=1
             new_mean= tf.roll(mean,shift=1,axis=0)
             new_std= tf.roll(std,shift=1,axis=0)
             
@@ -2387,6 +2419,11 @@ class RemovePartOfElementOfBatch(Layer):
     to easily match the y ground truth vector
     @param : p proportion of  the batch use must be between 0 and 1 
     The output batch size will be batch size // 1+p
+    
+    In this case we will align the output vector with the label one such as 
+    the label correspond to the corlored feature map, so we are doing a style 
+    invariant training (the style ie mean and variance), don't have to influence 
+    the results
     """
 
     def __init__(self,p=0.5, **kwargs):
@@ -2420,7 +2457,7 @@ class RemovePartOfElementOfBatch(Layer):
             
             return(output)
 
-        return K.in_train_phase(removeMiddelPart,x)
+        return K.in_train_phase(removeMiddelPart(),x)
 
 
     def compute_output_shape(self, input_shape):
@@ -2430,6 +2467,67 @@ class RemovePartOfElementOfBatch(Layer):
     
     def get_config(self): # Need this to save correctly the model with this kind of layer
         config = super(RemovePartOfElementOfBatch, self).get_config()
+        config['p'] = self.p
+        # config['bs'] = self.bs
+        # config['bs_modif'] = self.bs_modif
+        # config['bs_origin'] = self.bs_origin
+        return(config)
+    
+class RemovePartOfElementOfBatch_ForDataAugment(Layer):
+    """
+    The goal of this layer is just to keep only the modified instance of the 
+    batch and the other one to keep a batch size equal to the original batch size
+    to easily match the y ground truth vector
+    @param : p proportion of  the batch use must be between 0 and 1 
+    The output batch size will be batch size // 1+p
+    
+    In this case, we align the output vector with the label one such as the label
+    correspond to the image used to colored the features maps (ie the mean and std)
+    in this case we consider the style (mean and std) as the label predictor
+    """
+
+    def __init__(self,p=0.5, **kwargs):
+        assert(p>=0.)
+        assert(p<=1.)
+        self.p = p # Small float added to variance to avoid dividing by zero.
+        super(RemovePartOfElementOfBatch_ForDataAugment, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        # self.bs =input_shape[0].value # batch size
+        # self.bs_origin,self.bs_modif  = get_bs_origin_and_bs_modif(self.bs,self.p)
+        super(RemovePartOfElementOfBatch_ForDataAugment, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        
+        def removeMiddelPart_with_shiftBack():
+            input_shape = tf.shape(x) 
+            self.bs = tf.cast(input_shape[0],tf.float32) # batch size            
+            self.bs_origin,self.bs_modif  = get_bs_origin_and_bs_modif(self.bs,self.p)
+            self.bs_origin = tf.cast(self.bs_origin,tf.int32)
+            self.bs_modif = tf.cast(self.bs_modif,tf.int32)
+            x_modified = tf.slice(x, begin=[0, 0, 0,0], size=[self.bs_modif,-1,-1,-1])
+            # If size[i] is -1, all remaining elements in dimension i are 
+            # included in the slice.
+            
+            # sample a subset of the datapoint
+            size_of_not_x_sample =  tf.cast(self.bs,tf.int32) - 2*self.bs_modif
+            not_x_sample = tf.slice(x, begin=[2*self.bs_modif-1, 0, 0,0], size=[size_of_not_x_sample,-1,-1,-1])
+            concat = tf.concat([x_modified,not_x_sample],axis=0)
+            output = tf.roll(concat,shift=-1,axis=0)
+            output = tf.reshape(output,shape=[-1,input_shape[1],input_shape[2],input_shape[3]])
+            return(output)
+
+        return K.in_train_phase(removeMiddelPart_with_shiftBack(),x)
+
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        input_shape[0] = input_shape[0] - round(input_shape[0]*self.p)
+        return input_shape
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(RemovePartOfElementOfBatch_ForDataAugment, self).get_config()
         config['p'] = self.p
         # config['bs'] = self.bs
         # config['bs_modif'] = self.bs_modif
@@ -2449,7 +2547,7 @@ class Shuffle_MeanAndVar(Layer):
     def call(self, x):
         
         def coloring_by_shuffling():
-            mean,variance = tf.nn.moments(x,axes=(1,2),keep_dims=True)
+            mean,variance = K.stop_gradient(tf.nn.moments(x,axes=(1,2),keep_dims=True))
             std = math_ops.sqrt(variance)
             mean_and_std = tf.stack([mean,std])
             #rand_mean_and_std = tf.random.shuffle(mean_and_std) #  The tensor is shuffled along dimension 0, such that each value[j] is mapped to one and only one output[i]

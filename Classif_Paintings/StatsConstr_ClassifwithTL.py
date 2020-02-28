@@ -424,7 +424,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : nesterov : nesterov approximation for MLP
     @param : SGDmomentum : SGD momentum in the gradient descent
     @param : decay : learning rate decay for MLP model
-    @param : kind_of_shuffling=='shuffle' or 'roll'  for VGGshuffleInStats
+    @param : kind_of_shuffling=='shuffle' or 'roll', 'roll_partial', 'roll_partial_copy', 'roll_partial_copy_dataAug' 
+        for VGGshuffleInStats or ResNet50suffleInStats
     @param : useFloat32 is the use of float32 for cumulated spatial mean of features and squared features
     @param : computeGlobalVariance if True compute the global variance in the case of ResNet50_ROWD_CUMUL 
     @param : returnStatistics : if True in the case of ResNet, ROWD and BNRF, we return the normalisation statistics computer by the refinement step
@@ -572,7 +573,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     if constrNet=='VGGsuffleInStats' or constrNet=='ResNet50suffleInStats':
         if not(kind_of_shuffling=='shuffle'):
             name_base += '_'+ kind_of_shuffling
-        if kind_of_shuffling=='roll_partial' or kind_of_shuffling =='roll_partial_copy':
+        if kind_of_shuffling in ['roll_partial','roll_partial_copy','roll_partial_copy_dataAug']:
             name_base += '_p'+str(p)
    
     if constrNet=='ResNet50_ROWD_CUMUL' and useFloat32:
@@ -3834,6 +3835,83 @@ def VGGotherParameterersTry():
     # & 60.7 & 38.8 & 92.2 & 69.0 & 57.3 & 63.9 & 46.4 & 77.7 & 69.8 & 80.1 & 65.6 \\ 
  
 
+def ArtUK_suffleAdaInTest():
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True)
+    #VGG GlobalAveragePooling2D ep :20 
+    #& 66.2 & 44.1 & 92.7 & 71.2 & 65.5 & 69.2 & 53.3 & 78.7 & 70.7 & 84.0 & 69.6 \\ 
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.1],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial_copy',style_layers = ['block1_conv1'],p=0.5)
+    #& 36.3 & 25.2 & 89.1 & 64.8 & 42.2 & 58.3 & 35.4 & 76.0 & 56.7 & 69.1 & 55.3 \\ 
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial_copy',style_layers = ['block1_conv1'],p=0.5)
+    # & 26.1 & 20.2 & 87.2 & 56.9 & 34.2 & 49.9 & 24.8 & 65.7 & 46.6 & 72.0 & 48.4 \\
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.1],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial_copy',style_layers = ['block1_conv1'],p=0.25)
+    # & 48.2 & 26.7 & 86.0 & 61.9 & 43.9 & 55.6 & 30.5 & 73.3 & 64.8 & 73.2 & 56.4 \\ 
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial_copy',style_layers = ['block1_conv1'],p=0.25)
+    # & 61.5 & 37.4 & 91.6 & 69.6 & 65.1 & 66.0 & 46.0 & 77.6 & 71.9 & 74.7 & 66.1 \\
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial_copy',style_layers = ['block1_conv1'],p=0.25)
+    #& 60.8 & 42.5 & 92.4 & 70.8 & 64.4 & 70.1 & 52.0 & 78.6 & 73.2 & 80.0 & 68.5 \\ 
+    #VGGsuffleInStats GlobalAveragePooling2D ep :20 BFReLU 
+    #& 60.8 & 42.5 & 92.4 & 70.8 & 64.4 & 70.1 & 52.0 & 78.6 & 73.2 & 80.0 & 68.5 \\ 
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.001],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial_copy',p=0.25)
+    # nan !
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial_copy',style_layers = ['block1_conv1','block2_conv1'],p=0.5)
+    #VGGsuffleInStats GlobalAveragePooling2D ep :20 BFReLU 
+    #& 52.4 & 45.0 & 92.4 & 71.3 & 62.9 & 66.5 & 53.0 & 78.5 & 71.0 & 81.5 & 67.4 \\
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial_copy',style_layers = ['block1_conv1'],p=0.5)
+    #VGGsuffleInStats GlobalAveragePooling2D ep :20 BFReLU 
+    #& 64.1 & 46.3 & 92.6 & 73.2 & 63.1 & 69.0 & 54.7 & 79.4 & 72.4 & 83.0 & 69.8 \\ 
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.001],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll_partial_copy',p=0.5)
+    #VGGsuffleInStats GlobalAveragePooling2D ep :20 BFReLU
+    #& 2.6 & 9.6 & 24.6 & 13.2 & 7.4 & 13.6 & 12.8 & 16.5 & 9.4 & 3.8 & 11.4 \\ 
+
 def RASTAclassifTest():
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
        constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
@@ -3981,6 +4059,20 @@ def RASTAclassifTest():
     #Top-3 accuracy : 80.72%
     #Top-5 accuracy : 89.99%
         
+    # Pour tester si ca marche :
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+        constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=1,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+        kind_of_shuffling='roll_partial_copy_dataAug',style_layers = ['conv1'],p=0.25)
+    # learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+    #     constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+    #     transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+    #     regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+    #     epochs=1,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+    #     kind_of_shuffling='roll_partial_copy_dataAug',style_layers = ['block1_conv1'],p=0.25)
+        
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
         constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
         transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
@@ -4022,35 +4114,20 @@ def RASTAclassifTest():
         transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
         regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
         epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
-        kind_of_shuffling='roll_partial',style_layers = getBNlayersResNet50(),p=0.06)
-        
+        kind_of_shuffling='roll_partial',style_layers = ['conv1'],p=0.25)
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
         constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=True,\
         transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
         regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
         epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
-        kind_of_shuffling='roll_partial',style_layers = ['conv1'],p=0.25)
-        
-    # learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
-    #     constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
-    #     transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
-    #     regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
-    #     epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
-    #     kind_of_shuffling='roll_partial',style_layers = getBNlayersResNet50(),p=0.06) 
-    # Ca aussi a debeugger
-    # ValueError: Input 0 of layer pool1_pad is incompatible with the layer: expected ndim=4, found ndim=5. Full shape received: [2, None, 112, 112, 64]   
+        kind_of_shuffling='roll_partial',style_layers = getBNlayersResNet50(),p=0.06)     
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
-        constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+        constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=True,\
         transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
         regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
         epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
-        kind_of_shuffling='roll_partial_copy',style_layers = ['block1_conv1'],p=0.25)
-    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
-        constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
-        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
-        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
-        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
-        kind_of_shuffling='roll_partial_copy',style_layers = ['block4_conv1'],p=0.25)
+        kind_of_shuffling='roll_partial',style_layers =getBNlayersResNet50(),p=0.25)
+  
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
         constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
         transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
@@ -4066,11 +4143,23 @@ def RASTAclassifTest():
         
         
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
-        constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
+        constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=True,\
         transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
         regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
         epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
-        kind_of_shuffling='roll_partial_copy',p=0.25,style_layers = ['conv1'])
+        kind_of_shuffling='roll_partial_copy',style_layers = ['conv1','add'],p=0.06)  
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+        constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=True,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+        kind_of_shuffling='roll_partial_copy',style_layers = getBNlayersResNet50(),p=0.06)  
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+        constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=True,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
+        kind_of_shuffling='roll_partial_copy',style_layers =getBNlayersResNet50(),p=0.25)
 
      
        
