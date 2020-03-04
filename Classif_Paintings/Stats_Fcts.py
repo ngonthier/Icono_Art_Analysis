@@ -720,6 +720,14 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
               model.add(Flatten())
       break
   
+  if kind_of_shuffling=='roll_partial_copy_dataAug':
+     if transformOnFinalLayer is None or transformOnFinalLayer=='' :
+         raise(NotImplementedError)
+     # This is just a dirty solution for the fact the RemovePartOfElementOfBatch_ForDataAugment lost the size information
+     reshape_layer = tf.keras.layers.Reshape([512])
+     # target_shape: Target shape. Tuple of integers, does not include the samples dimension (batch size)
+     model.add(reshape_layer)
+    
   if getBeforeReLU:# refresh the non linearity 
       model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True,\
                                               custom_objects=custom_objects)
@@ -1063,8 +1071,6 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
      reshape_layer = tf.keras.layers.Reshape([2048])
      # target_shape: Target shape. Tuple of integers, does not include the samples dimension (batch size)
      x = reshape_layer(x)
-     print('x',x)
-
 
   model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
                           final_activation=final_activation,metrics=metrics,loss=loss)
