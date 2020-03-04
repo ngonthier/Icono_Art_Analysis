@@ -8,7 +8,7 @@ Created on Mon Feb 17 15:30:01 2020
 
 from keras import backend as K
 import numpy as np
-
+import tensorflow as tf
 
 # Ici je pense que tu as besoin de définir une classe qui instancie la fonction 
 # le gradient etc et ensuite tu l'utilise pour calculer le résultats pour une image donnée
@@ -88,7 +88,7 @@ class SmoothedMask(object):
             grad = (grad * grad)
         total_gradients = np.mean(grad,axis=0,keepdims=True)
         return(total_gradients)
-        
+    
         # for i in range(self.nsamples):
         #   noise = np.random.normal(0, stdev, x_value.shape)
         #   x_plus_noise = x_value + noise
@@ -99,6 +99,59 @@ class SmoothedMask(object):
         #     total_gradients += grad
     
         # return total_gradients / self.nsamples
+    
+class IntegratedGradient(object):
+    def __init__(self,model,c_i, x_baseline=None, x_steps=50,multiByImBaseline=False):
+        """
+          Define the Integradted Mask class to return the smooth grad mask
+          model : the deep model used
+          Args:
+          model : the deep model used
+          c_i : the index of the class concerned
+          x_baseline: Baseline value used in integration. Defaults to 0.
+          x_steps: Number of integrated steps between baseline and x.
+      
+        A SaliencyMask function that implements the integrated gradients method.
+        https://arxiv.org/abs/1703.01365
+        """
+        self.c_i = c_i
+        self.x_steps = x_steps
+        self.x_baseline = x_baseline
+
+        loss_c = model.output[0][c_i]
+        grad_symbolic = K.gradients(loss_c, model.input)[0]
+        self.iterate = K.function([model.input], grad_symbolic)
+        
+        self.multiByImBaseline = multiByImBaseline
+    
+    def GetMask(self,x_value,Net='ResNet'):
+        """Returns a mask that is the integrated gradient between the baseline 
+        and the image
+        Args:
+          x_value: Input value, not batched. Ie the input image
+        """
+        self.Net = Net
+        if self.x_baseline is None:
+            self.x_baseline = np.zeros_like(x_value)
+        if 'VGG' in self.Net:
+            preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+        elif 'ResNet' in self.Net:
+            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        self.x_baseline =  preprocessing_function(self.x_baseline)
+
+        assert self.x_baseline.shape == x_value.shape
+
+        x_diff = x_value - self.x_baseline # Image - baseline
+        
+        x_steps_x_diff_arr = np.tile(x_diff,(self.x_steps,1,1,1))
+        alphas = np.linspace(0, 1, self.x_steps)
+        alphas = np.reshape(alphas,(self.x_steps,1,1,1))
+        x_step = self.x_baseline + alphas * x_steps_x_diff_arr
+        total_gradients = np.mean(self.iterate(x_step),axis=0,keepdims=True)
+        if self.multiByImBaseline:
+            total_gradients = total_gradients * x_diff
+        
+        return total_gradients
 
 
 def GetMask_IntegratedGradients( x_value, model,c_i, x_baseline=None, x_steps=50):

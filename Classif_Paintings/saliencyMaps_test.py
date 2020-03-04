@@ -13,6 +13,9 @@ import tensorflow as tf
 import cv2
 import pickle
 import time
+import pathlib
+import matplotlib.pyplot as plt
+import matplotlib
 
 from StatsConstr_ClassifwithTL import learn_and_eval
 from keras_resnet_utils import getBNlayersResNet50
@@ -21,7 +24,7 @@ from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerato
 from Stats_Fcts import load_resize_and_process_img
 from saliencyMaps import GetSmoothedMask,GetMask_IntegratedGradients,\
     GetMask_RandomBaseline_IntegratedGradients,GetMask_IntegratedGradients_noisyImage,\
-    SmoothedMask
+    SmoothedMask,IntegratedGradient
 from tf_faster_rcnn.lib.model.nms_wrapper import nms
 from LatexOuput import arrayToLatex
 
@@ -33,7 +36,16 @@ from tf_faster_rcnn.lib.datasets.factory import get_imdb
 from tf_faster_rcnn.lib.model.test import get_blobs
 
 from TL_MIL import parser_w_rois_all_class,parser_all_elt_all_class,parser_minimal_elt_all_class
-from FasterRCNN import vis_detections
+from FasterRCNN import vis_detections,vis_detections_list
+
+from scipy import ndimage
+import matplotlib.cm as cm
+
+def MorphologicalCleanup(attributions, structure=np.ones((4,4))):
+  closed = ndimage.grey_closing(attributions, structure=structure)
+  opened = ndimage.grey_opening(closed, structure=structure)
+  
+  return opened
 
 def ShowGrayscaleImage(im, title='', ax=None):
   if ax is None:
@@ -44,7 +56,7 @@ def ShowGrayscaleImage(im, title='', ax=None):
   P.title(title)
 
 def to_01(image):
-    return((image - np.min(image))/ (np.max(image)  - np.min(image) ))
+    return(np.nan_to_num((image - np.min(image))/ (np.max(image)  - np.min(image))))
 
 def saliencyMap_ImageSize():
     
@@ -167,13 +179,13 @@ def getSaliencyMapClass(model,c_i,method,stdev_spread=.15,nsamples=20,x_steps=50
                    ):
     
     if method=='SmoothGrad':
+        assert(nsamples>0)
         saliencyMap = SmoothedMask(model,c_i,stdev_spread=stdev_spread,\
                                    nsamples=nsamples,magnitude=False)
 
     elif method=='IntegratedGrad':
-        raise(NotImplementedError)
-        # saliencyMap = GetMask_IntegratedGradients(image_array,model,c_i,
-        #                                        x_steps=x_steps)
+        assert(x_steps>0)
+        saliencyMap =  IntegratedGradient(model,c_i,x_steps=x_steps,x_baseline=None)
         
     elif method=='IntegratedGrad_RandBaseline':
         raise(NotImplementedError)
@@ -201,7 +213,14 @@ def eval_MAP_SaliencyMethods(database='IconArt_v1',metamodel='FasterRCNN',demone
     """
     The goal of this function is to compute the mAP of the saliency method for 
     classification ResNet 
+    
+    @param : SaliencyMethod : IntegratedGrad ou SmoothGrad pour le moment
     """
+    matplotlib.use('Agg') 
+    save_data = False
+    
+    ReDo = True
+    plot = False    
     TEST_NMS = 0.01
     thresh_classif = 0.1
     
@@ -242,6 +261,12 @@ def eval_MAP_SaliencyMethods(database='IconArt_v1',metamodel='FasterRCNN',demone
     num_images_detect = len(list_im_withanno)
     dict_rois = getDictBoxesProposals(database=target_dataset,k_per_bag=k_per_bag,\
                                       metamodel=metamodel,demonet=demonet)
+        
+    for_data_output = os.path.join(path_data,'dataSaliencyMap',SaliencyMethod)
+    im_with_boxes_output = os.path.join(path_data,'SaliencyMapImagesBoxes',SaliencyMethod)
+    print('===',im_with_boxes_output)
+    pathlib.Path(for_data_output).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(im_with_boxes_output).mkdir(parents=True, exist_ok=True)
     
     # Load Classification model 
     print('loading :',constrNet,computeGlobalVariance,kind_method,pretrainingModif,opt_option)         
@@ -256,9 +281,13 @@ def eval_MAP_SaliencyMethods(database='IconArt_v1',metamodel='FasterRCNN',demone
                            batch_size=batch_size,gridSearch=False,verbose=True)
         
     SaliencyMapClass_tab = []
+    stdev_spread = 0.1
+    nsamples = 50
+    x_steps = 50
+    
     for j in range(num_classes):
         SaliencyMapClass=getSaliencyMapClass(model,c_i=j,method=SaliencyMethod,\
-                                         stdev_spread=.15,nsamples=20,x_steps=50)    
+                                         stdev_spread=stdev_spread,nsamples=nsamples,x_steps=x_steps)    
         SaliencyMapClass_tab +=[SaliencyMapClass]
         
 #    list_gt_boxes_classes = []
@@ -278,7 +307,7 @@ def eval_MAP_SaliencyMethods(database='IconArt_v1',metamodel='FasterRCNN',demone
             print(i,name_im,'duration for ',itera,'iterations = ',str(t1-t0),'s')
             t0 = time.time()
         im = cv2.imread(im_path)
-        largeur, hauteur,_ = im.shape
+        hauteur, largeur ,_ = im.shape
         blobs, im_scales = get_blobs(im)
         
         if database=='PeopleArt':
@@ -296,49 +325,145 @@ def eval_MAP_SaliencyMethods(database='IconArt_v1',metamodel='FasterRCNN',demone
         else:
             image_array = load_resize_and_process_img(im_path,Net=Net,max_dim=sizeIm)
         
-        predictions = model.predict(image_array)[0]
-        inds = np.where(predictions > thresh_classif)[0]
-        for ind in inds:
-            candidate_boxes = []
-            j = ind +1  # the class index for the evaluation part
-            Smap=SaliencyMapClass_tab[ind].GetMask(image_array)
-            if norm:
-                Smap = to_01(Smap)
-            Smap_grey = np.mean(Smap,axis=-1)
-            prediction = predictions[ind]
-            Smap_grey_time_score = prediction*Smap_grey
-            # attention truc super contre intuitif dans le resize c'est hauteur largeur alors que 
-            # la focntion size retourne largeur hauteur
-            Smap_grey_time_score_resized =  cv2.resize(Smap_grey_time_score, (hauteur, largeur),interpolation=cv2.INTER_LINEAR) 
-
-            for k in range(len(proposals_boxes)):
-                box = proposals_boxes[k]
-                x1,y1,x2,y2 = box
-                x1_int = int(np.round(x1))
-                x2_int = int(np.round(x2))
-                y1_int = int(np.round(y1))
-                y2_int = int(np.round(y2))
-                Smap_grey_time_score_resized_crop = Smap_grey_time_score_resized[x1_int:x2_int,y1_int:y2_int,:]
-                # because bbox = dets[i, :4] # Boxes are score, x1,y1,x2,y2
-                Smap_grey_time_score_resized_crop_score = np.mean(Smap_grey_time_score_resized_crop)
-                box_with_scores = np.append(box,[Smap_grey_time_score_resized_crop_score])
+        #print(np.max(image_array),np.min(image_array),np.mean(image_array),np.median(image_array))
+        #input('wait')
+        
+        dict_sensitivity = {}
+        dict_sensitivity_path = os.path.join(for_data_output,name_im+'_dict_SaliencyMap'+SaliencyMethod+'_std'+str(stdev_spread)+'_n'+str(nsamples)+'_steps'+str(x_steps)+'.pkl')
+        if not(os.path.exists(dict_sensitivity_path)) or ReDo:
+            predictions = model.predict(image_array)[0]
+            dict_sensitivity['predictions'] = predictions
+            inds = np.where(predictions > thresh_classif)[0]
+            for ind in inds:
+                prediction = predictions[ind]
+                if np.isnan(prediction):
+                    print('Prediction of ',name_im,'is nan !!!')
+                    input('wait')
+                candidate_boxes = []
+                j = ind +1  # the class index for the evaluation part
+                Smap=SaliencyMapClass_tab[ind].GetMask(image_array)
+                #print('before normalisation',np.max(Smap),np.min(Smap),np.mean(Smap),np.median(Smap))
+                if save_data: dict_sensitivity[j] = Smap
                 
-                candidate_boxes += [box_with_scores]
-            candidate_boxes_NP = np.array(candidate_boxes)
-            keep = nms(candidate_boxes_NP, TEST_NMS)
-            cls_dets = candidate_boxes_NP[keep, :]
-            all_boxes_order[j][i]  = cls_dets
+                if SaliencyMethod=='SmoothGrad':
+                    #Smap_grey = np.mean(Smap,axis=-1,keepdims=True)
+                    Smap_grey = np.mean(np.abs(Smap),axis=-1,keepdims=True)
+                    #print('after grey',np.max(Smap_grey),np.min(Smap_grey),np.mean(Smap_grey),np.median(Smap_grey))
+                    if norm:
+                        Smap_grey = to_01(Smap_grey)
+                    #print('after normalisation',np.max(Smap_grey),np.min(Smap_grey),np.mean(Smap_grey),np.median(Smap_grey))
+                    
+                    Smap_grey_time_score = prediction*Smap_grey
+                    
+                else: # In the case of Integrated Gradient
+                    
+                    # Sur conseil d Antoine Pirovano
+                    ptile= 99
+                    # Sum for grayscale of the absolute value
+                    pixel_attrs = np.sum(np.abs(Smap), axis=-1,keepdims=True)
+                    pixel_attrs = np.clip(pixel_attrs / np.percentile(pixel_attrs, ptile), 0, 1)
+                    
+                    Smap_grey_time_score = prediction * pixel_attrs
+                    
+                #print('after mul score',np.max(Smap_grey_time_score),np.min(Smap_grey_time_score),np.mean(Smap_grey_time_score),np.median(Smap_grey_time_score))
+                # attention truc super contre intuitif dans le resize c'est hauteur largeur alors que 
+                # la fonction size retourne largeur hauteur
+                Smap_grey_time_score = Smap_grey_time_score[0]
+                #Smap_grey_time_score_resized =  cv2.resize(Smap_grey_time_score, (hauteur, largeur),interpolation=cv2.INTER_NEAREST) 
+                Smap_grey_time_score_resized =  cv2.resize(Smap_grey_time_score, (largeur,hauteur),interpolation=cv2.INTER_NEAREST) 
+                #print('Smap_grey_time_score_resized',Smap_grey_time_score_resized.shape,im.shape)
+                #print('after resize',np.max(Smap_grey_time_score_resized),np.min(Smap_grey_time_score_resized),np.mean(Smap_grey_time_score_resized),np.median(Smap_grey_time_score_resized))
+                
+                if plot:
+                    name_output = name_im+'_'+SaliencyMethod+'_std'+str(stdev_spread)+'_n'+str(nsamples)+'_steps'+str(x_steps)+ '_'+str(j)+'.jpg'
+                    name_output_path = os.path.join(im_with_boxes_output,name_output)
+                    Smap_grey_time_score_resized_01 = to_01(Smap_grey_time_score_resized)
+                    plt.imshow(Smap_grey_time_score_resized_01, cmap=cm.gray)
+                    plt.title(classes[j-1]+' : '+str(prediction))
+                    plt.savefig(name_output_path)
+                    plt.close()
+                
+                for k in range(len(proposals_boxes)):
+                    box = proposals_boxes[k]
+                    x1,y1,x2,y2 = box # x : largeur et y en hauteur
+                    x1_int = int(np.round(x1))
+                    x2_int = int(np.round(x2))
+                    y1_int = int(np.round(y1))
+                    y2_int = int(np.round(y2))
+                    #print(name_im,'Smap_grey_time_score_resized',Smap_grey_time_score_resized.shape,im.shape)
+                    #print(x1_int,x2_int,y1_int,y2_int)
+                    assert(x2_int<=largeur)
+                    assert(y2_int<=hauteur)
+                    Smap_grey_time_score_resized_crop = Smap_grey_time_score_resized[y1_int:y2_int,x1_int:x2_int]
+                    
+                    # because bbox = dets[i, :4] # Boxes are score, x1,y1,x2,y2
+                    Smap_grey_time_score_resized_crop_score = np.mean(Smap_grey_time_score_resized_crop)
+                    # if k < 3:
+                    #     print('Smap_grey_time_score_resized_crop',Smap_grey_time_score_resized_crop.shape)
+                    #     print(x1_int,x2_int,y1_int,y2_int)
+                    #     print('j',j,'k',k,',score',Smap_grey_time_score_resized_crop_score)
+                    if not(np.isnan(Smap_grey_time_score_resized_crop_score)):
+                        box_with_scores = np.append(box,[Smap_grey_time_score_resized_crop_score])
+                        candidate_boxes += [box_with_scores]
+                    else:
+                        box_with_scores = np.append(box,[0.0])
+                        candidate_boxes += [box_with_scores]
+                        
+                    # if np.isnan(Smap_grey_time_score_resized_crop_score):
+                    #     print('!!! score is nan')
+                    #     print(x1,y1,x2,y2)
+                    #     print(x1_int,x2_int,y1_int,y2_int)
+                    #     print(Smap_grey_time_score_resized_crop.shape)
+                    #     print(name_im,'Smap_grey_time_score_resized',Smap_grey_time_score_resized.shape,im.shape)
+                    #     print(prediction)
+                    #     print('after resize',np.max(Smap_grey_time_score_resized),np.min(Smap_grey_time_score_resized),np.mean(Smap_grey_time_score_resized),np.median(Smap_grey_time_score_resized))
+                    #     print(Smap_grey_time_score_resized_crop_score)
+                    #     input('wait')
+                    
+                #print(candidate_boxes)
+                if len(candidate_boxes)>0:
+                    candidate_boxes_NP = np.array(candidate_boxes)
+                    
+                    candidate_boxes_NP[:,-1] = candidate_boxes_NP[:,-1] -np.max(candidate_boxes_NP[:,-1]) + prediction 
+                    keep = nms(candidate_boxes_NP, TEST_NMS)
+                    cls_dets = candidate_boxes_NP[keep, :]
+                    all_boxes_order[j][i]  = cls_dets
+                
+            if plot:
+                roi_boxes_and_score = []
+                local_cls = []
+                for j in range(num_classes):
+                    cls_dets = all_boxes_order[j+1][i] 
+                    if len(cls_dets) > 0:
+                        local_cls += [classes[j]]
+                        roi_boxes_score = cls_dets
+                        if roi_boxes_and_score is None:
+                            roi_boxes_and_score = [roi_boxes_score]
+                        else:
+                            roi_boxes_and_score += [roi_boxes_score] 
+                if roi_boxes_and_score is None: roi_boxes_and_score = [[]]
+                #print(name_im,roi_boxes_and_score,local_cls)
+                vis_detections_list(im, local_cls, roi_boxes_and_score, thresh=-np.inf)
+                name_output = name_im+'_'+SaliencyMethod+'_std'+str(stdev_spread)+'_n'+str(nsamples)+'_steps'+str(x_steps)+ '_Regions.jpg'
+                name_output_path = os.path.join(im_with_boxes_output,name_output)
+                #input("wait")
+                plt.savefig(name_output_path)
+                plt.close()
+            
+            if save_data:
+                with open(dict_sensitivity_path, 'wb') as f:
+                    pickle.dump(dict_sensitivity, f, pickle.HIGHEST_PROTOCOL)
             
     # for i in range(imdb.num_images):     
     #     candidate_boxes[i] = np.array(candidate_boxes[i])
     
     imdb.set_force_dont_use_07_metric(True)
-    det_file = os.path.join(path_data, 'detectionsSaliencyMap.pkl')
+    det_file = os.path.join(path_data, 'detectionsSaliencyMap'+SaliencyMethod+'_std'+str(stdev_spread)+'_n'+str(nsamples)+'_steps'+str(x_steps)+'.pkl')
     with open(det_file, 'wb') as f:
         pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
-    output_dir = path_data +'tmp/' + database+'_mAP.txt'
+    output_dir = path_data +'tmp/' + database+'_'+SaliencyMethod+'_std'+str(stdev_spread)+'_n'+str(nsamples)+'_steps'+str(x_steps)+'_mAP.txt'
     aps =  imdb.evaluate_detections(all_boxes_order, output_dir) # AP at O.5 
-    print("===> Detection score (thres = 0.5): ",database,'with Saliency map from',SaliencyMethod)
+    print("===> Detection score (thres = 0.5): ",database,'with Saliency map from',SaliencyMethod,'with std =',stdev_spread,'nsamples = ',nsamples,'x_steps =',x_steps)
     print(arrayToLatex(aps,per=True))
     ovthresh_tab = [0.3,0.1,0.]
     for ovthresh in ovthresh_tab:
@@ -347,5 +472,6 @@ def eval_MAP_SaliencyMethods(database='IconArt_v1',metamodel='FasterRCNN',demone
         print(arrayToLatex(aps,per=True))
         
 if __name__ == '__main__':  
-    eval_MAP_SaliencyMethods()
+    eval_MAP_SaliencyMethods(SaliencyMethod='IntegratedGrad')
+    #eval_MAP_SaliencyMethods(SaliencyMethod='SmoothGrad')
     
