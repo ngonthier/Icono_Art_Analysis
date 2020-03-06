@@ -24,7 +24,7 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,ResNet_cut,vgg_suffleInStats,\
     get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,\
     get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet,\
-    vgg_FRN,set_momentum_BN,ResNet_suffleInStats
+    vgg_FRN,set_momentum_BN,ResNet_suffleInStats,vgg_suffleInStatsOnSameLabel
 from IMDB import get_database
 import pickle
 import pathlib
@@ -51,6 +51,7 @@ from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getRes
     fit_generator_ForRefineParameters,fit_generator_ForRefineParameters_v2
 import keras_preprocessing as kp
 
+from tensorflow.python.keras import Model
 from functools import partial
 from sklearn.model_selection import GridSearchCV
 
@@ -366,7 +367,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    onlyReturnResult=False,dbn_affine=True,m_per_group=16,
                                    momentum=0.9,batch_size_RF=16,epochs_RF=20,cropCenter=True,\
                                    BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
-                                   kind_of_shuffling='shuffle',useFloat32=True,\
+                                   kind_of_shuffling='roll',useFloat32=True,\
                                    computeGlobalVariance=True,returnStatistics=False,returnFeatures=False,\
                                    NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
                                    BaysianOptimFT = False,imSize=224):
@@ -392,6 +393,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         VGGFRN
         VGGAdaDBN
         VGGsuffleInStats
+        VGGsuffleInStatsSameLabel : need roll as param
         ResNet50suffleInStats
         ResNet50AdaIn
         ResNet50_ROWD_CUMUL_AdaIn : fine tune only the batch normalisation refined
@@ -570,7 +572,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             if not((transformOnFinalLayer is None) or (transformOnFinalLayer=='')):
                name_base += '_'+ transformOnFinalLayer
    
-    if constrNet=='VGGsuffleInStats' or constrNet=='ResNet50suffleInStats':
+    if constrNet in ['VGGsuffleInStats','ResNet50suffleInStats','VGGsuffleInStatsSameLabel']:
         if not(kind_of_shuffling=='shuffle'):
             name_base += '_'+ kind_of_shuffling
         if kind_of_shuffling in ['roll_partial','roll_partial_copy','roll_partial_copy_dataAug']:
@@ -1061,9 +1063,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                             batch_size_RF,momentum,\
                             epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                             final_activation,metrics,loss)
-                    
 
-                
                 model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                                         x_col=item_name,y_col=classes,path_im=path_to_img,\
                                         str_val=str_val,num_classes=len(classes),epochs=epochs,\
@@ -1091,6 +1091,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             if returnStatistics: # We will load the model and return it
                 model = load_model(model_path)
                 return(model)
+            
+            if Net=='VGGsuffleInStatsSameLabel':
+                model = Model(input=model.input[0],output=model.output)
+            
             # Prediction
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
                                            y_col=classes,path_im=path_to_img,Net=constrNet,\
@@ -1258,6 +1262,17 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
     
     elif constrNet=='VGGsuffleInStats':
         model = vgg_suffleInStats(style_layers,num_of_classes=num_classes,\
+                  transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,verbose=verbose,\
+                  weights=weights,final_layer=features,final_clf=final_clf,\
+                  optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
+                  regulOnNewLayerParam=regulOnNewLayerParam,\
+                  dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
+                  kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
+                  freezingType=freezingType,p=p,\
+                  final_activation=final_activation,metrics=metrics,loss=loss)
+            
+    elif constrNet=='VGGsuffleInStatsSameLabel':
+        model = vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=num_classes,\
                   transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,verbose=verbose,\
                   weights=weights,final_layer=features,final_clf=final_clf,\
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
@@ -1692,7 +1707,6 @@ class FirstLayerBNStatsPrintingCallback(tf.keras.callbacks.Callback):
       moving_std_eval = np.sqrt(tf.keras.backend.eval(moving_variance))
       print('For batch {}, moving_mean is {} moving std {}.'.format(batch, moving_mean_eval,moving_std_eval))
 
-
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
@@ -1736,6 +1750,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         print(Net,'is unknwon')
         raise(NotImplementedError)
             
+          
     datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)    
     # preprocessing_function will be implied on each input. The function will run after the image is 
     # load resized and augmented. That's why we need to modify the load_img fct
@@ -1747,7 +1762,9 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                                                 target_size=target_size, batch_size=batch_size,\
                                                 shuffle=True,\
                                                 interpolation=interpolation)
+    # Return A `DataFrameIterator` yielding tuples of `(x, y)`
     STEP_SIZE_TRAIN=train_generator.n//train_generator.batch_size
+    STEP_SIZE_TRAIN= 3 # For testing
     
     if not(NoValidationSetUsed):
         validate_datagen = tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)
@@ -1758,6 +1775,12 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                                                     interpolation=interpolation)
         STEP_SIZE_VALID=valid_generator.n//valid_generator.batch_size
     
+    x_train_generator,y_train_generator = train_generator
+    new_train_generator = [x_train_generator,y_train_generator], y_train_generator
+    
+    if not(NoValidationSetUsed):
+        x_validate_datagen,y_validate_datagen = validate_datagen
+        new_validate_datagen = [x_validate_datagen,y_validate_datagen], y_validate_datagen
     
     # TODO you should add an early stoppping 
 #    earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
@@ -1781,14 +1804,14 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     use_multiprocessing = True
 
     if not(NoValidationSetUsed): # IE use a validation set
-        history = model.fit_generator(generator=train_generator,
+        history = model.fit_generator(generator=new_train_generator,
                         steps_per_epoch=STEP_SIZE_TRAIN,
-                        validation_data=valid_generator,
+                        validation_data=new_validate_datagen,
                         validation_steps=STEP_SIZE_VALID,
                         epochs=epochs,use_multiprocessing=use_multiprocessing,
                         workers=workers,callbacks=callbacks)
     else:
-        history = model.fit_generator(generator=train_generator,
+        history = model.fit_generator(generator=new_train_generator,
                         steps_per_epoch=STEP_SIZE_TRAIN,
                         epochs=epochs,use_multiprocessing=use_multiprocessing,
                         workers=workers,callbacks=callbacks)
@@ -3912,6 +3935,14 @@ def ArtUK_suffleAdaInTest():
     #VGGsuffleInStats GlobalAveragePooling2D ep :20 BFReLU
     #& 2.6 & 9.6 & 24.6 & 13.2 & 7.4 & 13.6 & 12.8 & 16.5 & 9.4 & 3.8 & 11.4 \\ 
 
+def test_RASTA_VGGsuffleInStatsSameLabel():
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStatsSameLabel',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=1,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll')
+        
 def RASTAclassifTest():
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
        constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\

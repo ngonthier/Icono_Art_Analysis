@@ -738,6 +738,155 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
   if verbose: print(model.summary())
   return model
 
+def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
+              transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
+              weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
+              optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
+              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle',
+              pretrainingModif=True,freezingType='FromTop',p=0.5,\
+              final_activation='sigmoid',metrics='accuracy',
+              loss='binary_crossentropy'):
+  """
+  VGG with a shuffling the mean and standard deviation of the features maps between
+  instance
+  In this case the statistics are shuffle the statistics of features maps at each layer concerned 
+  there is not sharing in the shuffling between layers
+  """
+  # TODO : faire une multiplication par du bruit des statistics
+  model = tf.keras.Sequential()
+  inputlabel = Input(shape=(num_of_classes,))
+  imSize = 224
+  inputImage = Input(shape=(imSize,imSize,3))
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
+
+  i = 0
+  
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+
+  custom_objects = {}
+  if kind_of_shuffling=='roll':
+      custom_objects['Roll_MeanAndVar_OnSameLabel']= Roll_MeanAndVar_OnSameLabel
+  # elif kind_of_shuffling=='roll_partial':
+  #     custom_objects['Roll_MeanAndVar_binomialChoice']= Roll_MeanAndVar_binomialChoice
+
+  SomePartFreezed = False
+  if type(pretrainingModif)==bool:
+      vgg.trainable = pretrainingModif
+  else:
+      SomePartFreezed = True # We will unfreeze pretrainingModif==int layers from the end of the net
+      number_of_trainable_layers =  16
+      assert(number_of_trainable_layers >= pretrainingModif)
+      
+  vgg_layers = vgg.layers
+  
+  lr_multiple = False
+  multipliers = {}
+  multiply_lrp, lr = None,None
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      multipliers = {}
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
+  else:
+      lr = 0.01
+      
+  if optimizer=='SGD': 
+      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
+  elif optimizer=='adam': 
+      opt = partial(Adam,decay=decay)
+  elif optimizer=='RMSprop':
+      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
+  else:
+      opt = optimizer
+  
+  otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
+  if not(transformOnFinalLayer in otherOutputPorposed):
+      print(transformOnFinalLayer,'is unknown in the transformation of the last layer')
+      raise(NotImplementedError)
+      
+  list_name_layers = []
+  for layer in vgg_layers:
+    list_name_layers += [layer.name]
+  if not(final_layer in list_name_layers):
+    print(final_layer,'is not in VGG net')
+    raise(NotImplementedError)    
+    
+  ilayer = 0
+  x = inputImage
+  for layer in vgg_layers:
+    name_layer = layer.name
+    
+    if SomePartFreezed and ('conv' in layer.name or 'fc' in layer.name):
+         if freezingType=='FromTop':
+             if ilayer >= number_of_trainable_layers - pretrainingModif:
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         elif freezingType=='FromBottom':
+             if ilayer < pretrainingModif:
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         elif freezingType=='Alter':
+             pretrainingModif_bottom = pretrainingModif//2
+             pretrainingModif_top = pretrainingModif//2 + pretrainingModif%2
+             if (ilayer < pretrainingModif_bottom) or\
+                 (ilayer >= number_of_trainable_layers - pretrainingModif_top):
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         ilayer += 1
+    
+    if lr_multiple and layer.trainable:
+      multipliers[layer.name] = multiply_lrp
+    
+    if i < len(style_layers) and name_layer==style_layers[i]:
+      if getBeforeReLU:# remove the non linearity
+          layer.activation = activations.linear # i.e. identity
+      x = layer(x)
+     
+      if kind_of_shuffling=='roll':
+          new_layer = Roll_MeanAndVar_OnSameLabel(num_of_classes)
+      # elif kind_of_shuffling=='roll_partial':
+      #     new_layer = Roll_MeanAndVar_binomialChoice(p=p)
+      # elif kind_of_shuffling=='roll_partial_copy' or kind_of_shuffling=='roll_partial_copy_dataAug':
+          
+      new_layer.trainable = False
+      x = new_layer(x,inputlabel)
+        
+      if getBeforeReLU: # add back the non linearity
+          model.add(Activation('relu'))
+      i += 1
+    else:
+      x = layer(x)
+    
+    # Head of the model / final layer
+    if layer.name==final_layer:
+      # if kind_of_shuffling=='roll_partial_copy':
+      #      model.add(RemovePartOfElementOfBatch(p=p))
+      if not(final_layer in  ['fc2','fc1','flatten']):
+          if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+              x = GlobalMaxPooling2D(x)
+          elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+              x = GlobalAveragePooling2D(x)
+          elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+              x =  Flatten()
+      break
+   
+  model = Model(inputs=[inputImage, inputlabel], outputs=x)
+  
+  if getBeforeReLU:# refresh the non linearity 
+      model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True,\
+                                              custom_objects=custom_objects)
+
+  model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,\
+                           opt,regularizers,dropout,\
+                           final_activation=final_activation,metrics=metrics,loss=loss)
+      
+  if verbose: print(model.summary())
+  return model
+
 
 ### ResNet baseline
   
@@ -2282,6 +2431,59 @@ class Roll_MeanAndVar(Layer):
     def get_config(self): # Need this to save correctly the model with this kind of layer
         config = super(Roll_MeanAndVar, self).get_config()
         config['epsilon'] = self.epsilon
+        return(config)
+    
+class Roll_MeanAndVar_OnSameLabel(Layer):
+    """
+    In this case we only roll the mean and variance the the other element of the 
+    batch but among a give label of the dataset
+    """
+
+    def __init__(self,num_classes,epsilon = 0.00001, **kwargs):
+        self.num_classes = num_classes
+        self.epsilon = epsilon # Small float added to variance to avoid dividing by zero.
+        super(Roll_MeanAndVar_OnSameLabel, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        raise(NotImplementedError)
+        self.new_index = self.add_variable("new_index",
+                                    shape=[input_shape[0],1])
+        super(Roll_MeanAndVar_OnSameLabel, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x,label):
+        
+        def coloring_by_rolling_sameLabel():
+            index_label = tf.argmax(label, axis=1) # label is a one hot vector 
+            for c_i in range(self.num_classes):
+                print('index_label',index_label)
+                where_ci = tf.where(tf.equal(index_label,c_i))
+                print(c_i,where_ci)
+                roll_where_ci = tf.roll(where_ci,shift=1,axis=0)
+                print(roll_where_ci)
+                print('self.new_index',self.new_index)
+                self.new_index[where_ci].assign(roll_where_ci)
+                print(self.new_index)
+            
+            mean,variance = K.stop_gradient(tf.nn.moments(x,axes=(1,2),keep_dims=True))
+            std = math_ops.sqrt(variance)
+            new_mean= tf.gather(mean,self.new_index) # Gather slices from params axis axis according to indices
+            new_std= tf.gather(std,self.new_index)
+            output =  (((x - mean) * new_std )/ (std+self.epsilon))  + new_mean
+            return(output)
+            
+        return K.in_train_phase(coloring_by_rolling_sameLabel(),x)
+
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        output_shape = input_shape[0] # Only x is output not the label
+        return output_shape
+    
+    def get_config(self): # Need this to save correctly the model with this kind of layer
+        config = super(Roll_MeanAndVar_OnSameLabel, self).get_config()
+        config['epsilon'] = self.epsilon
+        config['num_classes'] = self.num_classes
         return(config)
     
 class Roll_MeanAndVar_binomialChoice(Layer):
