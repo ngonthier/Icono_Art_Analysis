@@ -58,7 +58,21 @@ def ShowGrayscaleImage(im, title='', ax=None):
 def to_01(image):
     return(np.nan_to_num((image - np.min(image))/ (np.max(image)  - np.min(image))))
 
+def take_abs_and_rescale(Smap):
+    ptile= 99
+    # Sum for grayscale of the absolute value
+    pixel_attrs = np.sum(np.abs(Smap), axis=-1,keepdims=True)
+    # On prend la valeur absolue car ce qui compte c'est le fait que le gradient 
+    # soit important (grand) pour le score utilisé : il peut par exemple être négatif lors que 
+    # l'on souhaite faire augmenté un pixel de couleur négatif par exemple
+    pixel_attrs = np.clip(pixel_attrs / np.percentile(pixel_attrs, ptile), 0, 1)
+    return(pixel_attrs)
+    
+
 def saliencyMap_ImageSize():
+    """
+    Fonction pour tester sur une image la saliency map
+    """
     
     target_dataset = 'IconArt_v1'
     style_layers = getBNlayersResNet50()
@@ -127,9 +141,13 @@ def saliencyMap_ImageSize():
         predictions = model.predict(image_array)
         df_label[df_label[item_name]==image][classes].values
         c_i = 0
-        saliencyMap = SmoothedMask(model,c_i,stdev_spread=.15,\
-                                               nsamples=25,magnitude=False)
-        smooth_grad_of_image = saliencyMap.GetMask(image_array)
+        SmoothGradsaliencyMap = SmoothedMask(model,c_i,stdev_spread=.15,\
+                                   nsamples=25,magnitude=False)
+
+        smooth_grad_of_image = SmoothGradsaliencyMap.GetMask(image_array)
+        
+        smooth_grad_of_image_scaled = take_abs_and_rescale(smooth_grad_of_image)
+        
         smooth_grad_of_image_scaled = to_01(smooth_grad_of_image)
         ShowGrayscaleImage(smooth_grad_of_image_scaled[0,:,:,:])
         
@@ -149,9 +167,11 @@ def saliencyMap_ImageSize():
         integrated_grad_noisy_image_scaled = to_01(integrated_grad_noisy_image) 
         ShowGrayscaleImage(integrated_grad_noisy_image_scaled[0,:,:,:])
         
-def getSaliencyMap(image_array,model,c_i,method,norm=True,stdev_spread=.15,nsamples=20,x_steps=50,\
-                   ):
-    
+def getSaliencyMap(image_array,model,c_i,method,norm=True,stdev_spread=.15,\
+                   nsamples=20,x_steps=50):
+    """
+    Avoid using it for several call of the function : it will create a new graph each time 
+    and take for ever """
     if method=='SmoothGrad':
         saliencyMap = GetSmoothedMask(image_array,model,c_i,stdev_spread=stdev_spread,\
                                                nsamples=nsamples,magnitude=False)
@@ -175,9 +195,8 @@ def getSaliencyMap(image_array,model,c_i,method,norm=True,stdev_spread=.15,nsamp
         saliencyMap = to_01(saliencyMap)
     return(saliencyMap)
 
-def getSaliencyMapClass(model,c_i,method,stdev_spread=.15,nsamples=20,x_steps=50,\
-                   ):
-    
+def getSaliencyMapClass(model,c_i,method,stdev_spread=.15,nsamples=20,x_steps=50):
+    """ Return the saliency map class wanted """
     if method=='SmoothGrad':
         assert(nsamples>0)
         saliencyMap = SmoothedMask(model,c_i,stdev_spread=stdev_spread,\

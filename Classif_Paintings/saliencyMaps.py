@@ -77,11 +77,12 @@ class SmoothedMask(object):
         """
         total_gradients = np.zeros_like(x_value)
         stdev = self.stdev_spread * (np.max(x_value) - np.min(x_value))
+        mean_of_image = np.mean(x_value)
     
         total_gradients = np.zeros_like(x_value)
         x_shape = list(x_value.shape)
         x_shape[0] = self.nsamples
-        noise = np.random.normal(0, stdev, x_value.shape)
+        noise = np.random.normal(mean_of_image, stdev, x_value.shape)
         x_plus_noise = x_value + noise
         grad = self.iterate(x_plus_noise)
         if self.magnitude: # Non teste
