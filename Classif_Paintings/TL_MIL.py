@@ -20,6 +20,7 @@ import pickle
 import gc
 import tensorflow as tf
 import csv
+import matplotlib
 #from tensorflow.python.saved_model import tag_constants
 #from sklearn import svm
 #from sklearn.model_selection import GridSearchCV
@@ -3277,6 +3278,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
      plot_hist = False
 
      if PlotRegions or (seuil_estimation_bool and plot_hist):
+         matplotlib.use('Agg') 
          extensionStocha = cachefile_model_base 
          if not(plot_onSubSet is None):
              extensionStocha += 'ForIllustraion'
@@ -3295,6 +3297,11 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
          pathlib.Path(path_to_output2_bis).mkdir(parents=True, exist_ok=True) 
          pathlib.Path(path_to_output2_ter).mkdir(parents=True, exist_ok=True)
          pathlib.Path(path_to_output2_q).mkdir(parents=True, exist_ok=True)
+         if verbose: 
+             print('=== The image will be plotted in the following folders :')
+             print(path_to_output2_bis)
+             print(path_to_output2_ter)
+             print('===')
          
      export_dir_path = ('/').join(export_dir.split('/')[:-1])
      name_model_meta = export_dir + '.meta'
@@ -5453,8 +5460,127 @@ def plotGT(name):
      plt.show()
      input('close ?')
  
-
-            
+    
+def plot_for_WSOD_long_paper():
+    PlotRegions = True
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=False,
+                          verbose = True,testMode = False,jtest = 'cow',
+                          PlotRegions = True,saved_clf=False,RPN=False,
+                          CompBest=False,Stocha=True,k_per_bag=300,
+                          parallel_op=True,CV_Mode='',num_split=2,
+                          WR=True,init_by_mean =None,seuil_estimation='',
+                          restarts=11,max_iters_all_base=3000,LR=0.01,
+                          C=1.0,Optimizer='GradientDescent',norm='',
+                          transform_output='tanh',with_rois_scores_atEnd=False,
+                          with_scores=True,epsilon=0.01,restarts_paral='paral',
+                          predict_with='MI_max',MaxOfMax=True,
+                          plot_onSubSet=["bicycle", "bird","car", "cat", "dog", "person"]) 
+    # /media/gonthier/HDD/output_exp/ClassifPaintings//tfMI_maxRegion_paral/watercolor/WLS_watercolor_res152_COCO_r11_s1000_k300_m3000_p_wr_gd_WRC0.01_RPV2_allBase_MaxOfMax/Train
+    # /media/gonthier/HDD/output_exp/ClassifPaintings//tfMI_maxRegion_paral/watercolor/WLS_watercolor_res152_COCO_r11_s1000_k300_m3000_p_wr_gd_WRC0.01_RPV2_allBase_MaxOfMax/Test
+#     Detection score (thres = 0.5):  watercolor with  MI_max with score = True
+#  & 75.5 & 44.2 & 43.5 & 24.1 & 27.7 & 61.2 & 46.0 \\
+#     Detection score with thres at  0.3 with  MI_max with score = True
+#  & 84.1 & 56.5 & 55.7 & 32.9 & 33.7 & 74.7 & 56.3 \\
+#      Detection score with thres at  0.1 with  MI_max with score = True
+#  & 84.1 & 61.0 & 64.3 & 34.5 & 35.0 & 77.8 & 59.5 \\ 
+#      Detection score with thres at  0.0 with  MI_max with score = True
+#  & 84.1 & 62.8 & 66.6 & 36.3 & 35.0 & 78.0 & 60.5 \\
+#      mean Average Precision Classification for all the data = 0.769
+# mean Precision Classification for all the data = 0.207
+# mean Recall Classification for all the data = 0.937
+# Mean Average Precision Classification with  MI_max with score = True  : 
+# [0.9026579481124937, 0.8532994778915378, 0.9399358559247907, 0.4792160784686373, 0.45692572708529783, 0.9849642735764474]
+#  & 90.3 & 85.3 & 94.0 & 47.9 & 45.7 & 98.5 & 76.9 \\ \hline
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'PeopleArt', ReDo=False,
+                          verbose = True,testMode = False,jtest = 'cow',
+                          PlotRegions = PlotRegions,saved_clf=False,RPN=False,
+                          CompBest=False,Stocha=True,k_per_bag=300,
+                          parallel_op=True,CV_Mode='',num_split=2,
+                          WR=True,init_by_mean =None,seuil_estimation='',
+                          restarts=11,max_iters_all_base=3000,LR=0.01,
+                          C=1.0,Optimizer='GradientDescent',norm='',
+                          transform_output='tanh',with_rois_scores_atEnd=False,
+                          with_scores=True,epsilon=0.01,restarts_paral='paral',
+                          predict_with='MI_max',MaxOfMax=True,
+                          plot_onSubSet=["person"]) 
+    #/media/gonthier/HDD/output_exp/ClassifPaintings//tfMI_maxRegion_paral/PeopleArt/WLS_PeopleArt_res152_COCO_r11_s1000_k300_m12000_p_wr_gd_WRC0.01_RPV2_MaxOfMax/Train
+    #/media/gonthier/HDD/output_exp/ClassifPaintings//tfMI_maxRegion_paral/PeopleArt/WLS_PeopleArt_res152_COCO_r11_s1000_k300_m12000_p_wr_gd_WRC0.01_RPV2_MaxOfMax/Test
+    # Detection score (thres = 0.5):  PeopleArt with  MI_max with score = True
+    #  & 58.7 & 58.7 \\ \hline
+    # Writing person VOC results file
+    # AP for person = 0.6980
+    # Mean AP = 0.6980
+    # Detection score with thres at  0.3 with  MI_max with score = True
+    #  & 69.8 & 69.8 \\ \hline
+    # Writing person VOC results file
+    # AP for person = 0.7288
+    # Mean AP = 0.7288
+    # Detection score with thres at  0.1 with  MI_max with score = True
+    #  & 72.9 & 72.9 \\ \hline
+    # Writing person VOC results file
+    # AP for person = 0.7325
+    # Mean AP = 0.7325
+    # Detection score with thres at  0.0 with  MI_max with score = True
+    #  & 73.2 & 73.2 \\ \hline
+    # Writing person VOC results file
+    # VOC07 metric? No
+    # AP for person = 0.5718
+    # Mean AP = 0.5718
+    # Detection score with the difficult elementwith  MI_max
+    #  & 57.2 & 57.2 \\ \hline
+    # ~~~~~~~~
+    # mean Average Precision Classification for all the data = 0.939
+    # mean Precision Classification for all the data = 0.486
+    # mean Recall Classification for all the data = 0.983
+    # Mean Average Precision Classification with  MI_max with score = True  : 
+    # [0.9392286723167742]
+    #  & 93.9 & 93.9 \\ \hline
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo=False,
+                          verbose = True,testMode = False,jtest = 'cow',
+                          PlotRegions = True,saved_clf=False,RPN=False,
+                          CompBest=False,Stocha=True,k_per_bag=300,
+                          parallel_op=True,CV_Mode='',num_split=2,
+                          WR=True,init_by_mean =None,seuil_estimation='',
+                          restarts=11,max_iters_all_base=3000,LR=0.01,
+                          C=1.0,Optimizer='GradientDescent',norm='',
+                          transform_output='tanh',with_rois_scores_atEnd=False,
+                          with_scores=True,epsilon=0.01,restarts_paral='paral',
+                          predict_with='MI_max',MaxOfMax=True,
+                          plot_onSubSet=['angel','Child_Jesus', 'crucifixion_of_Jesus',
+                                         'Mary','nudity', 'ruins','Saint_Sebastien']) 
+    #/media/gonthier/HDD/output_exp/ClassifPaintings//tfMI_maxRegion_paral/IconArt_v1/WLS_IconArt_v1_res152_COCO_r11_s1000_k300_m9000_p_wr_gd_WRC0.01_RPV2_MaxOfMaxForIllustraion/Train
+    #/media/gonthier/HDD/output_exp/ClassifPaintings//tfMI_maxRegion_paral/IconArt_v1/WLS_IconArt_v1_res152_COCO_r11_s1000_k300_m9000_p_wr_gd_WRC0.01_RPV2_MaxOfMaxForIllustraion/Test
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'CASPApaintings', ReDo=False,
+                          verbose = True,testMode = False,jtest = 'cow',
+                          PlotRegions = True,saved_clf=False,RPN=False,
+                          CompBest=False,Stocha=True,k_per_bag=300,
+                          parallel_op=True,CV_Mode='',num_split=2,
+                          WR=True,init_by_mean =None,seuil_estimation='',
+                          restarts=11,max_iters_all_base=3000,LR=0.01,
+                          C=1.0,Optimizer='GradientDescent',norm='',
+                          transform_output='tanh',with_rois_scores_atEnd=False,
+                          with_scores=True,epsilon=0.01,restarts_paral='paral',
+                          predict_with='MI_max',MaxOfMax=True,
+                          plot_onSubSet=["bear", "bird", "cat", "cow", "dog", "elephant", "horse", "sheep"]) 
+# /media/gonthier/HDD/output_exp/ClassifPaintings//tfMI_maxRegion_paral/CASPApaintings/WLS_CASPApaintings_res152_COCO_r11_s1000_k300_m6000_p_wr_gd_WRC0.01_RPV2_MaxOfMaxForIllustraion/Train
+# /media/gonthier/HDD/output_exp/ClassifPaintings//tfMI_maxRegion_paral/CASPApaintings/WLS_CASPApaintings_res152_COCO_r11_s1000_k300_m6000_p_wr_gd_WRC0.01_RPV2_MaxOfMaxForIllustraion/Test
+# Detection score (thres = 0.5):  CASPApaintings with  MI_max with score = True
+#  & 25.6 & 17.2 & 23.0 & 4.4 & 14.8 & 7.5 & 17.4 & 5.0 & 14.4 \\ \hline
+# Detection score with thres at  0.3 with  MI_max with score = True
+#  & 25.6 & 22.2 & 29.3 & 6.4 & 20.9 & 13.6 & 19.7 & 12.0 & 18.7 \\ \hline
+# Detection score with thres at  0.1 with  MI_max with score = True
+#  & 25.6 & 24.9 & 34.1 & 7.7 & 23.1 & 13.6 & 21.1 & 14.4 & 20.6 \\ \hline
+# Detection score with thres at  0.0 with  MI_max with score = True
+#  & 26.2 & 25.6 & 36.7 & 8.1 & 23.8 & 13.9 & 21.6 & 16.5 & 21.6 \\ \hline
+# Detection score with the difficult elementwith  MI_max
+#  & 19.2 & 11.4 & 20.7 & 3.4 & 10.9 & 4.6 & 11.9 & 2.8 & 10.6 \\ \hline
+# ~~~~~~~~
+# mean Average Precision Classification for all the data = 0.472
+# mean Precision Classification for all the data = 0.146
+# mean Recall Classification for all the data = 0.953
+# Mean Average Precision Classification with  MI_max with score = True  : 
+# [0.48947797529330006, 0.5490244242655412, 0.6271703947713066, 0.504106921013845, 0.3523462431800253, 0.2830171405992564, 0.5237466500131347, 0.44998949771086044]
+#  & 48.9 & 54.9 & 62.7 & 50.4 & 35.2 & 28.3 & 52.4 & 45.0 & 47.2 \\ \hline        
     
     
 if __name__ == '__main__':

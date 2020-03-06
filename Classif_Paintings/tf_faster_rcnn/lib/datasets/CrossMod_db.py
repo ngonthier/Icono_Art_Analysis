@@ -101,8 +101,10 @@ class CrossMod_db(imdb):
     """
     # Example path to image set file:
     # self._devkit_path + /VOCdevkit2007/VOC2007/ImageSets/Main/val.txt
-    image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
-                                  self._image_set + '.txt')
+    print(self._data_path,'!!!!')
+    long_path = self._data_path+ '/ImageSets/Main/'
+    pathlib.Path(long_path).mkdir(parents=True, exist_ok=True)
+    image_set_file = os.path.join(long_path,self._image_set + '.txt')
     assert os.path.exists(image_set_file), \
       'Path does not exist: {}'.format(image_set_file)
 #    print(image_set_file)
