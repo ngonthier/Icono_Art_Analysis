@@ -147,6 +147,8 @@ def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,o
                      final_activation='sigmoid',metrics='accuracy',
                      loss='binary_crossentropy'):
   """
+  Add a classification head to a sequential model
+  
   Ajout  d une ou plusieurs couches a la fin du VGG
   
   Pour le regularizer, il s agit juste d un kernel regularizer et non d un activation 
@@ -183,6 +185,7 @@ def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,o
   # Compile model
   model.compile(loss=loss, optimizer=opt, metrics=metrics)  
   return(model)     
+ 
   
 def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
                        pretrainingModif=True,verbose=False,weights='imagenet',optimizer='adam',\
@@ -753,7 +756,7 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
   there is not sharing in the shuffling between layers
   """
   # TODO : faire une multiplication par du bruit des statistics
-  model = tf.keras.Sequential()
+  #model = tf.keras.Sequential()
   inputlabel = Input(shape=(num_of_classes,))
   imSize = 224
   inputImage = Input(shape=(imSize,imSize,3))
@@ -816,6 +819,7 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
   x = inputImage
   for layer in vgg_layers:
     name_layer = layer.name
+    print(name_layer)
     
     if SomePartFreezed and ('conv' in layer.name or 'fc' in layer.name):
          if freezingType=='FromTop':
@@ -853,10 +857,17 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
       # elif kind_of_shuffling=='roll_partial_copy' or kind_of_shuffling=='roll_partial_copy_dataAug':
           
       new_layer.trainable = False
-      x = new_layer(x,inputlabel)
-        
+      input_call = x,inputlabel
+      new_x = new_layer(input_call)
+      #print('x.get_shape()',x.get_shape())
+      reshape = tf.keras.layers.Reshape(x.get_shape()[1:4])
+      x = reshape(new_x)
+      #print('x',x)  
+      
       if getBeforeReLU: # add back the non linearity
-          model.add(Activation('relu'))
+          activation = Activation('relu')
+          x = activation(x)
+          
       i += 1
     else:
       x = layer(x)
@@ -867,22 +878,24 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
       #      model.add(RemovePartOfElementOfBatch(p=p))
       if not(final_layer in  ['fc2','fc1','flatten']):
           if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
-              x = GlobalMaxPooling2D(x)
+              x = GlobalMaxPooling2D()(x)
           elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
-              x = GlobalAveragePooling2D(x)
+              x = GlobalAveragePooling2D()(x)
           elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
-              x =  Flatten()
+              x =  Flatten()(x)
       break
    
   model = Model(inputs=[inputImage, inputlabel], outputs=x)
   
-  if getBeforeReLU:# refresh the non linearity 
-      model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True,\
-                                              custom_objects=custom_objects)
+  # cela est peut etre quand meme nécessaire pour les ReLU !! 
+  # if getBeforeReLU:# refresh the non linearity 
+  #     model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True,\
+  #                                             custom_objects=custom_objects)
+  
+  model = new_head_ResNet(model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
+                    final_activation=final_activation,metrics=metrics,
+                    loss=loss)
 
-  model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,\
-                           opt,regularizers,dropout,\
-                           final_activation=final_activation,metrics=metrics,loss=loss)
       
   if verbose: print(model.summary())
   return model
@@ -893,6 +906,41 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
 def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
                     final_activation='sigmoid',metrics='accuracy',
                     loss='binary_crossentropy'):
+  """
+    Add a functionnal head to a functionnal model    
+  
+    Parameters
+    ----------
+    pre_model : TYPE
+        DESCRIPTION.
+    x : TYPE
+        DESCRIPTION.
+    final_clf : TYPE
+        DESCRIPTION.
+    num_of_classes : TYPE
+        DESCRIPTION.
+    multipliers : TYPE
+        DESCRIPTION.
+    lr_multiple : TYPE
+        DESCRIPTION.
+    lr : TYPE
+        DESCRIPTION.
+    opt : TYPE
+        DESCRIPTION.
+    dropout : TYPE
+        DESCRIPTION.
+    final_activation : TYPE, optional
+        DESCRIPTION. The default is 'sigmoid'.
+    metrics : TYPE, optional
+        DESCRIPTION. The default is 'accuracy'.
+    loss : TYPE, optional
+        DESCRIPTION. The default is 'binary_crossentropy'.
+
+    Returns
+    -------
+    None.
+
+    """
     
   if metrics=='accuracy':
       metrics = [metrics]
@@ -2456,17 +2504,18 @@ class Roll_MeanAndVar_OnSameLabel(Layer):
         super(Roll_MeanAndVar_OnSameLabel, self).build(input_shape)  
         # Be sure to call this at the end
 
-    def call(self, x,label):
+    def call(self, input_call):
         
+        x,label = input_call
         def coloring_by_rolling_sameLabel():
             
             index_label = tf.argmax(label, axis=1) # label is a one hot vector so we use the argmax to convert it
             #shape = x.get_shape()
             #index_x = tf.range(0, shape[0], dtype=tf.int64)
-            print('index_label',index_label)
+            #print('index_label',index_label)
             #self.new_index.assign(index_label)
-            print('self.new_index',self.new_index)
-            list_index = [0]*32
+            #print('self.new_index',self.new_index)
+            #list_index = [0]*32
             for c_i in range(self.num_classes):
                 # index_x = tf.cond(
                 #     pred=tf.reshape(tf.equal(index_label,c_i),[-1,]),
@@ -2474,11 +2523,13 @@ class Roll_MeanAndVar_OnSameLabel(Layer):
                 #     false_fn=index_x)                
                 # print('index_label',index_label)
                 where_ci = tf.reshape(tf.where(tf.equal(index_label,c_i)),[-1,])
-                print(c_i,where_ci)
+                #print(c_i,where_ci)
                 roll_where_ci = tf.roll(where_ci,shift=1,axis=0)
-                print(roll_where_ci)
-                print('self.new_index',self.new_index)
-                list_index[where_ci] = roll_where_ci # Ne marche pas non plus
+                #print(roll_where_ci)
+                #print('self.new_index',self.new_index)
+                self.new_index = tf.scatter_nd(indices=roll_where_ci, updates=where_ci,\
+                                               shape=self.new_index)
+                #list_index[where_ci] = roll_where_ci # Ne marche pas non plus
                 # for new_ci in where_ci:
                 #     print('list_index[new_ci]',list_index[new_ci]) # Ne marche pas
                 #     print('roll_where_ci[new_ci]',roll_where_ci[new_ci])
@@ -2486,8 +2537,8 @@ class Roll_MeanAndVar_OnSameLabel(Layer):
                     # self.new_index[new_ci].assign(roll_where_ci[new_ci])
                     # #self.new_index[new_ci].assign(roll_where_ci[new_ci])
                     # print('self.new_index new index',new_ci,self.new_index)
-                self.new_index.assign(list_index)
-                print(self.new_index)
+                #self.new_index.assign(list_index)
+                #print(self.new_index)
             
             mean,variance = K.stop_gradient(tf.nn.moments(x,axes=(1,2),keep_dims=True))
             std = math_ops.sqrt(variance)

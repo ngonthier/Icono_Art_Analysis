@@ -1755,13 +1755,19 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     # preprocessing_function will be implied on each input. The function will run after the image is 
     # load resized and augmented. That's why we need to modify the load_img fct
     
-    
+    seed=1
     train_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
                                                 x_col=x_col,y_col=y_col,\
                                                 class_mode="other", \
                                                 target_size=target_size, batch_size=batch_size,\
                                                 shuffle=True,\
-                                                interpolation=interpolation)
+                                                interpolation=interpolation,seed=seed)
+    # train_label_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
+    #                                             x_col=y_col,y_col=y_col,\
+    #                                             class_mode="other", \
+    #                                             target_size=target_size, batch_size=batch_size,\
+    #                                             shuffle=True,\
+    #                                             interpolation=interpolation,seed=seed)
     # Return A `DataFrameIterator` yielding tuples of `(x, y)`
     STEP_SIZE_TRAIN=train_generator.n//train_generator.batch_size
     STEP_SIZE_TRAIN= 3 # For testing
@@ -1775,6 +1781,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                                                     interpolation=interpolation)
         STEP_SIZE_VALID=valid_generator.n//valid_generator.batch_size
     
+    print('train_generator',train_generator)
     x_train_generator,y_train_generator = train_generator
     new_train_generator = [x_train_generator,y_train_generator], y_train_generator
     
