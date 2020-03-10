@@ -2445,24 +2445,48 @@ class Roll_MeanAndVar_OnSameLabel(Layer):
         super(Roll_MeanAndVar_OnSameLabel, self).__init__(**kwargs)
 
     def build(self,input_shape):
-        raise(NotImplementedError)
-        self.new_index = self.add_variable("new_index",
-                                    shape=[input_shape[0],1])
+        #raise(NotImplementedError)
+        self.new_index = tf.Variable(
+            initial_value=0, trainable=False, validate_shape=False,name='new_index',shape=None,
+            dtype=tf.int64)
+        # self.new_index = self.add_variable("new_index",
+        #                             shape=[int(input_shape[0]),])
+        # self.new_index = self.add_variable("new_index",
+        #                             shape=[input_shape[0],1])
         super(Roll_MeanAndVar_OnSameLabel, self).build(input_shape)  
         # Be sure to call this at the end
 
     def call(self, x,label):
         
         def coloring_by_rolling_sameLabel():
-            index_label = tf.argmax(label, axis=1) # label is a one hot vector 
+            
+            index_label = tf.argmax(label, axis=1) # label is a one hot vector so we use the argmax to convert it
+            #shape = x.get_shape()
+            #index_x = tf.range(0, shape[0], dtype=tf.int64)
+            print('index_label',index_label)
+            #self.new_index.assign(index_label)
+            print('self.new_index',self.new_index)
+            list_index = [0]*32
             for c_i in range(self.num_classes):
-                print('index_label',index_label)
-                where_ci = tf.where(tf.equal(index_label,c_i))
+                # index_x = tf.cond(
+                #     pred=tf.reshape(tf.equal(index_label,c_i),[-1,]),
+                #     true_fn=None,
+                #     false_fn=index_x)                
+                # print('index_label',index_label)
+                where_ci = tf.reshape(tf.where(tf.equal(index_label,c_i)),[-1,])
                 print(c_i,where_ci)
                 roll_where_ci = tf.roll(where_ci,shift=1,axis=0)
                 print(roll_where_ci)
                 print('self.new_index',self.new_index)
-                self.new_index[where_ci].assign(roll_where_ci)
+                list_index[where_ci] = roll_where_ci # Ne marche pas non plus
+                # for new_ci in where_ci:
+                #     print('list_index[new_ci]',list_index[new_ci]) # Ne marche pas
+                #     print('roll_where_ci[new_ci]',roll_where_ci[new_ci])
+                #     list_index[new_ci] = roll_where_ci[new_ci]
+                    # self.new_index[new_ci].assign(roll_where_ci[new_ci])
+                    # #self.new_index[new_ci].assign(roll_where_ci[new_ci])
+                    # print('self.new_index new index',new_ci,self.new_index)
+                self.new_index.assign(list_index)
                 print(self.new_index)
             
             mean,variance = K.stop_gradient(tf.nn.moments(x,axes=(1,2),keep_dims=True))

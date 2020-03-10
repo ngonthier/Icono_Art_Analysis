@@ -3999,7 +3999,7 @@ def RASTAclassifTest():
        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
        kind_of_shuffling='roll_partial',style_layers = ['block1_conv1'],p=0.0626)
-    # Top-1 accuracy : 56.41%
+    # Top-1 accuracy : 56.41% => best avec VGG mais cela est il significatif ?
     # Top-3 accuracy : 82.73%
     # Top-5 accuracy : 91.26%
         
