@@ -5550,6 +5550,34 @@ def plot_for_WSOD_long_paper():
                                          'Mary','nudity', 'ruins','Saint_Sebastien']) 
     #/media/gonthier/HDD/output_exp/ClassifPaintings//tfMI_maxRegion_paral/IconArt_v1/WLS_IconArt_v1_res152_COCO_r11_s1000_k300_m9000_p_wr_gd_WRC0.01_RPV2_MaxOfMaxForIllustraion/Train
     #/media/gonthier/HDD/output_exp/ClassifPaintings//tfMI_maxRegion_paral/IconArt_v1/WLS_IconArt_v1_res152_COCO_r11_s1000_k300_m9000_p_wr_gd_WRC0.01_RPV2_MaxOfMaxForIllustraion/Test
+    # MIL-SVM version Average Precision for angel  =  0.6635855051159723
+    # Test on all the data precision = 0.26, recall = 0.98,F1 = 0.42
+    # MIL-SVM version Average Precision for Child_Jesus  =  0.7854276535015118
+    # Test on all the data precision = 0.33, recall = 0.97,F1 = 0.50
+    # MIL-SVM version Average Precision for crucifixion_of_Jesus  =  0.837199307315279
+    # Test on all the data precision = 0.06, recall = 0.96,F1 = 0.12
+    # MIL-SVM version Average Precision for Mary  =  0.7485766821102026
+    # Test on all the data precision = 0.45, recall = 0.97,F1 = 0.61
+    # MIL-SVM version Average Precision for nudity  =  0.7292594699444594
+    # Test on all the data precision = 0.42, recall = 0.94,F1 = 0.59
+    # MIL-SVM version Average Precision for ruins  =  0.4266561907218772
+    # Test on all the data precision = 0.12, recall = 0.93,F1 = 0.21
+    # MIL-SVM version Average Precision for Saint_Sebastien  =  0.2468073387732215
+    # Test on all the data precision = 0.03, recall = 0.99,F1 = 0.07
+    # Detection score (thres = 0.5):  IconArt_v1 with  MI_max with score = True
+    # & 3.1 & 37.7 & 25.2 & 7.4 & 32.7 & 0.1 & 0.7 & 15.3 \\ \hline
+    # Detection score with thres at  0.3 with  MI_max with score = True
+    #  & 7.6 & 45.8 & 74.8 & 24.6 & 37.3 & 0.4 & 13.5 & 29.1 \\ \hline
+    #  Detection score with thres at  0.1 with  MI_max with score = True
+    #  & 14.5 & 54.9 & 77.0 & 48.7 & 39.0 & 1.0 & 16.2 & 35.9 \\ \hline
+    # Detection score with thres at  0.0 with  MI_max with score = True
+    # & 26.0 & 65.7 & 83.0 & 59.3 & 40.1 & 3.3 & 25.1 & 43.2 \\ \hline
+    # mean Average Precision Classification for all the data = 0.634
+    # mean Precision Classification for all the data = 0.241
+    # mean Recall Classification for all the data = 0.964
+    # Mean Average Precision Classification with  MI_max with score = True  : 
+    # [0.6635855051159723, 0.7854276535015118, 0.837199307315279, 0.7485766821102026, 0.7292594699444594, 0.4266561907218772, 0.2468073387732215]
+    #  & 66.4 & 78.5 & 83.7 & 74.9 & 72.9 & 42.7 & 24.7 & 63.4 \\ \hline
     tfR_FRCNN(demonet = 'res152_COCO',database = 'CASPApaintings', ReDo=False,
                           verbose = True,testMode = False,jtest = 'cow',
                           PlotRegions = True,saved_clf=False,RPN=False,
