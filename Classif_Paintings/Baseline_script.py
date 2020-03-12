@@ -292,6 +292,7 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
         # Training time
         dict_clf = {}
         for j,classe in enumerate(classes):
+            t000 = time.time()
             gc.collect()
             if testMode and not(j==jtest):
                 print('Skip because test mode')
@@ -663,7 +664,10 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
                 del X_trainval_select
                 
             # End of the training 
-            if verbose: print("End learning for class",j)
+            if verbose: 
+                print("End learning for class",j)
+                t111 = time.time()
+                print("In :",str(t111-t000),' s')
             
         gc.collect()
         

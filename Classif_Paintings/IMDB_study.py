@@ -52,6 +52,100 @@ import os
 from FasterRCNN import _int64_feature,_bytes_feature,_floats_feature
 from IMDB import get_database
 
+def Stats_on_dataset(database):
+    """
+    This function return the number of image in the train set, in the test set, 
+    number of instance in test, smallest training set 
+    """
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,\
+        df_label,path_data,Not_on_NicolasPC = get_database(database)
+      
+    df_train = df_label[df_label['set']=='train']
+    df_val = df_label[df_label['set']==str_val]
+    df_trainval = df_train.append(df_val)
+    print('For ',database,'we have :',num_classes,' classes')
+    df_trainval_classes = df_trainval[classes]
+    #print(df_trainval_classes.head(5))
+    sum_trainval = df_trainval_classes.sum()
+    print('Number of images per class in the training set',len(df_trainval_classes.values))
+    print(classes)
+    print(sum_trainval)
+   
+    if database=='IconArt_v1':
+        imdb = get_imdb('IconArt_v1_test')
+        df_test = df_label[df_label['Anno']==1]
+    elif database=='watercolor':
+        imdb = get_imdb('watercolor_test')
+        df_test = df_label[df_label['set']=='test']
+    elif database=='comic':
+        imdb = get_imdb('comic_test')
+        df_test = df_label[df_label['set']=='test']
+    elif database=='clipart':
+        imdb = get_imdb('clipart_test')
+        df_test = df_label[df_label['set']=='test']
+    elif database=='CASPApaintings':
+        imdb = get_imdb('CASPApaintings_test')
+        df_test = df_label[df_label['set']=='test']
+    elif database=='PeopleArt':
+        imdb = get_imdb('PeopleArt_test')
+        df_test = df_label[df_label['set']=='test']
+    
+    list_im_withanno = list(df_test[item_name].values)
+    print('Number of images in the test set :',len(list_im_withanno))
+    
+    # annotations_folder = '/media/gonthier/HDD/data/Wikidata_Paintings/WikiTenLabels/Annotations/'
+    # path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    # name_file = path_data + 'WikiTenLabels.csv'
+    # df = pd.read_csv(name_file,sep=',')
+    # df_test = df[df['set']=='test']
+    
+    print('Statistiques sur le test set')
+    df_test_classes = df_test[classes]
+    print(df_test_classes.sum())
+    
+    size_min = 25*25 # 15*15
+    dict_elts_total = {}
+    dict_elts_sizemin = {}
+    for c in classes:
+        #pd_b[c] = 0
+        dict_elts_total[c] = 0
+        dict_elts_sizemin[c] = 0
+        
+    for index, row in df_test.iterrows():
+        i = row[item_name]
+        i = i.replace('.jpg','')
+        path_i = default_path_imdb +database+'/'+ 'Annotations/%s.xml'%(i)
+        read_file = voc_eval.parse_rec(path_i)
+        for element in read_file:
+            classe_elt = element['name']
+            bbox = element['bbox']
+            xmin = bbox[0]
+            ymin = bbox[1]
+            xmax = bbox[2]
+            ymax = bbox[3]
+            area = (xmax -xmin)*(ymax-ymin) 
+#            print(area)
+            for c in classes:
+                if classe_elt==c: # We got an element from 
+                    #pd_b.loc[pd_b['item']==row['item'],c] = 1
+                    dict_elts_total[c] += 1
+                    if area > size_min:
+                        dict_elts_sizemin[c] += 1
+    #print('Statistiques au niveaux du nombre de classes avec les labels dans la partie annotee en detection')
+    #print(pd_b.sum())
+    print('Nombre d instances des differentes classes')
+    num_obj = 0
+    for c in classes:
+        print(c,' : ',dict_elts_total[c])
+        num_obj+=dict_elts_total[c]
+    print('Nombre d instances totales',num_obj)
+    num_obj = 0
+    for c in classes:
+        print(c,' : ',dict_elts_sizemin[c])
+        num_obj+=dict_elts_sizemin[c]
+    print('Nombre d instances de taille superieur a ',size_min,'pixels',num_obj)
+
+
 def get_imdb_and_listImagesInTestSet(database):
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,Not_on_NicolasPC = get_database(database)
    
