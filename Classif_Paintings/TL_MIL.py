@@ -69,6 +69,7 @@ from Transform_Box import py_cpu_modif
 from random import uniform
 #from shutil import copyfile
 from IMDB import get_database
+import itertools
 
 CLASSESVOC = ('__background__',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -2431,7 +2432,54 @@ def get_imdb_test_detection(database,df_label,item_name,default_path_imdb):
     imdb.set_force_dont_use_07_metric(dont_use_07_metric)
     
     return(imdb,num_images,usecache_eval,boxCoord01)
+   
+def get_dict_name_files(path_data,metamodel,demonet,database,N,extL2,nms_thresh,\
+                        savedstr,k_per_bag,PCAuse,number_composant,eval_onk300):
+    sets = ['train','val','trainval','test']
+    dict_name_file = {}
+    data_precomputeed= True
+    if k_per_bag==300:
+        k_per_bag_str = ''
+    else:
+        k_per_bag_str = '_k'+str(k_per_bag)
+    for set_str in sets:
+        name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+\
+            '_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str
+        if PCAuse:
+            name_pkl_all_features+='_PCAc'+str(number_composant)
+        name_pkl_all_features+='_'+set_str+'.tfrecords'
+        if not(k_per_bag==300) and eval_onk300 and set_str=='test': # We will evaluate on all the 300 regions and not only the k_per_bag ones
+            name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr
+            if PCAuse:
+                name_pkl_all_features+='_PCAc'+str(number_composant)
+            name_pkl_all_features+='_'+set_str+'.tfrecords'
+        dict_name_file[set_str] = name_pkl_all_features
+        if set_str in ['trainval','test'] and not(os.path.isfile(name_pkl_all_features)):
+            data_precomputeed = False
     
+    if database=='RMN':
+        data_precomputeed = True
+        for set_str in sets:
+            if set_str=='train':
+                dict_name_file[set_str] = dict_name_file['trainval']
+            if set_str=='test' or set_str=='val':
+                dict_name_file[set_str] = dict_name_file[set_str].replace('RMN','IconArt_v1')
+            if not(os.path.isfile(dict_name_file[set_str])):
+                data_precomputeed = False
+                print("Warning in the case of RMN database you have to precompute for RMN and for IconArt_v1")
+    
+    if 'OIV5' in database:
+        data_precomputeed = True
+        for set_str in sets:
+            if set_str=='train' or set_str=='val':
+                dict_name_file[set_str] = dict_name_file['trainval']
+            if set_str=='test':
+                dict_name_file[set_str] = dict_name_file[set_str].replace(database,'OIV5')
+            if not(os.path.isfile(dict_name_file[set_str])):
+                data_precomputeed = False    
+                
+    return(dict_name_file,data_precomputeed)
+
 def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                                   model='MI_max',
                                   verbose = True,testMode = False,jtest = 0,
@@ -2456,7 +2504,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                                   layer='fc7',MaxMMeanOfMax=False,MaxTopMinOfMax=False,
                                   Cosine_ofW_inLoss=False,Coeff_cosine=1.,
                                   mini_batch_size=None,num_features_hidden=256,dtype=None,
-                                  normOfHL=True):
+                                  normOfHL=True,target_dataset=None):
     """ 
     10 avril 2017
     This function used TFrecords file 
@@ -2576,6 +2624,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
        if is None or 0 then equal to num_features
    @param : normOfHL = True default : the fact to also have a regularisation on the first hidden layer weights
 
+   @param : target_dataset : apply an model trained on a specific dataset to an other one
+
     The idea of this algo is : 
         1/ Compute CNN features
         2/ Do NMS on the regions 
@@ -2594,6 +2644,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     
     """
     # TODO add the dtype in the cachefile name
+    if not(target_dataset is None) and not(parallel_op):
+        raise(NotImplementedError)
+    if not(target_dataset is None) and 'LinearSVC' in predict_with:
+        print('To apply on ')
+        raise(NotImplementedError)
+    
     if not(dtype is None or dtype=='float32'):
         if dtype=='float16':
             dtype = tf.float16
@@ -2627,13 +2683,14 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                 print('You have to add the value of  number_composant here !')
         else:
             print('If you already have computed the PCA on the data you have to add the number_composant at the beginning of the tfR_FRCNN function')
-    
+    else:
+        number_composant =None
     
     print('==========')
     # TODO be able to train on background 
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
         path_data,Not_on_NicolasPC = get_database(database)
-    print('!!!!!!!!!!',path_data)
+    print('The path_data is : ',path_data)
     if testMode and not(type(jtest)==int):
         assert(type(jtest)==str)
         jtest = int(np.where(np.array(classes)==jtest)[0][0])# Conversion of the jtest string to the value number
@@ -2660,51 +2717,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     if layer=='fc6':
         savedstr+='_fc6'
 
-    sets = ['train','val','trainval','test']
-    dict_name_file = {}
-    data_precomputeed= True
-    if k_per_bag==300:
-        k_per_bag_str = ''
-    else:
-        k_per_bag_str = '_k'+str(k_per_bag)
-    for set_str in sets:
-        name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+k_per_bag_str
-        if PCAuse:
-            name_pkl_all_features+='_PCAc'+str(number_composant)
-        name_pkl_all_features+='_'+set_str+'.tfrecords'
-        if not(k_per_bag==300) and eval_onk300 and set_str=='test': # We will evaluate on all the 300 regions and not only the k_per_bag ones
-            name_pkl_all_features = path_data+metamodel+'_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr
-            if PCAuse:
-                name_pkl_all_features+='_PCAc'+str(number_composant)
-            name_pkl_all_features+='_'+set_str+'.tfrecords'
-        dict_name_file[set_str] = name_pkl_all_features
-        if set_str in ['trainval','test'] and not(os.path.isfile(name_pkl_all_features)):
-            data_precomputeed = False
-    
-    if database=='RMN':
-        data_precomputeed = True
-        for set_str in sets:
-            if set_str=='train':
-                dict_name_file[set_str] = dict_name_file['trainval']
-            if set_str=='test' or set_str=='val':
-                dict_name_file[set_str] = dict_name_file[set_str].replace('RMN','IconArt_v1')
-            if not(os.path.isfile(dict_name_file[set_str])):
-                data_precomputeed = False
-                print("Warning in the case of RMN database you have to precompute for RMN and for IconArt_v1")
-    
-    if 'OIV5' in database:
-        data_precomputeed = True
-        for set_str in sets:
-            if set_str=='train' or set_str=='val':
-                dict_name_file[set_str] = dict_name_file['trainval']
-            if set_str=='test':
-                dict_name_file[set_str] = dict_name_file[set_str].replace(database,'OIV5')
-            if not(os.path.isfile(dict_name_file[set_str])):
-                data_precomputeed = False
-    
-#    print('data_precomputeed',data_precomputeed)
-#    input('wait')
-    
+    dict_name_file,data_precomputeed = get_dict_name_files(path_data,metamodel,demonet,database,N,extL2,nms_thresh,\
+                        savedstr,k_per_bag,PCAuse,number_composant,eval_onk300)
+
     if demonet in ['vgg16_COCO','vgg16_VOC07','vgg16_VOC12']:
         num_features = 4096
     elif demonet in ['res101_COCO','res152_COCO','res101_VOC07','res152']:
@@ -2754,8 +2769,7 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                   model,num_split,num_trainval_im,mini_batch_size)
     if verbose : print('usecache :',usecache,'mini_batch_size =',mini_batch_size,"buffer_size =",buffer_size)
 
-    
-            
+
     AP_per_class = []
     P_per_class = []
     R_per_class = []
@@ -2805,12 +2819,12 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     
     imdb,num_images,usecache_eval,boxCoord01 = get_imdb_test_detection(database,df_label,item_name,default_path_imdb)
     all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
-   
+
     data_path_train= dict_name_file['trainval']
     if trainOnTest:
         data_path_train= dict_name_file['test']
     
-    if parallel_op:
+    if parallel_op: # Parallelisation of the different classes
         # For Pascal VOC2007 pour les 20 classes cela prend environ 2500s par iteration 
         if not os.path.isfile(cachefile_model) or ReDo:
              if verbose: t0 = time.time()
@@ -2874,10 +2888,28 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         parameters=PlotRegions,RPN,Stocha,CompBest
         param_clf = k_per_bag,Number_of_positif_elt,num_features
 
-        if database=='RMN': 
-            database = 'IconArt_v1'
+        if target_dataset is None:
+            former_datasets_info = None
+            if database=='RMN': 
+                database = 'IconArt_v1'
+                item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+                    path_data,Not_on_NicolasPC = get_database(database) 
+        else: # target_dataset 
+            former_classes = classes
+            former_num_classes = num_classes
+            former_database = database
+            former_datasets_info = former_classes,former_num_classes,former_database
+            database = target_dataset
             item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
-                path_data,Not_on_NicolasPC = get_database(database)
+                path_data,Not_on_NicolasPC = get_database(target_dataset) 
+            imdb,num_images,usecache_eval,boxCoord01 = get_imdb_test_detection(database,df_label,item_name,default_path_imdb)
+            all_boxes = [[[] for _ in range(num_images)] for _ in range(num_classes)]
+            dict_name_file,data_precomputeed = get_dict_name_files(path_data,metamodel,demonet,database,N,extL2,nms_thresh,\
+                        savedstr,k_per_bag,PCAuse,number_composant,eval_onk300)
+            if not(data_precomputeed):
+                print('You need to precompute the dataset by re-running this file with',target_dataset,'as main database. Sorry.')
+                raise(NotImplementedError)
+                
         if verbose:
             t1 = time.time()
 
@@ -2892,7 +2924,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                gridSearch=gridSearch,n_jobs=n_jobs,thres_FinalClassifier=thres_FinalClassifier,
                k_per_bag=k_per_bag,eval_onk300=eval_onk300,plot_onSubSet=plot_onSubSet,AggregW=AggregW,
                obj_score_add_tanh=obj_score_add_tanh,obj_score_mul_tanh=obj_score_mul_tanh,dim_rois=dim_rois,
-               trainOnTest=trainOnTest,usecache=usecache_eval,boxCoord01=boxCoord01)
+               trainOnTest=trainOnTest,usecache=usecache_eval,boxCoord01=boxCoord01,\
+               former_datasets_info=former_datasets_info)
    
         if 'OIV5' in database:
             print('Save the predicted boxes')
@@ -2909,6 +2942,8 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
                             line = [name,classe_str,box[0],box[1],box[2],box[3],0,box[4]]
                             filewriter.writerow(line)
     
+        print('true_label_all_test',true_label_all_test.shape)
+        print('predict_label_all_test',predict_label_all_test.shape)
         for j,classe in enumerate(classes):
             AP = average_precision_score(true_label_all_test[:,j],predict_label_all_test[:,j],average=None)
             if (database=='Wikidata_Paintings') or (database=='Wikidata_Paintings_miniset_verif'):
@@ -2929,8 +2964,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         for j,classe in enumerate(classes):
             if testMode and not(j==jtest):
                 continue
-            if verbose : print(j,classes[j])       
-            if verbose: print("Start train the MI_max")
+            if verbose : 
+                print(j,classes[j])       
+                print("Start train the MI_max")
 
             #data_path_train=  '/home/gonthier/Data_tmp/FasterRCNN_res152_COCO_Paintings_N1_TLforMIL_nms_0.7_all_trainval.tfrecords'
             needToDo = False
@@ -3041,19 +3077,30 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
             for j in range(1, imdb.num_classes):
                 j_minus_1 = j-1
                 all_boxes_order[j][i]  = all_boxes[j_minus_1][name_img_ind[0]]
+                
             if max_per_image > 0:
-                image_scores = np.hstack([all_boxes_order[j][i][:, -1]
-                            for j in range(1, imdb.num_classes)])
+                list_scores = []
+                for j in range(1, imdb.num_classes):
+                    score_j_i = all_boxes_order[j][i]
+                    if len(score_j_i) > 0:
+                        list_scores += [score_j_i[:, -1]]
+                    else:
+                        list_scores += [[]]
+                image_scores = np.hstack(list_scores)
                 if len(image_scores) > max_per_image:
                     image_thresh = np.sort(image_scores)[-max_per_image]
                     for j in range(1, imdb.num_classes):
-                        keep = np.where(all_boxes_order[j][i][:, -1] >= image_thresh)[0]
-                        all_boxes_order[j][i] = all_boxes_order[j][i][keep, :]
+                        score_j_i = all_boxes_order[j][i]
+                        if len(score_j_i)>0:
+                            keep = np.where(score_j_i[:, -1] >= image_thresh)[0]
+                            all_boxes_order[j][i] = all_boxes_order[j][i][keep, :]
         assert (number_im==num_images_detect) # To check that we have the all the images in the detection prediction
         det_file = os.path.join(path_data, 'detections.pkl')
         with open(det_file, 'wb') as f:
             pickle.dump(all_boxes_order, f, pickle.HIGHEST_PROTOCOL)
         output_dir = path_data +'tmp/' + database+'_mAP.txt'
+        if not(target_dataset is None):
+            output_dir = path_data +'tmp/LearnOn'+former_database+'_' + database+'_mAP.txt'
         aps =  imdb.evaluate_detections(all_boxes_order, output_dir)
         apsAt05 = aps
         print("Detection score (thres = 0.5): ",database,'with ',model,'with score =',with_scores)
@@ -3099,21 +3146,24 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
     print('Mean Average Precision Classification with ',model,'with score =',with_scores,' : ')
     print(AP_per_class)
     print(arrayToLatex(AP_per_class,per=True))
-    
-    param_name,path_data_file,file_param = \
-    create_param_id_file_and_dir(path_data+'/SauvParam/',arrayParam,arrayParamStr)
-    
+
     t2 = time.time()
     print("--- Testing duration :",str(t2-t1),' s')
     
+    if target_dataset is None:
+        param_name,path_data_file,file_param = \
+        create_param_id_file_and_dir(path_data+'/SauvParam/',arrayParam,arrayParamStr)
+        
     if database in ['RMN','VOC2007','watercolor','clipart','comic','WikiTenLabels','PeopleArt',\
                     'MiniTrain_WikiTenLabels','WikiLabels1000training','IconArt_v1','CASPApaintings']\
                     or 'IconArt_v1' in database:
-        write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class),aps,np.mean(aps)],
+        if target_dataset is None: 
+            write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class),aps,np.mean(aps)],
                       ['classes','AP_per_class','mAP Classif','AP detection','mAP detection'])
         return(apsAt05,apsAt01,AP_per_class)
     else:
-        write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class)],
+        if target_dataset is None:
+            write_results(file_param,[classes,AP_per_class,np.mean(AP_per_class)],
                       ['classes','AP_per_class','mAP Classif'])
         return(AP_per_class) 
 
@@ -3218,14 +3268,35 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                gridSearch=False,n_jobs=1,thres_FinalClassifier=0.5,k_per_bag=300,
                eval_onk300=False,plot_onSubSet=None,AggregW=None,obj_score_add_tanh=False,
                obj_score_mul_tanh=False,dim_rois=5,trainOnTest=False,usecache=True,
-               boxCoord01=False):
+               boxCoord01=False,former_datasets_info=None):
      """
      @param : seuil_estimation : ByHist or MaxDesNeg
      @param : number_im : number of image plot at maximum
      @param : transform_output : use of a softmax or a 
      @ use the with_rois_scores_atEnd to pondare the final results
      @param : boxCoord01 : convert the box coordinates between 0 and 1
+     @param : former_datasets_info contain classes of the source dataset
      """
+
+     if not(former_datasets_info is None):
+        onNewTargetSet = True
+        former_classes,former_num_classes,former_database = former_datasets_info
+        ext_folder = 'TrainedOn_' + former_database+'_'
+        list_index_class_inTargetDataset = []
+        list_index_class_inTargetDataset_newIndex = []
+        dico_index_class_from_former_to_new = {}
+        dico_index_class_from_new_to_former = {}
+        for former_i,elt in enumerate(former_classes):
+            for new_i, new_elt in enumerate(classes):
+                if elt==new_elt:
+                    dico_index_class_from_former_to_new[former_i] = new_i
+                    dico_index_class_from_new_to_former[new_i] = former_i
+                    list_index_class_inTargetDataset += [former_i]
+                    list_index_class_inTargetDataset_newIndex += [new_i]
+     else:
+        ext_folder = ''
+        onNewTargetSet = False
+        former_num_classes= num_classes
 
      # TODO : predict_with LinearSVC_Extremboth : use the most discriminative regions for each images
      # LinearSVC_Sign: use the negative examples for negatives and positive for positives
@@ -3279,7 +3350,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
 
      if PlotRegions or (seuil_estimation_bool and plot_hist):
          matplotlib.use('Agg') 
-         extensionStocha = cachefile_model_base 
+         if not(onNewTargetSet):
+             extensionStocha = cachefile_model_base 
+         else:
+             extensionStocha = ext_folder + cachefile_model_base
          if not(plot_onSubSet is None):
              extensionStocha += 'ForIllustraion'
          path_to_output2  = path_data + '/tfMI_maxRegion_paral/'+database+'/'+extensionStocha
@@ -3323,13 +3397,14 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
              top_k =1
          list_arrays = ['prod_neg_ex','prod_pos_ex_topk','prod_pos_ex']
          dict_seuil_estim = {}
-         for i in range(num_classes):
+         for i in range(former_num_classes):
              dict_seuil_estim[i] = {}
              for str_name in list_arrays:
                  dict_seuil_estim[i][str_name] = []  # Array of the scalar product of the negative examples  
      get_roisScore = (with_rois_scores_atEnd or scoreInMI_max)
 
-     if (PlotRegions or seuil_estimation_bool) and not('LinearSVC' in predict_with):
+     if (PlotRegions or seuil_estimation_bool) and not('LinearSVC' in predict_with) and (former_datasets_info is None):
+         # Don t plot Regions on the training images of the target dataset
         index_im = 0
         if verbose: print("Start ploting Regions selected by the MI_max in training phase")
         if trainOnTest:
@@ -3353,7 +3428,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             if not(k_per_bag==300) and eval_onk300:
                 print('Que fais tu la ?')
                 X = tf.placeholder(tf.float32, shape=(None,300,num_features),name='X')
-                y = tf.placeholder(tf.float32, shape=(None,num_classes),name='y')
+                y = tf.placeholder(tf.float32, shape=(None,former_num_classes),name='y')
                 if scoreInMI_max:
                     scores_tf = tf.placeholder(tf.float32, shape=(None,),name='scores')
             else:
@@ -3420,7 +3495,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                                     
                     if seuil_estimation_bool:
                         for k in range(len(fc7s)):
-                            for l in range(num_classes):
+                            for l in range(former_num_classes):
                                 label_i = labels[k,l]
                                 if label_i ==0:
                                     dict_seuil_estim[l]['prod_neg_ex'] += [PositiveExScoreAll[l,k,:]]
@@ -3460,7 +3535,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                                 roi_boxes =  roi / im_scales[0] 
                             roi_boxes_and_score = None
                             local_cls = []
-                            for j in range(num_classes):
+                            for j in range(former_num_classes):
                                 if (not(plot_onSubSet is None) and (j in index_SubSet)) or (plot_onSubSet is None):
                                     if labels[k,j] == 1:
                                         local_cls += [classes[j]]
@@ -3528,7 +3603,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             if not(k_per_bag==300) and eval_onk300:
                 print('Que fais tu la ?')
                 X = tf.placeholder(tf.float32, shape=(None,300,num_features),name='X')
-                y = tf.placeholder(tf.float32, shape=(None,num_classes),name='y')
+                y = tf.placeholder(tf.float32, shape=(None,former_num_classes),name='y')
                 if scoreInMI_max:
                     scores_tf = tf.placeholder(tf.float32, shape=(None,),name='scores')
             else:
@@ -3564,7 +3639,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 score_mei = tf.reduce_max(Prod_best,axis=2)
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
-            for j in range(num_classes):
+            for j in range(former_num_classes):
                 y_trainval_select = []
                 X_trainval_select = []
                 sess.run(iterator.initializer)
@@ -3669,7 +3744,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
          if verbose: print('Seuil Estimation Time')
          num_bins = 100
          # Concatenation of the element
-         for l in range(num_classes):
+         for l in range(former_num_classes):
              dontPlot = False
              dontPlot2 = False
              prod_neg_ex = np.concatenate(dict_seuil_estim[l]['prod_neg_ex'],axis=0)
@@ -3733,16 +3808,16 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                      
      if seuil_estimation=='MaxDesNeg':
          # On prend le maximum des exemples negatifs 
-         list_thresh = np.zeros((num_classes,))
-         for l in range(num_classes):
+         list_thresh = np.zeros((former_num_classes,))
+         for l in range(former_num_classes):
              prod_neg_ex = np.concatenate(dict_seuil_estim[l]['prod_neg_ex'],axis=0)
              seuil_max_negative = np.max(prod_neg_ex)
              list_thresh[l] = seuil_max_negative  
              
      if seuil_estimation=='MinDesPos':
          # On prend le minimum des max des exemples positifs 
-         list_thresh = np.zeros((num_classes,))
-         for l in range(num_classes):
+         list_thresh = np.zeros((former_num_classes,))
+         for l in range(former_num_classes):
              prod_pos_ex_topk= np.vstack(dict_seuil_estim[l]['prod_pos_ex_topk'])
              prod_pos_ex_topk = prod_pos_ex_topk[np.where(prod_pos_ex_topk>0)]
              seuil_estim =np.min(prod_pos_ex_topk)   
@@ -3753,7 +3828,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
          plt.ion()
          num_bins = 100
          # Concatenation of the element
-         for l in range(num_classes):
+         for l in range(former_num_classes):
              dontPlot = False
              dontPlot2 = False
              prod_neg_ex = np.concatenate(dict_seuil_estim[l]['prod_neg_ex'],axis=0)
@@ -3845,7 +3920,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             if not(k_per_bag==300) and eval_onk300:
                 print('Que fais tu la ?')
                 X = tf.placeholder(tf.float32, shape=(None,300,num_features),name='X')
-                y = tf.placeholder(tf.float32, shape=(None,num_classes),name='y')
+                y = tf.placeholder(tf.float32, shape=(None,former_num_classes),name='y')
                 if scoreInMI_max:
                     scores_tf = tf.placeholder(tf.float32, shape=(None,),name='scores')
             else:
@@ -3890,9 +3965,11 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     fc7s,roiss,rois_scores,labels,name_imgs = sess.run(next_element)
                 if predict_with=='MI_max':
                     if scoreInMI_max:
-                        feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
+                        #feed_dict_value = {X: fc7s,scores_tf: rois_scores, y: labels}
+                        feed_dict_value = {X: fc7s,scores_tf: rois_scores}
                     else:
-                        feed_dict_value = {X: fc7s, y: labels}
+                        #feed_dict_value = {X: fc7s, y: labels}
+                        feed_dict_value = {X: fc7s}
                     if with_tanh:
                         PositiveRegions,get_RegionsScore,PositiveExScoreAll =\
                         sess.run([mei,score_mei,Tanh], feed_dict=feed_dict_value)
@@ -3913,10 +3990,18 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                 true_label_all_test += [labels]
                 
                 if predict_with=='MI_max':
-                    predict_label_all_test +=  [get_RegionsScore] # For the classification task
+                    if not(onNewTargetSet):
+                        predict_label_all_test +=  [get_RegionsScore] # For the classification task
+                    else:
+                        get_RegionsScore_local = np.zeros(shape=(former_num_classes,len(labels)))
+                        for j in range(former_num_classes):
+                            if j in list_index_class_inTargetDataset_newIndex :
+                                get_RegionsScore_local[dico_index_class_from_new_to_former[j],:] = get_RegionsScore[j,:]
+                        predict_label_all_test +=  [get_RegionsScore_local]
+                    
                 elif 'LinearSVC' in predict_with:
                     predict_label_all_test_tmp = []
-                    for j in range(num_classes):
+                    for j in range(former_num_classes):
                         predict_label_all_test_tmp += [np.reshape(classifier_trained_dict[j].decision_function( 
                                 np.reshape(fc7s,(-1,fc7s.shape[-1]))),(fc7s.shape[0],fc7s.shape[1]))]
                     predict_label_all_test_batch = np.stack(predict_label_all_test_tmp,axis=0)
@@ -3947,8 +4032,15 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     if boxCoord01:
                         roi_boxes[:,0:2] =  roi_boxes[:,0:2] / im.shape[0]
                         roi_boxes[:,2:4] =  roi_boxes[:,2:4] / im.shape[1]
-                    for j in range(num_classes):
-                        scores = scores_all[j,:]
+                    for j in range(former_num_classes):
+                        if not(onNewTargetSet):# Cas normal classique
+                            scores = scores_all[j,:]
+                        else:
+                            if j in list_index_class_inTargetDataset_newIndex :
+                                scores = scores_all[dico_index_class_from_new_to_former[j],:]
+                            else:
+                                continue
+                            
                         #print(scores.shape)
                         if seuil_estimation_bool:
                             inds = np.where(scores > list_thresh[j])[0]
@@ -3969,6 +4061,11 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         cls_dets = cls_dets[keep, :]
                         
                         all_boxes[j][i] = cls_dets
+                        # if not(onNewTargetSet): 
+                            
+                        # else: # Cas ou l' on applique a un autre dataset 
+                        #     if j in list_index_class_inTargetDataset :
+                        #         all_boxes[dico_index_class_from_former_to_new[j]][i] = cls_dets
                     i+=1
     
                 for l in range(len(name_imgs)): 
@@ -4004,7 +4101,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                         blobs, im_scales = get_blobs(im)
                         roi_boxes_and_score = []
                         local_cls = []
-                        for j in range(num_classes):
+                        for j in range(former_num_classes):
                             if (not(plot_onSubSet is None) and (j in index_SubSet)) or (plot_onSubSet is None):
                             
                                 cls_dets = all_boxes[j][ii] # Here we have #classe x box dim + score
@@ -5610,6 +5707,57 @@ def plot_for_WSOD_long_paper():
 # [0.48947797529330006, 0.5490244242655412, 0.6271703947713066, 0.504106921013845, 0.3523462431800253, 0.2830171405992564, 0.5237466500131347, 0.44998949771086044]
 #  & 48.9 & 54.9 & 62.7 & 50.4 & 35.2 & 28.3 & 52.4 & 45.0 & 47.2 \\ \hline        
     
+    ## Train on PeopleArt and test on watercolor2k 
+    tfR_FRCNN(demonet = 'res152_COCO',database='PeopleArt', ReDo=False,
+                      verbose = True,testMode = False,jtest = 'cow',
+                      PlotRegions = True,saved_clf=False,RPN=False,
+                      CompBest=False,Stocha=True,k_per_bag=300,
+                      parallel_op=True,CV_Mode='',num_split=2,
+                      WR=True,init_by_mean =None,seuil_estimation='',
+                      restarts=11,max_iters_all_base=3000,LR=0.01,
+                      C=1.0,Optimizer='GradientDescent',norm='',
+                      transform_output='tanh',with_rois_scores_atEnd=False,
+                      with_scores=True,epsilon=0.01,restarts_paral='paral',
+                      predict_with='MI_max',MaxOfMax=True,
+                      plot_onSubSet=["bicycle", "bird","car", "cat", "dog", "person"],
+                      target_dataset = 'watercolor') 
+    
+def evaluation_datasetA_onDatasetB(MaxOfMax=True):
+    
+    # couple of dataset to training and test sets 
+    
+    PlotRegions = False
+    datasets = ['PeopleArt','watercolor','comic','clipart','CASPApaintings']
+    all_possibles_pairs = itertools.permutations(datasets, r=2)
+    
+    list_models = zip([False,True],[300,3000])
+    # if MaxOfMax:
+    #     list_models = zip([True],[3000])
+    # else:
+    #     list_models = zip([False],[300])
+        # Need to recompute the model because due to the run in parall we didn't store them 
+        # It can take some times
+        
+    for MaxOfMax,max_iters_all_base in list_models:
+        print('=== MaxOfMax :',MaxOfMax,'max_iters_all_base',max_iters_all_base,'===')  
+        for database,target_dataset in all_possibles_pairs:
+            print('==',database,target_dataset,'==')
+
+            tfR_FRCNN(demonet = 'res152_COCO',database=database, ReDo=False,
+                          verbose = True,testMode = False,jtest = 'cow',
+                          PlotRegions = PlotRegions,saved_clf=False,RPN=False,
+                          CompBest=False,Stocha=True,k_per_bag=300,
+                          parallel_op=True,CV_Mode='',num_split=2,
+                          WR=True,init_by_mean =None,seuil_estimation='',
+                          restarts=11,max_iters_all_base=max_iters_all_base,LR=0.01,
+                          C=1.0,Optimizer='GradientDescent',norm='',
+                          transform_output='tanh',with_rois_scores_atEnd=False,
+                          with_scores=True,epsilon=0.01,restarts_paral='paral',
+                          predict_with='MI_max',MaxOfMax=MaxOfMax,
+                          plot_onSubSet=None,
+                          target_dataset = target_dataset) 
+    
+    
     
 if __name__ == '__main__':
 #    FasterRCNN_TL_MI_max_newVersion()
@@ -5759,26 +5907,26 @@ if __name__ == '__main__':
 #              AggregW =None ,proportionToKeep=1.0,model='MI_max',debug=True) 
 
 # Test EdgeBoxes 
-    for k_per_bag in [300]:
-#        for database in ['watercolor','IconArt_v1','VOC2007']:
-        for database in ['IconArt_v1','VOC2007']:
-            for model in ['MI_max','mi_model']:
-                tfR_FRCNN(demonet = 'res152',database = database, ReDo=True,
-                                          verbose = True,testMode = False,jtest = 'cow',
-                                          PlotRegions = False,saved_clf=False,RPN=False,
-                                          CompBest=False,Stocha=True,k_per_bag=k_per_bag,
-                                          parallel_op=True,CV_Mode='',num_split=2,
-                                          WR=True,init_by_mean =None,seuil_estimation='',
-                                          restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
-                                          C=1.0,Optimizer='GradientDescent',norm='',
-                                          transform_output='tanh',with_rois_scores_atEnd=False,
-                                          with_scores=False,epsilon=0.01,restarts_paral='paral',
-                                          Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
-                                          k_intopk=1,C_Searching=False,predict_with='',
-                                          gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
-                                          thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
-                                          loss_type='',storeVectors=False,storeLossValues=False,
-                                          metamodel='EdgeBoxes',model=model)
+#     for k_per_bag in [300]:
+# #        for database in ['watercolor','IconArt_v1','VOC2007']:
+#         for database in ['IconArt_v1','VOC2007']:
+#             for model in ['MI_max','mi_model']:
+#                 tfR_FRCNN(demonet = 'res152',database = database, ReDo=True,
+#                                           verbose = True,testMode = False,jtest = 'cow',
+#                                           PlotRegions = False,saved_clf=False,RPN=False,
+#                                           CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+#                                           parallel_op=True,CV_Mode='',num_split=2,
+#                                           WR=True,init_by_mean =None,seuil_estimation='',
+#                                           restarts=11,max_iters_all_base=300,LR=0.01,with_tanh=True,
+#                                           C=1.0,Optimizer='GradientDescent',norm='',
+#                                           transform_output='tanh',with_rois_scores_atEnd=False,
+#                                           with_scores=False,epsilon=0.01,restarts_paral='paral',
+#                                           Max_version='',w_exp=10.0,seuillage_by_score=False,seuil=0.9,
+#                                           k_intopk=1,C_Searching=False,predict_with='',
+#                                           gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+#                                           thresh_evaluation=0.05,TEST_NMS=0.3,AggregW='',proportionToKeep=0.25,
+#                                           loss_type='',storeVectors=False,storeLossValues=False,
+#                                           metamodel='EdgeBoxes',model=model)
 #    tfR_FRCNN(demonet = 'res152',database = 'VOC2007', ReDo=True,
 #                              verbose = True,testMode = False,jtest = 'cow',
 #                              PlotRegions = False,saved_clf=False,RPN=False,
@@ -5925,3 +6073,6 @@ if __name__ == '__main__':
 #    plotGT('Q28810789')
 #    plotGT('Q3213763')
 #    
+
+## Pour tester le knowledge transfert 
+    evaluation_datasetA_onDatasetB()
