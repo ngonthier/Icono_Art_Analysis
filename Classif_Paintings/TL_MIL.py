@@ -5755,8 +5755,8 @@ def evaluation_datasetA_onDatasetB(MaxOfMax=False):
                           transform_output='tanh',with_rois_scores_atEnd=False,
                           with_scores=True,epsilon=0.01,restarts_paral='paral',
                           predict_with='MI_max',MaxOfMax=MaxOfMax,
-                          plot_onSubSet=None,
-                          target_dataset = target_dataset) 
+                          plot_onSubSet=None) 
+                          #,target_dataset = target_dataset) 
     
     
     
