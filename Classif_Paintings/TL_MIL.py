@@ -3289,6 +3289,7 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
         for former_i,elt in enumerate(former_classes):
             for new_i, new_elt in enumerate(classes):
                 if elt==new_elt:
+                    print(elt,new_elt,'are in common between the two dataset :',former_database,database)
                     dico_index_class_from_former_to_new[former_i] = new_i
                     dico_index_class_from_new_to_former[new_i] = former_i
                     list_index_class_inTargetDataset += [former_i]
@@ -3993,10 +3994,10 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
                     if not(onNewTargetSet):
                         predict_label_all_test +=  [get_RegionsScore] # For the classification task
                     else:
-                        get_RegionsScore_local = np.zeros(shape=(former_num_classes,len(labels)))
+                        get_RegionsScore_local = np.zeros(shape=(num_classes,len(labels)))
                         for j in range(former_num_classes):
-                            if j in list_index_class_inTargetDataset_newIndex :
-                                get_RegionsScore_local[dico_index_class_from_new_to_former[j],:] = get_RegionsScore[j,:]
+                            if j in list_index_class_inTargetDataset :
+                                get_RegionsScore_local[dico_index_class_from_former_to_new[j],:] = get_RegionsScore[j,:]
                         predict_label_all_test +=  [get_RegionsScore_local]
                     
                 elif 'LinearSVC' in predict_with:
@@ -5722,7 +5723,7 @@ def plot_for_WSOD_long_paper():
                       plot_onSubSet=["bicycle", "bird","car", "cat", "dog", "person"],
                       target_dataset = 'watercolor') 
     
-def evaluation_datasetA_onDatasetB(MaxOfMax=True):
+def evaluation_datasetA_onDatasetB(MaxOfMax=False):
     
     # couple of dataset to training and test sets 
     
@@ -5731,10 +5732,10 @@ def evaluation_datasetA_onDatasetB(MaxOfMax=True):
     all_possibles_pairs = itertools.permutations(datasets, r=2)
     
     list_models = zip([False,True],[300,3000])
-    # if MaxOfMax:
-    #     list_models = zip([True],[3000])
-    # else:
-    #     list_models = zip([False],[300])
+    if MaxOfMax:
+        list_models = zip([True],[3000])
+    else:
+        list_models = zip([False],[300])
         # Need to recompute the model because due to the run in parall we didn't store them 
         # It can take some times
         
