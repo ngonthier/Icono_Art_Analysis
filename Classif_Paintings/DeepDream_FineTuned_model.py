@@ -143,6 +143,24 @@ def DeepDream_withFinedModel():
     step = 0.01  # Gradient ascent step size
     iterations = 100  # Number of ascent steps per scale
     
+    init_images = []
+    init_images_name = []
+    init_rand_im = np.random.normal(loc=125.,scale=3.,size=(1,224,224,3))
+    init_images += [init_rand_im]
+    init_images_name += ['smallRand']
+    init_rand_im = np.random.normal(loc=125.,scale=15.,size=(1,224,224,3))
+    init_images += [init_rand_im]
+    init_images_name += ['mediumRand']
+    init_rand_im = np.random.uniform(low=0.,high=255.,size=(1,224,224,3))
+    init_images += [init_rand_im]
+    init_images_name += ['unifRand']
+    init_rand_im = np.zeros(shape=(1,224,224,3))
+    init_images += [init_rand_im]
+    init_images_name += ['black']
+    init_rand_im = 255.*np.ones(shape=(1,224,224,3))
+    init_images += [init_rand_im]
+    init_images_name += ['white']
+    
     for layer in net_layers:
         layer_name = layer.name
         if not('conv' in layer_name):
@@ -151,14 +169,16 @@ def DeepDream_withFinedModel():
         for i in range(3):
             index_feature = argsort[i]
             print('Start deep dreaming for ',layer_name,index_feature)
-            init_rand_im = np.random.normal(loc=125.,scale=3.,size=(1,224,224,3))
+            #init_rand_im = np.random.normal(loc=125.,scale=3.,size=(1,224,224,3))
             deepdream_model = DeepDream_on_one_specific_featureMap(net_finetuned,layer_name,index_feature)
-            output_image = deepdream_model.gradient_ascent(init_rand_im,iterations,step)
-            deprocess_output = deprocess_image(output_image)
             
-            result_prefix = 'VGG_finetuned_'+layer_name+'_'+str(index_feature)+'.png'
-            name_saved_im = os.path.join(output_path,result_prefix)
-            save_img(name_saved_im, np.copy(deprocess_output))
+            for init_rand_im,init_rand_name in zip(init_images,init_images_name):
+                output_image = deepdream_model.gradient_ascent(init_rand_im,iterations,step)
+                deprocess_output = deprocess_image(output_image)
+                
+                result_prefix = 'VGG_finetuned_'+layer_name+'_'+str(index_feature)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
+                name_saved_im = os.path.join(output_path,result_prefix)
+                save_img(name_saved_im, np.copy(deprocess_output))
         
             del deepdream_model
   
@@ -223,7 +243,7 @@ class DeepDream_on_one_specific_featureMap(object):
             loss_value, grad_values = self.fetch_loss_and_grads([x])
             if max_loss is not None and loss_value > max_loss:
                 break
-            print('..Loss value at', i, ':', loss_value)
+            #print('..Loss value at', i, ':', loss_value)
             x += step * grad_values
         return x
         
