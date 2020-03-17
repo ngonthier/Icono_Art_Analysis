@@ -12,6 +12,9 @@ some deep-dream of the features maps of the weights that change the most
 import tensorflow as tf
 import os
 import matplotlib
+from keras.preprocessing.image import load_img, save_img, img_to_array
+from tensorflow.python.keras import backend as K
+import numpy as np
 
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index,numeral_layers_index_bitsVersion,\
     Precompute_Cumulated_Hist_4Moments,load_Cumulated_Hist_4Moments,get_list_im
@@ -36,14 +39,15 @@ from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getRes
     fit_generator_ForRefineParameters
 
 
-def DeepDream_theOutput():
+def DeepDream_withFinedModel():
     """
     This function will load the two models (deep nets) before and after fine-tuning 
     and then compute the difference between the weights and finally run a 
     deep dream on the feature maps of the weights that have the most change
     """
     
-    output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','DeepDream')
+    target_dataset = 'IconArt_v1'
+    output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','DeepDream',target_dataset)
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
 
     matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
@@ -67,13 +71,25 @@ def DeepDream_theOutput():
     weights = 'imagenet'
     
     if 'VGG' in constrNet:
-        imagenet_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
+        imagenet_model = tf.keras.applications.vgg19.VGG19(include_top=False, weights=weights)
         net_layers = imagenet_model.layers
     else:
         raise(NotImplementedError)
+       
+    list_weights = []
+    list_name_layers = []
+    for original_layer in net_layers:
+        # check for convolutional layer
+        layer_name = original_layer.name
+        if not('conv' in layer_name):
+            continue
+        # get filter weights
+        o_weights = original_layer.get_weights() # o_filters, o_biases
+        list_weights +=[o_weights]
+        list_name_layers += [layer_name]
     
     final_clf = 'MLP2'
-    target_dataset = 'IconArt_v1'
+    
     computeGlobalVariance = False
     optimizer='SGD'
     opt_option=[0.1,0.001]
@@ -95,30 +111,122 @@ def DeepDream_theOutput():
         
     dict_layers_argsort = {}
     dict_layers_mean_squared = {}
-    for original_layer,finetuned_layer in zip(net_layers,finetuned_layers):
-    	# check for convolutional layer
-        layer_name = original_layer.name
-    	if 'conv' not in layer_name:
-    		continue
-    	# get filter weights
-    	o_filters, o_biases = original_layer.get_weights()
-    	f_filters, f_biases = finetuned_layer.get_weights()
-    	print(o_filters.name, o_filters.shape)
+    j = 0
+    for finetuned_layer in finetuned_layers:
+        # check for convolutional layer
+        layer_name = finetuned_layer.name
+        if not('conv' in layer_name):
+            continue
+        # get filter weights
+        if not(layer_name in list_name_layers):
+            continue
+        o_filters, o_biases = list_weights[j]
+        j+=1
+        f_filters, f_biases = finetuned_layer.get_weights()
+        print(layer_name, f_filters.shape)
         num_filters = o_filters.shape[-1]
         # Norm 2 between the weights of the filters
             
         diff_filters = o_filters - f_filters
         diff_squared = diff_filters**2
-        mean_squared = np.mean(diff_squared,axis=[0,1,2])
+        mean_squared = np.mean(diff_squared,axis=(0,1,2))
+        print('For layer :',layer_name)
+        print('Min :',np.min(mean_squared),'Max :',np.max(mean_squared),'Median :',np.median(mean_squared),'last decile :',np.percentile(mean_squared, 90))
         dict_layers_mean_squared[layer_name] = mean_squared
-        argsort = np.argsort(mean_squared)
+        argsort = np.argsort(mean_squared)[::-1]
         dict_layers_argsort[layer_name] = argsort
+        for i in range(3):
+            print('Top ',i,':',mean_squared[argsort[i]])
         
     K.set_learning_phase(0)
     
+    step = 0.01  # Gradient ascent step size
+    iterations = 100  # Number of ascent steps per scale
     
+    for layer in net_layers:
+        layer_name = layer.name
+        if not('conv' in layer_name):
+            continue
+        argsort = dict_layers_argsort[layer_name]
+        for i in range(3):
+            index_feature = argsort[i]
+            print('Start deep dreaming for ',layer_name,index_feature)
+            init_rand_im = np.random.normal(loc=125.,scale=3.,size=(1,224,224,3))
+            deepdream_model = DeepDream_on_one_specific_featureMap(net_finetuned,layer_name,index_feature)
+            output_image = deepdream_model.gradient_ascent(init_rand_im,iterations,step)
+            deprocess_output = deprocess_image(output_image)
+            
+            result_prefix = 'VGG_finetuned_'+layer_name+'_'+str(index_feature)+'.png'
+            name_saved_im = os.path.join(output_path,result_prefix)
+            save_img(name_saved_im, np.copy(deprocess_output))
         
- 
+            del deepdream_model
+  
+def deprocess_image(x):
+    # Util function to convert a tensor into a valid image.
+    if K.image_data_format() == 'channels_first':
+        x = x.reshape((3, x.shape[2], x.shape[3]))
+        x = x.transpose((1, 2, 0))
+    else:
+        x = x.reshape((x.shape[1], x.shape[2], 3))
+    # x /= 2.
+    # x += 0.5
+    x = (x-np.min(x))/(np.max(x)-np.min(x))
+    x *= 255.
+    x = np.clip(x, 0, 255).astype('uint8')
+    return x          
+    
+class DeepDream_on_one_specific_featureMap(object):
+    def __init__(self,model,layer_name, index_feature):
+        self.model = model
+        self.layer_name = layer_name
+        self.index_feature = index_feature
+
+        dream = model.input
+        # Get the symbolic outputs of each "key" layer (we gave them unique names).
+        layers_all = [layer.name for layer in model.layers]
+        if layer_name not in layers_all:
+            raise ValueError('Layer ' + layer_name + ' not found in model.')
+           
+        # Define the loss.
+        loss = K.variable(0.)
+        for layer_local in  model.layers:
+            if layer_local.name==layer_name:
+                x = layer_local.output
+                x_index_feature = x[:,:,:,index_feature]
+                # We avoid border artifacts by only involving non-border pixels in the loss.
+                scaling = K.prod(K.cast(K.shape(x), 'float32'))
+                if K.image_data_format() == 'channels_first':
+                    loss = loss + K.sum(K.square(x[:, :, 2: -2, 2: -2])) / scaling
+                else:
+                    loss = loss + K.sum(K.square(x[:, 2: -2, 2: -2, :])) / scaling
+        
+        # Compute the gradients of the dream wrt the loss.
+        grads = K.gradients(loss, dream)[0]
+        # Normalize gradients.
+        grads /= K.maximum(K.mean(K.abs(grads)), K.epsilon())
+        
+        # Set up function to retrieve the value
+        # of the loss and gradients given an input image.
+        outputs = [loss, grads]
+        self.fetch_loss_and_grads = K.function([dream], outputs)      
+        
+    def gradient_ascent(self,x, iterations, step, max_loss=None,Net='VGG'):
+        self.Net = Net
+        if 'VGG' in self.Net:
+            preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+        elif 'ResNet' in self.Net:
+            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        x =  preprocessing_function(x)
+        
+        for i in range(iterations):
+            loss_value, grad_values = self.fetch_loss_and_grads([x])
+            if max_loss is not None and loss_value > max_loss:
+                break
+            print('..Loss value at', i, ':', loss_value)
+            x += step * grad_values
+        return x
+        
 def define_deepDream_model_layerBased(model):
     dream = model.input
     print('Model loaded.')
@@ -238,7 +346,7 @@ def deepDreamProcess_fromKerasTuto():
     save_img(result_prefix + '.png', deprocess_image(np.copy(img)))       
         
 if __name__ == '__main__': 
-    DeepDream_theOutput()    
+    DeepDream_withFinedModel()    
         
         
         
