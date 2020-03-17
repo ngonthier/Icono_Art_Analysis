@@ -202,7 +202,9 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
   
   model =  tf.keras.Sequential()
-  pre_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
+  pre_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights,\
+                                                input_shape=(224, 224, 3))
+  # Need to shape that to be able to have different input size later ! 
   SomePartFreezed = False
   
   list_name_layers = []
@@ -278,6 +280,8 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
     
   model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout,\
                                           final_activation=final_activation,metrics=metrics,loss=loss)
+
+  #model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
 
   if verbose: print(model.summary())
   return model
@@ -470,7 +474,6 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
   
   model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout,\
                            final_activation=final_activation,metrics=metrics,loss=loss)
-
 
   if getBeforeReLU:# refresh the non linearity 
       model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)

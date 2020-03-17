@@ -51,6 +51,8 @@ from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getRes
     fit_generator_ForRefineParameters,fit_generator_ForRefineParameters_v2
 import keras_preprocessing as kp
 
+import utils_keras
+
 from tensorflow.python.keras import Model
 from functools import partial
 from sklearn.model_selection import GridSearchCV
@@ -1044,7 +1046,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         
             # This have not been tested maybe you have to put it after the get_deep_model_for_FT function
             if returnStatistics and os.path.exists(model_path): # We will load the model and return it
-                model = load_model(model_path)
+                if not(constrNet=='ResNet50' or constrNet=='VGG'):
+                    raise(NotImplementedError)
+                    # Need to add in load_model custom_objects
+                model = load_model(model_path,compile=False)
                 return(model)
             else:
                 if returnStatistics: print('We will need to train the model before provide it to you !')
@@ -1087,7 +1092,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                         str_val,epochs,batch_size,AP_file_base,\
                         final_activation,metrics,loss)
                 
+            # Need to add in load_model custom_objects !!! 
+            # tf.keras.models.save_model(
+            #     model, model_path, overwrite=True, include_optimizer=include_optimizer, save_format='h5')
             model.save(model_path,include_optimizer=include_optimizer)
+            utils_keras.fix_layer0(model_path, [None, 224, 224,3], 'float32') 
             if returnStatistics: # We will load the model and return it
                 model = load_model(model_path)
                 return(model)
@@ -3854,22 +3863,26 @@ def VGG_fineTuning_onIconArt():
                 constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
                 optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
-                epochs=20,cropCenter=True)   
+                epochs=20,cropCenter=True,verbose=True) 
+    #VGG GlobalAveragePooling2D ep :20 & 39.6 & 59.7 & 6.6 & 71.7 & 64.8 & 63.1 & 2.8 & 44.1 \\ 
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
                 constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
                 optimizer='SGD',opt_option=[0.001],return_best_model=True,
-                epochs=20,cropCenter=True)   
+                epochs=20,cropCenter=True,verbose=True)    
+    #VGG GlobalAveragePooling2D ep :20 & 51.2 & 74.6 & 27.2 & 81.6 & 72.7 & 67.2 & 11.8 & 55.2 \\ 
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
-                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=True,\
                 transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
                 optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
-                epochs=20,cropCenter=True,SGDmomentum=0.9,decay=1e-4)   
+                epochs=20,cropCenter=True,SGDmomentum=0.9,decay=1e-4,verbose=True)  
+    #VGG GlobalAveragePooling2D ep :20 & 52.6 & 75.8 & 38.4 & 82.3 & 73.3 & 69.6 & 10.8 & 57.6 \\ 
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
                 constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
                 optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
-                epochs=20,cropCenter=True,SGDmomentum=0.9,decay=1e-4,regulOnNewLayer='l2')   
+                epochs=20,cropCenter=True,SGDmomentum=0.9,decay=1e-4,regulOnNewLayer='l2',verbose=True) 
+    # VGG GlobalAveragePooling2D ep :20 & 52.0 & 75.7 & 26.2 & 80.4 & 72.3 & 65.2 & 7.4 & 54.2 \\ 
 
     
 def testResNet_FineTuning():
