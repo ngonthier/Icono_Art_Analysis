@@ -1043,7 +1043,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             include_optimizer=False
         
             # This have not been tested maybe you have to put it after the get_deep_model_for_FT function
-            if returnStatistics and  os.path.exists(model_path): # We will load the model and return it
+            if returnStatistics and os.path.exists(model_path): # We will load the model and return it
                 model = load_model(model_path)
                 return(model)
             else:
@@ -1092,7 +1092,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 model = load_model(model_path)
                 return(model)
             
-            if Net=='VGGsuffleInStatsSameLabel':
+            if constrNet=='VGGsuffleInStatsSameLabel':
                 model = Model(input=model.input[0],output=model.output)
             
             # Prediction
@@ -1708,6 +1708,132 @@ class FirstLayerBNStatsPrintingCallback(tf.keras.callbacks.Callback):
       print('For batch {}, moving_mean is {} moving std {}.'.format(batch, moving_mean_eval,moving_std_eval))
 
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
+                  Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
+                  return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
+                  RandomValdiationSet=False,returnWhat=None):
+    """
+    To fine tune a deep model
+    @param x_col : name of images
+    @param y_col : classes
+    @param path_im : path to images
+    @param : return_best_model : return the best model on the val_loss
+    """
+    assert(not(NoValidationSetUsed and return_best_model))
+    
+    df_train = df[df['set']=='train']
+    df_val = df[df['set']==str_val]
+    df_train[x_col] = df_train[x_col].apply(lambda x : x + '.jpg')
+    df_val[x_col] = df_val[x_col].apply(lambda x : x + '.jpg')
+    
+    if RandomValdiationSet:
+        df_train = df_train.append(df_val)
+
+    if not(NoValidationSetUsed):
+        if len(df_val)==0:
+            df_train, df_val = train_test_split(df_train, test_size=test_size)
+    else:
+        df_train = df_train.append(df_val)
+        
+    if cropCenter:
+        interpolation='lanczos:center'
+        old_loading_img_fct = kp.image.iterator.load_img
+        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
+    else:
+        interpolation='nearest'
+    if 'VGG' in Net:
+        preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+        target_size = (224,224)
+    elif 'ResNet50' in Net:
+        preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        target_size = (224,224)
+    else:
+        print(Net,'is unknwon')
+        raise(NotImplementedError)
+            
+          
+    datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)    
+    # preprocessing_function will be implied on each input. The function will run after the image is 
+    # load resized and augmented. That's why we need to modify the load_img fct
+    
+
+    train_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
+                                                x_col=x_col,y_col=y_col,\
+                                                class_mode="other", \
+                                                target_size=target_size, batch_size=batch_size,\
+                                                shuffle=True,\
+                                                interpolation=interpolation)
+    # Return A `DataFrameIterator` yielding tuples of `(x, y)`
+    STEP_SIZE_TRAIN=train_generator.n//train_generator.batch_size
+    
+    if not(NoValidationSetUsed):
+        validate_datagen = tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)
+        valid_generator=validate_datagen.flow_from_dataframe(dataframe=df_val, directory=path_im,\
+                                                    x_col=x_col,y_col=y_col,\
+                                                    class_mode="other", \
+                                                    target_size=target_size, batch_size=batch_size,\
+                                                    interpolation=interpolation)
+        STEP_SIZE_VALID=valid_generator.n//valid_generator.batch_size
+    
+    # TODO you should add an early stoppping 
+#    earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
+#    mcp_save = ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
+#    reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
+#    
+    #callbacks = [FirstLayerBNStatsPrintingCallback()] # To print the moving mean and std at each batch
+    callbacks = []
+    if return_best_model:
+        if returnWhat is None:
+            monitor = 'val_loss'
+            mode='min'
+        else:
+            monitor = returnWhat
+            mode='min'
+        tmp_model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
+        mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor=monitor, mode=mode)
+        callbacks += [mcp_save]
+        
+    workers=8
+    use_multiprocessing = True
+
+    if not(NoValidationSetUsed): # IE use a validation set
+        history = model.fit_generator(generator=train_generator,
+                        steps_per_epoch=STEP_SIZE_TRAIN,
+                        validation_data=valid_generator,
+                        validation_steps=STEP_SIZE_VALID,
+                        epochs=epochs,use_multiprocessing=use_multiprocessing,
+                        workers=workers,callbacks=callbacks)
+    else:
+        history = model.fit_generator(generator=train_generator,
+                        steps_per_epoch=STEP_SIZE_TRAIN,
+                        epochs=epochs,use_multiprocessing=use_multiprocessing,
+                        workers=workers,callbacks=callbacks)
+    
+    if return_best_model: # We need to load back the best model !
+        # https://github.com/keras-team/keras/issues/2768
+        model = load_model(tmp_model_path) 
+    
+    if plotConv:
+       plotKerasHistory(history) 
+       
+    if cropCenter:
+        kp.image.iterator.load_img = old_loading_img_fct
+        
+    if returnWhat is None:
+        # We will return the model itself
+        return(model)
+    else: # we will return the demanded element of the history
+        metric_history = history.history[returnWhat] #'val_loss'
+        if return_best_model:
+            metric = np.min(metric_history)
+        else:
+            metric = metric_history[-1]
+            
+        if math.isnan(metric) or np.isnan(metric) :
+            metric = float(10**6)
+        metric = - metric
+        return(metric)
+    
+def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
                   RandomValdiationSet=False,returnWhat=None):
@@ -3722,7 +3848,29 @@ def Crowley_reproduction_results():
                regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
                epochs=50,return_best_model=True,SGDmomentum=0.99,dropout=0.2)
     # & 73.1 & 46.9 & 92.8 & 76.4 & 65.1 & 73.4 & 56.8 & 80.2 & 71.1 & 88.6 & 72.4 \\
-    
+ 
+def VGG_fineTuning_onIconArt():
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=20,cropCenter=True)   
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.001],return_best_model=True,
+                epochs=20,cropCenter=True)   
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=20,cropCenter=True,SGDmomentum=0.9,decay=1e-4)   
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=20,cropCenter=True,SGDmomentum=0.9,decay=1e-4,regulOnNewLayer='l2')   
+
     
 def testResNet_FineTuning():
     """
