@@ -29,7 +29,7 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet,\
     vgg_FRN,get_those_layers_output
 from StatsConstr_ClassifwithTL import learn_and_eval
-
+import cv2
 
 import pickle
 import pathlib
@@ -145,7 +145,7 @@ def DeepDream_withFinedModel():
     K.set_learning_phase(0)
     
     step = 0.01  # Gradient ascent step size
-    iterations = 200  # Number of ascent steps per scale
+    iterations = 100  # Number of ascent steps per scale
     
     init_images = []
     init_images_name = []
@@ -165,6 +165,15 @@ def DeepDream_withFinedModel():
     init_images += [init_rand_im]
     init_images_name += ['white']
     
+    output_path_f = os.path.join(output_path,'Feature')
+    pathlib.Path(output_path_f).mkdir(parents=True, exist_ok=True) 
+    output_path_wl = os.path.join(output_path,'WholeLayer')
+    pathlib.Path(output_path_wl).mkdir(parents=True, exist_ok=True) 
+    output_path_abs = os.path.join(output_path,'AbsScalarProduct')
+    pathlib.Path(output_path_abs).mkdir(parents=True, exist_ok=True) 
+    output_path_mean = os.path.join(output_path,'MeanSquaredProduct')
+    pathlib.Path(output_path_mean).mkdir(parents=True, exist_ok=True) 
+        
     for layer in net_layers:
         layer_name = layer.name
         if not('conv' in layer_name):
@@ -184,8 +193,14 @@ def DeepDream_withFinedModel():
                 deprocess_output = deprocess_image(output_image)
                 
                 result_prefix = 'VGG_finetuned_'+layer_name+'_'+str(index_feature)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
-                name_saved_im = os.path.join(output_path,result_prefix)
+                name_saved_im = os.path.join(output_path_f,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output))
+                
+                equ = cv2.equalizeHist(output_image)
+                deprocess_output_equ = deprocess_image(equ)
+                result_prefix = 'VGG_finetuned_'+layer_name+'_'+str(index_feature)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
+                name_saved_im = os.path.join(output_path_wl,result_prefix)
+                save_img(name_saved_im, np.copy(deprocess_output_equ))
         
             del deepdream_model
             
@@ -197,12 +212,18 @@ def DeepDream_withFinedModel():
                 deprocess_output = deprocess_image(output_image)
                 
                 result_prefix = 'VGG_finetuned_'+layer_name+'_wholeLayer_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
-                name_saved_im = os.path.join(output_path,result_prefix)
+                name_saved_im = os.path.join(output_path_wl,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output))
+                
+                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(deprocess_output,cv2.COLOR_RGB2GRAY))
+                deprocess_output_equ = cv2.cvtColor(deprocess_output_equ,cv2.COLOR_GRAY2RGB)
+                result_prefix = 'VGG_finetuned_'+layer_name+'_wholeLayer_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
+                name_saved_im = os.path.join(output_path_wl,result_prefix)
+                save_img(name_saved_im, np.copy(deprocess_output_equ))
         
         del deepdream_model
         
-        # On the square of dot of two feature map
+        # # On the square of dot of two feature map
         print('Start deep dream on the abs of scalar product of two features')
         argsort_top5 = argsort[0:5]
         pairs_of_index = itertools.combinations(argsort_top5,r=2)
@@ -214,22 +235,35 @@ def DeepDream_withFinedModel():
                 deprocess_output = deprocess_image(output_image)
                 
                 result_prefix = 'VGG_finetuned_'+layer_name+'_AbsScalarProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
-                name_saved_im = os.path.join(output_path,result_prefix)
+                name_saved_im = os.path.join(output_path_abs,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output))
+                
+                equ = cv2.equalizeHist(output_image)
+                deprocess_output_equ = deprocess_image(equ)
+                result_prefix = 'VGG_finetuned_'+layer_name+'_AbsScalarProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
+                name_saved_im = os.path.join(output_path_abs,result_prefix)
+                save_img(name_saved_im, np.copy(deprocess_output_equ))
         
             del deepdream_model
             
         print('Start deep dream on sum of square of pointwise multiplication of two features')
+        pairs_of_index = itertools.combinations(argsort_top5,r=2)
         for index_feature1,index_feature2 in pairs_of_index:
             deepdream_model = DeepDream_on_squared_pointwiseproduct_of_2features(net_finetuned,layer_name,index_feature1,index_feature2)
             
             for init_rand_im,init_rand_name in zip(init_images,init_images_name):
                 output_image = deepdream_model.gradient_ascent(init_rand_im,iterations,step)
-                deprocess_output = deprocess_image(output_image)
                 
+                deprocess_output = deprocess_image(output_image)
                 result_prefix = 'VGG_finetuned_'+layer_name+'_MeanSquaredProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
-                name_saved_im = os.path.join(output_path,result_prefix)
+                name_saved_im = os.path.join(output_path_mean,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output))
+                
+                equ = cv2.equalizeHist(output_image)
+                deprocess_output_equ = deprocess_image(equ)
+                result_prefix = 'VGG_finetuned_'+layer_name+'_MeanSquaredProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
+                name_saved_im = os.path.join(output_path_mean,result_prefix)
+                save_img(name_saved_im, np.copy(deprocess_output_equ))
         
             del deepdream_model
 
