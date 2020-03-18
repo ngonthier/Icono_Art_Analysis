@@ -145,9 +145,9 @@ def DeepDream_withFinedModel():
     
     init_images = []
     init_images_name = []
-    init_rand_im = np.random.normal(loc=125.,scale=3.,size=(1,224,224,3))
-    init_images += [init_rand_im]
-    init_images_name += ['smallRand']
+    # init_rand_im = np.random.normal(loc=125.,scale=3.,size=(1,224,224,3))
+    # init_images += [init_rand_im]
+    # init_images_name += ['smallRand']
     init_rand_im = np.random.normal(loc=125.,scale=15.,size=(1,224,224,3))
     init_images += [init_rand_im]
     init_images_name += ['mediumRand']
@@ -157,16 +157,17 @@ def DeepDream_withFinedModel():
     init_rand_im = np.zeros(shape=(1,224,224,3))
     init_images += [init_rand_im]
     init_images_name += ['black']
-    init_rand_im = 255.*np.ones(shape=(1,224,224,3))
-    init_images += [init_rand_im]
-    init_images_name += ['white']
+    # init_rand_im = 255.*np.ones(shape=(1,224,224,3))
+    # init_images += [init_rand_im]
+    # init_images_name += ['white']
     
     for layer in net_layers:
         layer_name = layer.name
         if not('conv' in layer_name):
             continue
         argsort = dict_layers_argsort[layer_name]
-        for i in range(3):
+        number_kernel_considered = int(0.05*len(argsort))
+        for i in range(number_kernel_considered):
             index_feature = argsort[i]
             print('Start deep dreaming for ',layer_name,index_feature)
             #init_rand_im = np.random.normal(loc=125.,scale=3.,size=(1,224,224,3))
@@ -213,13 +214,18 @@ class DeepDream_on_one_specific_featureMap(object):
         for layer_local in  model.layers:
             if layer_local.name==layer_name:
                 x = layer_local.output
-                x_index_feature = x[:,:,:,index_feature]
+                
                 # We avoid border artifacts by only involving non-border pixels in the loss.
-                scaling = K.prod(K.cast(K.shape(x), 'float32'))
                 if K.image_data_format() == 'channels_first':
-                    loss = loss + K.sum(K.square(x[:, :, 2: -2, 2: -2])) / scaling
+                    x_index_feature = x[:,index_feature,:,:]
+                    x_index_feature = K.expand_dims(x_index_feature,axis=1)
+                    scaling = K.prod(K.cast(K.shape(x_index_feature), 'float32'))
+                    loss = loss + K.sum(K.square(x_index_feature[:, :, 2: -2, 2: -2])) / scaling
                 else:
-                    loss = loss + K.sum(K.square(x[:, 2: -2, 2: -2, :])) / scaling
+                    x_index_feature = x[:,:,:,index_feature]
+                    x_index_feature = K.expand_dims(x_index_feature,axis=-1)
+                    scaling = K.prod(K.cast(K.shape(x_index_feature), 'float32'))
+                    loss = loss + K.sum(K.square(x_index_feature[:, 2: -2, 2: -2, :])) / scaling
         
         # Compute the gradients of the dream wrt the loss.
         grads = K.gradients(loss, dream)[0]
