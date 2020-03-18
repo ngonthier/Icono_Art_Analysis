@@ -6,6 +6,9 @@ Created on Tue Mar 17 10:24:07 2020
 In this script we will load the Model before and after fine-tuning and do 
 some deep-dream of the features maps of the weights that change the most
 
+
+Les codes recensés ici peuvent etre utiles : https://github.com/tensorflow/lucid
+
 @author: gonthier
 """
 
@@ -30,6 +33,7 @@ from StatsConstr_ClassifwithTL import learn_and_eval
 
 import pickle
 import pathlib
+import itertools
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as mplcm
@@ -141,13 +145,13 @@ def DeepDream_withFinedModel():
     K.set_learning_phase(0)
     
     step = 0.01  # Gradient ascent step size
-    iterations = 100  # Number of ascent steps per scale
+    iterations = 200  # Number of ascent steps per scale
     
     init_images = []
     init_images_name = []
-    # init_rand_im = np.random.normal(loc=125.,scale=3.,size=(1,224,224,3))
-    # init_images += [init_rand_im]
-    # init_images_name += ['smallRand']
+    init_rand_im = np.random.normal(loc=125.,scale=3.,size=(1,224,224,3))
+    init_images += [init_rand_im]
+    init_images_name += ['smallRand']
     init_rand_im = np.random.normal(loc=125.,scale=15.,size=(1,224,224,3))
     init_images += [init_rand_im]
     init_images_name += ['mediumRand']
@@ -157,14 +161,16 @@ def DeepDream_withFinedModel():
     init_rand_im = np.zeros(shape=(1,224,224,3))
     init_images += [init_rand_im]
     init_images_name += ['black']
-    # init_rand_im = 255.*np.ones(shape=(1,224,224,3))
-    # init_images += [init_rand_im]
-    # init_images_name += ['white']
+    init_rand_im = 255.*np.ones(shape=(1,224,224,3))
+    init_images += [init_rand_im]
+    init_images_name += ['white']
     
     for layer in net_layers:
         layer_name = layer.name
         if not('conv' in layer_name):
             continue
+        
+        # On a specific feature of the given layer
         argsort = dict_layers_argsort[layer_name]
         number_kernel_considered = int(0.05*len(argsort))
         for i in range(number_kernel_considered):
@@ -182,7 +188,54 @@ def DeepDream_withFinedModel():
                 save_img(name_saved_im, np.copy(deprocess_output))
         
             del deepdream_model
+            
+        # On the whole layer
+        deepdream_model =  DeepDream_on_one_specific_layer(net_finetuned,layer_name)
+        print('Start Deep Dream on the whole layer')
+        for init_rand_im,init_rand_name in zip(init_images,init_images_name):
+                output_image = deepdream_model.gradient_ascent(init_rand_im,iterations,step)
+                deprocess_output = deprocess_image(output_image)
+                
+                result_prefix = 'VGG_finetuned_'+layer_name+'_wholeLayer_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
+                name_saved_im = os.path.join(output_path,result_prefix)
+                save_img(name_saved_im, np.copy(deprocess_output))
+        
+        del deepdream_model
+        
+        # On the square of dot of two feature map
+        print('Start deep dream on the abs of scalar product of two features')
+        argsort_top5 = argsort[0:5]
+        pairs_of_index = itertools.combinations(argsort_top5,r=2)
+        for index_feature1,index_feature2 in pairs_of_index:
+            deepdream_model = DeepDream_omeanPointWise_of_2features(net_finetuned,layer_name,index_feature1,index_feature2)
+            
+            for init_rand_im,init_rand_name in zip(init_images,init_images_name):
+                output_image = deepdream_model.gradient_ascent(init_rand_im,iterations,step)
+                deprocess_output = deprocess_image(output_image)
+                
+                result_prefix = 'VGG_finetuned_'+layer_name+'_AbsScalarProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
+                name_saved_im = os.path.join(output_path,result_prefix)
+                save_img(name_saved_im, np.copy(deprocess_output))
+        
+            del deepdream_model
+            
+        print('Start deep dream on sum of square of pointwise multiplication of two features')
+        for index_feature1,index_feature2 in pairs_of_index:
+            deepdream_model = DeepDream_on_squared_pointwiseproduct_of_2features(net_finetuned,layer_name,index_feature1,index_feature2)
+            
+            for init_rand_im,init_rand_name in zip(init_images,init_images_name):
+                output_image = deepdream_model.gradient_ascent(init_rand_im,iterations,step)
+                deprocess_output = deprocess_image(output_image)
+                
+                result_prefix = 'VGG_finetuned_'+layer_name+'_MeanSquaredProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
+                name_saved_im = os.path.join(output_path,result_prefix)
+                save_img(name_saved_im, np.copy(deprocess_output))
+        
+            del deepdream_model
+
   
+    
+    
 def deprocess_image(x):
     # Util function to convert a tensor into a valid image.
     if K.image_data_format() == 'channels_first':
@@ -198,6 +251,9 @@ def deprocess_image(x):
     return x          
     
 class DeepDream_on_one_specific_featureMap(object):
+    """
+    Deep Dream on one specific feature number index_feature of a given layer
+    """
     def __init__(self,model,layer_name, index_feature):
         self.model = model
         self.layer_name = layer_name
@@ -226,6 +282,182 @@ class DeepDream_on_one_specific_featureMap(object):
                     x_index_feature = K.expand_dims(x_index_feature,axis=-1)
                     scaling = K.prod(K.cast(K.shape(x_index_feature), 'float32'))
                     loss = loss + K.sum(K.square(x_index_feature[:, 2: -2, 2: -2, :])) / scaling
+        
+        # Compute the gradients of the dream wrt the loss.
+        grads = K.gradients(loss, dream)[0]
+        # Normalize gradients.
+        grads /= K.maximum(K.mean(K.abs(grads)), K.epsilon())
+        
+        # Set up function to retrieve the value
+        # of the loss and gradients given an input image.
+        outputs = [loss, grads]
+        self.fetch_loss_and_grads = K.function([dream], outputs)      
+        
+    def gradient_ascent(self,x, iterations, step, max_loss=None,Net='VGG'):
+        self.Net = Net
+        if 'VGG' in self.Net:
+            preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+        elif 'ResNet' in self.Net:
+            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        x =  preprocessing_function(x)
+        
+        for i in range(iterations):
+            loss_value, grad_values = self.fetch_loss_and_grads([x])
+            if max_loss is not None and loss_value > max_loss:
+                break
+            #print('..Loss value at', i, ':', loss_value)
+            x += step * grad_values
+        return x
+    
+class DeepDream_on_one_specific_layer(object):
+    """
+    Deep dream on one given layer of the net
+    """
+    def __init__(self,model,layer_name):
+        self.model = model
+        self.layer_name = layer_name
+
+        dream = model.input
+        # Get the symbolic outputs of each "key" layer (we gave them unique names).
+        layers_all = [layer.name for layer in model.layers]
+        if layer_name not in layers_all:
+            raise ValueError('Layer ' + layer_name + ' not found in model.')
+           
+        # Define the loss.
+        loss = K.variable(0.)
+        for layer_local in  model.layers:
+            if layer_local.name==layer_name:
+                x = layer_local.output
+                
+                # We avoid border artifacts by only involving non-border pixels in the loss.
+                if K.image_data_format() == 'channels_first':
+                    scaling = K.prod(K.cast(K.shape(x), 'float32'))
+                    loss = loss + K.sum(K.square(x[:, :, 2: -2, 2: -2])) / scaling
+                else:
+                    scaling = K.prod(K.cast(K.shape(x), 'float32'))
+                    loss = loss + K.sum(K.square(x[:, 2: -2, 2: -2, :])) / scaling
+        
+        # Compute the gradients of the dream wrt the loss.
+        grads = K.gradients(loss, dream)[0]
+        # Normalize gradients.
+        grads /= K.maximum(K.mean(K.abs(grads)), K.epsilon())
+        
+        # Set up function to retrieve the value
+        # of the loss and gradients given an input image.
+        outputs = [loss, grads]
+        self.fetch_loss_and_grads = K.function([dream], outputs)      
+        
+    def gradient_ascent(self,x, iterations, step, max_loss=None,Net='VGG'):
+        self.Net = Net
+        if 'VGG' in self.Net:
+            preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+        elif 'ResNet' in self.Net:
+            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        x =  preprocessing_function(x)
+        
+        for i in range(iterations):
+            loss_value, grad_values = self.fetch_loss_and_grads([x])
+            if max_loss is not None and loss_value > max_loss:
+                break
+            #print('..Loss value at', i, ':', loss_value)
+            x += step * grad_values
+        return x
+    
+#class DeepDream_on_correlation_of_2features(object):
+class DeepDream_omeanPointWise_of_2features(object):
+    """
+    Deep dream on the correlation of two given features maps of a given layer
+    """
+    def __init__(self,model,layer_name,index_feature1,index_feature2):
+        self.model = model
+        self.layer_name = layer_name
+        self.index_feature1 = index_feature1
+        self.index_feature2 = index_feature2
+        dream = model.input
+        # Get the symbolic outputs of each "key" layer (we gave them unique names).
+        layers_all = [layer.name for layer in model.layers]
+        if layer_name not in layers_all:
+            raise ValueError('Layer ' + layer_name + ' not found in model.')
+           
+        # Define the loss.
+        loss = K.variable(0.)
+        for layer_local in  model.layers:
+            if layer_local.name==layer_name:
+                x = layer_local.output
+
+                # We avoid border artifacts by only involving non-border pixels in the loss.
+                if K.image_data_format() == 'channels_first':
+                    raise(NotImplementedError)
+                    scaling = K.prod(K.cast(K.shape(x), 'float32'))
+                    loss = loss + K.sum(K.square(x[:, :, 2: -2, 2: -2])) / scaling
+                else:
+                    x_index_feature1 = x[:, 2: -2, 2: -2,index_feature1]
+                    x_index_feature2 = x[:, 2: -2, 2: -2,index_feature2]
+                    x_index_feature1_flatten = K.flatten(x_index_feature1) 
+                    x_index_feature2_flatten = K.flatten(x_index_feature2) 
+                    score12 = tf.math.abs(tf.reduce_mean(tf.math.multiply(x_index_feature1_flatten,x_index_feature2_flatten),axis=0))
+                    loss = loss + score12
+        
+        # Compute the gradients of the dream wrt the loss.
+        grads = K.gradients(loss, dream)[0]
+        # Normalize gradients.
+        grads /= K.maximum(K.mean(K.abs(grads)), K.epsilon())
+        
+        # Set up function to retrieve the value
+        # of the loss and gradients given an input image.
+        outputs = [loss, grads]
+        self.fetch_loss_and_grads = K.function([dream], outputs)      
+        
+    def gradient_ascent(self,x, iterations, step, max_loss=None,Net='VGG'):
+        self.Net = Net
+        if 'VGG' in self.Net:
+            preprocessing_function = tf.keras.applications.vgg19.preprocess_input
+        elif 'ResNet' in self.Net:
+            preprocessing_function = tf.keras.applications.resnet50.preprocess_input
+        x =  preprocessing_function(x)
+        
+        for i in range(iterations):
+            loss_value, grad_values = self.fetch_loss_and_grads([x])
+            if max_loss is not None and loss_value > max_loss:
+                break
+            #print('..Loss value at', i, ':', loss_value)
+            x += step * grad_values
+        return x
+    
+class DeepDream_on_squared_pointwiseproduct_of_2features(object):
+    """
+    Deep dream on the correlation of two given features maps of a given layer
+    """
+    def __init__(self,model,layer_name,index_feature1,index_feature2):
+        self.model = model
+        self.layer_name = layer_name
+        self.index_feature1 = index_feature1
+        self.index_feature2 = index_feature2
+        dream = model.input
+        # Get the symbolic outputs of each "key" layer (we gave them unique names).
+        layers_all = [layer.name for layer in model.layers]
+        if layer_name not in layers_all:
+            raise ValueError('Layer ' + layer_name + ' not found in model.')
+           
+        # Define the loss.
+        loss = K.variable(0.)
+        for layer_local in  model.layers:
+            if layer_local.name==layer_name:
+                x = layer_local.output
+
+                # We avoid border artifacts by only involving non-border pixels in the loss.
+                if K.image_data_format() == 'channels_first':
+                    raise(NotImplementedError)
+                    scaling = K.prod(K.cast(K.shape(x), 'float32'))
+                    loss = loss + K.sum(K.square(x[:, :, 2: -2, 2: -2])) / scaling
+                else:
+                    x_index_feature1 = x[:, 2: -2, 2: -2,index_feature1]
+                    x_index_feature2 = x[:, 2: -2, 2: -2,index_feature2]
+                    x_index_feature1_flatten = K.flatten(x_index_feature1) 
+                    x_index_feature2_flatten = K.flatten(x_index_feature2) 
+                    sum_squared_12 = tf.reduce_mean(K.square(tf.multiply(x_index_feature1_flatten,x_index_feature2_flatten)),axis=0)
+                    
+                    loss = loss + sum_squared_12
         
         # Compute the gradients of the dream wrt the loss.
         grads = K.gradients(loss, dream)[0]
