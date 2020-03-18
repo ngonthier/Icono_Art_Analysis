@@ -196,8 +196,8 @@ def DeepDream_withFinedModel():
                 name_saved_im = os.path.join(output_path_f,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output))
                 
-                equ = cv2.equalizeHist(output_image)
-                deprocess_output_equ = deprocess_image(equ)
+                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(deprocess_output,cv2.COLOR_RGB2GRAY))
+                deprocess_output_equ = cv2.cvtColor(deprocess_output_equ,cv2.COLOR_GRAY2RGB)
                 result_prefix = 'VGG_finetuned_'+layer_name+'_'+str(index_feature)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
                 name_saved_im = os.path.join(output_path_wl,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output_equ))
@@ -238,8 +238,8 @@ def DeepDream_withFinedModel():
                 name_saved_im = os.path.join(output_path_abs,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output))
                 
-                equ = cv2.equalizeHist(output_image)
-                deprocess_output_equ = deprocess_image(equ)
+                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(deprocess_output,cv2.COLOR_RGB2GRAY))
+                deprocess_output_equ = cv2.cvtColor(deprocess_output_equ,cv2.COLOR_GRAY2RGB)
                 result_prefix = 'VGG_finetuned_'+layer_name+'_AbsScalarProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
                 name_saved_im = os.path.join(output_path_abs,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output_equ))
@@ -259,8 +259,8 @@ def DeepDream_withFinedModel():
                 name_saved_im = os.path.join(output_path_mean,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output))
                 
-                equ = cv2.equalizeHist(output_image)
-                deprocess_output_equ = deprocess_image(equ)
+                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(deprocess_output,cv2.COLOR_RGB2GRAY))
+                deprocess_output_equ = cv2.cvtColor(deprocess_output_equ,cv2.COLOR_GRAY2RGB)
                 result_prefix = 'VGG_finetuned_'+layer_name+'_MeanSquaredProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
                 name_saved_im = os.path.join(output_path_mean,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output_equ))
