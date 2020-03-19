@@ -144,6 +144,13 @@ def DeepDream_withFinedModel():
         
     K.set_learning_phase(0)
     
+    # /!\ Attention en fait tu es en train de travailler apres ReLU ! il va falloir changer cela peut etre
+    
+    #run_VisualisationOnLotImages_kin(output_path,net_layers,net_finetuned,dict_layers_argsort)
+    run_Visualisation_PosAndNegFeatures(output_path,net_layers,net_finetuned,dict_layers_argsort)
+    
+def run_VisualisationOnLotImages_kin(output_path,net_layers,net_finetuned,dict_layers_argsort):
+    
     step = 0.01  # Gradient ascent step size
     iterations = 100  # Number of ascent steps per scale
     
@@ -181,7 +188,7 @@ def DeepDream_withFinedModel():
         
         # On a specific feature of the given layer
         argsort = dict_layers_argsort[layer_name]
-        number_kernel_considered = int(0.05*len(argsort))
+        number_kernel_considered = int(0.03*len(argsort))
         for i in range(number_kernel_considered):
             index_feature = argsort[i]
             print('Start deep dreaming for ',layer_name,index_feature)
@@ -189,17 +196,17 @@ def DeepDream_withFinedModel():
             deepdream_model = DeepDream_on_one_specific_featureMap(net_finetuned,layer_name,index_feature)
             
             for init_rand_im,init_rand_name in zip(init_images,init_images_name):
-                output_image = deepdream_model.gradient_ascent(init_rand_im,iterations,step)
-                deprocess_output = deprocess_image(output_image)
+                output_image = deepdream_model.gradient_ascent(np.copy(init_rand_im),iterations,step)
+                deprocess_output = deprocess_image(np.copy(output_image))
                 
                 result_prefix = 'VGG_finetuned_'+layer_name+'_'+str(index_feature)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
                 name_saved_im = os.path.join(output_path_f,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output))
                 
-                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(deprocess_output,cv2.COLOR_RGB2GRAY))
+                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(np.copy(deprocess_output),cv2.COLOR_RGB2GRAY))
                 deprocess_output_equ = cv2.cvtColor(deprocess_output_equ,cv2.COLOR_GRAY2RGB)
                 result_prefix = 'VGG_finetuned_'+layer_name+'_'+str(index_feature)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
-                name_saved_im = os.path.join(output_path_wl,result_prefix)
+                name_saved_im = os.path.join(output_path_f,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output_equ))
         
             del deepdream_model
@@ -208,14 +215,14 @@ def DeepDream_withFinedModel():
         deepdream_model =  DeepDream_on_one_specific_layer(net_finetuned,layer_name)
         print('Start Deep Dream on the whole layer')
         for init_rand_im,init_rand_name in zip(init_images,init_images_name):
-                output_image = deepdream_model.gradient_ascent(init_rand_im,iterations,step)
-                deprocess_output = deprocess_image(output_image)
+                output_image = deepdream_model.gradient_ascent(np.copy(init_rand_im),iterations,step)
+                deprocess_output = deprocess_image(np.copy(output_image))
                 
                 result_prefix = 'VGG_finetuned_'+layer_name+'_wholeLayer_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
                 name_saved_im = os.path.join(output_path_wl,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output))
                 
-                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(deprocess_output,cv2.COLOR_RGB2GRAY))
+                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(np.copy(deprocess_output),cv2.COLOR_RGB2GRAY))
                 deprocess_output_equ = cv2.cvtColor(deprocess_output_equ,cv2.COLOR_GRAY2RGB)
                 result_prefix = 'VGG_finetuned_'+layer_name+'_wholeLayer_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
                 name_saved_im = os.path.join(output_path_wl,result_prefix)
@@ -231,14 +238,14 @@ def DeepDream_withFinedModel():
             deepdream_model = DeepDream_omeanPointWise_of_2features(net_finetuned,layer_name,index_feature1,index_feature2)
             
             for init_rand_im,init_rand_name in zip(init_images,init_images_name):
-                output_image = deepdream_model.gradient_ascent(init_rand_im,iterations,step)
-                deprocess_output = deprocess_image(output_image)
+                output_image = deepdream_model.gradient_ascent(np.copy(init_rand_im),iterations,step)
+                deprocess_output = deprocess_image(np.copy(output_image))
                 
                 result_prefix = 'VGG_finetuned_'+layer_name+'_AbsScalarProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
                 name_saved_im = os.path.join(output_path_abs,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output))
                 
-                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(deprocess_output,cv2.COLOR_RGB2GRAY))
+                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(np.copy(deprocess_output),cv2.COLOR_RGB2GRAY))
                 deprocess_output_equ = cv2.cvtColor(deprocess_output_equ,cv2.COLOR_GRAY2RGB)
                 result_prefix = 'VGG_finetuned_'+layer_name+'_AbsScalarProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
                 name_saved_im = os.path.join(output_path_abs,result_prefix)
@@ -252,23 +259,67 @@ def DeepDream_withFinedModel():
             deepdream_model = DeepDream_on_squared_pointwiseproduct_of_2features(net_finetuned,layer_name,index_feature1,index_feature2)
             
             for init_rand_im,init_rand_name in zip(init_images,init_images_name):
-                output_image = deepdream_model.gradient_ascent(init_rand_im,iterations,step)
+                output_image = deepdream_model.gradient_ascent(np.copy(init_rand_im),iterations,step)
                 
-                deprocess_output = deprocess_image(output_image)
+                deprocess_output = deprocess_image(np.copy(output_image))
                 result_prefix = 'VGG_finetuned_'+layer_name+'_MeanSquaredProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
                 name_saved_im = os.path.join(output_path_mean,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output))
                 
-                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(deprocess_output,cv2.COLOR_RGB2GRAY))
+                deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(np.copy(deprocess_output),cv2.COLOR_RGB2GRAY))
                 deprocess_output_equ = cv2.cvtColor(deprocess_output_equ,cv2.COLOR_GRAY2RGB)
                 result_prefix = 'VGG_finetuned_'+layer_name+'_MeanSquaredProduct_'+str(index_feature1)+'_'+str(index_feature2)+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
                 name_saved_im = os.path.join(output_path_mean,result_prefix)
                 save_img(name_saved_im, np.copy(deprocess_output_equ))
         
             del deepdream_model
-
-  
+            
+def run_Visualisation_PosAndNegFeatures(output_path,net_layers,net_finetuned,dict_layers_argsort):
     
+    step = 0.05  # Gradient ascent step size
+    iterations = 2048  # Number of ascent steps per scale
+    
+    init_images = []
+    init_images_name = []
+    init_rand_im = np.random.uniform(low=0.,high=255.,size=(1,224,224,3))
+    init_images += [init_rand_im]
+    init_images_name += ['unifRand']
+    
+    output_path_f = os.path.join(output_path,'Feature_Neg_Pos')
+    pathlib.Path(output_path_f).mkdir(parents=True, exist_ok=True) 
+    
+    kind_of_optim_tab = ['pos','neg']
+        
+    for layer in net_layers:
+        layer_name = layer.name
+        if not('conv' in layer_name):
+            continue
+        
+        # On a specific feature of the given layer
+        argsort = dict_layers_argsort[layer_name]
+        number_kernel_considered = int(0.05*len(argsort))
+        for i in range(number_kernel_considered):
+            index_feature = argsort[i]
+            print('Start deep dreaming for ',layer_name,index_feature)
+            #init_rand_im = np.random.normal(loc=125.,scale=3.,size=(1,224,224,3))
+            for kind_of_optim in kind_of_optim_tab:
+                deepdream_model = DeepDream_on_one_specific_featureMap(net_finetuned,layer_name,index_feature,kind_of_optim=kind_of_optim)
+                
+                for init_rand_im,init_rand_name in zip(init_images,init_images_name):
+                    output_image = deepdream_model.gradient_ascent(np.copy(init_rand_im),iterations,step)
+                    deprocess_output = deprocess_image(np.copy(output_image))
+                    
+                    result_prefix = 'VGG_finetuned_'+layer_name+'_'+str(index_feature)+'_'+kind_of_optim+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'.png'
+                    name_saved_im = os.path.join(output_path_f,result_prefix)
+                    save_img(name_saved_im, np.copy(deprocess_output))
+                    
+                    deprocess_output_equ = cv2.equalizeHist(cv2.cvtColor(np.copy(deprocess_output),cv2.COLOR_RGB2GRAY))
+                    deprocess_output_equ = cv2.cvtColor(deprocess_output_equ,cv2.COLOR_GRAY2RGB)
+                    result_prefix = 'VGG_finetuned_'+layer_name+'_'+str(index_feature)+'_'+kind_of_optim+'_iter'+str(iterations)+'_s'+str(step)+'_'+init_rand_name+'_eq.png'
+                    name_saved_im = os.path.join(output_path_f,result_prefix)
+                    save_img(name_saved_im, np.copy(deprocess_output_equ))
+            
+                del deepdream_model
     
 def deprocess_image(x):
     # Util function to convert a tensor into a valid image.
@@ -288,10 +339,28 @@ class DeepDream_on_one_specific_featureMap(object):
     """
     Deep Dream on one specific feature number index_feature of a given layer
     """
-    def __init__(self,model,layer_name, index_feature):
+    def __init__(self,model,layer_name, index_feature,kind_of_optim='squared'):
+        """
+        Initialisation function of the Optimization of the feature map
+        
+        Parameters
+        ----------
+        model : keras model 
+        layer_name : string : the layer you want to use
+        index_feature : string : the index of the feature in the given layer
+        kind_of_optim : string  
+            The kind of optimisation maded on the given feature. The default is 'squared'.
+            Use 'pos' for the positive feature maximisation and 'neg' for the negative one
+
+        Returns
+        -------
+        None
+
+        """
         self.model = model
         self.layer_name = layer_name
         self.index_feature = index_feature
+        self.kind_of_optim = kind_of_optim
 
         dream = model.input
         # Get the symbolic outputs of each "key" layer (we gave them unique names).
@@ -307,6 +376,7 @@ class DeepDream_on_one_specific_featureMap(object):
                 
                 # We avoid border artifacts by only involving non-border pixels in the loss.
                 if K.image_data_format() == 'channels_first':
+                    raise(NotImplementedError)
                     x_index_feature = x[:,index_feature,:,:]
                     x_index_feature = K.expand_dims(x_index_feature,axis=1)
                     scaling = K.prod(K.cast(K.shape(x_index_feature), 'float32'))
@@ -315,7 +385,12 @@ class DeepDream_on_one_specific_featureMap(object):
                     x_index_feature = x[:,:,:,index_feature]
                     x_index_feature = K.expand_dims(x_index_feature,axis=-1)
                     scaling = K.prod(K.cast(K.shape(x_index_feature), 'float32'))
-                    loss = loss + K.sum(K.square(x_index_feature[:, 2: -2, 2: -2, :])) / scaling
+                    if self.kind_of_optim=='squared':
+                        loss = loss + K.sum(K.square(x_index_feature[:, 2: -2, 2: -2, :])) / scaling
+                    elif self.kind_of_optim=='pos':
+                        loss = loss + K.sum(x_index_feature[:, 2: -2, 2: -2, :]) / scaling
+                    elif self.kind_of_optim=='neg':
+                        loss = loss - K.sum(x_index_feature[:, 2: -2, 2: -2, :]) / scaling
         
         # Compute the gradients of the dream wrt the loss.
         grads = K.gradients(loss, dream)[0]
