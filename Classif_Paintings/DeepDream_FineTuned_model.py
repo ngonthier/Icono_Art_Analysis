@@ -137,17 +137,17 @@ def DeepDream_withFinedModel():
         diff_squared = diff_filters**2
         diff_abs = np.abs(diff_filters)
         mean_squared = np.mean(diff_squared,axis=(0,1,2))
-        mean_abs = np.mean(diff_squared,axis=(0,1,2))
+        mean_abs = np.mean(diff_abs,axis=(0,1,2))
         relative_diff_squared = mean_squared / norm2_filter
         relative_diff_abs = mean_abs / norm1_filter
-        print('For layer :',layer_name)
-        print('Absolute squared of difference')
+        print('== For layer :',layer_name,' ==')
+        print('= Absolute squared of difference =')
         print_stats_on_diff(mean_squared)
-        print('Absolute abs of difference')
+        print('= Absolute abs of difference =')
         print_stats_on_diff(mean_abs)
-        print('Relative squared of difference')
+        print('= Relative squared of difference =')
         print_stats_on_diff(relative_diff_squared)
-        print('Relative abs of difference')
+        print('= Relative abs of difference =')
         print_stats_on_diff(relative_diff_abs)
         
         dict_layers_mean_squared[layer_name] = mean_squared
@@ -347,11 +347,11 @@ def deprocess_image(x):
     x = np.clip(x, 0, 255).astype('uint8')
     return x          
     
-def print_stats_on_diff(mean_squared,k=3):
-    print('Min :',np.min(mean_squared),'Max :',np.max(mean_squared),'Median :',np.median(mean_squared),'last decile :',np.percentile(mean_squared, 90))
-    argsort = np.argsort(mean_squared)[::-1]
+def print_stats_on_diff(np_list,k=3):
+    print('Max :',np.max(np_list),'Median :',np.median(np_list),'last decile :',np.percentile(np_list, 90),'Min :',np.min(np_list))
+    argsort = np.argsort(np_list)[::-1]
     for i in range(k):
-        print('Top ',i,': index =',argsort[i],mean_squared[argsort[i]])
+        print('Top ',i,': index =',argsort[i],' value :',np_list[argsort[i]])
 
 class DeepDream_on_one_specific_featureMap(object):
     """
