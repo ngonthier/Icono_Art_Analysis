@@ -132,22 +132,34 @@ def DeepDream_withFinedModel():
         # Norm 2 between the weights of the filters
             
         diff_filters = o_filters - f_filters
+        norm2_filter = np.mean(o_filters**2,axis=(0,1,2))
+        norm1_filter = np.mean(np.abs(o_filters),axis=(0,1,2))
         diff_squared = diff_filters**2
+        diff_abs = np.abs(diff_filters)
         mean_squared = np.mean(diff_squared,axis=(0,1,2))
+        mean_abs = np.mean(diff_squared,axis=(0,1,2))
+        relative_diff_squared = mean_squared / norm2_filter
+        relative_diff_abs = mean_abs / norm1_filter
         print('For layer :',layer_name)
-        print('Min :',np.min(mean_squared),'Max :',np.max(mean_squared),'Median :',np.median(mean_squared),'last decile :',np.percentile(mean_squared, 90))
+        print('Absolute squared of difference')
+        print_stats_on_diff(mean_squared)
+        print('Absolute abs of difference')
+        print_stats_on_diff(mean_abs)
+        print('Relative squared of difference')
+        print_stats_on_diff(relative_diff_squared)
+        print('Relative abs of difference')
+        print_stats_on_diff(relative_diff_abs)
+        
         dict_layers_mean_squared[layer_name] = mean_squared
         argsort = np.argsort(mean_squared)[::-1]
         dict_layers_argsort[layer_name] = argsort
-        for i in range(3):
-            print('Top ',i,':',mean_squared[argsort[i]])
         
     K.set_learning_phase(0)
     
     # /!\ Attention en fait tu es en train de travailler apres ReLU ! il va falloir changer cela peut etre
     
     #run_VisualisationOnLotImages_kin(output_path,net_layers,net_finetuned,dict_layers_argsort)
-    run_Visualisation_PosAndNegFeatures(output_path,net_layers,net_finetuned,dict_layers_argsort)
+    #run_Visualisation_PosAndNegFeatures(output_path,net_layers,net_finetuned,dict_layers_argsort)
     
 def run_VisualisationOnLotImages_kin(output_path,net_layers,net_finetuned,dict_layers_argsort):
     
@@ -335,6 +347,12 @@ def deprocess_image(x):
     x = np.clip(x, 0, 255).astype('uint8')
     return x          
     
+def print_stats_on_diff(mean_squared,k=3):
+    print('Min :',np.min(mean_squared),'Max :',np.max(mean_squared),'Median :',np.median(mean_squared),'last decile :',np.percentile(mean_squared, 90))
+    argsort = np.argsort(mean_squared)[::-1]
+    for i in range(k):
+        print('Top ',i,': index =',argsort[i],mean_squared[argsort[i]])
+
 class DeepDream_on_one_specific_featureMap(object):
     """
     Deep Dream on one specific feature number index_feature of a given layer
