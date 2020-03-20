@@ -1049,6 +1049,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 if not(constrNet=='ResNet50' or constrNet=='VGG'):
                     raise(NotImplementedError)
                     # Need to add in load_model custom_objects
+                print('We will load the trained model :')
+                print(model_path)
                 model = load_model(model_path,compile=False)
                 return(model)
             else:
@@ -3876,7 +3878,7 @@ def VGG_fineTuning_onIconArt():
                 transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
                 optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
                 epochs=20,cropCenter=True,SGDmomentum=0.9,decay=1e-4,verbose=True)  
-    #VGG GlobalAveragePooling2D ep :20 & 52.6 & 75.8 & 38.4 & 82.3 & 73.3 & 69.6 & 10.8 & 57.6 \\ 
+    #VGG GlobalAveragePooling2D ep :20 & 50.8 & 78.5 & 58.7 & 80.5 & 73.5 & 71.0 & 9.8 & 60.4 \\  
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
                 constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
