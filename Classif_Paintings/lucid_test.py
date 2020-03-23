@@ -18,16 +18,24 @@ from lucid.modelzoo.vision_models import Model # Need to install lucid doesn't s
 # from lucid.modelzoo.vision_base import Model as base_Model # Need to install lucid doesn't support tf 2.x
 # Cf ici : https://github.com/tensorflow/lucid/blob/master/lucid/modelzoo/vision_base.py
 import lucid.optvis.render as render
-from lucid.misc.io import show,image
+from lucid.misc.io import show
 import lucid.optvis.param as param
 import lucid.modelzoo.vision_models as lucid_model
 import lucid.optvis.transform as transform
+import lucid.optvis.objectives as objectives
 
 import scipy.ndimage as nd
 import tensorflow as tf 
 from tensorflow.python.keras import backend as K
 
 import matplotlib.pyplot as plt
+import numpy as np
+
+from show_graph import show_graph
+
+from inception_v1 import InceptionV1
+
+from tensorflow.python.framework.graph_util import convert_variables_to_constants
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
@@ -45,10 +53,13 @@ def freeze_session(session, keep_var_names=None, output_names=None, clear_device
     @param clear_devices Remove the device directives from the graph for better portability.
     @return The frozen graph definition.
     """
-    from tensorflow.python.framework.graph_util import convert_variables_to_constants
-    # Il est possible qu il soit necesaire de remplacer par with K.get_session().as_default():  car Keras doesn't register it's session as default. As such, you'll want to do something like this:
+    
+    # Il est possible qu il soit necesaire de remplacer par with K.get_session().as_default():
+    # car Keras doesn't register it's session as default. As such, you'll want to 
+    # do something like this:
     graph = session.graph
-    with graph.as_default():
+    #with graph.as_default():
+    with K.get_session().as_default():
         freeze_var_names = list(set(v.op.name for v in tf.global_variables()).difference(keep_var_names or []))
         output_names = output_names or []
         output_names += [v.op.name for v in tf.global_variables()]
@@ -65,10 +76,27 @@ def freeze_session(session, keep_var_names=None, output_names=None, clear_device
 
 
 class Lucid_VGGNet(Model):
-  model_path = 'model/tf_model.pb'
-  image_shape = [224, 224, 3]
-  image_value_range = (-125., 125.) # Il semblerait que cela ne soit pas pris en compte !
-  input_name = 'input_1'
+    
+    def __init__(self,model_path = 'model/tf_model.pb',image_shape = [224, 224, 3],\
+                 image_value_range = (-125., 125.),input_name = 'input_1', **kwargs):
+       self.model_path = model_path
+       self.image_shape = image_shape
+       self.image_value_range = image_value_range
+       # Il semblerait que cela ne soit pas pris en compte !
+       self.input_name = input_name
+       super(Lucid_VGGNet, self).__init__(**kwargs)
+       
+class Lucid_Inception_v1(Model):
+    
+    def __init__(self,model_path = 'model/tf_inception_v1.pb',image_shape = [224, 224, 3],\
+                 image_value_range = (-1., 1.),input_name = 'input_1', **kwargs):
+       self.model_path = model_path
+       self.image_shape = image_shape
+       self.image_value_range = image_value_range
+       # Il semblerait que cela ne soit pas pris en compte !
+       self.input_name = input_name
+       super(Lucid_Inception_v1, self).__init__(**kwargs)
+  
 
 with tf.Graph().as_default() as graph, tf.Session() as sess:
     images = tf.placeholder("float32", [None, 224, 224, 3], name="input")
@@ -80,6 +108,49 @@ with tf.Graph().as_default() as graph, tf.Session() as sess:
 
     Model.suggest_save_args()
 
+def test_render_Inception_v1():
+    
+    K.set_learning_phase(0)
+    with K.get_session().as_default():
+        model = InceptionV1(include_top=True, weights='imagenet')
+        os.makedirs('./model', exist_ok=True)
+        
+        #model.save('./model/inception_v1_keras_model.h5')
+        frozen_graph = freeze_session(K.get_session(),
+                                  output_names=[out.op.name for out in model.outputs])
+        
+        tf.io.write_graph(frozen_graph,logdir= "model",name= "tf_inception_v1.pb", as_text=False)
+        
+        nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+        print(nodes_tab)
+        
+        lucid_inception_v1 = Lucid_Inception_v1()
+        lucid_inception_v1.load_graphdef()
+        
+        neuron1 = ('mixed4b_pre_relu', 111)     # large fluffy
+        C = lambda neuron: objectives.channel(*neuron)
+        out = render.render_vis(lucid_inception_v1, 'Mixed_4b_Concatenated/concat:111')
+        plt.imshow(out[0][0])
+
+        JITTER = 1
+        ROTATE = 5
+        SCALE  = 1.1
+        
+        transforms = [
+            transform.pad(2*JITTER),
+            transform.jitter(JITTER),
+            transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
+            transform.random_rotate(range(-ROTATE, ROTATE+1))
+        ]
+        
+        out = render.render_vis(lucid_inception_v1, "Mixed_4b_Concatenated/concat:452", transforms=transforms,
+                                 param_f=lambda: param.image(64), 
+                                 thresholds=[2048], verbose=False)
+        out = render.render_vis(lucid_inception_v1, "Mixed_4d_Branch_2_b_3x3_act/Relu:452", transforms=transforms,
+                                 param_f=lambda: param.image(64), 
+                                 thresholds=[2048], verbose=False) # Cela ne marche pas !
+        plt.imshow(out[0][0])
+        
 def test_render_VGG19():
     
     #with tf.Graph().as_default() as graph, tf.Session() as sess:
@@ -92,9 +163,13 @@ def test_render_VGG19():
         #  ! il va falloir ajouter des noeuds / node pre_relu !
         
         os.makedirs('./model', exist_ok=True)
-        model.save('./model/keras_model.h5')
+        #model.save('./model/keras_model.h5')
         frozen_graph = freeze_session(K.get_session(),
                                   output_names=[out.op.name for out in model.outputs])
+        
+        # Show current session graph with TensorBoard in Jupyter Notebook.
+        show_graph(tf.get_default_graph().as_graph_def())
+        
         tf.io.write_graph(frozen_graph,logdir= "model",name= "tf_model.pb", as_text=False)
         
         nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
@@ -104,21 +179,34 @@ def test_render_VGG19():
         
         lucid_vgg = Lucid_VGGNet()
         lucid_vgg.load_graphdef()
-        for node in lucid_vgg.graph_def.node:
-            if 'conv' in node.op:
-                print(node.name)
+        # for node in lucid_vgg.graph_def.node:
+        #     if 'conv' in node.op:
+        #         print(node.name)
 
         #Model.suggest_save_args()
         #lucid_model = Model.load_graphdef("tf_model.pb")
     
-        output_im = render.render_vis(lucid_vgg, "block1_conv1/Conv2D:0")
+        LEARNING_RATE = 0.05
+
+        optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
+    
+        output_im = render.render_vis(lucid_vgg, "block1_conv1/Conv2D:0",use_fixed_seed=0)
         # Il semblerait que par default cela renvoit un crop de l image genere en 224*224 de taille 128*128
         plt.imshow(output_im[0][0])
-        output_im = render.render_vis(lucid_vgg, "block1_conv1/BiasAdd:0")
+        print(np.max(output_im),np.min(output_im))
+        
+        output_im = render.render_vis(lucid_vgg, "block1_conv1/BiasAdd:1",use_fixed_seed=0)
         plt.imshow(output_im[0][0])
-        output_im = render.render_vis(lucid_vgg, "block1_conv1/Relu:0")
+        output_im = render.render_vis(lucid_vgg, "block1_conv1/Relu:15")
         plt.imshow(output_im[0][0])
         output_im = render.render_vis(lucid_vgg, "block5_conv4/Relu:0")
+        plt.imshow(output_im[0][0])
+        
+        # <IPython.core.display.HTML object> only plot in jupyter Notebook
+        param_f = lambda: param.image(128)
+        output_im = render.render_vis(lucid_vgg, "block5_conv4/BiasAdd:100", param_f,thresholds=[256])
+        plt.imshow(output_im[0][0])
+        output_im = render.render_vis(lucid_vgg, "block5_conv4/Relu:100", param_f,thresholds=[256])
         plt.imshow(output_im[0][0])
         
         # Using alternate parameterizations is one of the primary ingredients for
@@ -140,9 +228,10 @@ def test_render_VGG19():
             transform.random_rotate(range(-ROTATE, ROTATE+1))
         ]
         
-        imgs = render.render_vis(lucid_vgg, "block5_conv4/Relu:0", transforms=transforms,
-                                 param_f=lambda: param.image(64), 
-                                 thresholds=(1, 32, 128, 256, 2048), verbose=False)
+        image_full_tricks = render.render_vis(lucid_vgg, "block5_conv4/Relu:0", transforms=transforms,
+                                 param_f=lambda: param.image(64, fft=True, decorrelate=True),
+                                 optimizer=optimizer,
+                                 thresholds=[2048], verbose=False)
 
 
         # Note that we're doubling the image scale to make artifacts more obvious
