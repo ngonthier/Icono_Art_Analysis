@@ -288,31 +288,31 @@ def InceptionV1(include_top=True,
     x = img_input
     x = conv2d_bn(x,  64, 7, 7, strides=(2, 2), padding='same',  name='Conv2d_1a_7x7')  
     
-    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_2a_3x3')(x)  
+    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_2_3x3')(x)  
     
     x = conv2d_bn(x,  64, 1, 1, strides=(1, 1), padding='same', name='Conv2d_2b_1x1')  
     x = conv2d_bn(x, 192, 3, 3, strides=(1, 1), padding='same', name='Conv2d_2c_3x3')  
     
-    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_3a_3x3')(x)  
+    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_3_3x3')(x)  
     
     # Now the '3' level inception units
-    x = concatenated_block(x, (( 64,), ( 96,128), (16, 32), ( 32,)), channel_axis, 'Mixed_3b')
-    x = concatenated_block(x, ((128,), (128,192), (32, 96), ( 64,)), channel_axis, 'Mixed_3c')
+    x = concatenated_block(x, (( 64,), ( 96,128), (16, 32), ( 32,)), channel_axis, 'Mixed_3a')
+    x = concatenated_block(x, ((128,), (128,192), (32, 96), ( 64,)), channel_axis, 'Mixed_3b')
 
-    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_4a_3x3')(x)  
+    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_4_3x3')(x)  
 
     # Now the '4' level inception units
-    x = concatenated_block(x, ((192,), ( 96,208), (16, 48), ( 64,)), channel_axis, 'Mixed_4b')
-    x = concatenated_block(x, ((160,), (112,224), (24, 64), ( 64,)), channel_axis, 'Mixed_4c')
-    x = concatenated_block(x, ((128,), (128,256), (24, 64), ( 64,)), channel_axis, 'Mixed_4d')
-    x = concatenated_block(x, ((112,), (144,288), (32, 64), ( 64,)), channel_axis, 'Mixed_4e')
-    x = concatenated_block(x, ((256,), (160,320), (32,128), (128,)), channel_axis, 'Mixed_4f')
+    x = concatenated_block(x, ((192,), ( 96,208), (16, 48), ( 64,)), channel_axis, 'Mixed_4a')
+    x = concatenated_block(x, ((160,), (112,224), (24, 64), ( 64,)), channel_axis, 'Mixed_4b')
+    x = concatenated_block(x, ((128,), (128,256), (24, 64), ( 64,)), channel_axis, 'Mixed_4c')
+    x = concatenated_block(x, ((112,), (144,288), (32, 64), ( 64,)), channel_axis, 'Mixed_4d')
+    x = concatenated_block(x, ((256,), (160,320), (32,128), (128,)), channel_axis, 'Mixed_4e')
 
-    x = MaxPooling2D((2, 2), strides=(2, 2), padding='same', name='MaxPool_5a_2x2')(x)  
+    x = MaxPooling2D((2, 2), strides=(2, 2), padding='same', name='MaxPool_5_2x2')(x)  
 
     # Now the '5' level inception units
-    x = concatenated_block(x, ((256,), (160,320), (32,128), (128,)), channel_axis, 'Mixed_5b')
-    x = concatenated_block(x, ((384,), (192,384), (48,128), (128,)), channel_axis, 'Mixed_5c')
+    x = concatenated_block(x, ((256,), (160,320), (32,128), (128,)), channel_axis, 'Mixed_5a')
+    x = concatenated_block(x, ((384,), (192,384), (48,128), (128,)), channel_axis, 'Mixed_5b')
     
 
     if include_top:
@@ -322,7 +322,7 @@ def InceptionV1(include_top=True,
         x = AveragePooling2D((7, 7), strides=(1, 1), padding='valid')(x)  
         
         # 'Dropout_0b'
-        x = Dropout(0.2)(x)  # slim has keep_prob (@0.8), keras uses drop_fraction
+        x = Dropout(0.4)(x)  # slim has keep_prob (@0.8), keras uses drop_fraction
         
         #logits = conv2d_bn(x,  classes, 1, 1, strides=(1, 1), padding='valid', name='Logits',
         #                   normalizer=False, activation=None, )  
