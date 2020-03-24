@@ -171,38 +171,45 @@ def test_render_Inception_v1():
                                  relu_gradient_override=True,use_fixed_seed=True)
         plt.imshow(out[0][0])
   
-def print_images(model_path,list_layer_index_to_print):
-    with tf.Graph().as_default() as graph, tf.Session() as sess:
+def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name='',\
+                 input_name='block1_conv1_input'):
+    #with tf.Graph().as_default() as graph, tf.Session() as sess:
         
-        lucid_vgg = Lucid_VGGNet(model_path=model_path)
-        lucid_vgg.load_graphdef()
-    
-        JITTER = 1
-        ROTATE = 5
-        SCALE  = 1.1
-        
-        transforms = [
-            transform.pad(2*JITTER),
-            transform.jitter(JITTER),
-            transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
-            transform.random_rotate(range(-ROTATE, ROTATE+1))
-        ]
-        
-    
-        LEARNING_RATE = 0.005 # Valeur par default
+    lucid_vgg = Lucid_VGGNet(model_path=model_path,input_name=input_name)
+    lucid_vgg.load_graphdef()
+    nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+    print(nodes_tab)
 
-        optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
+    JITTER = 1
+    ROTATE = 5
+    SCALE  = 1.1
     
-        for layer_index_to_print in list_layer_index_to_print:
-            layer, i = layer_index_to_print
-            obj = layer  + '/Relu:'+str(i)
-            name_base = layer  + '/Relu:'+str(i)
-            # "block1_conv1/Conv2D:0"
-            output_im = render.render_vis(lucid_vgg,obj ,
-                                          transforms=transforms,
-                                          thresholds=[4096],
-                                          optimizer=optimizer,
-                                          use_fixed_seed=True)
+    transforms = [
+        transform.pad(2*JITTER),
+        transform.jitter(JITTER),
+        transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
+        transform.random_rotate(range(-ROTATE, ROTATE+1))
+    ]
+    
+
+    LEARNING_RATE = 0.005 # Valeur par default
+
+    optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
+
+    for layer_index_to_print in list_layer_index_to_print:
+        layer, i = layer_index_to_print
+        obj = layer  + '/Relu:'+str(i)
+
+        name_base = layer  + 'Relu:'+str(i)+'_'+prexif_name+'.png'
+        # "block1_conv1/Conv2D:0"
+        output_im = render.render_vis(lucid_vgg,obj ,
+                                      transforms=transforms,
+                                      thresholds=[4096],
+                                      optimizer=optimizer,
+                                      use_fixed_seed=True)
+        image = output_im[0][0]*255
+        name_output = os.path.join(path_output,name_base)
+        tf.keras.preprocessing.image.save_img(name_output, image)
       
 def test_render_VGG19():
     
