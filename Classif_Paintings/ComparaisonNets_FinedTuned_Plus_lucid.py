@@ -46,7 +46,7 @@ import lucid_utils
 
 def get_random_net(constrNet='VGG'):
     seed = 0
-    tf.random.set_seed(seed)
+    tf.set_random_seed(seed) # For  tf v1
     randomNet = tf.keras.applications.vgg19.VGG19(include_top=False, weights=None)
     return(randomNet)
 
@@ -54,21 +54,42 @@ def get_random_net(constrNet='VGG'):
 def get_fine_tuned_model(model_name,constrNet='VGG'):
     
     opt_option_small=[0.1,0.001]
-    opt_option_big=[0.1,0.001]
+    opt_option_small01=[0.1,0.01]
+    opt_option_big=[0.001]
+    opt_option_big01=[0.01]
     
-    list_models_name = ['IconArt_v1_small_modif','IconArt_v1_big_modif','RASTA_small_modif','RASTA_big_modif']
+    
+    list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
+                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
+                        'RASTA_small01_modif','RASTA_big01_modif',
+                        'RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_LastEpoch','RASTA_big_modif001_LastEpoch']
     if not(model_name in list_models_name):
         raise(NotImplementedError)
         
-    if 'small' in  model_name:
+    if 'small001' in  model_name:
         opt_option = opt_option_small
-    elif 'big' in model_name:
+    elif 'big001' in model_name:
         opt_option = opt_option_big
+    elif 'small01' in  model_name:
+        opt_option = opt_option_small01
+    elif 'big01' in model_name:
+        opt_option = opt_option_big01
+    else:
+        raise(NotImplementedError)
+        
+    if 'LastEpoch' in model_name:
+        return_best_model=False
+    else:
+        return_best_model=True
         
     if 'RASTA' in model_name:
         target_dataset = 'RASTA'
     elif 'IconArt_v1' in model_name:
         target_dataset = 'IconArt_v1'
+    else:
+        raise(NotImplementedError)
+        
         
     source_dataset = 'imagenet'   
     weights = 'imagenet'
@@ -84,7 +105,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG'):
     computeGlobalVariance = False
     optimizer='SGD'
     
-    return_best_model=True
+    
     epochs=20
     cropCenter=True
     SGDmomentum=0.9
@@ -102,60 +123,25 @@ def get_fine_tuned_model(model_name,constrNet='VGG'):
 
 def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=''):
     
-    
     tf.keras.backend.clear_session()
-    K.set_learning_phase(0)
     tf.reset_default_graph()
-    opt_option_small=[0.1,0.001]
-    opt_option_big=[0.1,0.001]
+    K.set_learning_phase(0)
     
-    list_models_name = ['IconArt_v1_small_modif','IconArt_v1_big_modif','RASTA_small_modif','RASTA_big_modif']
+    list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
+                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
+                        'RASTA_small01_modif','RASTA_big01_modif',
+                        'RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_LastEpoch','RASTA_big_modif001_LastEpoch']
+    
     list_models_name_all = list_models_name + ['random']
-    if not(model_name in list_models_name):
+    if not(model_name in list_models_name_all):
         raise(NotImplementedError)
         
     if model_name=='random':
         net_finetuned = get_random_net()
     else:
-        if 'small' in  model_name:
-            opt_option = opt_option_small
-        elif 'big' in model_name:
-            opt_option = opt_option_big
-            
-        if 'RASTA' in model_name:
-            target_dataset = 'RASTA'
-        elif 'IconArt_v1' in model_name:
-            target_dataset = 'IconArt_v1'
-            
-        source_dataset = 'imagenet'   
-        weights = 'imagenet'
+        net_finetuned = get_fine_tuned_model(model_name,constrNet='VGG')
         
-        features = 'block5_pool'
-        normalisation = False
-        getBeforeReLU = False
-        final_clf= 'LinearSVC' # Don t matter
-        source_dataset= 'ImageNet'
-        kind_method=  'FT'
-        transformOnFinalLayer='GlobalAveragePooling2D'           
-        final_clf = 'MLP2'
-        
-        computeGlobalVariance = False
-        optimizer='SGD'
-        
-        return_best_model=True
-        epochs=20
-        cropCenter=True
-        SGDmomentum=0.9
-        decay=1e-4
-    
-        returnStatistics = True    
-        net_finetuned = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                               constrNet,kind_method,style_layers=[],weights=weights,\
-                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                               ReDo=False,
-                               returnStatistics=returnStatistics,cropCenter=cropCenter,\
-                               optimizer=optimizer,opt_option=opt_option,epochs=epochs,\
-                               SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model)
     if path=='':
         os.makedirs('./model', exist_ok=True)
         path ='model'
@@ -270,41 +256,50 @@ def Comparaison_of_FineTunedModel():
     opt_option_small=[0.1,0.001]
     opt_option_big=[0.1,0.001]
     
-    list_models_name = ['IconArt_v1_small_modif','IconArt_v1_big_modif','RASTA_small_modif','RASTA_big_modif','random']
-    list_models_name = ['random']
-    opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
+    list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
+                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
+                        'RASTA_small01_modif','RASTA_big01_modif',
+                        'RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_LastEpoch','RASTA_big_modif001_LastEpoch']
+    #list_models_name = ['random']
+    #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
     
     K.set_learning_phase(0)
     #with K.get_session().as_default(): 
+    path_lucid_model = '/media/gonthier/HDD2/output_exp/Covdata/Lucid_model'
     list_layer_index_to_print_base_model = []
     for model_name in list_models_name:
         list_layer_index_to_print = []
         if not(model_name=='random'):
             net_finetuned = get_fine_tuned_model(model_name)
-            dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,list_weights,net_finetuned)
+            dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
+                                                                            list_weights,net_finetuned)
             
-            name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='')
-            
+            name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=path_lucid_model)
             
             for key in dict_layers_argsort.keys():
                 top1 = dict_layers_argsort[key][0]
                 list_layer_index_to_print += [[key,top1]]
                 list_layer_index_to_print_base_model += [[key,top1]]
                 
+            lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                     ,path_output=output_path,prexif_name=model_name,input_name='block1_conv1_input')
+            
         else:
             # Random model 
             net_finetuned = get_random_net()
-            dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,list_weights,net_finetuned)
+            dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
+                                                                            list_weights,net_finetuned)
             
-            name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='')
+            name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=path_lucid_model)
             
             for key in dict_layers_argsort.keys():
                 top1 = dict_layers_argsort[key][0]
                 list_layer_index_to_print += [[key,top1]]
                 list_layer_index_to_print_base_model += [[key,top1]]
             
-        lucid_utils.print_images(model_path='model/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                         ,path_output=output_path,prexif_name=model_name)
+            lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                         ,path_output=output_path,prexif_name=model_name,input_name='input_1')
               
     # For the original pretrained imagenet VGG
     lucid_utils.print_images(model_path='model/tf_vgg19.pb',list_layer_index_to_print=list_layer_index_to_print_base_model\
