@@ -118,7 +118,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG'):
                            ReDo=False,
                            returnStatistics=returnStatistics,cropCenter=cropCenter,\
                            optimizer=optimizer,opt_option=opt_option,epochs=epochs,\
-                           SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model)
+                           SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model,\
+                           pretrainingModif=True)
     return(net_finetuned)
 
 def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=''):
@@ -140,7 +141,7 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=''):
     if model_name=='random':
         net_finetuned = get_random_net()
     else:
-        net_finetuned = get_fine_tuned_model(model_name,constrNet='VGG')
+        net_finetuned = get_fine_tuned_model(model_name,constrNet=constrNet)
         
     if path=='':
         os.makedirs('./model', exist_ok=True)
@@ -251,10 +252,6 @@ def Comparaison_of_FineTunedModel():
     constrNet = 'VGG'
     
     list_weights,list_name_layers = get_imageNet_weights()
-
-    
-    opt_option_small=[0.1,0.001]
-    opt_option_big=[0.1,0.001]
     
     list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
                         'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
