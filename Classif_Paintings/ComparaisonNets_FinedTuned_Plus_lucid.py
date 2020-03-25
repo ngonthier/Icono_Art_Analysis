@@ -44,6 +44,13 @@ from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getRes
 
 import lucid_utils
 
+def get_random_net(constrNet='VGG'):
+    seed = 0
+    tf.random.set_seed(seed)
+    randomNet = tf.keras.applications.vgg19.VGG19(include_top=False, weights=None)
+    return(randomNet)
+
+
 def get_fine_tuned_model(model_name,constrNet='VGG'):
     
     opt_option_small=[0.1,0.001]
@@ -69,7 +76,6 @@ def get_fine_tuned_model(model_name,constrNet='VGG'):
     features = 'block5_pool'
     normalisation = False
     getBeforeReLU = False
-    final_clf= 'LinearSVC' # Don t matter
     source_dataset= 'ImageNet'
     kind_method=  'FT'
     transformOnFinalLayer='GlobalAveragePooling2D'           
@@ -104,48 +110,52 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=''):
     opt_option_big=[0.1,0.001]
     
     list_models_name = ['IconArt_v1_small_modif','IconArt_v1_big_modif','RASTA_small_modif','RASTA_big_modif']
+    list_models_name_all = list_models_name + ['random']
     if not(model_name in list_models_name):
         raise(NotImplementedError)
         
-    if 'small' in  model_name:
-        opt_option = opt_option_small
-    elif 'big' in model_name:
-        opt_option = opt_option_big
+    if model_name=='random':
+        net_finetuned = get_random_net()
+    else:
+        if 'small' in  model_name:
+            opt_option = opt_option_small
+        elif 'big' in model_name:
+            opt_option = opt_option_big
+            
+        if 'RASTA' in model_name:
+            target_dataset = 'RASTA'
+        elif 'IconArt_v1' in model_name:
+            target_dataset = 'IconArt_v1'
+            
+        source_dataset = 'imagenet'   
+        weights = 'imagenet'
         
-    if 'RASTA' in model_name:
-        target_dataset = 'RASTA'
-    elif 'IconArt_v1' in model_name:
-        target_dataset = 'IconArt_v1'
+        features = 'block5_pool'
+        normalisation = False
+        getBeforeReLU = False
+        final_clf= 'LinearSVC' # Don t matter
+        source_dataset= 'ImageNet'
+        kind_method=  'FT'
+        transformOnFinalLayer='GlobalAveragePooling2D'           
+        final_clf = 'MLP2'
         
-    source_dataset = 'imagenet'   
-    weights = 'imagenet'
+        computeGlobalVariance = False
+        optimizer='SGD'
+        
+        return_best_model=True
+        epochs=20
+        cropCenter=True
+        SGDmomentum=0.9
+        decay=1e-4
     
-    features = 'block5_pool'
-    normalisation = False
-    getBeforeReLU = False
-    final_clf= 'LinearSVC' # Don t matter
-    source_dataset= 'ImageNet'
-    kind_method=  'FT'
-    transformOnFinalLayer='GlobalAveragePooling2D'           
-    final_clf = 'MLP2'
-    
-    computeGlobalVariance = False
-    optimizer='SGD'
-    
-    return_best_model=True
-    epochs=20
-    cropCenter=True
-    SGDmomentum=0.9
-    decay=1e-4
-
-    returnStatistics = True    
-    net_finetuned = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
-                           constrNet,kind_method,style_layers=[],weights=weights,\
-                           normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
-                           ReDo=False,
-                           returnStatistics=returnStatistics,cropCenter=cropCenter,\
-                           optimizer=optimizer,opt_option=opt_option,epochs=epochs,\
-                           SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model)
+        returnStatistics = True    
+        net_finetuned = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+                               constrNet,kind_method,style_layers=[],weights=weights,\
+                               normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
+                               ReDo=False,
+                               returnStatistics=returnStatistics,cropCenter=cropCenter,\
+                               optimizer=optimizer,opt_option=opt_option,epochs=epochs,\
+                               SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model)
     if path=='':
         os.makedirs('./model', exist_ok=True)
         path ='model'
@@ -155,10 +165,9 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=''):
                               output_names=[out.op.name for out in net_finetuned.outputs])
     name_pb = 'tf_graph_'+constrNet+model_name+'.pb'
     
-    nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
-    print(nodes_tab)
+    #nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+    #print(nodes_tab)
     tf.io.write_graph(frozen_graph,logdir= path,name= name_pb, as_text=False)
-
 
     return(name_pb)
 
@@ -262,31 +271,44 @@ def Comparaison_of_FineTunedModel():
     opt_option_big=[0.1,0.001]
     
     list_models_name = ['IconArt_v1_small_modif','IconArt_v1_big_modif','RASTA_small_modif','RASTA_big_modif','random']
-    list_models_name = ['IconArt_v1_small_modif']
+    list_models_name = ['random']
     opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
     
     K.set_learning_phase(0)
     #with K.get_session().as_default(): 
     list_layer_index_to_print_base_model = []
     for model_name in list_models_name:
+        list_layer_index_to_print = []
         if not(model_name=='random'):
             net_finetuned = get_fine_tuned_model(model_name)
             dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,list_weights,net_finetuned)
             
             name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='')
             
-            list_layer_index_to_print = []
+            
+            for key in dict_layers_argsort.keys():
+                top1 = dict_layers_argsort[key][0]
+                list_layer_index_to_print += [[key,top1]]
+                list_layer_index_to_print_base_model += [[key,top1]]
+                
+        else:
+            # Random model 
+            net_finetuned = get_random_net()
+            dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,list_weights,net_finetuned)
+            
+            name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='')
+            
             for key in dict_layers_argsort.keys():
                 top1 = dict_layers_argsort[key][0]
                 list_layer_index_to_print += [[key,top1]]
                 list_layer_index_to_print_base_model += [[key,top1]]
             
-            lucid_utils.print_images(model_path='model/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+        lucid_utils.print_images(model_path='model/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
                          ,path_output=output_path,prexif_name=model_name)
               
-        # For the original pretrained imagenet VGG
-        lucid_utils.print_images(model_path='model/tf_vgg19.pb',list_layer_index_to_print=list_layer_index_to_print_base_model\
-                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1')
+    # For the original pretrained imagenet VGG
+    lucid_utils.print_images(model_path='model/tf_vgg19.pb',list_layer_index_to_print=list_layer_index_to_print_base_model\
+                  ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1')
             
     
  
