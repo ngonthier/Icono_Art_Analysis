@@ -33,7 +33,7 @@ import numpy as np
 
 from show_graph import show_graph
 
-from inception_v1 import InceptionV1
+from inception_v1 import InceptionV1_slim
 
 from tensorflow.python.framework.graph_util import convert_variables_to_constants
 
@@ -41,6 +41,8 @@ from lucid.misc.gradient_override import gradient_override_map
 from lucid.misc.redirected_relu_grad import redirected_relu_grad
 
 from tensorflow.python.platform import gfile
+
+from lucid.modelzoo.vision_base import IMAGENET_MEAN_BGR
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
@@ -85,7 +87,7 @@ def freeze_session(session, keep_var_names=None, output_names=None, clear_device
 class Lucid_VGGNet(Model):
     
     def __init__(self,model_path = 'model/tf_vgg19.pb',image_shape = [224, 224, 3],\
-                 image_value_range = [-125., 125.],input_name = 'input_1', **kwargs):
+                 image_value_range = (-IMAGENET_MEAN_BGR, 255-IMAGENET_MEAN_BGR),input_name = 'input_1', **kwargs):
        self.model_path = model_path
        self.image_shape = image_shape
        self.image_value_range = image_value_range
@@ -93,22 +95,22 @@ class Lucid_VGGNet(Model):
        self.input_name = input_name
        super(Lucid_VGGNet, self).__init__(**kwargs)
        
-class Lucid_Inception_v1(Model):
+class Lucid_Inception_v1_slim(Model):
     
-    def __init__(self,model_path = 'model/tf_inception_v1.pb',image_shape = [224, 224, 3],\
-                 image_value_range = [-1., 1.],input_name = 'input_1', **kwargs):
+    def __init__(self,model_path = 'model/tf_inception_v1_slim.pb',image_shape = [224, 224, 3],\
+                 image_value_range = (-1, 1),input_name = 'input_1', **kwargs):
        self.model_path = model_path
        self.image_shape = image_shape
        self.image_value_range = image_value_range
        # Il semblerait que cela ne soit pas pris en compte !
        self.input_name = input_name
-       super(Lucid_Inception_v1, self).__init__(**kwargs)
+       super(Lucid_Inception_v1_slim, self).__init__(**kwargs)
 
 def test_render_Inception_v1():
     
     K.set_learning_phase(0)
     with K.get_session().as_default():
-        model = InceptionV1(include_top=True, weights='imagenet')
+        model = InceptionV1_slim(include_top=True, weights='imagenet')
         os.makedirs('./model', exist_ok=True)
         
         #model.save('./model/inception_v1_keras_model.h5')
@@ -116,7 +118,7 @@ def test_render_Inception_v1():
                                   output_names=[out.op.name for out in model.outputs],
                                   clear_devices=True)
         # Save the pb model 
-        tf.io.write_graph(frozen_graph,logdir= "model",name= "tf_inception_v1.pb", as_text=False)
+        tf.io.write_graph(frozen_graph,logdir= "model",name= "tf_inception_v1_slim.pb", as_text=False)
         
     with tf.Graph().as_default() as graph, tf.Session() as sess:
         
@@ -135,12 +137,12 @@ def test_render_Inception_v1():
         #print(nodes_tab)
         with gradient_override_map({'Relu': redirected_relu_grad,'ReLU': redirected_relu_grad}):
             # cela ne semble pas apporter quoique ce soit de particulier 
-            lucid_inception_v1 = Lucid_Inception_v1()
+            lucid_inception_v1 = Lucid_Inception_v1_slim()
             lucid_inception_v1.load_graphdef()
         
         neuron1 = ('mixed4b_pre_relu', 111)     # large fluffy
         C = lambda neuron: objectives.channel(*neuron)
-        out = render.render_vis(lucid_inception_v1, 'Mixed_4b_Concatenated/concat:111',\
+        out = render.render_vis(lucid_inception_v1, 'Mixed_4b_Concatenated/concat:452',\
                                 relu_gradient_override=True,use_fixed_seed=True)
         plt.imshow(out[0][0])
 
@@ -156,7 +158,7 @@ def test_render_Inception_v1():
         ]
         # https://github.com/tensorflow/lucid/issues/82
         with gradient_override_map({'Relu': redirected_relu_grad,'ReLU': redirected_relu_grad}):
-            out = render.render_vis(lucid_inception_v1, "Mixed_3a_Concatenated/concat:0", transforms=transforms,
+            out = render.render_vis(lucid_inception_v1, "Mixed_4b_Concatenated/concat:452", transforms=transforms,
                                      param_f=lambda: param.image(64), 
                                      thresholds=[2048], verbose=False,\
                                      relu_gradient_override=True,use_fixed_seed=True)

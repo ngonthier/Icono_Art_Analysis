@@ -37,6 +37,9 @@ from tensorflow.python.keras.preprocessing import image
 WEIGHTS_PATH = 'http://redcatlabs.com/downloads/inception_v1_weights_tf_dim_ordering_tf_kernels.h5'
 WEIGHTS_PATH_NO_TOP = 'http://redcatlabs.com/downloads/inception_v1_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
+# The weights are the one derived from the slim model !!!!
+# That's maybe why we don't have the same nanme in the layer ! 
+
 # conv2d_bn is similar to (but updated from) inception_v3 version
 def conv2d_bn(x,
               filters,
@@ -200,13 +203,14 @@ def _obtain_input_shape(input_shape,
                              'Got `input_shape=' + str(input_shape) + '`')
     return input_shape
 
-def InceptionV1(include_top=True,
+def InceptionV1_slim(include_top=True,
                 weights='imagenet',
                 input_tensor=None,
                 input_shape=None,
                 pooling=None,
                 classes=1001):
-    """Instantiates the Inception v1 architecture.
+    """Instantiates the Inception v1 architecture. With weights from slim !
+    In this case the range of the input image is  (-1,1)
     This architecture is defined in:
         Going deeper with convolutions
         Christian Szegedy, Wei Liu, Yangqing Jia, Pierre Sermanet, Scott Reed,
@@ -288,31 +292,31 @@ def InceptionV1(include_top=True,
     x = img_input
     x = conv2d_bn(x,  64, 7, 7, strides=(2, 2), padding='same',  name='Conv2d_1a_7x7')  
     
-    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_2_3x3')(x)  
+    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_2a_3x3')(x)  
     
     x = conv2d_bn(x,  64, 1, 1, strides=(1, 1), padding='same', name='Conv2d_2b_1x1')  
     x = conv2d_bn(x, 192, 3, 3, strides=(1, 1), padding='same', name='Conv2d_2c_3x3')  
     
-    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_3_3x3')(x)  
+    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_3a_3x3')(x)  
     
     # Now the '3' level inception units
-    x = concatenated_block(x, (( 64,), ( 96,128), (16, 32), ( 32,)), channel_axis, 'Mixed_3a')
-    x = concatenated_block(x, ((128,), (128,192), (32, 96), ( 64,)), channel_axis, 'Mixed_3b')
+    x = concatenated_block(x, (( 64,), ( 96,128), (16, 32), ( 32,)), channel_axis, 'Mixed_3b')
+    x = concatenated_block(x, ((128,), (128,192), (32, 96), ( 64,)), channel_axis, 'Mixed_3c')
 
-    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_4_3x3')(x)  
+    x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='MaxPool_4a_3x3')(x)  
 
     # Now the '4' level inception units
-    x = concatenated_block(x, ((192,), ( 96,208), (16, 48), ( 64,)), channel_axis, 'Mixed_4a')
-    x = concatenated_block(x, ((160,), (112,224), (24, 64), ( 64,)), channel_axis, 'Mixed_4b')
-    x = concatenated_block(x, ((128,), (128,256), (24, 64), ( 64,)), channel_axis, 'Mixed_4c')
-    x = concatenated_block(x, ((112,), (144,288), (32, 64), ( 64,)), channel_axis, 'Mixed_4d')
-    x = concatenated_block(x, ((256,), (160,320), (32,128), (128,)), channel_axis, 'Mixed_4e')
+    x = concatenated_block(x, ((192,), ( 96,208), (16, 48), ( 64,)), channel_axis, 'Mixed_4b')
+    x = concatenated_block(x, ((160,), (112,224), (24, 64), ( 64,)), channel_axis, 'Mixed_4c')
+    x = concatenated_block(x, ((128,), (128,256), (24, 64), ( 64,)), channel_axis, 'Mixed_4d')
+    x = concatenated_block(x, ((112,), (144,288), (32, 64), ( 64,)), channel_axis, 'Mixed_4e')
+    x = concatenated_block(x, ((256,), (160,320), (32,128), (128,)), channel_axis, 'Mixed_4f')
 
-    x = MaxPooling2D((2, 2), strides=(2, 2), padding='same', name='MaxPool_5_2x2')(x)  
+    x = MaxPooling2D((2, 2), strides=(2, 2), padding='same', name='MaxPool_5a_2x2')(x)  
 
     # Now the '5' level inception units
-    x = concatenated_block(x, ((256,), (160,320), (32,128), (128,)), channel_axis, 'Mixed_5a')
-    x = concatenated_block(x, ((384,), (192,384), (48,128), (128,)), channel_axis, 'Mixed_5b')
+    x = concatenated_block(x, ((256,), (160,320), (32,128), (128,)), channel_axis, 'Mixed_5b')
+    x = concatenated_block(x, ((384,), (192,384), (48,128), (128,)), channel_axis, 'Mixed_5c')
     
 
     if include_top:

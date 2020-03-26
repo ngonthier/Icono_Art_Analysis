@@ -63,7 +63,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG'):
                         'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
                         'RASTA_small01_modif','RASTA_big01_modif',
                         'RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_LastEpoch','RASTA_big_modif001_LastEpoch']
+                        'RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch']
     if not(model_name in list_models_name):
         raise(NotImplementedError)
         
@@ -76,6 +76,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG'):
     elif 'big01' in model_name:
         opt_option = opt_option_big01
     else:
+        print('Model unknown :',model_name)
         raise(NotImplementedError)
         
     if 'LastEpoch' in model_name:
@@ -199,7 +200,7 @@ def get_gap_between_weights(list_name_layers,list_weights,net_finetuned):
         print_stats_on_diff(relative_diff_abs)
         
         dict_layers_relative_diff[layer_name] = relative_diff_abs
-        argsort = np.argsort(mean_squared)[::-1]
+        argsort = np.argsort(relative_diff_abs)[::-1] # Il y avait une erreur la !
         dict_layers_argsort[layer_name] = argsort
         
     return(dict_layers_relative_diff,dict_layers_argsort)
@@ -257,7 +258,7 @@ def Comparaison_of_FineTunedModel():
                         'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
                         'RASTA_small01_modif','RASTA_big01_modif',
                         'RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_LastEpoch','RASTA_big_modif001_LastEpoch']
+                        'RASTA_small001_modif_LastEpoch']#,'RASTA_big001_modif_LastEpoch']
     #list_models_name = ['random']
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
     
@@ -266,21 +267,22 @@ def Comparaison_of_FineTunedModel():
     path_lucid_model = '/media/gonthier/HDD2/output_exp/Covdata/Lucid_model'
     list_layer_index_to_print_base_model = []
     for model_name in list_models_name:
+        print('#### ',model_name)
         list_layer_index_to_print = []
         if not(model_name=='random'):
             net_finetuned = get_fine_tuned_model(model_name)
             dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
                                                                             list_weights,net_finetuned)
             
-            name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=path_lucid_model)
+            #name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=path_lucid_model)
             
             for key in dict_layers_argsort.keys():
                 top1 = dict_layers_argsort[key][0]
                 list_layer_index_to_print += [[key,top1]]
                 list_layer_index_to_print_base_model += [[key,top1]]
                 
-            lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                     ,path_output=output_path,prexif_name=model_name,input_name='block1_conv1_input')
+            #lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+            #        ,path_output=output_path,prexif_name=model_name,input_name='block1_conv1_input')
             
         else:
             # Random model 
