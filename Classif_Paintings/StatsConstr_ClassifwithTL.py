@@ -3885,6 +3885,19 @@ def VGG_fineTuning_onIconArt():
                 optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
                 epochs=20,cropCenter=True,SGDmomentum=0.9,decay=1e-4,regulOnNewLayer='l2',verbose=True) 
     # VGG GlobalAveragePooling2D ep :20 & 52.0 & 75.7 & 26.2 & 80.4 & 72.3 & 65.2 & 7.4 & 54.2 \\ 
+        
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+            constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=True,\
+            transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
+            optimizer='SGD',opt_option=[0.01],return_best_model=True,
+            epochs=20,cropCenter=True,SGDmomentum=0.9,decay=1e-4,verbose=True) 
+    # Cela diverge
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+            constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=True,\
+            transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
+            optimizer='SGD',opt_option=[0.01],return_best_model=True,
+            epochs=20,cropCenter=True,SGDmomentum=0.9,decay=1e-4,regulOnNewLayer='l2',verbose=True) 
+    # Cela diverge
 
     
 def testResNet_FineTuning():
@@ -4132,6 +4145,12 @@ def RASTAclassifTest():
     #Top-1 accuracy : 55.52%
     #Top-3 accuracy : 81.89%
     #Top-5 accuracy : 90.51%
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.001],\
+       epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True)
         
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
        constrNet='VGGsuffleInStats',kind_method='FT',gridSearch=False,ReDo=False,\
