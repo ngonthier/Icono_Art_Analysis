@@ -32,7 +32,7 @@ plt.imshow(out[0][0])
 model = models.InceptionV1_slim()
 model.load_graphdef()
 
-out = render.render_vis(model, 'Mixed_4c/concat:452')
+out = render.render_vis(model, 'InceptionV1/InceptionV1/Mixed_4c/concat:452')
 plt.imshow(out[0][0])
 
 
