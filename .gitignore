@@ -97,7 +97,13 @@ Classif_Paintings/darkflow/.cache/
 ../cpm/.ipynb_checkpoints/
 
 # For tf records
+
 *.tfrecords
 *.tfrecord
+
+# For pb records
+*.pd
+*.h5
+*.tf
 
 
