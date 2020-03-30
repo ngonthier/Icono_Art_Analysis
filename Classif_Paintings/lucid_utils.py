@@ -31,9 +31,10 @@ from tensorflow.python.keras import backend as K
 import matplotlib.pyplot as plt
 import numpy as np
 
-from show_graph import show_graph
-
 from inception_v1 import InceptionV1_slim
+
+from googlenet import create_googlenet as InceptionV1
+from googlenet import inception_v1_oldTF
 
 from tensorflow.python.framework.graph_util import convert_variables_to_constants
 
@@ -95,6 +96,28 @@ class Lucid_VGGNet(Model):
        self.input_name = input_name
        super(Lucid_VGGNet, self).__init__(**kwargs)
        
+class Lucid_InceptionV1_caffe(Model):
+    
+    def __init__(self,model_path = 'model/tf_inception_v1_caffe.pb',image_shape = [224, 224, 3],\
+                 image_value_range = (-IMAGENET_MEAN_BGR, 255-IMAGENET_MEAN_BGR),input_name = 'input_1', **kwargs):
+       self.model_path = model_path
+       self.image_shape = image_shape
+       self.image_value_range = image_value_range
+       # Il semblerait que cela ne soit pas pris en compte !
+       self.input_name = input_name
+       super(Lucid_InceptionV1_caffe, self).__init__(**kwargs)
+       
+class Lucid_InceptionV1(Model):
+    
+    def __init__(self,model_path = 'model/tf_inception_v1.pb',image_shape = [224, 224, 3],\
+                 image_value_range =  (-117, 255-117),input_name = 'input_1', **kwargs):
+       self.model_path = model_path
+       self.image_shape = image_shape
+       self.image_value_range = image_value_range
+       # Il semblerait que cela ne soit pas pris en compte !
+       self.input_name = input_name
+       super(Lucid_InceptionV1, self).__init__(**kwargs)
+       
 class Lucid_Inception_v1_slim(Model):
     
     def __init__(self,model_path = 'model/tf_inception_v1_slim.pb',image_shape = [224, 224, 3],\
@@ -106,7 +129,7 @@ class Lucid_Inception_v1_slim(Model):
        self.input_name = input_name
        super(Lucid_Inception_v1_slim, self).__init__(**kwargs)
 
-def test_render_Inception_v1():
+def test_render_Inception_v1_slim():
     
     K.set_learning_phase(0)
     with K.get_session().as_default():
@@ -172,6 +195,72 @@ def test_render_Inception_v1():
                                  thresholds=[2048], verbose=False,\
                                  relu_gradient_override=True,use_fixed_seed=True)
         plt.imshow(out[0][0])
+        
+def test_render_Inception_v1():
+    
+    tf.reset_default_graph()
+    K.set_learning_phase(0)
+    if not(os.path.isfile("model/tf_inception_v1.pb")):
+        with K.get_session().as_default():
+            model = inception_v1_oldTF(weights='imagenet',include_top=True) #include_top=True, weights='imagenet')
+            print(model.input)
+            os.makedirs('./model', exist_ok=True)
+            
+            #model.save('./model/inception_v1_keras_model.h5')
+            frozen_graph = freeze_session(K.get_session(),
+                                      output_names=[out.op.name for out in model.outputs],
+                                      clear_devices=True)
+            # Save the pb model 
+            tf.io.write_graph(frozen_graph,logdir= "model",name= "tf_inception_v1.pb", as_text=False)
+            nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+            print(nodes_tab)
+        
+    #with tf.Graph().as_default() as graph, tf.Session() as sess:
+        #with gradient_override_map({'Relu': redirected_relu_grad,'ReLU': redirected_relu_grad}):
+    lucid_inception_v1 = Lucid_InceptionV1()
+    lucid_inception_v1.load_graphdef()
+        
+    
+    out = render.render_vis(lucid_inception_v1, 'mixed4b/concat:452',\
+                            relu_gradient_override=True,use_fixed_seed=True)
+    plt.figure()
+    plt.imshow(out[0][0])
+
+    
+    JITTER = 1
+    ROTATE = 5
+    SCALE  = 1.1
+    
+    transforms = [
+        transform.pad(2*JITTER),
+        transform.jitter(JITTER),
+        transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
+        transform.random_rotate(range(-ROTATE, ROTATE+1))
+    ]
+    
+    imgs = render.render_vis(lucid_inception_v1, 'mixed4b/concat:452', transforms=transforms,
+                             param_f=lambda: param.image(64), 
+                             thresholds=[2048], verbose=False)
+    plt.imshow(imgs[0][0])
+
+#    JITTER = 1
+#    ROTATE = 5
+#    SCALE  = 1.1
+#    
+#    transforms = [
+#        transform.pad(2*JITTER),
+#        transform.jitter(JITTER),
+#        transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
+#        transform.random_rotate(range(-ROTATE, ROTATE+1))
+#    ]
+#    out = render.render_vis(lucid_inception_v1, "inception_4b/output/concat:452", transforms=transforms,
+#                             param_f=lambda: param.image(64), 
+#                             thresholds=[2048], verbose=False,\
+#                             relu_gradient_override=True,use_fixed_seed=True)
+#                      
+#    plt.figure()
+#    plt.imshow(out[0][0])
+
   
 def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name='',\
                  input_name='block1_conv1_input'):
@@ -330,4 +419,6 @@ def test_render_VGG19():
         
         # Verifier que les con2d ou bias sont bien la sortie des couches juste avant le ReLu ! 
 
+if __name__ == '__main__':
+    test_render_Inception_v1()
 

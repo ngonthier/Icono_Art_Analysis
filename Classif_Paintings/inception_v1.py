@@ -343,7 +343,7 @@ def InceptionV1_slim(include_top=True,
         if pooling == 'avg':
             x = GlobalAveragePooling2D(name='global_pooling')(x)
         elif pooling == 'max':
-            x = GlobalMaxPooling2D(    name='global_pooling')(x)
+            x = GlobalMaxPooling2D(name='global_pooling')(x)
 
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
@@ -353,7 +353,7 @@ def InceptionV1_slim(include_top=True,
         inputs = img_input
         
     # Finally : Create model
-    model = Model(inputs, x, name='inception_v1')
+    model = Model(inputs, x, name='inception_v1_slim')
     
     # LOAD model weights
     if weights == 'imagenet':
@@ -381,11 +381,9 @@ def InceptionV1_slim(include_top=True,
                 md5_hash='6fa8ecdc5f6c402a59909437f0f5c975')
         model.load_weights(weights_path)
         if K.backend() == 'theano':
-            convert_all_kernels_in_model(model)    
+            convert_all_kernels_in_model(model)       
     
     return model
-
-
 
 def preprocess_input(x):
     x /= 255.
@@ -395,7 +393,7 @@ def preprocess_input(x):
 
 
 if __name__ == '__main__':
-    model = InceptionV1(include_top=True, weights='imagenet')
+    model = InceptionV1_slim(include_top=True, weights='imagenet')
 
     # img_path = 'elephant.jpg'
     # img = image.load_img(img_path, target_size=(224, 224))

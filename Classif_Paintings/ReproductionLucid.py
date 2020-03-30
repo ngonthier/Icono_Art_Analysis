@@ -23,11 +23,32 @@ import matplotlib.pyplot as plt
 model = models.InceptionV1()
 model.load_graphdef()
 
-neuron1 = ('mixed4c_pre_relu', 452) 
+neuron1 = ('mixed4b_pre_relu', 452) 
 C = lambda neuron: objectives.channel(*neuron)
 
 out = render.render_vis(model, C(neuron1))
 plt.imshow(out[0][0])
+
+JITTER = 1
+ROTATE = 5
+SCALE  = 1.1
+
+transforms = [
+    transform.pad(2*JITTER),
+    transform.jitter(JITTER),
+    transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
+    transform.random_rotate(range(-ROTATE, ROTATE+1))
+]
+
+imgs = render.render_vis(model, "mixed4b_pre_relu:452", transforms=transforms,
+                         param_f=lambda: param.image(64), 
+                         thresholds=[2048], verbose=False)
+plt.imshow(imgs[0][0])
+
+
+# Note that we're doubling the image scale to make artifacts more obvious
+show([nd.zoom(img[0], [2,2,1], order=0) for img in imgs])
+
 
 model = models.InceptionV1_slim()
 model.load_graphdef()
