@@ -42,7 +42,8 @@ transforms = [
 
 imgs = render.render_vis(model, "mixed4b_pre_relu:452", transforms=transforms,
                          param_f=lambda: param.image(64), 
-                         thresholds=[2048], verbose=False)
+                         thresholds=[2048], verbose=False,
+                         relu_gradient_override=True,use_fixed_seed=True)
 plt.imshow(imgs[0][0])
 
 
