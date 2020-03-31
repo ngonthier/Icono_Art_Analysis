@@ -8,8 +8,10 @@ import seaborn
 import time
 import tensorflow as tf
 
-from config import config as cfg
-#import config as cfg
+try:
+    from config import config as cfg 
+except ImportError:
+    import config as cfg # pip install config
 
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
