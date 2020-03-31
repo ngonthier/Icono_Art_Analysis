@@ -386,6 +386,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
                                    suffix=''):
     """
+    This function will train a SVM or MLP on extracted features or a full deep model
+    It will return the metrics or the model itself depending on the input parameters
+    
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
     @param : final_clf : the final classifier can be
@@ -1164,7 +1167,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
                                            y_col=classes,path_im=path_to_img,Net=constrNet,\
                                            cropCenter=cropCenter)
-            if constrNet=='InceptionV1': # As we have several outputs 
+            if constrNet=='InceptionV1' and deepSupervision: # As we have several outputs 
                 predictions = predictions[-1]
                 
             try:
@@ -4012,6 +4015,26 @@ def Crowley_reproduction_results():
     # & 73.1 & 46.9 & 92.8 & 76.4 & 65.1 & 73.4 & 56.8 & 80.2 & 71.1 & 88.6 & 72.4 \\
  
 def test_InceptionV1_onIconArt():
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=20,cropCenter=True,verbose=True,deepSupervision=False) 
+    # InceptionV1  ep :20 BFReLU & 36.7 & 53.1 & 10.0 & 65.0 & 58.2 & 48.9 & 3.3 & 39.3 \\ 
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=20,cropCenter=True,verbose=True,deepSupervision=False,\
+                SGDmomentum=0.9,decay=1e-4, nesterov=True,dropout=0.4,\
+                regulOnNewLayer='l2',regulOnNewLayerParam=[0.0002])
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=20,cropCenter=True,verbose=True,deepSupervision=False,\
+                SGDmomentum=0.9,decay=1e-4)
+    
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=True,\
                 pretrainingModif=True,\
