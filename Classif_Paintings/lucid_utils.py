@@ -286,10 +286,10 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         if Net=='VGG':
             obj = layer  + '/Relu:'+str(i)
     
-            name_base = layer  + 'Relu:'+str(i)+'_'+prexif_name+'.png'
+            name_base = layer  + 'Relu:'+str(i)+'_'+prexif_name+'.jpg'
         elif Net=='InceptionV1':
             obj = layer  + '/Conv2D:'+str(i)
-            name_base = layer  + 'Conv2D:'+str(i)+'_'+prexif_name+'.png'
+            name_base = layer  + 'Conv2D:'+str(i)+'_'+prexif_name+'.jpg'
             
         output_im = render.render_vis(lucid_net,obj ,
                                       transforms=transforms,
@@ -298,9 +298,9 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
                                       use_fixed_seed=True)
         image = np.array(output_im[0][0]*255)
         name_output = os.path.join(path_output,name_base)
-        #tf.keras.preprocessing.image.save_img(name_output, image)
-        im = Image.fromarray(image.astype(np.uint8))
-        im.save(name_output)
+        tf.keras.preprocessing.image.save_img(name_output, image)
+#        im = Image.fromarray(image.astype(np.uint8))
+#        im.save(name_output)
       
 def test_render_VGG19():
     
