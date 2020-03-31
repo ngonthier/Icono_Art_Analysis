@@ -44,6 +44,7 @@ from lucid.misc.redirected_relu_grad import redirected_relu_grad
 from tensorflow.python.platform import gfile
 
 from lucid.modelzoo.vision_base import IMAGENET_MEAN_BGR
+from PIL import Image
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
@@ -200,13 +201,12 @@ def test_render_Inception_v1():
     
     tf.reset_default_graph()
     K.set_learning_phase(0)
-    if not(os.path.isfile("model/tf_inception_v1.pb")) or True:
+    if not(os.path.isfile("model/tf_inception_v1.pb")):
         with K.get_session().as_default():
             model = inception_v1_oldTF(weights='imagenet',include_top=True) #include_top=True, weights='imagenet')
             print(model.input)
             os.makedirs('./model', exist_ok=True)
             
-            #model.save('./model/inception_v1_keras_model.h5')
             frozen_graph = freeze_session(K.get_session(),
                                       output_names=[out.op.name for out in model.outputs],
                                       clear_devices=True)
@@ -220,6 +220,12 @@ def test_render_Inception_v1():
         lucid_inception_v1 = Lucid_InceptionV1()
         lucid_inception_v1.load_graphdef()
         
+    
+    out = render.render_vis(lucid_inception_v1, 'mixed4a_1x1_pre_relu/Conv2D:0',\
+                            relu_gradient_override=True,use_fixed_seed=True)
+    plt.figure()
+    plt.imshow(out[0][0])
+    
     
     out = render.render_vis(lucid_inception_v1, 'mixed4b_pre_relu/concat:452',\
                             relu_gradient_override=True,use_fixed_seed=True)
@@ -247,13 +253,16 @@ def test_render_Inception_v1():
 
   
 def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name='',\
-                 input_name='block1_conv1_input'):
+                 input_name='block1_conv1_input',Net='VGG'):
     #with tf.Graph().as_default() as graph, tf.Session() as sess:
-        
-    lucid_vgg = Lucid_VGGNet(model_path=model_path,input_name=input_name)
-    lucid_vgg.load_graphdef()
-    nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
-    print(nodes_tab)
+    
+    if Net=='VGG':
+        lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
+    elif Net=='InceptionV1':
+        lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
+    lucid_net.load_graphdef()
+    #nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+    #print(nodes_tab)
 
     JITTER = 1
     ROTATE = 5
@@ -273,18 +282,25 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
 
     for layer_index_to_print in list_layer_index_to_print:
         layer, i = layer_index_to_print
-        obj = layer  + '/Relu:'+str(i)
-
-        name_base = layer  + 'Relu:'+str(i)+'_'+prexif_name+'.png'
-        # "block1_conv1/Conv2D:0"
-        output_im = render.render_vis(lucid_vgg,obj ,
+        
+        if Net=='VGG':
+            obj = layer  + '/Relu:'+str(i)
+    
+            name_base = layer  + 'Relu:'+str(i)+'_'+prexif_name+'.png'
+        elif Net=='InceptionV1':
+            obj = layer  + '/Conv2D:'+str(i)
+            name_base = layer  + 'Conv2D:'+str(i)+'_'+prexif_name+'.png'
+            
+        output_im = render.render_vis(lucid_net,obj ,
                                       transforms=transforms,
                                       thresholds=[4096],
                                       optimizer=optimizer,
                                       use_fixed_seed=True)
-        image = output_im[0][0]*255
+        image = np.array(output_im[0][0]*255)
         name_output = os.path.join(path_output,name_base)
-        tf.keras.preprocessing.image.save_img(name_output, image)
+        #tf.keras.preprocessing.image.save_img(name_output, image)
+        im = Image.fromarray(image.astype(np.uint8))
+        im.save(name_output)
       
 def test_render_VGG19():
     

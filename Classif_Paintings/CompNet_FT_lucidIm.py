@@ -5,7 +5,7 @@ Created on Tue Mar 17 10:24:07 2020
 
 In this script we will load the Model before and after fine-tuning and do 
 some deep-dream of the features maps of the weights that change the most
-
+(relative way)
 
 Les codes recensés ici peuvent etre utiles : https://github.com/tensorflow/lucid
 
@@ -15,9 +15,10 @@ Les codes recensés ici peuvent etre utiles : https://github.com/tensorflow/luci
 import tensorflow as tf
 import os
 import matplotlib
-from keras.preprocessing.image import load_img, save_img, img_to_array
+from tensorflow.keras.preprocessing.image import load_img, save_img, img_to_array
 from tensorflow.python.keras import backend as K
 import numpy as np
+from tensorflow.python.keras.layers import Conv2D
 
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index,numeral_layers_index_bitsVersion,\
     Precompute_Cumulated_Hist_4Moments,load_Cumulated_Hist_4Moments,get_list_im
@@ -29,6 +30,8 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet,\
     vgg_FRN,get_those_layers_output
 from StatsConstr_ClassifwithTL import learn_and_eval
+from googlenet import inception_v1_oldTF as Inception_V1
+
 import cv2
 
 import pickle
@@ -43,15 +46,20 @@ from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getRes
     fit_generator_ForRefineParameters
 
 import lucid_utils
+import platform
+
 
 def get_random_net(constrNet='VGG'):
     seed = 0
     tf.set_random_seed(seed) # For  tf v1
-    randomNet = tf.keras.applications.vgg19.VGG19(include_top=False, weights=None)
+    if constrNet=='VGG':
+        randomNet = tf.keras.applications.vgg19.VGG19(include_top=False, weights=None)
+    elif constrNet=='InceptionV1':
+        randomNet = Inception_V1(include_top=False, weights=None)
     return(randomNet)
 
 
-def get_fine_tuned_model(model_name,constrNet='VGG'):
+def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
     
     opt_option_small=[0.1,0.001]
     opt_option_small01=[0.1,0.01]
@@ -95,17 +103,21 @@ def get_fine_tuned_model(model_name,constrNet='VGG'):
     source_dataset = 'imagenet'   
     weights = 'imagenet'
     
-    features = 'block5_pool'
+    if constrNet=='VGG':
+        features = 'block5_pool'
+        final_clf = 'MLP2'
+        transformOnFinalLayer='GlobalAveragePooling2D' 
+    elif constrNet=='InceptionV1':
+        features = 'avgpool'
+        final_clf = 'MLP1'
+        transformOnFinalLayer=None
+    else:
+        raise(ValueError(constrNet + ' is unknown in this function'))
+        
     normalisation = False
-    getBeforeReLU = False
     source_dataset= 'ImageNet'
     kind_method=  'FT'
-    transformOnFinalLayer='GlobalAveragePooling2D'           
-    final_clf = 'MLP2'
-    
-    computeGlobalVariance = False
     optimizer='SGD'
-    
     
     epochs=20
     cropCenter=True
@@ -120,7 +132,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG'):
                            returnStatistics=returnStatistics,cropCenter=cropCenter,\
                            optimizer=optimizer,opt_option=opt_option,epochs=epochs,\
                            SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model,\
-                           pretrainingModif=True)
+                           pretrainingModif=True,suffix=suffix)
     return(net_finetuned)
 
 def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=''):
@@ -140,7 +152,7 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=''):
         raise(NotImplementedError)
         
     if model_name=='random':
-        net_finetuned = get_random_net()
+        net_finetuned = get_random_net(constrNet)
     else:
         net_finetuned = get_fine_tuned_model(model_name,constrNet=constrNet)
         
@@ -168,40 +180,41 @@ def get_gap_between_weights(list_name_layers,list_weights,net_finetuned):
     for finetuned_layer in finetuned_layers:
         # check for convolutional layer
         layer_name = finetuned_layer.name
-        if not('conv' in layer_name):
-            continue
+#        if not('conv' in layer_name):
+#            continue
         # get filter weights
         if not(layer_name in list_name_layers):
             continue
-        o_filters, o_biases = list_weights[j]
-        j+=1
-        f_filters, f_biases = finetuned_layer.get_weights()
-        print(layer_name, f_filters.shape)
-        num_filters = o_filters.shape[-1]
-        # Norm 2 between the weights of the filters
+        if isinstance(finetuned_layer, Conv2D) :
+            o_filters, o_biases = list_weights[j]
+            j+=1
+            f_filters, f_biases = finetuned_layer.get_weights()
+#            print(layer_name, f_filters.shape)
+            #num_filters = o_filters.shape[-1]
+            # Norm 2 between the weights of the filters
+                
+            diff_filters = o_filters - f_filters
+            norm2_filter = np.mean(o_filters**2,axis=(0,1,2))
+            norm1_filter = np.mean(np.abs(o_filters),axis=(0,1,2))
+            diff_squared = diff_filters**2
+            diff_abs = np.abs(diff_filters)
+            mean_squared = np.mean(diff_squared,axis=(0,1,2))
+            mean_abs = np.mean(diff_abs,axis=(0,1,2))
+            relative_diff_squared = mean_squared / norm2_filter
+            relative_diff_abs = mean_abs / norm1_filter
+            print('== For layer :',layer_name,' ==')
+            print('= Absolute squared of difference =')
+            print_stats_on_diff(mean_squared)
+            print('= Absolute abs of difference =')
+            print_stats_on_diff(mean_abs)
+            print('= Relative squared of difference =')
+            print_stats_on_diff(relative_diff_squared)
+            print('= Relative abs of difference =')
+            print_stats_on_diff(relative_diff_abs)
             
-        diff_filters = o_filters - f_filters
-        norm2_filter = np.mean(o_filters**2,axis=(0,1,2))
-        norm1_filter = np.mean(np.abs(o_filters),axis=(0,1,2))
-        diff_squared = diff_filters**2
-        diff_abs = np.abs(diff_filters)
-        mean_squared = np.mean(diff_squared,axis=(0,1,2))
-        mean_abs = np.mean(diff_abs,axis=(0,1,2))
-        relative_diff_squared = mean_squared / norm2_filter
-        relative_diff_abs = mean_abs / norm1_filter
-        print('== For layer :',layer_name,' ==')
-        print('= Absolute squared of difference =')
-        print_stats_on_diff(mean_squared)
-        print('= Absolute abs of difference =')
-        print_stats_on_diff(mean_abs)
-        print('= Relative squared of difference =')
-        print_stats_on_diff(relative_diff_squared)
-        print('= Relative abs of difference =')
-        print_stats_on_diff(relative_diff_abs)
-        
-        dict_layers_relative_diff[layer_name] = relative_diff_abs
-        argsort = np.argsort(relative_diff_abs)[::-1] # Il y avait une erreur la !
-        dict_layers_argsort[layer_name] = argsort
+            dict_layers_relative_diff[layer_name] = relative_diff_abs
+            argsort = np.argsort(relative_diff_abs)[::-1] # Il y avait une erreur la !
+            dict_layers_argsort[layer_name] = argsort
         
     return(dict_layers_relative_diff,dict_layers_argsort)
 
@@ -211,56 +224,65 @@ def print_stats_on_diff(np_list,k=1):
     for i in range(k):
         print('Top ',i,': index =',argsort[i],' value :',np_list[argsort[i]])
 
-def get_imageNet_weights():
+def get_imageNet_weights(Net):
     weights = 'imagenet'
     
-    imagenet_model = tf.keras.applications.vgg19.VGG19(include_top=False, weights=weights)
+    if Net=='VGG':
+        imagenet_model = tf.keras.applications.vgg19.VGG19(include_top=False, weights=weights)
+    elif Net == 'InceptionV1':
+        imagenet_model = Inception_V1(include_top=False, weights=weights)
+    else:
+        raise(NotImplementedError)
+        
     net_layers = imagenet_model.layers
        
     list_weights = []
     list_name_layers = []
     for original_layer in net_layers:
+        #print(original_layer.name,isinstance(original_layer, Conv2D))
         # check for convolutional layer
         layer_name = original_layer.name
-        if not('conv' in layer_name):
-            continue
-        # get filter weights
-        o_weights = original_layer.get_weights() # o_filters, o_biases
-        list_weights +=[o_weights]
-        list_name_layers += [layer_name]
+        if isinstance(original_layer, Conv2D) :
+            # get filter weights
+            o_weights = original_layer.get_weights() # o_filters, o_biases
+            list_weights +=[o_weights]
+            list_name_layers += [layer_name]
     return(list_weights,list_name_layers)
 
-def Comparaison_of_FineTunedModel():
+def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
     """
     This function will load the two models (deep nets) before and after fine-tuning 
     and then compute the difference between the weights and finally run a 
     deep dream on the feature maps of the weights that have the most change
     """
     
-    output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel')
+    if constrNet=='VGG':
+        input_name_lucid ='block1_conv1_input'
+    elif constrNet=='InceptionV1':
+        input_name_lucid ='input_1'
+    else:
+        raise(NotImplementedError(constrNet + ' is not implemented sorry.'))
+    
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet)
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
 
     matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
-
-       
     
-    Model_dict = {}
-    list_markers = ['o','s','X','*']
-    alpha = 0.7
-    
-    dict_of_dict_hist = {}
-    dict_of_dict = {}
-    constrNet = 'VGG'
-    
-    list_weights,list_name_layers = get_imageNet_weights()
+    list_weights,list_name_layers = get_imageNet_weights(Net=constrNet)
     
     list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
                         'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
                         'RASTA_small01_modif','RASTA_big01_modif',
                         'RASTA_small001_modif','RASTA_big001_modif',
                         'RASTA_small001_modif_LastEpoch']#,'RASTA_big001_modif_LastEpoch']
+    list_models_name = ['IconArt_v1_small001_modif']#,'RASTA_big001_modif_LastEpoch']
     #list_models_name = ['random']
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
+    
+    suffix_tab = [''] # In order to have more than once the model fine-tuned with some given hyperparameters
     
     K.set_learning_phase(0)
     #with K.get_session().as_default(): 
@@ -270,27 +292,29 @@ def Comparaison_of_FineTunedModel():
         print('#### ',model_name)
         list_layer_index_to_print = []
         if not(model_name=='random'):
-            net_finetuned = get_fine_tuned_model(model_name)
-            dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
-                                                                            list_weights,net_finetuned)
-            
-            #name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=path_lucid_model)
-            
-            for key in dict_layers_argsort.keys():
-                top1 = dict_layers_argsort[key][0]
-                list_layer_index_to_print += [[key,top1]]
-                list_layer_index_to_print_base_model += [[key,top1]]
+            for suffix in suffix_tab:
+                net_finetuned = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+                dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
+                                                                                list_weights,net_finetuned)
                 
-            #lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-            #        ,path_output=output_path,prexif_name=model_name,input_name='block1_conv1_input')
-            
+                name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet=constrNet,path=path_lucid_model)
+                
+                for key in dict_layers_argsort.keys():
+                    top1 = dict_layers_argsort[key][0]
+                    list_layer_index_to_print += [[key,top1]]
+                    list_layer_index_to_print_base_model += [[key,top1]]
+                    
+                #print('list_layer_index_to_print',list_layer_index_to_print)
+                lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                        ,path_output=output_path,prexif_name=model_name,input_name=input_name_lucid,Net=constrNet)
+                
         else:
             # Random model 
-            net_finetuned = get_random_net()
+            net_finetuned = get_random_net(constrNet)
             dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
                                                                             list_weights,net_finetuned)
             
-            name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=path_lucid_model)
+            name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet=constrNet,path=path_lucid_model)
             
             for key in dict_layers_argsort.keys():
                 top1 = dict_layers_argsort[key][0]
@@ -298,16 +322,21 @@ def Comparaison_of_FineTunedModel():
                 list_layer_index_to_print_base_model += [[key,top1]]
             
             lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                         ,path_output=output_path,prexif_name=model_name,input_name='input_1')
+                         ,path_output=output_path,prexif_name=model_name,input_name='input_1',Net=constrNet)
               
-    # For the original pretrained imagenet VGG
-    lucid_utils.print_images(model_path='model/tf_vgg19.pb',list_layer_index_to_print=list_layer_index_to_print_base_model\
-                  ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1')
-            
+    if constrNet=='VGG':
+        # For the original pretrained imagenet VGG
+        lucid_utils.print_images(model_path='model/tf_vgg19.pb',list_layer_index_to_print=list_layer_index_to_print_base_model\
+                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
+    elif constrNet=='InceptionV1':
+        # For the original pretrained imagenet InceptionV1 from Lucid to keras to Lucid
+        lucid_utils.print_images(model_path='model/tf_inception_v1.pb',list_layer_index_to_print=list_layer_index_to_print_base_model\
+                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
+                
     
  
 if __name__ == '__main__': 
-    Comparaison_of_FineTunedModel()    
+    Comparaison_of_FineTunedModel(constrNet='InceptionV1')    
         
         
         

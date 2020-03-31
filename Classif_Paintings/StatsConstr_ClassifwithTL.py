@@ -66,6 +66,8 @@ from bayes_opt.util import load_logs
 from bayes_opt import JSONLogger
 from bayes_opt.event import Events
 
+from googlenet import LRN,PoolHelper
+
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
     This function compute a reference statistics on the statistics of the whole dataset
@@ -942,7 +944,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if getBeforeReLU:
             Latex_str += ' BFReLU'
     elif kind_method=='FT':
-        Latex_str = constrNet +' '+transformOnFinalLayer  + ' ep :' +str(epochs)
+        if transformOnFinalLayer is None:
+            transformOnFinalLayer_str = ''
+        else:
+            transformOnFinalLayer_str = transformOnFinalLayer
+        Latex_str = constrNet +' '+transformOnFinalLayer_str  + ' ep :' +str(epochs)
         if type(pretrainingModif)==bool:
             if not(pretrainingModif):
                 Latex_str += ' All Freeze'
@@ -1078,12 +1084,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         
             # This have not been tested maybe you have to put it after the get_deep_model_for_FT function
             if returnStatistics and os.path.exists(model_path): # We will load the model and return it
-                if not(constrNet=='ResNet50' or constrNet=='VGG'):
-                    raise(NotImplementedError)
+                if not(constrNet=='ResNet50' or constrNet=='VGG' or constrNet=='InceptionV1'):
+                    raise(NotImplementedError('You can only do it fot the predifined model VGG ResNet50 and InceptionV1'))
                     # Need to add in load_model custom_objects
                 print('We will load the trained model :')
                 print(model_path)
-                model = load_model(model_path,compile=False)
+                if constrNet=='InceptionV1':
+                    model = load_model(model_path,compile=False, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
+                else:
+                    model = load_model(model_path,compile=False)
                 return(model)
             else:
                 if returnStatistics: print('We will need to train the model before provide it to you !')
@@ -1157,7 +1166,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             model.save(model_path,include_optimizer=include_optimizer)
             utils_keras.fix_layer0(model_path, [None, 224, 224,3], 'float32') 
             if returnStatistics: # We will load the model and return it
-                model = load_model(model_path)
+                if constrNet=='InceptionV1':
+                    model = load_model(model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
+                else:
+                    model = load_model(model_path)
                 return(model)
             
             if constrNet=='VGGsuffleInStatsSameLabel':
@@ -1919,8 +1931,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         tmp_model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
         mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor=monitor, mode=mode)
         callbacks += [mcp_save]
-        
-    
+
     if platform.system()=='Windows':
         print('For the moment with tensorflow 1.15 the multiprocessing on Windows don t work')
         use_multiprocessing = False
@@ -4028,12 +4039,21 @@ def test_InceptionV1_onIconArt():
                 epochs=20,cropCenter=True,verbose=True,deepSupervision=False,\
                 SGDmomentum=0.9,decay=1e-4, nesterov=True,dropout=0.4,\
                 regulOnNewLayer='l2',regulOnNewLayerParam=[0.0002])
+    # InceptionV1  ep :20 BFReLU & 48.6 & 75.3 & 28.3 & 79.4 & 71.6 & 69.5 & 8.3 & 54.4 \\ 
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 pretrainingModif=True,\
                 optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
                 epochs=20,cropCenter=True,verbose=True,deepSupervision=False,\
                 SGDmomentum=0.9,decay=1e-4)
+    #InceptionV1  ep :20 BFReLU & 42.9 & 72.8 & 20.8 & 79.0 & 69.5 & 68.4 & 8.1 & 51.7 \\
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=20,cropCenter=True,verbose=True,deepSupervision=True,\
+                SGDmomentum=0.9,decay=1e-4)
+    #InceptionV1  ep :20 BFReLU & 43.8 & 71.3 & 17.5 & 77.7 & 68.6 & 67.4 & 7.5 & 50.5 \\ 
     
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=True,\
