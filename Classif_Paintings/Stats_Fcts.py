@@ -29,6 +29,8 @@ from tensorflow.keras.optimizers import SGD,Adam,RMSprop
 from tensorflow.python.ops import math_ops,array_ops
 from tensorflow import dtypes
 
+from googlenet import inception_v1_oldTF as Inception_V1
+
 #from custom_pooling import GlobalMinPooling2D
 from lr_multiplier import LearningRateMultiplier
 from common.layers import DecorrelatedBN
@@ -571,7 +573,8 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
 
 def vgg_suffleInStats(style_layers,num_of_classes=10,\
               transformOnFinalLayer='GlobalMaxPooling2D',getBeforeReLU=True,verbose=False,\
-              weights='imagenet',final_clf='MLP2',final_layer='block5_pool',\
+              weights='imagenet',final_clf='MLP2',\
+              final_layer='block5_pool',\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle',
               pretrainingModif=True,freezingType='FromTop',p=0.5,\
@@ -760,6 +763,8 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
   """
   # TODO : faire une multiplication par du bruit des statistics
   #model = tf.keras.Sequential()
+  print('Cette fonction n est pas du tout fini ou teste')
+  raise(NotImplementedError)
   inputlabel = Input(shape=(num_of_classes,))
   imSize = 224
   inputImage = Input(shape=(imSize,imSize,3))
@@ -895,7 +900,7 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
   #     model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True,\
   #                                             custom_objects=custom_objects)
   
-  model = new_head_ResNet(model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
+  model = new_head_VGGcase(model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,regularizers,dropout,
                     final_activation=final_activation,metrics=metrics,
                     loss=loss)
 
@@ -906,7 +911,7 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
 
 ### ResNet baseline
   
-def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
+def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,regularizers,dropout,
                     final_activation='sigmoid',metrics='accuracy',
                     loss='binary_crossentropy'):
   """
@@ -916,32 +921,21 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
     ----------
     pre_model : TYPE
         DESCRIPTION.
-    x : TYPE
-        DESCRIPTION.
-    final_clf : TYPE
-        DESCRIPTION.
-    num_of_classes : TYPE
-        DESCRIPTION.
-    multipliers : TYPE
-        DESCRIPTION.
-    lr_multiple : TYPE
-        DESCRIPTION.
-    lr : TYPE
-        DESCRIPTION.
-    opt : TYPE
-        DESCRIPTION.
-    dropout : TYPE
-        DESCRIPTION.
-    final_activation : TYPE, optional
-        DESCRIPTION. The default is 'sigmoid'.
-    metrics : TYPE, optional
-        DESCRIPTION. The default is 'accuracy'.
-    loss : TYPE, optional
-        DESCRIPTION. The default is 'binary_crossentropy'.
+    x : current variable a.k.a. output of the model
+    final_clf : type of final layer we have to add
+    num_of_classes : number of final class
+    multipliers : bool to say if we use of not a multiplier for the transfered layers
+    lr_multiple : dict : of the layer name and multiplier (of the learning rate)
+    lr : default learning rate
+    opt : optimizer
+    dropout : if integer value of the dropout on the new layers
+    final_activation :The default is 'sigmoid'.
+    metrics : The default is 'accuracy'.
+    loss :  The default is 'binary_crossentropy'.
 
     Returns
     -------
-    None.
+    model with new classification head
 
     """
     
@@ -951,13 +945,13 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
       metrics = [top_1_categorical_accuracy]
     
   if final_clf=='MLP2' or final_clf=='MLP3' :
-      x = Dense(256, activation='relu')(x)
+      x = Dense(256, activation='relu',kernel_regularizer=regularizers)(x)
       if not(dropout is None): x = Dropout(dropout)(x)
   if final_clf=='MLP3' :
-      x = Dense(128, activation='relu')(x)
+      x = Dense(128, activation='relu',kernel_regularizer=regularizers)(x)
       if not(dropout is None): x = Dropout(dropout)(x)
   if final_clf=='MLP2' or final_clf=='MLP1' or final_clf=='MLP3':
-      predictions = Dense(num_of_classes, activation=final_activation)(x)
+      predictions = Dense(num_of_classes, activation=final_activation,kernel_regularizer=regularizers)(x)
       if final_clf=='MLP1':
           if not(dropout is None): x = Dropout(dropout)(x)
   model = Model(inputs=pre_model.input, outputs=predictions)
@@ -976,12 +970,15 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
 def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
                              pretrainingModif=True,verbose=True,weights='imagenet',res_num_layers=50,\
                              optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',\
+                             regulOnNewLayer=None,regulOnNewLayerParam=[],\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
                              loss='binary_crossentropy'): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+  
   # create model
 #  input_tensor = Input(shape=(224, 224, 3)) 
   if res_num_layers==50:
@@ -1056,7 +1053,7 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
   elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
       x= Flatten()(x)
   
-  model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
+  model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,regularizers,dropout,
                           final_activation=final_activation,metrics=metrics,loss=loss)
  
   if verbose: print(model.summary())
@@ -1116,7 +1113,7 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
                              verbose=True,weights='imagenet',\
                              res_num_layers=50,\
                              optimizer='adam',opt_option=[0.01],\
-                             final_clf='MLP2',dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0
+                             final_clf='MLP2',regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0
                              ,final_activation='sigmoid',metrics='accuracy',
                              loss='binary_crossentropy',kind_of_shuffling='shuffle',
                              pretrainingModif=True,freezingType='FromTop',p=0.5): 
@@ -1126,6 +1123,7 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
   @param 
   """
   # create model
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
   
   ResNet_layers_names= getResNet50layersName()
   for layer_name in style_layers:
@@ -1272,7 +1270,7 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
      # target_shape: Target shape. Tuple of integers, does not include the samples dimension (batch size)
      x = reshape_layer(x)
 
-  model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
+  model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,regularizers,dropout,
                           final_activation=final_activation,metrics=metrics,loss=loss)
  
   if verbose: print(model.summary())
@@ -1284,7 +1282,9 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
                              verbose=True,weights='imagenet',\
                              res_num_layers=50,\
                              optimizer='adam',opt_option=[0.01],\
-                             final_clf='MLP2',dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0
+                             final_clf='MLP2',\
+                             regulOnNewLayer=None,regulOnNewLayerParam=[],\
+                             dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0
                              ,final_activation='sigmoid',metrics='accuracy',
                              loss='binary_crossentropy'): 
   """
@@ -1293,6 +1293,8 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
   """
   # create model
 #  input_tensor = Input(shape=(224, 224, 3)) 
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+  
   if res_num_layers==50:
       pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
                                                           input_shape= (224, 224, 3))
@@ -1346,7 +1348,7 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
   elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
       x= Flatten()(x)
   
-  model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,\
+  model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,regularizers,dropout,\
                           final_activation=final_activation,metrics=metrics,loss=loss)
  
   if verbose: print(model.summary())
@@ -1426,7 +1428,8 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
   return model
   
 def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=[0.01],\
-                             final_clf='MLP2',dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
+                             final_clf='MLP2',regulOnNewLayer=None,regulOnNewLayerParam=[],\
+                             dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
                              verbose=False,AdaIn_mode=False,style_layers=[],pretrainingModif=True,\
                              freezingType='FromTop',net_model='ResNet50',
                              final_activation='sigmoid',metrics='accuracy',
@@ -1435,6 +1438,7 @@ def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=
     This function makes the model trainable and add it a head (MLP at 1 2 or 3 layers) only for ResNet
     @param AdaIn_mode : if True means that only batch normalisation are trainable
     """
+    regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
     
     if 'ResNet50' in net_model: 
         number_of_trainable_layers = 106
@@ -1510,7 +1514,7 @@ def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=
                 multipliers[layer.name] = multiply_lrp
     
     x= pre_model.output
-    model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
+    model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,regularizers,dropout,
                             final_activation=final_activation,metrics=metrics,loss=loss)
     if verbose: print(model.summary())
     return(model)
@@ -2108,6 +2112,150 @@ def extract_Norm_stats_of_ResNet(model,res_num_layers=50,model_type='normal'):
           current_list_mean_and_std_target += [mean_and_std_layer]
     return(dict_stats_coherent,current_list_mean_and_std_target)
   
+### InceptionV1 baseline
+    
+### ResNet baseline
+  
+def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
+                    final_activation='sigmoid',metrics='accuracy',
+                    loss='binary_crossentropy',deepSupervision=True):
+  """
+    Add a functionnal head to a functionnal model of type InceptionV1 
+  
+    Parameters
+    ----------
+    pre_model : TYPE
+        DESCRIPTION.
+    x : current variable a.k.a. output of the model
+    final_clf : type of final layer we have to add
+    num_of_classes : number of final class
+    multipliers : bool to say if we use of not a multiplier for the transfered layers
+    lr_multiple : dict : of the layer name and multiplier (of the learning rate)
+    lr : default learning rate
+    opt : optimizer
+    dropout : if integer value of the dropout on the new layers
+    final_activation :The default is 'sigmoid'.
+    metrics : The default is 'accuracy'.
+    loss :  The default is 'binary_crossentropy'.
+
+    Returns
+    -------
+    model with new classification head
+
+    """
+    
+  if not(deepSupervision):
+      x = [x[-1]] # We only keep the last head, the last classification part
+  list_outputs = []
+  for head in x:
+      list_outputs += [Flatten()(head)]
+    
+  if metrics=='accuracy':
+      metrics = [metrics]
+  elif metrics=='top_k_categorical_accuracy':
+      metrics = [top_1_categorical_accuracy]
+    
+  if final_clf=='MLP2' or final_clf=='MLP3' :
+      x = Dense(256, activation='relu')(x)
+      if not(dropout is None): x = Dropout(dropout)(x)
+  if final_clf=='MLP3' :
+      x = Dense(128, activation='relu')(x)
+      if not(dropout is None): x = Dropout(dropout)(x)
+  if final_clf=='MLP2' or final_clf=='MLP1' or final_clf=='MLP3':
+      predictions = Dense(num_of_classes, activation=final_activation)(x)
+      if final_clf=='MLP1':
+          if not(dropout is None): x = Dropout(dropout)(x)
+  model = Model(inputs=pre_model.input, outputs=predictions)
+  if lr_multiple:
+      if final_clf=='MLP3': multipliers[model.layers[-3].name] = None
+      if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = None
+      if final_clf=='MLP3' or final_clf=='MLP2' or final_clf=='MLP1': multipliers[model.layers[-1].name] = None
+      opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
+  else:
+      opt = opt(learning_rate=lr)
+      
+  # Compile model
+  model.compile(loss=loss, optimizer=opt, metrics=metrics)
+  return(model)
+
+def InceptionV1_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
+                             pretrainingModif=True,verbose=True,weights='imagenet',res_num_layers=50,\
+                             optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',\
+                             dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
+                             final_activation='sigmoid',metrics='accuracy',
+                             loss='binary_crossentropy'): 
+  """
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  """
+  # create model
+
+  pre_model = Inception_V1(include_top=False, weights=weights,\
+                          input_shape= (224, 224, 3))
+  number_of_trainable_layers = 146
+  
+  SomePartFreezed = False
+  if type(pretrainingModif)==bool:
+      pre_model.trainable = pretrainingModif
+  else:
+      SomePartFreezed = True # We will unfreeze pretrainingModif==int layers from the end of the net
+      assert(number_of_trainable_layers >= pretrainingModif)
+  
+  lr_multiple = False
+  multipliers = {}
+  multiply_lrp, lr = None,None
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
+  else:
+      lr = 0.01
+  if optimizer=='SGD': 
+      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
+  elif optimizer=='adam': 
+      opt = partial(Adam,decay=decay)
+  elif optimizer=='RMSprop':
+      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
+  else:
+      opt =  optimizer
+      
+  ilayer = 0
+  for layer in pre_model.layers:
+      if SomePartFreezed and (layer.count_params() > 0):
+         
+         if freezingType=='FromTop':
+             if ilayer >= number_of_trainable_layers - pretrainingModif:
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         elif freezingType=='FromBottom':
+             if ilayer < pretrainingModif:
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+         elif freezingType=='Alter':
+             pretrainingModif_bottom = pretrainingModif//2
+             pretrainingModif_top = pretrainingModif//2 + pretrainingModif%2
+             if (ilayer < pretrainingModif_bottom) or\
+                 (ilayer >= number_of_trainable_layers - pretrainingModif_top):
+                 layer.trainable = True
+             else:
+                 layer.trainable = False
+                 
+      ilayer += 1
+      # Only if the layer have some trainable parameters
+      if lr_multiple and layer.trainable: 
+          multipliers[layer.name] = multiply_lrp
+
+  x = pre_model.output
+  
+  model = new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
+                          final_activation=final_activation,metrics=metrics,loss=loss)
+ 
+  if verbose: print(model.summary())
+  return model
+    
+    
 ### Preprocessing functions 
 
 def load_resize(path_to_img,max_dim = 224):

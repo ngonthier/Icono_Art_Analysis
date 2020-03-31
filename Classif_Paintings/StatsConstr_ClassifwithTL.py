@@ -1298,7 +1298,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
         model = ResNet_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,opt_option=opt_option,\
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,\
-                                   freezingType=freezingType,dropout=dropout,nesterov=nesterov,\
+                                   freezingType=freezingType,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
+                                   dropout=dropout,nesterov=nesterov,\
                                    SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
                                    final_activation=final_activation,metrics=metrics,loss=loss)
             
@@ -1307,6 +1308,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
         model = ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
+                                   regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                                    dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
                                    final_activation=final_activation,metrics=metrics,loss=loss)
             
@@ -1315,6 +1317,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
         model = ResNet_suffleInStats(style_layers,final_layer=features,num_of_classes=num_classes,\
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
+                                   regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                                    dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
                                    final_activation=final_activation,metrics=metrics,loss=loss,
                                    kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
@@ -1325,6 +1328,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
         model = ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
+                                   regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                                    dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
                                    kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
                                    freezingType=freezingType,p=p,\
@@ -1353,7 +1357,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                        weights='imagenet')
 
         model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
-                     final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
+                     final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,
+                     dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet,\
                      final_activation=final_activation,metrics=metrics,loss=loss)
             
@@ -1380,7 +1385,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                        weights='imagenet')
 
         model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
-                     final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
+                     final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
+                     dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      AdaIn_mode=True,style_layers=style_layers,\
                      final_activation=final_activation,metrics=metrics,loss=loss)
             
@@ -1415,7 +1421,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
 #                               weights='imagenet')
         
         model = add_head_and_trainable(network_features_extractionBNRF,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
-                     final_clf=final_clf,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
+                     final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
+                     dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet,\
                      final_activation=final_activation,metrics=metrics,loss=loss)
             ## Non tester !!!
