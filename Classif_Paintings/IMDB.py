@@ -12,6 +12,7 @@ import os
 def get_database(database):
     ext = '.txt'
     default_path_imdb = '/media/gonthier/HDD/data/'
+    default_path_imdb2 = '/media/gonthier/HDD2/data/'
     if database=='Paintings':
         # Only for classification
         item_name = 'name_img'
@@ -21,7 +22,7 @@ def get_database(database):
         path_to_img = 'RASTA_LAMSADE/wikipaintings_full'
         ext = '.csv'
         item_name = 'name_img'
-        default_path_imdb = '/media/gonthier/HDD2/data/'
+        default_path_imdb = default_path_imdb2
         classes=['Abstract_Art','Abstract_Expressionism','Art_Informel','Art_Nouveau_(Modern)','Baroque','Color_Field_Painting','Cubism','Early_Renaissance','Expressionism','High_Renaissance','Impressionism','Magic_Realism','Mannerism_(Late_Renaissance)','Minimalism','Naïve_Art_(Primitivism)','Neoclassicism','Northern_Renaissance','Pop_Art','Post-Impressionism','Realism','Rococo','Romanticism','Surrealism','Symbolism','Ukiyo-e']
     elif database=='VOC12':
         item_name = 'name_img'
@@ -78,7 +79,7 @@ def get_database(database):
         path_to_img = 'cross-domain-detection/datasets/comic/JPEGImages/'
         classes =  ['bicycle','bird','car','cat','dog','person']
     elif database=='CASPApaintings':
-        default_path_imdb = '/media/gonthier/HDD2/data/'
+        default_path_imdb = default_path_imdb2
         ext = '.csv'
         item_name = 'name_img'
         path_to_img = 'CASPApaintings/JPEGImages/'     
@@ -97,7 +98,7 @@ def get_database(database):
         ext = '.csv'
         item_name = 'item'
         path_to_img = 'OIV5/Images/'
-        default_path_imdb = '/media/gonthier/HDD2/data/'
+        default_path_imdb = default_path_imdb2
         classes = ['/m/011k07', '/m/0120dh', '/m/01226z', '/m/012n7d', '/m/012w5l',
            '/m/0130jx', '/m/0138tl', '/m/013y1f', '/m/014j1m', '/m/014sv8',
            '/m/014y4n', '/m/0152hh', '/m/01599', '/m/015h_t', '/m/015p6',
