@@ -20,9 +20,9 @@ from __future__ import print_function
 import imageio
 from PIL import Image
 import numpy as np
+import os
 
-from tensorflow.python.keras.layers import Input, Dense,Lambda, Conv2D, MaxPooling2D, AveragePooling2D, ZeroPadding2D, Dropout, Flatten, Concatenate, Reshape, Activation
-from tensorflow.python.keras.layers import concatenate
+from tensorflow.python.keras.layers import Input, Dense,Lambda, Conv2D, MaxPooling2D, AveragePooling2D, ZeroPadding2D, Dropout, Flatten, Concatenate, Activation
 from tensorflow.python.keras import Model
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import SGD
@@ -732,11 +732,17 @@ def inception_v1_oldTF(weights='imagenet',include_top=True,input_shape= (224, 22
     else: 
         googlenet = Model(inputs=img_input, outputs=[loss1_conv,loss2_conv,pool5_7x7_s1], name='inception_v1')
 
+
+
     if weights=='imagenet':
+        path_models = '/media/gonthier/HDD/models/'
+        if not(os.path.exists(path_models)): # Thats means you are not on the Nicolas Computer
+            print('You are not on the Nicolas PC, we assume you put the weights in the model folder')
+            path_models = 'model/'
         if not(include_top):
-            weights_path = 'model/InceptionV1_fromLucid_without_head.h5'
+            weights_path = path_models+'InceptionV1_fromLucid_without_head.h5'
         else:
-            weights_path = 'model/InceptionV1_fromLucid.h5'
+            weights_path = path_models+'InceptionV1_fromLucid.h5'
         googlenet.load_weights(weights_path)
 
     return googlenet
