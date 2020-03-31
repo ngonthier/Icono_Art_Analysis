@@ -4,11 +4,14 @@
 Created on Mon Mar 23 16:56:36 2020
 
 The goal of this script is to load a GoogLeNet (a.k.a Inception V1) Szegedy 2015
-Converted from Caffe
+Converted from Caffe or Lucid pb
+
 Code from https://gist.github.com/joelouismarino/a2ede9ab3928f999575423b9887abd14 
 adapted to keras in tensorflow
 
-Problem ! need image with channel first ! 
+Problem ! need image with channel first ! C'est pour cela que de nombre variantes
+ont été faite par Nicolas, la plus utiles est inception_v1_oldTF mais 
+nécessite les poids de Lucid : cf FromPb_to_h5.py pour convertir les poids en h5
 
 @author: gonthier and  joelouismarino
 """
@@ -335,10 +338,10 @@ def create_googlenet(weights=None,include_top=True):
     inception_4a_output = Concatenate(axis=axis_concat, name='inception_4a/output')([inception_4a_1x1,inception_4a_3x3,inception_4a_5x5,inception_4a_pool_proj])
 
     loss1_ave_pool = AveragePooling2D(pool_size=(5,5), strides=(3,3), name='loss1_ave_pool')(inception_4a_output)
-
+    loss1_conv = Conv2D(128, (1,1), padding='same', activation='relu', name='loss1_conv', kernel_regularizer=l2(0.0002))(loss1_ave_pool)
+    
+    
     if include_top:
-        
-        loss1_conv = Conv2D(128, (1,1), padding='same', activation='relu', name='loss1_conv', kernel_regularizer=l2(0.0002))(loss1_ave_pool)
         loss1_flat = Flatten()(loss1_conv)
         loss1_fc = Dense(1024, activation='relu', name='loss1_fc', kernel_regularizer=l2(0.0002))(loss1_flat)
         loss1_drop_fc = Dropout(rate=0.7)(loss1_fc)
@@ -379,9 +382,10 @@ def create_googlenet(weights=None,include_top=True):
     inception_4d_output = Concatenate(axis=axis_concat, name='inception_4d_output')([inception_4d_1x1,inception_4d_3x3,inception_4d_5x5,inception_4d_pool_proj])
 
     loss2_ave_pool = AveragePooling2D(pool_size=(5,5), strides=(3,3), name='loss2_ave_pool')(inception_4d_output)
+    loss2_conv = Conv2D(128, (1,1), padding='same', activation='relu', name='loss2_conv', kernel_regularizer=l2(0.0002))(loss2_ave_pool)
+    
     
     if include_top:
-        loss2_conv = Conv2D(128, (1,1), padding='same', activation='relu', name='loss2_conv', kernel_regularizer=l2(0.0002))(loss2_ave_pool)
         loss2_flat = Flatten()(loss2_conv)
         loss2_fc = Dense(1024, activation='relu', name='loss2_fc', kernel_regularizer=l2(0.0002))(loss2_flat)
         loss2_drop_fc = Dropout(rate=0.7)(loss2_fc)
@@ -427,6 +431,7 @@ def create_googlenet(weights=None,include_top=True):
 
     pool5_7x7_s1 = AveragePooling2D(pool_size=(7,7), strides=(1,1), name='pool5_7x7_s2')(inception_5b_output)
     
+    
     if include_top:
         loss3_flat = Flatten()(pool5_7x7_s1)
         pool5_drop_7x7_s1 = Dropout(rate=0.4)(loss3_flat)
@@ -436,7 +441,7 @@ def create_googlenet(weights=None,include_top=True):
         googlenet = Model(inputs=img_input, outputs=[loss1_classifier_act,loss2_classifier_act,loss3_classifier_act], name='inception_v1')
    
     else: 
-        googlenet = Model(inputs=img_input, outputs=[loss1_ave_pool,loss2_ave_pool,pool5_7x7_s1], name='inception_v1')
+        googlenet = Model(inputs=img_input, outputs=[loss1_conv,loss2_conv,pool5_7x7_s1], name='inception_v1')
 
     if weights=='theano_imagenet':
         weights_path = 'model/googlenet_weights.h5'
@@ -465,12 +470,31 @@ def create_googlenet(weights=None,include_top=True):
 
     return googlenet
 
-def inception_v1_oldTF(weights=None,include_top=True):
+def inception_v1_oldTF(weights='imagenet',include_top=True,input_shape= (224, 224, 3)):
     """
-    Tentative de faire un Inception V1 avec les poids de Theano mais channels_last
-    Cela ne marche pas : on n'a pas les meme sorties que le modèle au dessus ! 
+    Inception V1 avec les poids qui viennent de Lucid  ! 
+    https://github.com/tensorflow/lucid/blob/master/lucid/modelzoo/other_models/InceptionV1.py
+    
+    Parameters
+    ----------
+    weights : string
+        one of `None` (random initialization)
+            or "imagenet" (pre-training on ImageNet). default is imagenet 
+    include_top : bool
+        whether to include the fully-connected layer at the top of the network.
+        If False return model with last layers equal to head0_bottleneck
+        head1_bottleneck and avgpool
+    
     """
     # creates GoogLeNet a.k.a. Inception v1 (Szegedy, 2015)
+    
+    if weights not in {'imagenet', None}:
+        raise ValueError('The `weights` argument should be either '
+                         '`None` (random initialization) or `imagenet` '
+                         '(pre-training on ImageNet).')
+    
+    if not(input_shape==(224, 224, 3)) and include_top:
+        raise ValueError('If using `include_top` as true, `input_shape` should be (224, 224, 3) due to the fully connected layers.')
     
     kernel_regularizer = l2(0.0002)
     K.set_image_data_format('channels_last')
@@ -560,11 +584,10 @@ def inception_v1_oldTF(weights=None,include_top=True):
     inception_4a_output =  Activation('relu', name='mixed4a')(inception_4a_output_pre_relu)
 
     loss1_ave_pool = AveragePooling2D(pool_size=(5,5), strides=(3,3), name='head0_pool')(inception_4a_output)
-
+    loss1_conv_pre_relu = Conv2D(128, (1,1), padding='same', activation='linear', name='head0_bottleneck_pre_relu', kernel_regularizer=kernel_regularizer)(loss1_ave_pool)
+    loss1_conv = Activation('relu',name='head0_bottleneck')(loss1_conv_pre_relu)
+    
     if include_top:
-        
-        loss1_conv_pre_relu = Conv2D(128, (1,1), padding='same', activation='linear', name='head0_bottleneck_pre_relu', kernel_regularizer=kernel_regularizer)(loss1_ave_pool)
-        loss1_conv = Activation('relu',name='head0_bottleneck')(loss1_conv_pre_relu)
         loss1_flat = Flatten()(loss1_conv)
         loss1_fc_pre_relu = Dense(1024, activation='linear', name='nn0_pre_relu', kernel_regularizer=kernel_regularizer)(loss1_flat)
         loss1_fc = Activation('relu',name='nn0')(loss1_fc_pre_relu)
@@ -627,10 +650,10 @@ def inception_v1_oldTF(weights=None,include_top=True):
     inception_4d_output = Activation('relu',  name='mixed4d')(inception_4d_output_pre_relu)
 
     loss2_ave_pool = AveragePooling2D(pool_size=(5,5), strides=(3,3), name='head1_pool')(inception_4d_output)
+    loss2_conv_pre_relu = Conv2D(128, (1,1), padding='same', activation='linear', name='head1_bottleneck_pre_relu', kernel_regularizer=kernel_regularizer)(loss2_ave_pool)
+    loss2_conv = Activation('relu',name='head1_bottleneck')(loss2_conv_pre_relu)
     
     if include_top:
-        loss2_conv_pre_relu = Conv2D(128, (1,1), padding='same', activation='linear', name='head1_bottleneck_pre_relu', kernel_regularizer=kernel_regularizer)(loss2_ave_pool)
-        loss2_conv = Activation('relu',name='head1_bottleneck')(loss2_conv_pre_relu)
         loss2_flat = Flatten()(loss2_conv)
         loss2_fc_pre_relu = Dense(1024, activation='linear', name='nn1_pre_relu', kernel_regularizer=kernel_regularizer)(loss2_flat)
         loss2_fc = Activation('relu',name='nn1')(loss2_fc_pre_relu)
@@ -707,7 +730,7 @@ def inception_v1_oldTF(weights=None,include_top=True):
         googlenet = Model(inputs=img_input, outputs=[loss1_classifier_act,loss2_classifier_act,loss3_classifier_act], name='inception_v1')
    
     else: 
-        googlenet = Model(inputs=img_input, outputs=[loss1_ave_pool,loss2_ave_pool,pool5_7x7_s1], name='inception_v1')
+        googlenet = Model(inputs=img_input, outputs=[loss1_conv,loss2_conv,pool5_7x7_s1], name='inception_v1')
 
     if weights=='imagenet':
         if not(include_top):

@@ -111,6 +111,8 @@ def load_and_crop_img(path,Net, grayscale=False, color_mode='rgb', target_size=2
         preprocessing_function = applications.vgg19.preprocess_input
     elif 'ResNet' in Net:
         preprocessing_function = applications.resnet50.preprocess_input
+    elif 'InceptionV1' in Net:
+        preprocessing_function = applications.imagenet_utils.preprocess_input
     else:
         print(Net,'is unknwon')
         raise(NotImplementedError)
@@ -202,7 +204,7 @@ def load_and_crop_img_forImageGenerator(path,Net, grayscale=False, color_mode='r
     # In preprocessing image according to the documentation 
     # target_size must be : (img_height, img_width)
     #print('new w,h',new_width,new_height)
-    target_size_before_crop = (new_height,new_width)
+#    target_size_before_crop = (new_height,new_width)
 #    img = preprocessing.image.load_img(path, 
 #                                    grayscale=grayscale, 
 #                                    color_mode=color_mode, 

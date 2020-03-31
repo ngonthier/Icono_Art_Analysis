@@ -919,8 +919,7 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
   
     Parameters
     ----------
-    pre_model : TYPE
-        DESCRIPTION.
+    pre_model : model that need a classification head (dense layers)
     x : current variable a.k.a. output of the model
     final_clf : type of final layer we have to add
     num_of_classes : number of final class
@@ -928,6 +927,7 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
     lr_multiple : dict : of the layer name and multiplier (of the learning rate)
     lr : default learning rate
     opt : optimizer
+    regularizers : on the kernel
     dropout : if integer value of the dropout on the new layers
     final_activation :The default is 'sigmoid'.
     metrics : The default is 'accuracy'.
@@ -951,9 +951,10 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
       x = Dense(128, activation='relu',kernel_regularizer=regularizers)(x)
       if not(dropout is None): x = Dropout(dropout)(x)
   if final_clf=='MLP2' or final_clf=='MLP1' or final_clf=='MLP3':
-      predictions = Dense(num_of_classes, activation=final_activation,kernel_regularizer=regularizers)(x)
       if final_clf=='MLP1':
           if not(dropout is None): x = Dropout(dropout)(x)
+      predictions = Dense(num_of_classes, activation=final_activation,kernel_regularizer=regularizers)(x)
+
   model = Model(inputs=pre_model.input, outputs=predictions)
   if lr_multiple:
       if final_clf=='MLP3': multipliers[model.layers[-3].name] = None
@@ -2113,10 +2114,9 @@ def extract_Norm_stats_of_ResNet(model,res_num_layers=50,model_type='normal'):
     return(dict_stats_coherent,current_list_mean_and_std_target)
   
 ### InceptionV1 baseline
-    
-### ResNet baseline
   
-def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
+def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,\
+                         lr,opt,regularizers,dropout,
                     final_activation='sigmoid',metrics='accuracy',
                     loss='binary_crossentropy',deepSupervision=True):
   """
@@ -2124,15 +2124,15 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
   
     Parameters
     ----------
-    pre_model : TYPE
-        DESCRIPTION.
+    pre_model : the model that need a new head
     x : current variable a.k.a. output of the model
     final_clf : type of final layer we have to add
     num_of_classes : number of final class
-    multipliers : bool to say if we use of not a multiplier for the transfered layers
-    lr_multiple : dict : of the layer name and multiplier (of the learning rate)
+    multipliers : dict : of the layer name and multiplier (of the learning rate)
+    lr_multiple : bool to say if we use of not a multiplier for the transfered layers 
     lr : default learning rate
     opt : optimizer
+    regularizers : on the kernel
     dropout : if integer value of the dropout on the new layers
     final_activation :The default is 'sigmoid'.
     metrics : The default is 'accuracy'.
@@ -2145,50 +2145,78 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
     """
     
   if not(deepSupervision):
-      x = [x[-1]] # We only keep the last head, the last classification part
-  list_outputs = []
-  for head in x:
-      list_outputs += [Flatten()(head)]
+      list_heads = [x[-1]] # We only keep the last head, the last classification part
+  else:
+      list_heads = x
     
   if metrics=='accuracy':
       metrics = [metrics]
   elif metrics=='top_k_categorical_accuracy':
       metrics = [top_1_categorical_accuracy]
-    
-  if final_clf=='MLP2' or final_clf=='MLP3' :
-      x = Dense(256, activation='relu')(x)
-      if not(dropout is None): x = Dropout(dropout)(x)
-  if final_clf=='MLP3' :
-      x = Dense(128, activation='relu')(x)
-      if not(dropout is None): x = Dropout(dropout)(x)
-  if final_clf=='MLP2' or final_clf=='MLP1' or final_clf=='MLP3':
-      predictions = Dense(num_of_classes, activation=final_activation)(x)
-      if final_clf=='MLP1':
+      
+  list_classif_output = []
+  losses = {}
+  lossWeights = {}
+  for i,head in enumerate(list_heads): # list of heads
+      name_head = head.name
+      name_head = name_head.split('/')[0]
+      name_head_prediction = name_head + '_prediction'
+      x = Flatten()(head)
+      if final_clf=='MLP2' or final_clf=='MLP3' :
+          new_layer = Dense(256, activation='relu',kernel_regularizer=regularizers)
+          if lr_multiple:multipliers[new_layer.name] = None
+          x = new_layer(x)
           if not(dropout is None): x = Dropout(dropout)(x)
-  model = Model(inputs=pre_model.input, outputs=predictions)
+      if final_clf=='MLP3' :
+          new_layer2 = Dense(128, activation='relu',kernel_regularizer=regularizers)
+          if lr_multiple:multipliers[new_layer2.name] = None
+          x = new_layer2(x)
+          if not(dropout is None): x = Dropout(dropout)(x)
+      if final_clf=='MLP2' or final_clf=='MLP1' or final_clf=='MLP3':
+          if final_clf=='MLP1':
+              if not(dropout is None): x = Dropout(dropout)(x)
+          final_output_layer =  Dense(num_of_classes, activation=final_activation,\
+                                      kernel_regularizer=regularizers,name=name_head_prediction)
+          if deepSupervision:
+              losses[name_head_prediction] = loss
+              if i==2:
+                  lossWeight = 1.0
+              else:
+                  lossWeight = 0.3
+              lossWeights[name_head_prediction] = lossWeight
+          if lr_multiple: multipliers[final_output_layer.name] = None 
+          predictions = final_output_layer(x)
+          
+      list_classif_output += [predictions]
+
+  model = Model(inputs=pre_model.input, outputs=list_classif_output)
   if lr_multiple:
-      if final_clf=='MLP3': multipliers[model.layers[-3].name] = None
-      if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = None
-      if final_clf=='MLP3' or final_clf=='MLP2' or final_clf=='MLP1': multipliers[model.layers[-1].name] = None
       opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
   else:
       opt = opt(learning_rate=lr)
       
   # Compile model
-  model.compile(loss=loss, optimizer=opt, metrics=metrics)
+  if deepSupervision:
+      model.compile(loss=losses, loss_weights=lossWeights,optimizer=opt, metrics=metrics)
+  else:
+      model.compile(loss=loss, optimizer=opt, metrics=metrics)
+      
   return(model)
 
-def InceptionV1_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPooling2D',\
-                             pretrainingModif=True,verbose=True,weights='imagenet',res_num_layers=50,\
+def InceptionV1_baseline_model(num_of_classes=10,\
+                             pretrainingModif=True,verbose=True,weights='imagenet',\
                              optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',\
+                             regulOnNewLayer=None,regulOnNewLayerParam=[],\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
-                             loss='binary_crossentropy'): 
+                             loss='binary_crossentropy',deepSupervision=True): 
   """
+  Return a trainable keras model of InceptionV1 with new classification head
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
   # create model
-
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+  
   pre_model = Inception_V1(include_top=False, weights=weights,\
                           input_shape= (224, 224, 3))
   number_of_trainable_layers = 146
@@ -2197,6 +2225,7 @@ def InceptionV1_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalM
   if type(pretrainingModif)==bool:
       pre_model.trainable = pretrainingModif
   else:
+      print('Cela n a jamais ete teste, a vos risques et perils desole')
       SomePartFreezed = True # We will unfreeze pretrainingModif==int layers from the end of the net
       assert(number_of_trainable_layers >= pretrainingModif)
   
@@ -2249,8 +2278,10 @@ def InceptionV1_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalM
 
   x = pre_model.output
   
-  model = new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,dropout,
-                          final_activation=final_activation,metrics=metrics,loss=loss)
+  model = new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,\
+                               lr_multiple,lr,opt,regularizers,dropout,
+                               final_activation=final_activation,metrics=metrics,\
+                               loss=loss,deepSupervision=deepSupervision)
  
   if verbose: print(model.summary())
   return model
