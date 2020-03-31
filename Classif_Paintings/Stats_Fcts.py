@@ -145,7 +145,8 @@ def get_regularizers(regulOnNewLayer=None,regulOnNewLayerParam=[]):
   return(regularizers)
 
 ### To fine Tune a VGG 
-def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout,\
+def new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,
+                     opt,regularizers,dropout,\
                      final_activation='sigmoid',metrics='accuracy',
                      loss='binary_crossentropy'):
   """
@@ -757,14 +758,11 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
               loss='binary_crossentropy'):
   """
   VGG with a shuffling the mean and standard deviation of the features maps between
-  instance
+  instance but between example with the same label
   In this case the statistics are shuffle the statistics of features maps at each layer concerned 
   there is not sharing in the shuffling between layers
   """
-  # TODO : faire une multiplication par du bruit des statistics
-  #model = tf.keras.Sequential()
-  print('Cette fonction n est pas du tout fini ou teste')
-  raise(NotImplementedError)
+  raise(NotImplementedError('Ne fonctionne pas encore a debugger'))
   inputlabel = Input(shape=(num_of_classes,))
   imSize = 224
   inputImage = Input(shape=(imSize,imSize,3))
@@ -827,7 +825,7 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
   x = inputImage
   for layer in vgg_layers:
     name_layer = layer.name
-    print(name_layer)
+#    print(name_layer)
     
     if SomePartFreezed and ('conv' in layer.name or 'fc' in layer.name):
          if freezingType=='FromTop':
@@ -899,12 +897,14 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
   # if getBeforeReLU:# refresh the non linearity 
   #     model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True,\
   #                                             custom_objects=custom_objects)
-  
-  model = new_head_VGGcase(model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,regularizers,dropout,
-                    final_activation=final_activation,metrics=metrics,
-                    loss=loss)
 
-      
+  # Need to use the new_head_ResNet and not the VGG one because we are using the 
+  # fonctional API and not the sequential one
+  model = new_head_ResNet(model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,
+                           opt,regularizers,dropout,
+                           final_activation=final_activation,metrics=metrics,
+                           loss=loss)
+
   if verbose: print(model.summary())
   return model
 

@@ -383,7 +383,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    kind_of_shuffling='roll',useFloat32=True,\
                                    computeGlobalVariance=True,returnStatistics=False,returnFeatures=False,\
                                    NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
-                                   BaysianOptimFT = False,imSize=224,deepSupervision=False):
+                                   BaysianOptimFT = False,imSize=224,deepSupervision=False,\
+                                   suffix=''):
     """
     @param : the target_dataset used to train classifier and evaluation
     @param : source_dataset : used to compute statistics we will imposed later
@@ -412,6 +413,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         ResNet50suffleInStats
         ResNet50AdaIn
         ResNet50_ROWD_CUMUL_AdaIn : fine tune only the batch normalisation refined
+        InceptionV1
 
         TODO : VGGGram that modify the gram matrices
     @param : kind_method the type of methods we will use : TL or FT
@@ -453,6 +455,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : BaysianOptimFT = False if True use a bayseianoptimisation on some of the hyperparameters of the model
     @param : imSize : 224 by default the size of tge input image
     @param : deepSupervision : for the InceptionV1 use of the deep supervision with 3 heads
+    @param : suffix : of the performance and model name in order to have several 
+        models trained with the same hyperparameters ('' or None pour ne pas en avoir)
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -615,7 +619,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         
     name_base += '_' + kind_method   
     
-    # features can be 'flatten' with will output a 25088 dimension vectors = 7*7*512 features
+    if not(suffix is None or suffix==''):
+       name_base += '_Run'+suffix 
     
     curr_session = tf.get_default_session()
     # close current session
@@ -1080,45 +1085,68 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             else:
                 if returnStatistics: print('We will need to train the model before provide it to you !')
             
-            if not(BaysianOptimFT):
-                
-                model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
+            if not(constrNet=='VGGsuffleInStatsSameLabel'):
+                if not(BaysianOptimFT):
+                    
+                    model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
+                                transformOnFinalLayer,weights,
+                                optimizer,opt_option,freezingType,
+                                final_clf,features,verbose,
+                                regulOnNewLayer,regulOnNewLayerParam
+                                ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                                source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                                BV,p,
+                                dbn_affine,m_per_group,kind_method,\
+                                batch_size_RF,momentum,\
+                                epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                                final_activation,metrics,loss,deepSupervision)
+    
+                    model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
+                                            x_col=item_name,y_col=classes,path_im=path_to_img,\
+                                            str_val=str_val,num_classes=len(classes),epochs=epochs,\
+                                            Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
+                                            NoValidationSetUsed=NoValidationSetUsed,\
+                                            RandomValdiationSet=RandomValdiationSet,\
+                                            deepSupervision=deepSupervision)
+                        
+                else: # Baysian optimization of the model
+                    model =  FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,pretrainingModif,
                             transformOnFinalLayer,weights,
-                            optimizer,opt_option,freezingType,
+                            optimizer,freezingType,
                             final_clf,features,verbose,
                             regulOnNewLayer,regulOnNewLayerParam
-                            ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                            ,dropout,nesterov,style_layers,
                             source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
                             BV,p,
                             dbn_affine,m_per_group,kind_method,\
                             batch_size_RF,momentum,\
                             epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                            df_label,\
+                            item_name,classes,path_to_img,\
+                            str_val,epochs,batch_size,AP_file_base,\
                             final_activation,metrics,loss,deepSupervision)
-
-                model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
+            else: # 'VGGsuffleInStatsSameLabel' case
+                if BaysianOptimFT:
+                    raise(NotImplementedError('BaysianOptimFT is not implemented with VGGsuffleInStatsSameLabel model'))
+                model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
+                                transformOnFinalLayer,weights,
+                                optimizer,opt_option,freezingType,
+                                final_clf,features,verbose,
+                                regulOnNewLayer,regulOnNewLayerParam
+                                ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                                source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                                BV,p,
+                                dbn_affine,m_per_group,kind_method,\
+                                batch_size_RF,momentum,\
+                                epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                                final_activation,metrics,loss,deepSupervision)
+    
+                model = FineTuneModel_forSameLabel(model,dataset=target_dataset,df=df_label,\
                                         x_col=item_name,y_col=classes,path_im=path_to_img,\
                                         str_val=str_val,num_classes=len(classes),epochs=epochs,\
                                         Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
                                         NoValidationSetUsed=NoValidationSetUsed,\
-                                        RandomValdiationSet=RandomValdiationSet,\
-                                        deepSupervision=deepSupervision)
-                    
-            else: # Baysian optimization of the model
-                model =  FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,pretrainingModif,
-                        transformOnFinalLayer,weights,
-                        optimizer,freezingType,
-                        final_clf,features,verbose,
-                        regulOnNewLayer,regulOnNewLayerParam
-                        ,dropout,nesterov,style_layers,
-                        source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
-                        BV,p,
-                        dbn_affine,m_per_group,kind_method,\
-                        batch_size_RF,momentum,\
-                        epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                        df_label,\
-                        item_name,classes,path_to_img,\
-                        str_val,epochs,batch_size,AP_file_base,\
-                        final_activation,metrics,loss,deepSupervision)
+                                        RandomValdiationSet=RandomValdiationSet)
                 
             # Need to add in load_model custom_objects !!! 
             # tf.keras.models.save_model(
@@ -1772,7 +1800,7 @@ def multiple_outputs(generator, dataframe, directory, x_col, y_col,target_size,\
     
     while True:
         gnext = gen.next()
-        # return image batch and 3 sets of lables
+        # return image batch and 3 sets of labels
         yield gnext[0], [gnext[1], gnext[1], gnext[1]]
 
 
@@ -1935,6 +1963,24 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
             metric = float(10**6)
         metric = - metric
         return(metric)
+
+def generator_with_im_and_label_as_output(generator, dataframe, directory, x_col, y_col,target_size,\
+                     batch_size,shuffle,interpolation,class_mode):
+    """
+    custom generator that provide as output the data (the image and the label)
+    """
+    gen = generator.flow_from_dataframe(
+            dataframe=dataframe, directory=directory,\
+            x_col=x_col,y_col=y_col,\
+            class_mode=class_mode, \
+            target_size=target_size, batch_size=batch_size,\
+            shuffle=shuffle,\
+            interpolation=interpolation)
+    
+    while True:
+        gnext = gen.next()
+        # return [images,labels] batch and labels
+        yield [gnext[0],gnext[1]], gnext[1]
     
 def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
@@ -1987,22 +2033,20 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
     # preprocessing_function will be implied on each input. The function will run after the image is 
     # load resized and augmented. That's why we need to modify the load_img fct
     
-    seed=1
     train_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
                                                 x_col=x_col,y_col=y_col,\
                                                 class_mode="other", \
                                                 target_size=target_size, batch_size=batch_size,\
                                                 shuffle=True,\
-                                                interpolation=interpolation,seed=seed)
-    # train_label_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
-    #                                             x_col=y_col,y_col=y_col,\
-    #                                             class_mode="other", \
-    #                                             target_size=target_size, batch_size=batch_size,\
-    #                                             shuffle=True,\
-    #                                             interpolation=interpolation,seed=seed)
+                                                interpolation=interpolation)
     # Return A `DataFrameIterator` yielding tuples of `(x, y)`
     STEP_SIZE_TRAIN=train_generator.n//train_generator.batch_size
-    STEP_SIZE_TRAIN= 3 # For testing
+    new_train_generator=generator_with_im_and_label_as_output(datagen, dataframe=df_train,directory=path_im,
+                                                    x_col=x_col,y_col=y_col,\
+                                                    class_mode="other", \
+                                                    target_size=target_size, batch_size=batch_size,\
+                                                    shuffle=True,\
+                                                    interpolation=interpolation)
     
     if not(NoValidationSetUsed):
         validate_datagen = tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)
@@ -2012,15 +2056,13 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
                                                     target_size=target_size, batch_size=batch_size,\
                                                     interpolation=interpolation)
         STEP_SIZE_VALID=valid_generator.n//valid_generator.batch_size
-    
-    print('train_generator',train_generator)
-    x_train_generator,y_train_generator = train_generator
-    new_train_generator = [x_train_generator,y_train_generator], y_train_generator
-    
-    if not(NoValidationSetUsed):
-        x_validate_datagen,y_validate_datagen = validate_datagen
-        new_validate_datagen = [x_validate_datagen,y_validate_datagen], y_validate_datagen
-    
+        new_valid_generator=generator_with_im_and_label_as_output(validate_datagen, dataframe=df_val,
+                                                directory=path_im,x_col=x_col,y_col=y_col,\
+                                                class_mode="other", \
+                                                target_size=target_size, batch_size=batch_size,\
+                                                shuffle=False,\
+                                                interpolation=interpolation)
+
     # TODO you should add an early stoppping 
 #    earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
 #    mcp_save = ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
@@ -2051,7 +2093,7 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
     if not(NoValidationSetUsed): # IE use a validation set
         history = model.fit_generator(generator=new_train_generator,
                         steps_per_epoch=STEP_SIZE_TRAIN,
-                        validation_data=new_validate_datagen,
+                        validation_data=new_valid_generator,
                         validation_steps=STEP_SIZE_VALID,
                         epochs=epochs,use_multiprocessing=use_multiprocessing,
                         workers=workers,callbacks=callbacks)
@@ -3982,6 +4024,18 @@ def test_InceptionV1_onIconArt():
                 optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
                 epochs=1,cropCenter=True,verbose=True,deepSupervision=True) 
     
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=1,cropCenter=True,verbose=True,deepSupervision=True,suffix='1') 
+    
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=1,cropCenter=True,verbose=True,deepSupervision=True) 
+    
     
 def VGG_fineTuning_onIconArt():
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
@@ -4243,6 +4297,12 @@ def ArtUK_suffleAdaInTest():
 
 def test_RASTA_VGGsuffleInStatsSameLabel():
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGGsuffleInStatsSameLabel',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=1,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True,\
+       kind_of_shuffling='roll')
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
        constrNet='VGGsuffleInStatsSameLabel',kind_method='FT',gridSearch=False,ReDo=False,\
        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
