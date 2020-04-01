@@ -12,6 +12,10 @@ Les codes recensés ici peuvent etre utiles : https://github.com/tensorflow/luci
 @author: gonthier
 """
 
+# InvalidArgumentError: Invalid device ordinal value (1). Valid range is [0, 0]. 	while setting up XLA_GPU_JIT device number 1
+# This error can be due to a missing export cuda device, normally when launching your own environnement need to execute this command line with the right number
+# can be set in the activate.sh file of the conda env
+
 import tensorflow as tf
 import os
 import matplotlib
