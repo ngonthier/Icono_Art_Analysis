@@ -286,7 +286,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
     
     K.set_learning_phase(0)
     #with K.get_session().as_default(): 
-    path_lucid_model = '/media/gonthier/HDD2/output_exp/Covdata/Lucid_model'
+    path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
     list_layer_index_to_print_base_model = []
     for model_name in list_models_name:
         print('#### ',model_name)
@@ -326,14 +326,12 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
               
     if constrNet=='VGG':
         # For the original pretrained imagenet VGG
-        lucid_utils.print_images(model_path='model/tf_vgg19.pb',list_layer_index_to_print=list_layer_index_to_print_base_model\
+        lucid_utils.print_images(model_path=os.path.join('model','tf_vgg19.pb'),list_layer_index_to_print=list_layer_index_to_print_base_model\
                       ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
     elif constrNet=='InceptionV1':
         # For the original pretrained imagenet InceptionV1 from Lucid to keras to Lucid
-        lucid_utils.print_images(model_path='model/tf_inception_v1.pb',list_layer_index_to_print=list_layer_index_to_print_base_model\
+        lucid_utils.print_images(model_path=os.path.join('model','tf_inception_v1.pb'),list_layer_index_to_print=list_layer_index_to_print_base_model\
                       ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
-                
-    
  
 if __name__ == '__main__': 
     Comparaison_of_FineTunedModel(constrNet='InceptionV1')    

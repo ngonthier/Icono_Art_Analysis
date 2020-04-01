@@ -44,7 +44,6 @@ from lucid.misc.redirected_relu_grad import redirected_relu_grad
 from tensorflow.python.platform import gfile
 
 from lucid.modelzoo.vision_base import IMAGENET_MEAN_BGR
-from PIL import Image
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
@@ -286,10 +285,10 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         if Net=='VGG':
             obj = layer  + '/Relu:'+str(i)
     
-            name_base = layer  + 'Relu:'+str(i)+'_'+prexif_name+'.jpg'
+            name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+'.png'
         elif Net=='InceptionV1':
             obj = layer  + '/Conv2D:'+str(i)
-            name_base = layer  + 'Conv2D:'+str(i)+'_'+prexif_name+'.jpg'
+            name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+'.png'
             
         output_im = render.render_vis(lucid_net,obj ,
                                       transforms=transforms,
@@ -299,8 +298,6 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         image = np.array(output_im[0][0]*255)
         name_output = os.path.join(path_output,name_base)
         tf.keras.preprocessing.image.save_img(name_output, image)
-#        im = Image.fromarray(image.astype(np.uint8))
-#        im.save(name_output)
       
 def test_render_VGG19():
     
