@@ -102,7 +102,7 @@ Classif_Paintings/darkflow/.cache/
 *.tfrecord
 
 # For pb records
-*.pd
+*.pb
 *.h5
 *.tf
 
