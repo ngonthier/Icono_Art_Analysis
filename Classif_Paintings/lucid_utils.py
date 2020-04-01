@@ -275,16 +275,14 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     ]
     
 
-    LEARNING_RATE = 0.005 # Valeur par default
-
-    optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
+#    LEARNING_RATE = 0.005 # Valeur par default
+#    optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
 
     for layer_index_to_print in list_layer_index_to_print:
         layer, i = layer_index_to_print
         
         if Net=='VGG':
             obj = layer  + '/Relu:'+str(i)
-    
             name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+'.png'
         elif Net=='InceptionV1':
             obj = layer  + '/Conv2D:'+str(i)
@@ -292,8 +290,8 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
             
         output_im = render.render_vis(lucid_net,obj ,
                                       transforms=transforms,
-                                      thresholds=[4096],
-                                      optimizer=optimizer,
+                                      thresholds=[2048],
+#                                      optimizer=optimizer,
                                       use_fixed_seed=True)
         image = np.array(output_im[0][0]*255)
         name_output = os.path.join(path_output,name_base)

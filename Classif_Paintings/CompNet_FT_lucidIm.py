@@ -52,6 +52,13 @@ from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getRes
 import lucid_utils
 import platform
 
+list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
+                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
+                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
+                        'RASTA_small01_modif','RASTA_big01_modif',
+                        'RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch',
+                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
 
 def get_random_net(constrNet='VGG'):
     seed = 0
@@ -70,13 +77,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
     opt_option_big=[0.001]
     opt_option_big01=[0.01]
     
-    
-    list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
-                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
-                        'RASTA_small01_modif','RASTA_big01_modif',
-                        'RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch']
-    if not(model_name in list_models_name):
+    if not(model_name in list_finetuned_models_name):
         raise(NotImplementedError)
         
     if 'small001' in  model_name:
@@ -95,6 +96,10 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
         return_best_model=False
     else:
         return_best_model=True
+    if 'deepSupervision' in model_name:
+        deepSupervision=True
+    else:
+        deepSupervision=False
         
     if 'RASTA' in model_name:
         target_dataset = 'RASTA'
@@ -136,29 +141,23 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
                            returnStatistics=returnStatistics,cropCenter=cropCenter,\
                            optimizer=optimizer,opt_option=opt_option,epochs=epochs,\
                            SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model,\
-                           pretrainingModif=True,suffix=suffix)
+                           pretrainingModif=True,suffix=suffix,deepSupervision=deepSupervision)
     return(net_finetuned)
 
-def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=''):
+def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suffix=''):
     
     tf.keras.backend.clear_session()
     tf.reset_default_graph()
     K.set_learning_phase(0)
-    
-    list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
-                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
-                        'RASTA_small01_modif','RASTA_big01_modif',
-                        'RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_LastEpoch','RASTA_big_modif001_LastEpoch']
-    
-    list_models_name_all = list_models_name + ['random']
+
+    list_models_name_all = list_finetuned_models_name + ['random']
     if not(model_name in list_models_name_all):
         raise(NotImplementedError)
         
     if model_name=='random':
         net_finetuned = get_random_net(constrNet)
     else:
-        net_finetuned = get_fine_tuned_model(model_name,constrNet=constrNet)
+        net_finetuned = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
         
     if path=='':
         os.makedirs('./model', exist_ok=True)
@@ -167,7 +166,9 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path=''):
         os.makedirs(path, exist_ok=True)
     frozen_graph = lucid_utils.freeze_session(K.get_session(),
                               output_names=[out.op.name for out in net_finetuned.outputs])
-    name_pb = 'tf_graph_'+constrNet+model_name+'.pb'
+    if not(suffix=='' or suffix is None):
+        suffix_str = '_'+suffix
+    name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
     
     #nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
     #print(nodes_tab)
@@ -278,15 +279,15 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
     list_weights,list_name_layers = get_imageNet_weights(Net=constrNet)
     
     list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
-                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
+                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
                         'RASTA_small01_modif','RASTA_big01_modif',
                         'RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_LastEpoch']#,'RASTA_big001_modif_LastEpoch']
-    list_models_name = ['IconArt_v1_small001_modif']#,'RASTA_big001_modif_LastEpoch']
+                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
+    #list_models_name = ['IconArt_v1_small001_modif']#,'RASTA_big001_modif_LastEpoch']
     #list_models_name = ['random']
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
     
-    suffix_tab = [''] # In order to have more than once the model fine-tuned with some given hyperparameters
+    suffix_tab = ['','1'] # In order to have more than once the model fine-tuned with some given hyperparameters
     
     K.set_learning_phase(0)
     #with K.get_session().as_default(): 
@@ -301,7 +302,8 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
                 dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
                                                                                 list_weights,net_finetuned)
                 
-                name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet=constrNet,path=path_lucid_model)
+                name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                              constrNet=constrNet,path=path_lucid_model,suffix=suffix)
                 
                 for key in dict_layers_argsort.keys():
                     top1 = dict_layers_argsort[key][0]
