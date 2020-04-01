@@ -168,6 +168,8 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suff
                               output_names=[out.op.name for out in net_finetuned.outputs])
     if not(suffix=='' or suffix is None):
         suffix_str = '_'+suffix
+    else:
+        suffix_str = ''
     name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
     
     #nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
