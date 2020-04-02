@@ -337,6 +337,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
                 dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
                 
                 output_path_with_model = os.path.join(output_path,model_name+suffix)
+                pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
                 #print('list_layer_index_to_print',list_layer_index_to_print)
                 lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
                         ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
@@ -360,6 +361,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
                     list_layer_index_to_print_base_model += [[key,topk]]
             
             output_path_with_model = os.path.join(output_path,model_name)
+            pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
             lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
                          ,path_output=output_path_with_model,prexif_name=model_name,input_name='input_1',Net=constrNet)
              

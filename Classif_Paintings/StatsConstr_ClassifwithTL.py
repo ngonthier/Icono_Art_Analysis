@@ -4119,7 +4119,9 @@ def test_InceptionV1_onIconArt_and_RASTA():
                 pretrainingModif=True,return_best_model=True,weights='imagenet',\
                 optimizer='SGD',opt_option=[0.1,0.01],dataAug=True,
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
-
+    # Top-1 accuracy : 53.24%
+    # Top-3 accuracy : 79.90%
+    # Top-5 accuracy : 89.22%
     
     
 def VGG_fineTuning_onIconArt():
