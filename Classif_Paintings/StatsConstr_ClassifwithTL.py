@@ -386,7 +386,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                    computeGlobalVariance=True,returnStatistics=False,returnFeatures=False,\
                                    NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
                                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
-                                   suffix=''):
+                                   suffix='',dataAug=False):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
     It will return the metrics or the model itself depending on the input parameters
@@ -462,6 +462,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : deepSupervision : for the InceptionV1 use of the deep supervision with 3 heads
     @param : suffix : of the performance and model name in order to have several 
         models trained with the same hyperparameters ('' or None pour ne pas en avoir)
+    @param : dataAug : use of some of the data augmentation method in the image space
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -563,6 +564,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 name_base += '_Affine'
         if BaysianOptimFT:
             name_base += '_BayHyperOpt'
+        if dataAug:
+            name_base+= '_dataAug'
                 
     if constrNet=='ResNet50_BNRF': # BN Refinement
         name_base += '_m'+str(momentum)+'_bsRF'+str(batch_size_RF)+'_ep'+str(epochs_RF)
@@ -959,6 +962,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if weights is None:
             Latex_str += ' RandInit'
     
+    model_path = os.path.join(model_output_path,AP_file_base+'.h5')
+    
     if ((not(os.path.isfile(APfilePath)) or ReDo) and not(onlyReturnResult)) or returnStatistics:
         
         if target_dataset=='Paintings':
@@ -1079,11 +1084,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 
         elif kind_method=='FT':
             
-            model_path = os.path.join(model_output_path,AP_file_base+'.h5')
             include_optimizer=False
         
             # This have not been tested maybe you have to put it after the get_deep_model_for_FT function
-            if returnStatistics and os.path.exists(model_path): # We will load the model and return it
+            if os.path.exists(model_path): # We will load the model and return it
                 if not(constrNet=='ResNet50' or constrNet=='VGG' or constrNet=='InceptionV1'):
                     raise(NotImplementedError('You can only do it fot the predifined model VGG ResNet50 and InceptionV1'))
                     # Need to add in load_model custom_objects
@@ -1093,87 +1097,89 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     model = load_model(model_path,compile=False, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
                 else:
                     model = load_model(model_path,compile=False)
-                return(model)
+                if returnStatistics :
+                    # In this case we return the model
+                    return(model)
             else:
                 if returnStatistics: print('We will need to train the model before provide it to you !')
             
-            if not(constrNet=='VGGsuffleInStatsSameLabel'):
-                if not(BaysianOptimFT):
-                    
-                    model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
+                if not(constrNet=='VGGsuffleInStatsSameLabel'):
+                    if not(BaysianOptimFT):
+                        
+                        model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
+                                    transformOnFinalLayer,weights,
+                                    optimizer,opt_option,freezingType,
+                                    final_clf,features,verbose,
+                                    regulOnNewLayer,regulOnNewLayerParam
+                                    ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                                    source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                                    BV,p,
+                                    dbn_affine,m_per_group,kind_method,\
+                                    batch_size_RF,momentum,\
+                                    epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                                    final_activation,metrics,loss,deepSupervision)
+        
+                        model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
+                                                x_col=item_name,y_col=classes,path_im=path_to_img,\
+                                                str_val=str_val,num_classes=len(classes),epochs=epochs,\
+                                                Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
+                                                NoValidationSetUsed=NoValidationSetUsed,\
+                                                RandomValdiationSet=RandomValdiationSet,\
+                                                deepSupervision=deepSupervision,dataAug=dataAug)
+                            
+                    else: # Baysian optimization of the model
+                        model =  FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,pretrainingModif,
                                 transformOnFinalLayer,weights,
-                                optimizer,opt_option,freezingType,
+                                optimizer,freezingType,
                                 final_clf,features,verbose,
                                 regulOnNewLayer,regulOnNewLayerParam
-                                ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                                ,dropout,nesterov,style_layers,
                                 source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
                                 BV,p,
                                 dbn_affine,m_per_group,kind_method,\
                                 batch_size_RF,momentum,\
                                 epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                final_activation,metrics,loss,deepSupervision)
-    
-                    model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
+                                df_label,\
+                                item_name,classes,path_to_img,\
+                                str_val,epochs,batch_size,AP_file_base,\
+                                final_activation,metrics,loss,deepSupervision,dataAug=dataAug)
+                else: # 'VGGsuffleInStatsSameLabel' case
+                    if BaysianOptimFT:
+                        raise(NotImplementedError('BaysianOptimFT is not implemented with VGGsuffleInStatsSameLabel model'))
+                    model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
+                                    transformOnFinalLayer,weights,
+                                    optimizer,opt_option,freezingType,
+                                    final_clf,features,verbose,
+                                    regulOnNewLayer,regulOnNewLayerParam
+                                    ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                                    source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                                    BV,p,
+                                    dbn_affine,m_per_group,kind_method,\
+                                    batch_size_RF,momentum,\
+                                    epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                                    final_activation,metrics,loss,deepSupervision)
+        
+                    model = FineTuneModel_forSameLabel(model,dataset=target_dataset,df=df_label,\
                                             x_col=item_name,y_col=classes,path_im=path_to_img,\
                                             str_val=str_val,num_classes=len(classes),epochs=epochs,\
                                             Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
                                             NoValidationSetUsed=NoValidationSetUsed,\
-                                            RandomValdiationSet=RandomValdiationSet,\
-                                            deepSupervision=deepSupervision)
-                        
-                else: # Baysian optimization of the model
-                    model =  FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,pretrainingModif,
-                            transformOnFinalLayer,weights,
-                            optimizer,freezingType,
-                            final_clf,features,verbose,
-                            regulOnNewLayer,regulOnNewLayerParam
-                            ,dropout,nesterov,style_layers,
-                            source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
-                            BV,p,
-                            dbn_affine,m_per_group,kind_method,\
-                            batch_size_RF,momentum,\
-                            epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                            df_label,\
-                            item_name,classes,path_to_img,\
-                            str_val,epochs,batch_size,AP_file_base,\
-                            final_activation,metrics,loss,deepSupervision)
-            else: # 'VGGsuffleInStatsSameLabel' case
-                if BaysianOptimFT:
-                    raise(NotImplementedError('BaysianOptimFT is not implemented with VGGsuffleInStatsSameLabel model'))
-                model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
-                                transformOnFinalLayer,weights,
-                                optimizer,opt_option,freezingType,
-                                final_clf,features,verbose,
-                                regulOnNewLayer,regulOnNewLayerParam
-                                ,dropout,nesterov,SGDmomentum,decay,style_layers,
-                                source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
-                                BV,p,
-                                dbn_affine,m_per_group,kind_method,\
-                                batch_size_RF,momentum,\
-                                epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                final_activation,metrics,loss,deepSupervision)
-    
-                model = FineTuneModel_forSameLabel(model,dataset=target_dataset,df=df_label,\
-                                        x_col=item_name,y_col=classes,path_im=path_to_img,\
-                                        str_val=str_val,num_classes=len(classes),epochs=epochs,\
-                                        Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
-                                        NoValidationSetUsed=NoValidationSetUsed,\
-                                        RandomValdiationSet=RandomValdiationSet)
+                                            RandomValdiationSet=RandomValdiationSet,dataAug=dataAug)
+                    
+                # Need to add in load_model custom_objects !!! 
+                # tf.keras.models.save_model(
+                #     model, model_path, overwrite=True, include_optimizer=include_optimizer, save_format='h5')
+                model.save(model_path,include_optimizer=include_optimizer)
+                utils_keras.fix_layer0(model_path, [None, 224, 224,3], 'float32') 
+                if returnStatistics: # We will load the model and return it
+                    if constrNet=='InceptionV1':
+                        model = load_model(model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
+                    else:
+                        model = load_model(model_path)
+                    return(model)
                 
-            # Need to add in load_model custom_objects !!! 
-            # tf.keras.models.save_model(
-            #     model, model_path, overwrite=True, include_optimizer=include_optimizer, save_format='h5')
-            model.save(model_path,include_optimizer=include_optimizer)
-            utils_keras.fix_layer0(model_path, [None, 224, 224,3], 'float32') 
-            if returnStatistics: # We will load the model and return it
-                if constrNet=='InceptionV1':
-                    model = load_model(model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
-                else:
-                    model = load_model(model_path)
-                return(model)
-            
-            if constrNet=='VGGsuffleInStatsSameLabel':
-                model = Model(input=model.input[0],output=model.output)
+                if constrNet=='VGGsuffleInStatsSameLabel':
+                    model = Model(input=model.input[0],output=model.output)
             
             # Prediction
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
@@ -1528,7 +1534,7 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                         df_label,\
                         item_name,classes,path_to_img,\
                         str_val,epochs,batch_size,final_activation,metrics,loss,\
-                        deepSupervision):
+                        deepSupervision,dataAug):
         
     curr_session = tf.get_default_session()
     # close current session
@@ -1567,7 +1573,7 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                             str_val=str_val,num_classes=num_classes,epochs=epochs,\
                             Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
                             NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet,\
-                            returnWhat='val_loss')
+                            returnWhat='val_loss',dataAug=dataAug)
         
     # To clean GPU memory
     K.clear_session()
@@ -1589,7 +1595,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         df_label,\
                         item_name,classes,path_to_img,\
                         str_val,epochs,batch_size,AP_file_base,\
-                        final_activation,metrics,loss,deepSupervision):
+                        final_activation,metrics,loss,deepSupervision,dataAug):
     """
     Fine Tuned a deep model with bayesian optimization of the hyper-parameters, the one concerned are :
         - log10_learning_rate
@@ -1619,7 +1625,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         item_name=item_name,classes=classes,path_to_img=path_to_img,\
                         str_val=str_val,epochs=epochs,batch_size=batch_size,cropCenter=cropCenter,\
                         final_activation=final_activation,metrics=metrics,loss=loss,\
-                        deepSupervision=deepSupervision)
+                        deepSupervision=deepSupervision,dataAug=dataAug)
     
     hyperoptimizer = BayesianOptimization(
         f=function_to_miximaze,
@@ -1686,7 +1692,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                             str_val=str_val,num_classes=num_classes,epochs=epochs,\
                             Net=constrNet,plotConv=False,batch_size=batch_size,cropCenter=cropCenter,\
                             NoValidationSetUsed=False,RandomValdiationSet=True,\
-                            returnWhat=None,deepSupervision=deepSupervision)
+                            returnWhat=None,deepSupervision=deepSupervision,dataAug=dataAug)
     return(model)
     
 
@@ -1832,7 +1838,7 @@ class FirstLayerBNStatsPrintingCallback(tf.keras.callbacks.Callback):
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
-                  RandomValdiationSet=False,returnWhat=None,deepSupervision=False):
+                  RandomValdiationSet=False,returnWhat=None,deepSupervision=False,dataAug=False):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -1875,8 +1881,25 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         print(Net,'is unknwon')
         raise(NotImplementedError)
             
+    if dataAug:
+        horizontal_flip = True
+        rotation_range = 5
+        width_shift_range = 2
+        height_shift_range = 2
+        zoom_range = 0.01
+    else:
+        horizontal_flip = False
+        rotation_range = 0
+        width_shift_range = 0
+        height_shift_range = 0
+        zoom_range = 0.0
           
-    datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)    
+    datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function,\
+                                                             horizontal_flip=horizontal_flip,\
+                                                             rotation_range=rotation_range,\
+                                                             width_shift_range=width_shift_range,\
+                                                             height_shift_range=height_shift_range,\
+                                                             zoom_range=zoom_range)    
     # preprocessing_function will be implied on each input. The function will run after the image is 
     # load resized and augmented. That's why we need to modify the load_img fct
     
@@ -1999,7 +2022,7 @@ def generator_with_im_and_label_as_output(generator, dataframe, directory, x_col
 def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
-                  RandomValdiationSet=False,returnWhat=None):
+                  RandomValdiationSet=False,returnWhat=None,dataAug=False):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -2042,6 +2065,9 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
         print(Net,'is unknwon')
         raise(NotImplementedError)
             
+    # Besoin de rajouter le truc du dataAug
+    if dataAug:
+        raise(NotImplementedError)
           
     datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)    
     # preprocessing_function will be implied on each input. The function will run after the image is 
@@ -4025,7 +4051,7 @@ def Crowley_reproduction_results():
                epochs=50,return_best_model=True,SGDmomentum=0.99,dropout=0.2)
     # & 73.1 & 46.9 & 92.8 & 76.4 & 65.1 & 73.4 & 56.8 & 80.2 & 71.1 & 88.6 & 72.4 \\
  
-def test_InceptionV1_onIconArt():
+def test_InceptionV1_onIconArt_and_RASTA():
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 pretrainingModif=True,\
@@ -4078,6 +4104,22 @@ def test_InceptionV1_onIconArt():
                 pretrainingModif=True,\
                 optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
                 epochs=1,cropCenter=True,verbose=True,deepSupervision=True) 
+        
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.1,0.01],
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+    # Top-1 accuracy : 55.29%
+    #Top-3 accuracy : 82.06%
+    #Top-5 accuracy : 90.66%
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.1,0.01],dataAug=True,
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+
     
     
 def VGG_fineTuning_onIconArt():
