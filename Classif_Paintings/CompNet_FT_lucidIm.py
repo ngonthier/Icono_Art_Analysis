@@ -96,6 +96,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
         return_best_model=False
     else:
         return_best_model=True
+        
     if 'deepSupervision' in model_name:
         deepSupervision=True
     else:
@@ -107,9 +108,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
         target_dataset = 'IconArt_v1'
     else:
         raise(NotImplementedError)
-        
-        
-    source_dataset = 'imagenet'   
+
     weights = 'imagenet'
     
     if constrNet=='VGG':
@@ -133,7 +132,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
     SGDmomentum=0.9
     decay=1e-4
 
-    returnStatistics = True    
+    returnStatistics = True   
     net_finetuned = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                            constrNet,kind_method,style_layers=[],weights=weights,\
                            normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
@@ -256,6 +255,18 @@ def get_imageNet_weights(Net):
             list_name_layers += [layer_name]
     return(list_weights,list_name_layers)
 
+def print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path='',\
+                                    constrNet='InceptionV1'):
+    if constrNet=='VGG':
+        # For the original pretrained imagenet VGG
+        lucid_utils.print_images(model_path=os.path.join('model','tf_vgg19.pb'),list_layer_index_to_print=list_layer_index_to_print_base_model\
+                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
+    elif constrNet=='InceptionV1':
+        # For the original pretrained imagenet InceptionV1 from Lucid to keras to Lucid
+        lucid_utils.print_images(model_path=os.path.join('model','tf_inception_v1.pb'),list_layer_index_to_print=list_layer_index_to_print_base_model\
+                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
+ 
+
 def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
     """
     This function will load the two models (deep nets) before and after fine-tuning 
@@ -285,7 +296,15 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
                         'RASTA_small01_modif','RASTA_big01_modif',
                         'RASTA_small001_modif','RASTA_big001_modif',
                         'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
-    #list_models_name = ['IconArt_v1_small001_modif']#,'RASTA_big001_modif_LastEpoch']
+    
+    list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
+                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
+                        'RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
+    # Semble diverger dans le cas de InceptionV1  :'RASTA_big01_modif',
+    list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
+                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch',]#,'RASTA_big001_modif_LastEpoch']
     #list_models_name = ['random']
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
     
@@ -294,7 +313,9 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
     K.set_learning_phase(0)
     #with K.get_session().as_default(): 
     path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
-    list_layer_index_to_print_base_model = []
+    dict_list_layer_index_to_print_base_model = {}
+    
+    num_top = 3
     for model_name in list_models_name:
         print('#### ',model_name)
         list_layer_index_to_print = []
@@ -306,16 +327,23 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
                 
                 name_pb = convert_finetuned_modelToFrozenGraph(model_name,
                               constrNet=constrNet,path=path_lucid_model,suffix=suffix)
-                
+                list_layer_index_to_print_base_model = []
                 for key in dict_layers_argsort.keys():
-                    top1 = dict_layers_argsort[key][0]
-                    list_layer_index_to_print += [[key,top1]]
-                    list_layer_index_to_print_base_model += [[key,top1]]
-                    
+                    for k in range(num_top):
+                        topk = dict_layers_argsort[key][k]
+                        list_layer_index_to_print += [[key,topk]]
+                        list_layer_index_to_print_base_model += [[key,topk]]
+                
+                dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
+                
+                output_path_with_model = os.path.join(output_path,model_name+suffix)
                 #print('list_layer_index_to_print',list_layer_index_to_print)
                 lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                        ,path_output=output_path,prexif_name=model_name,input_name=input_name_lucid,Net=constrNet)
+                        ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
                 
+                print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
+                                    constrNet=constrNet)
+                    
         else:
             # Random model 
             net_finetuned = get_random_net(constrNet)
@@ -324,23 +352,21 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
             
             name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet=constrNet,path=path_lucid_model)
             
+            list_layer_index_to_print_base_model = []
             for key in dict_layers_argsort.keys():
-                top1 = dict_layers_argsort[key][0]
-                list_layer_index_to_print += [[key,top1]]
-                list_layer_index_to_print_base_model += [[key,top1]]
+                for k in range(num_top):
+                    topk = dict_layers_argsort[key][k]
+                    list_layer_index_to_print += [[key,topk]]
+                    list_layer_index_to_print_base_model += [[key,topk]]
             
+            output_path_with_model = os.path.join(output_path,model_name)
             lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                         ,path_output=output_path,prexif_name=model_name,input_name='input_1',Net=constrNet)
-              
-    if constrNet=='VGG':
-        # For the original pretrained imagenet VGG
-        lucid_utils.print_images(model_path=os.path.join('model','tf_vgg19.pb'),list_layer_index_to_print=list_layer_index_to_print_base_model\
-                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
-    elif constrNet=='InceptionV1':
-        # For the original pretrained imagenet InceptionV1 from Lucid to keras to Lucid
-        lucid_utils.print_images(model_path=os.path.join('model','tf_inception_v1.pb'),list_layer_index_to_print=list_layer_index_to_print_base_model\
-                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
- 
+                         ,path_output=output_path_with_model,prexif_name=model_name,input_name='input_1',Net=constrNet)
+             
+            print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
+                                    constrNet=constrNet)
+    
+    
 if __name__ == '__main__': 
     Comparaison_of_FineTunedModel(constrNet='InceptionV1')    
         

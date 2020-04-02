@@ -252,7 +252,7 @@ def test_render_Inception_v1():
 
   
 def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name='',\
-                 input_name='block1_conv1_input',Net='VGG'):
+                 input_name='block1_conv1_input',Net='VGG',sizeIm=256):
     #with tf.Graph().as_default() as graph, tf.Session() as sess:
     
     if Net=='VGG':
@@ -291,6 +291,7 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         output_im = render.render_vis(lucid_net,obj ,
                                       transforms=transforms,
                                       thresholds=[2048],
+                                      param_f=lambda: param.image(sizeIm),
 #                                      optimizer=optimizer,
                                       use_fixed_seed=True)
         image = np.array(output_im[0][0]*255)
