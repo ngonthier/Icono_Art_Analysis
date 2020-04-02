@@ -1882,20 +1882,20 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         raise(NotImplementedError)
             
     if dataAug:
-        horizontal_flip = True
-        rotation_range = 5
+        vertical_flip = True
+        rotation_range = 2
         width_shift_range = 2
         height_shift_range = 2
         zoom_range = 0.01
     else:
-        horizontal_flip = False
+        vertical_flip = False
         rotation_range = 0
         width_shift_range = 0
         height_shift_range = 0
         zoom_range = 0.0
           
     datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function,\
-                                                             horizontal_flip=horizontal_flip,\
+                                                             vertical_flip=vertical_flip,\
                                                              rotation_range=rotation_range,\
                                                              width_shift_range=width_shift_range,\
                                                              height_shift_range=height_shift_range,\
