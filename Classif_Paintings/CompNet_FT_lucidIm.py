@@ -318,7 +318,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
     num_top = 3
     for model_name in list_models_name:
         print('#### ',model_name)
-        list_layer_index_to_print = []
+        
         if not(model_name=='random'):
             for suffix in suffix_tab:
                 net_finetuned = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
@@ -328,6 +328,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
                 name_pb = convert_finetuned_modelToFrozenGraph(model_name,
                               constrNet=constrNet,path=path_lucid_model,suffix=suffix)
                 list_layer_index_to_print_base_model = []
+                list_layer_index_to_print = []
                 for key in dict_layers_argsort.keys():
                     for k in range(num_top):
                         topk = dict_layers_argsort[key][k]
@@ -354,6 +355,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
             name_pb = convert_finetuned_modelToFrozenGraph(model_name,constrNet=constrNet,path=path_lucid_model)
             
             list_layer_index_to_print_base_model = []
+            list_layer_index_to_print = []
             for key in dict_layers_argsort.keys():
                 for k in range(num_top):
                     topk = dict_layers_argsort[key][k]
