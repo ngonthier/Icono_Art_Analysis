@@ -480,6 +480,13 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         final_activation='softmax'
         metrics='top_k_categorical_accuracy'
         loss='categorical_crossentropy'
+    elif 'Ukiyoe' in target_dataset:
+        if final_clf=='LinearSVC':
+            print('LinearSVC is not implemented yet with the Ukiyoe dataset, the number of images is too big')
+            raise(NotImplementedError)
+        final_activation='softmax'
+        metrics='accuracy'
+        loss='categorical_crossentropy'
     else:
         final_activation='sigmoid'
         metrics='accuracy'
@@ -990,6 +997,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             df_label_test = df_label[df_label['set']=='test']
             y_test = classes_vectors[df_label['set']=='test',:]
         elif target_dataset=='RASTA':
+            sLength = len(df_label[item_name])
+            classes_vectors =  df_label[classes].values
+            df_label_test = df_label[df_label['set']=='test']
+            y_test = classes_vectors[df_label['set']=='test',:]
+        elif 'Ukiyoe' in target_dataset:
             sLength = len(df_label[item_name])
             classes_vectors =  df_label[classes].values
             df_label_test = df_label[df_label['set']=='test']
@@ -1852,7 +1864,7 @@ class FirstLayerBNStatsPrintingCallback(tf.keras.callbacks.Callback):
       print('For batch {}, moving_mean is {} moving std {}.'.format(batch, moving_mean_eval,moving_std_eval))
 
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
-                  Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
+                  Net='VGG',batch_size = 32,plotConv=False,test_size=0.1,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
                   RandomValdiationSet=False,returnWhat=None,deepSupervision=False,\
                   dataAug=False,last_epochs_model_path=None):
