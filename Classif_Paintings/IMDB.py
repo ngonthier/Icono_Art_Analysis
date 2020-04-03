@@ -201,6 +201,13 @@ def get_database(database):
            '/m/0nl46', '/m/0nybt', '/m/0pcr', '/m/0pg52', '/m/0ph39',
            '/m/0qmmr', '/m/0wdt60w', '/m/0zvk5']
         # 38052 in total and 3135 for train
+    elif database=='Ukiyoe_simple': # Simple and quick version of the Ukiyoe dataset
+        # With 
+        default_path_imdb = default_path_imdb2
+        ext = '.csv'
+        item_name = 'item_name'
+        path_to_img = 'Ukiyoe/im/'     
+        classes = ["1", "2", "3", "4", "5", "6"]
     else:
         print('This database don t exist :',database)
         raise NotImplementedError
@@ -236,6 +243,8 @@ def get_database(database):
             path_data_csvfile = '/media/gonthier/HDD2/data/OIV5/'
         elif database=='RASTA':
             path_data_csvfile = '/media/gonthier/HDD2/data/RASTA_LAMSADE/wikipaintings_full/'
+        elif 'Ukiyoe' in database:
+            path_data_csvfile = '/media/gonthier/HDD2/data/Ukiyoe/'
         else:
             path_data_csvfile = path_data
     
