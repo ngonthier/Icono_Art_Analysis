@@ -963,6 +963,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             Latex_str += ' RandInit'
     
     model_path = os.path.join(model_output_path,AP_file_base+'.h5')
+    if return_best_model:
+        last_epochs_model_path = model_path.replace('_BestOnVal','')
+        # IE the name of the last model in the training that we will still save
     
     if ((not(os.path.isfile(APfilePath)) or ReDo) and not(onlyReturnResult)) or returnStatistics:
         
@@ -1025,6 +1028,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 dico_pred = PredictOnTestSet(X_test,dico_clf,clf=final_clf)
                 metrics = evaluationScoreDict(y_test,dico_pred)
             elif final_clf in ['MLP2','MLP1','MLP3']:
+                
+                
+                
                 if gridSearch:
                     if final_clf=='MLP2':
                         builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,\
@@ -1061,6 +1067,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                                 nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose,\
                                                 final_activation=final_activation,metrics=metrics,loss=loss)
+                    
+                    # TODO save also the last epoch model
+                    if return_best_model:
+                        print('Sorry we don t save the last model in the case of the return best model')
                     
                     model = TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,\
                                  verbose=verbose,plotConv=plotConv,return_best_model=return_best_model,\
@@ -1122,10 +1132,12 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                         model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                                                 x_col=item_name,y_col=classes,path_im=path_to_img,\
                                                 str_val=str_val,num_classes=len(classes),epochs=epochs,\
-                                                Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
+                                                Net=constrNet,plotConv=plotConv,batch_size=batch_size,\
+                                                cropCenter=cropCenter,return_best_model=return_best_model,\
                                                 NoValidationSetUsed=NoValidationSetUsed,\
                                                 RandomValdiationSet=RandomValdiationSet,\
-                                                deepSupervision=deepSupervision,dataAug=dataAug)
+                                                deepSupervision=deepSupervision,dataAug=dataAug,\
+                                                last_epochs_model_path=last_epochs_model_path)
                             
                     else: # Baysian optimization of the model
                         model =  FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,pretrainingModif,
@@ -1142,7 +1154,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                 df_label,\
                                 item_name,classes,path_to_img,\
                                 str_val,epochs,batch_size,AP_file_base,\
-                                final_activation,metrics,loss,deepSupervision,dataAug=dataAug)
+                                final_activation,metrics,loss,deepSupervision,dataAug=dataAug,\
+                                return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path)
                 else: # 'VGGsuffleInStatsSameLabel' case
                     if BaysianOptimFT:
                         raise(NotImplementedError('BaysianOptimFT is not implemented with VGGsuffleInStatsSameLabel model'))
@@ -1164,7 +1177,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                             str_val=str_val,num_classes=len(classes),epochs=epochs,\
                                             Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
                                             NoValidationSetUsed=NoValidationSetUsed,\
-                                            RandomValdiationSet=RandomValdiationSet,dataAug=dataAug)
+                                            RandomValdiationSet=RandomValdiationSet,dataAug=dataAug,\
+                                            return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path)
                     
                 # Need to add in load_model custom_objects !!! 
                 # tf.keras.models.save_model(
@@ -1595,7 +1609,8 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         df_label,\
                         item_name,classes,path_to_img,\
                         str_val,epochs,batch_size,AP_file_base,\
-                        final_activation,metrics,loss,deepSupervision,dataAug):
+                        final_activation,metrics,loss,deepSupervision,dataAug,\
+                        return_best_model,last_epochs_model_path):
     """
     Fine Tuned a deep model with bayesian optimization of the hyper-parameters, the one concerned are :
         - log10_learning_rate
@@ -1691,8 +1706,9 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                             x_col=item_name,y_col=classes,path_im=path_to_img,\
                             str_val=str_val,num_classes=num_classes,epochs=epochs,\
                             Net=constrNet,plotConv=False,batch_size=batch_size,cropCenter=cropCenter,\
-                            NoValidationSetUsed=False,RandomValdiationSet=True,\
-                            returnWhat=None,deepSupervision=deepSupervision,dataAug=dataAug)
+                            NoValidationSetUsed=False,RandomValdiationSet=True,return_best_model=return_best_model,\
+                            returnWhat=None,deepSupervision=deepSupervision,dataAug=dataAug,\
+                            last_epochs_model_path=last_epochs_model_path)
     return(model)
     
 
@@ -1838,7 +1854,8 @@ class FirstLayerBNStatsPrintingCallback(tf.keras.callbacks.Callback):
 def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
-                  RandomValdiationSet=False,returnWhat=None,deepSupervision=False,dataAug=False):
+                  RandomValdiationSet=False,returnWhat=None,deepSupervision=False,\
+                  dataAug=False,last_epochs_model_path=None):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -1856,7 +1873,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     if RandomValdiationSet:
         df_train = df_train.append(df_val)
 
-    if not(NoValidationSetUsed):
+    if not(NoValidationSetUsed): # IE we use a validation set
         if len(df_val)==0:
             df_train, df_val = train_test_split(df_train, test_size=test_size)
     else:
@@ -1942,7 +1959,8 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
 #    mcp_save = ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
 #    reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
 #    
-    #callbacks = [FirstLayerBNStatsPrintingCallback()] # To print the moving mean and std at each batch
+    #callbacks = [FirstLayerBNStatsPrintingCallback()] 
+    # To print the moving mean and std at each batch : and see the problem !
     callbacks = []
     if return_best_model:
         if returnWhat is None:
@@ -1952,7 +1970,8 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
             monitor = returnWhat
             mode='min'
         tmp_model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
-        mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor=monitor, mode=mode)
+        mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor=monitor, mode=mode,
+                                   save_weights_only=True)
         callbacks += [mcp_save]
 
     if platform.system()=='Windows':
@@ -1977,8 +1996,13 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                         workers=workers,callbacks=callbacks)
     
     if return_best_model: # We need to load back the best model !
-        # https://github.com/keras-team/keras/issues/2768
-        model = load_model(tmp_model_path) 
+        # First we save the last epoch model  if a name is provide
+        if not(last_epochs_model_path is None):
+            model.save(last_epochs_model_path,include_optimizer=False)
+            utils_keras.fix_layer0(last_epochs_model_path, [None, 224, 224,3], 'float32') 
+        # Then we load the best model on the monitored metric (val_loss)
+        model.load_weights(tmp_model_path)
+
     
     if plotConv:
        plotKerasHistory(history) 
@@ -2022,7 +2046,7 @@ def generator_with_im_and_label_as_output(generator, dataframe, directory, x_col
 def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
-                  RandomValdiationSet=False,returnWhat=None,dataAug=False):
+                  RandomValdiationSet=False,returnWhat=None,dataAug=False,last_epochs_model_path=None):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -2118,7 +2142,8 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
             monitor = returnWhat
             mode='min'
         tmp_model_path = os.path.join(tempfile.gettempdir(), next(tempfile._get_candidate_names()) + '.h5')
-        mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor=monitor, mode=mode)
+        mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor=monitor, mode=mode,
+                                   save_weights_only=True)
         callbacks += [mcp_save]
         
     
@@ -2144,7 +2169,9 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
                         workers=workers,callbacks=callbacks)
     
     if return_best_model: # We need to load back the best model !
-        # https://github.com/keras-team/keras/issues/2768
+        if not(last_epochs_model_path is None):
+            model.save(last_epochs_model_path,include_optimizer=False)
+            utils_keras.fix_layer0(last_epochs_model_path, [None, 224, 224,3], 'float32') 
         model = load_model(tmp_model_path) 
     
     if plotConv:
@@ -2229,6 +2256,10 @@ def TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,verbose=False,\
                             shuffle=True,callbacks=callbacks)
     if plotConv: # Plot convergence  
         plotKerasHistory(history)
+    
+    if return_best_model:
+        model.load_weights(tmp_model_path)
+        
     if verbose: print(model.summary())   
     return(model)
     
@@ -4128,9 +4159,16 @@ def VGG_fineTuning_onIconArt():
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
                 constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
-                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=False,
                 epochs=20,cropCenter=True,verbose=True) 
     #VGG GlobalAveragePooling2D ep :20 & 39.6 & 59.7 & 6.6 & 71.7 & 64.8 & 63.1 & 2.8 & 44.1 \\ 
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=20,cropCenter=True,verbose=True) 
+    # VGG GlobalAveragePooling2D ep :20 & 42.4 & 61.9 & 6.3 & 73.6 & 63.0 & 58.9 & 2.5 & 44.1 \\ 
+    
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
                 constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',pretrainingModif=True,\
