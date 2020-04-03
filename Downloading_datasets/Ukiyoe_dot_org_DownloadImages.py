@@ -338,3 +338,9 @@ def get_all_images(downloadImage=True):
 
 if __name__ == '__main__':                          
     get_all_images()
+
+# Empty images
+#    ./38035g1.jpg
+#    ./26897g1.jpg
+#    ./34747.jpg
+# df4 = df4[df4.item_name!='26897g1']
