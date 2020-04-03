@@ -58,7 +58,16 @@ list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_mod
                         'RASTA_small01_modif','RASTA_big01_modif',
                         'RASTA_small001_modif','RASTA_big001_modif',
                         'RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch',
-                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
+                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
+                        'RASTA_small01_modif_dataAug',
+                        'RASTA_small01_modif_ep120',
+                        'RASTA_small01_modif_dataAug_ep120',
+                        'RASTA_small01_modif_deepSupervision_ep120',
+                        'RASTA_big001_modif_dataAug',
+                        'RASTA_big001_modif_ep120',
+                        'RASTA_big001_modif_dataAug_ep120',
+                        'RASTA_big001_modif_deepSupervision_ep120'
+                        ]
 
 def get_random_net(constrNet='VGG'):
     seed = 0
@@ -97,6 +106,16 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
     else:
         return_best_model=True
         
+    if 'dataAug' in model_name:
+        dataAug=True
+    else:
+        dataAug=False
+        
+    if 'ep120' in model_name:
+        epochs=120
+    else:
+        epochs=20
+        
     if 'deepSupervision' in model_name:
         deepSupervision=True
     else:
@@ -127,7 +146,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
     kind_method=  'FT'
     optimizer='SGD'
     
-    epochs=20
+    
     cropCenter=True
     SGDmomentum=0.9
     decay=1e-4
@@ -140,7 +159,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
                            returnStatistics=returnStatistics,cropCenter=cropCenter,\
                            optimizer=optimizer,opt_option=opt_option,epochs=epochs,\
                            SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model,\
-                           pretrainingModif=True,suffix=suffix,deepSupervision=deepSupervision)
+                           pretrainingModif=True,suffix=suffix,deepSupervision=deepSupervision,\
+                           dataAug=dataAug)
     return(net_finetuned)
 
 def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suffix=''):
@@ -304,7 +324,18 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
     # Semble diverger dans le cas de InceptionV1  :'RASTA_big01_modif',
     list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
                         'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
-                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch',]#,'RASTA_big001_modif_LastEpoch']
+                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch']#,'RASTA_big001_modif_LastEpoch']
+    list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
+                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch'
+                        'RASTA_small01_modif_dataAug',
+                        'RASTA_small01_modif_ep120',
+                        'RASTA_small01_modif_dataAug_ep120',
+                        'RASTA_small01_modif_deepSupervision_ep120',
+                        'RASTA_big001_modif_dataAug',
+                        'RASTA_big001_modif_ep120',
+                        'RASTA_big001_modif_dataAug_ep120',
+                        'RASTA_big001_modif_deepSupervision_ep120']
     #list_models_name = ['random']
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
     
