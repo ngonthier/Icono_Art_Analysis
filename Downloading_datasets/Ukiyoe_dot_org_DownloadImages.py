@@ -342,5 +342,6 @@ if __name__ == '__main__':
 # Empty images
 #    ./38035g1.jpg
 #    ./26897g1.jpg
-#    ./34747.jpg
+#    ./34747.j
+# 3306201405470050
 # df4 = df4[df4.item_name!='26897g1']
