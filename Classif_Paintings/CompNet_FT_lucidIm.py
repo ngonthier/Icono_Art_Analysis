@@ -325,8 +325,8 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
                         'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
     # Semble diverger dans le cas de InceptionV1  :'RASTA_big01_modif',
     list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']#,'RASTA_big001_modif_LastEpoch']
-    list_models_name = ['RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch'
+                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
+                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch'
                         'RASTA_small01_modif_dataAug',
                         'RASTA_small01_modif_ep120',
                         'RASTA_small01_modif_dataAug_ep120',
