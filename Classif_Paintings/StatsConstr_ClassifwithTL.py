@@ -68,6 +68,9 @@ from bayes_opt.event import Events
 
 from googlenet import LRN,PoolHelper
 
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 def compute_ref_stats(dico,style_layers,type_ref='mean',imageUsed='all',whatToload = 'varmean',applySqrtOnVar=False):
     """
     This function compute a reference statistics on the statistics of the whole dataset
