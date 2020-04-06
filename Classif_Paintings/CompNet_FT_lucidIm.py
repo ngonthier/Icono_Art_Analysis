@@ -51,6 +51,7 @@ from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getRes
 
 import lucid_utils
 import platform
+import pickle
 
 list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
                         'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
@@ -66,7 +67,8 @@ list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_mod
                         'RASTA_big001_modif_dataAug',
                         'RASTA_big001_modif_ep120',
                         'RASTA_big001_modif_dataAug_ep120',
-                        'RASTA_big001_modif_deepSupervision_ep120'
+                        'RASTA_big001_modif_deepSupervision_ep120',
+                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch'
                         ]
 
 def get_random_net(constrNet='VGG'):
@@ -244,7 +246,7 @@ def get_gap_between_weights(list_name_layers,list_weights,net_finetuned):
         
     return(dict_layers_relative_diff,dict_layers_argsort)
 
-def print_stats_on_diff(np_list,k=1):
+def print_stats_on_diff(np_list,k=3):
     print('Max :',np.max(np_list),'Median :',np.median(np_list),'Mean :',np.mean(np_list))
     argsort = np.argsort(np_list)[::-1]
     for i in range(k):
@@ -323,11 +325,8 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
                         'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
     # Semble diverger dans le cas de InceptionV1  :'RASTA_big01_modif',
     list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
-                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch']#,'RASTA_big001_modif_LastEpoch']
-    list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
-                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch'
+                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']#,'RASTA_big001_modif_LastEpoch']
+    list_models_name = ['RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch'
                         'RASTA_small01_modif_dataAug',
                         'RASTA_small01_modif_ep120',
                         'RASTA_small01_modif_dataAug_ep120',
@@ -352,9 +351,15 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
         
         if not(model_name=='random'):
             for suffix in suffix_tab:
+                output_path_with_model = os.path.join(output_path,model_name+suffix)
+                pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
+                
                 net_finetuned = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
                 dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
                                                                                 list_weights,net_finetuned)
+                save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
+                with open(save_file, 'wb') as handle:
+                    pickle.dump(dict_layers_relative_diff, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 
                 name_pb = convert_finetuned_modelToFrozenGraph(model_name,
                               constrNet=constrNet,path=path_lucid_model,suffix=suffix)
@@ -368,9 +373,6 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
                 
                 dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
                 
-                output_path_with_model = os.path.join(output_path,model_name+suffix)
-                pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
-                #print('list_layer_index_to_print',list_layer_index_to_print)
                 lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
                         ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
                 
