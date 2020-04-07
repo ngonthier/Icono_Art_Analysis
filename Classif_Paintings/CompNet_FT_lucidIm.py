@@ -80,7 +80,6 @@ def get_random_net(constrNet='VGG'):
         randomNet = Inception_V1(include_top=False, weights=None)
     return(randomNet)
 
-
 def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
     
     opt_option_small=[0.1,0.001]
@@ -241,7 +240,7 @@ def get_gap_between_weights(list_name_layers,list_weights,net_finetuned):
             print_stats_on_diff(relative_diff_abs)
             
             dict_layers_relative_diff[layer_name] = relative_diff_abs
-            argsort = np.argsort(relative_diff_abs)[::-1] # Il y avait une erreur la !
+            argsort = np.argsort(relative_diff_abs)[::-1]
             dict_layers_argsort[layer_name] = argsort
         
     return(dict_layers_relative_diff,dict_layers_argsort)

@@ -2322,8 +2322,13 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
         print(Net,'is unknwon')
         raise(NotImplementedError)
             
-    use_multiprocessing = True
-    workers = 8
+    if platform.system()=='Windows':
+        print('For the moment with tensorflow 1.15 the multiprocessing on Windows don t work')
+        use_multiprocessing = False
+        workers=1
+    else:
+        use_multiprocessing = True
+        workers=8
     batch_size = 16
         
     datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)    

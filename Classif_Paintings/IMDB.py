@@ -222,6 +222,11 @@ def get_database(database):
         path_tmp = 'data/' 
         path_to_img = path_tmp + path_to_img
         path_data = path_tmp + 'ClassifPaintings/'
+        if not(os.path.isdir(path_data)):
+            path_data = path_tmp
+            if not(path_data):
+                print('The path the to data folder is not in this machine')
+                raise(ValueError)
         if 'IconArt_v1' in database:
             path_data_csvfile = path_tmp+'Wikidata_Paintings/IconArt_v1/ImageSets/Main/'
         elif database=='RMN':
