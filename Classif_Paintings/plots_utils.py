@@ -24,25 +24,29 @@ import matplotlib.gridspec as gridspec
 import math
 from skimage import exposure
 from PIL import Image
+from preprocess_crop import load_and_crop_img
 
-def plt_multiple_imgs(list_images,path_output,path_img='',name_fig=''):
+def plt_multiple_imgs(list_images,path_output,path_img='',name_fig='',\
+                      cropCenter=False,Net='VGG'):
     number_imgs = len(list_images)
+    hspace = 0.05
+    wspace = 0.05
     if(number_imgs<6):
          fig, axes = plt.subplots(1,number_imgs)
     else:
          if(number_imgs%4==0):
-             fig, axes = plt.subplots(number_imgs//4, 4)
+             fig, axes = plt.subplots(number_imgs//4, 4, gridspec_kw = {'wspace':wspace, 'hspace':hspace})
          elif(number_imgs%3==0):
-             fig, axes = plt.subplots(number_imgs//3, 3)
+             fig, axes = plt.subplots(number_imgs//3, 3, gridspec_kw = {'wspace':wspace, 'hspace':hspace})
          elif(number_imgs%5==0):
-             fig, axes = plt.subplots(number_imgs//5, 5)
+             fig, axes = plt.subplots(number_imgs//5, 5, gridspec_kw = {'wspace':wspace, 'hspace':hspace})
          elif(number_imgs%2==0):
-             fig, axes = plt.subplots(number_imgs//2, 2)
+             fig, axes = plt.subplots(number_imgs//2, 2, gridspec_kw = {'wspace':wspace, 'hspace':hspace})
          else:
              j=6
              while(not(number_imgs%j==0)):
                  j += 1
-             fig, axes = plt.subplots(number_imgs//j, j)
+             fig, axes = plt.subplots(number_imgs//j, j, gridspec_kw = {'wspace':wspace, 'hspace':hspace})
      
     i = 0
     axes = axes.flatten()
@@ -56,10 +60,17 @@ def plt_multiple_imgs(list_images,path_output,path_img='',name_fig=''):
                      print(img_name_path,'is not found')
                      raise(ValueError)
              img_name_path = img_name_path_ext
-         img = Image.open(img_name_path)
+         if cropCenter:
+             img = load_and_crop_img(path=img_name_path,Net=Net, grayscale=False, color_mode='rgb',\
+                               target_size=224,crop_size=224,interpolation='lanczos:center')
+             img = img[0,:,:,:] # Remove batch
+             img = img.astype(np.uint8)
+         else:
+             img = Image.open(img_name_path)
          axis.imshow(img)
          axis.set_axis_off()
-         plt.axis('off')
+         axis.set_aspect('equal')
          i += 1
     pltname = os.path.join(path_output,name_fig+'.png')
     fig.savefig(pltname, dpi = 300)
+    plt.close()

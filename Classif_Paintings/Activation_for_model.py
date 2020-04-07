@@ -101,6 +101,7 @@ def plot_images_positives_and_slightyPos_Images(dataset,model_name,constrNet,
     """
     This function will plot k image a given layer with a given features number
     """
+    cropCenter = True
     matplotlib.use('Agg')
     
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
@@ -137,15 +138,17 @@ def plot_images_positives_and_slightyPos_Images(dataset,model_name,constrNet,
             argsort = np.argsort(activations_l_f_pos)[::-1]
             # Most positive images
             list_most_pos_images = name_images_l_f_pos[argsort[0:numberIm]]
-            name_fig = 'Most_Pos_Images_'+dataset+'_'+layer_name+'_'+str(num_feature) +'_NumberIm'+str(numberIm)
+            name_fig = dataset+'_'+layer_name+'_'+str(num_feature)+'_Most_Pos_Images_NumberIm'+str(numberIm)
             plt_multiple_imgs(list_images=list_most_pos_images,path_output=output_path_for_img,\
-                              path_img=path_to_img,name_fig=name_fig)
+                              path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
+                              Net=None)
             
             # Slightly positive images
             list_slightly_pos_images = name_images_l_f_pos[argsort[-numberIm:]]
-            name_fig = 'Slightly_Pos_Images_'+dataset+'_'+layer_name+'_'+str(num_feature) +'_NumberIm'+str(numberIm)
+            name_fig = dataset+'_'+layer_name+'_'+str(num_feature) +'_Slightly_Pos_Images_NumberIm'+str(numberIm)
             plt_multiple_imgs(list_images=list_slightly_pos_images,path_output=output_path_for_img,\
-                              path_img=path_to_img,name_fig=name_fig)
+                              path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
+                              Net=None)
     
 if __name__ == '__main__': 
     # Petit test 

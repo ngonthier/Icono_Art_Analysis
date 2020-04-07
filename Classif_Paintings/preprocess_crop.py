@@ -107,17 +107,18 @@ def load_and_crop_img(path,Net, grayscale=False, color_mode='rgb', target_size=2
     
     img = kp_image.img_to_array(img)
     img = np.expand_dims(img, axis=0) # Should be replace by expand_dims in tf
-    if 'VGG' in Net:
-        preprocessing_function = applications.vgg19.preprocess_input
-    elif 'ResNet' in Net:
-        preprocessing_function = applications.resnet50.preprocess_input
-    elif 'InceptionV1' in Net:
-        preprocessing_function = applications.imagenet_utils.preprocess_input
-    else:
-        print(Net,'is unknwon')
-        raise(NotImplementedError)
-    
-    img =  preprocessing_function(img)
+    if not(Net is None):
+        if 'VGG' in Net:
+            preprocessing_function = applications.vgg19.preprocess_input
+        elif 'ResNet' in Net:
+            preprocessing_function = applications.resnet50.preprocess_input
+        elif 'InceptionV1' in Net:
+            preprocessing_function = applications.imagenet_utils.preprocess_input
+        else:
+            print(Net,'is unknwon, it can be None if you want no preprocessing.')
+            raise(NotImplementedError)
+        
+        img =  preprocessing_function(img)
 
     return img
 
