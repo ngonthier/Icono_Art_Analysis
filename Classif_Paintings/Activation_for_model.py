@@ -102,7 +102,6 @@ def plot_images_positives_and_slightyPos_Images(dataset,model_name,constrNet,
     This function will plot k image a given layer with a given features number
     """
     cropCenter = True
-    matplotlib.use('Agg')
     
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
     path_data,Not_on_NicolasPC = get_database(dataset)
@@ -129,8 +128,8 @@ def plot_images_positives_and_slightyPos_Images(dataset,model_name,constrNet,
         list_outputs_name,activations = compute_meanValue_Feature(dataset,model_name,constrNet)
     
     for layer_name_inlist,activations_l in zip(list_outputs_name,activations):
-        print(layer_name_inlist,layer_name)
         if layer_name==layer_name_inlist:
+            print(layer_name,num_feature)
             activations_l_f = activations_l[:,num_feature]
             where_activations_l_f_pos = np.where(activations_l_f>0)[0]
             activations_l_f_pos = activations_l_f[where_activations_l_f_pos]
@@ -138,27 +137,67 @@ def plot_images_positives_and_slightyPos_Images(dataset,model_name,constrNet,
             argsort = np.argsort(activations_l_f_pos)[::-1]
             # Most positive images
             list_most_pos_images = name_images_l_f_pos[argsort[0:numberIm]]
+            act_most_pos_images = activations_l_f_pos[argsort[0:numberIm]]
+            title_imgs = []
+            for act in act_most_pos_images:
+                str_act = '{:.02f}'.format(act)
+                title_imgs += [str_act]
             name_fig = dataset+'_'+layer_name+'_'+str(num_feature)+'_Most_Pos_Images_NumberIm'+str(numberIm)
             plt_multiple_imgs(list_images=list_most_pos_images,path_output=output_path_for_img,\
                               path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
-                              Net=None)
+                              Net=None,title_imgs=title_imgs)
             
-            # Slightly positive images
-            list_slightly_pos_images = name_images_l_f_pos[argsort[-numberIm:]]
-            name_fig = dataset+'_'+layer_name+'_'+str(num_feature) +'_Slightly_Pos_Images_NumberIm'+str(numberIm)
-            plt_multiple_imgs(list_images=list_slightly_pos_images,path_output=output_path_for_img,\
+#            # Slightly positive images : TODO
+#            list_slightly_pos_images = name_images_l_f_pos[argsort[-numberIm:]]
+#            act_slightly_pos_images = activations_l_f_pos[argsort[-numberIm:]]
+#            title_imgs = []
+#            for act in act_slightly_pos_images:
+#                str_act = '{:.02f}'.format(act)
+#                title_imgs += [str_act]
+#            name_fig = dataset+'_'+layer_name+'_'+str(num_feature) +'_Slightly_Pos_Images_NumberIm'+str(numberIm)
+#            plt_multiple_imgs(list_images=list_slightly_pos_images,path_output=output_path_for_img,\
+#                              path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
+#                              Net=None,title_imgs=title_imgs)
+            
+            # Positive near zero images
+            list_nearZero_pos_images = name_images_l_f_pos[argsort[-numberIm:]]
+            act_nearZero_pos_images = activations_l_f_pos[argsort[-numberIm:]]
+            title_imgs = []
+            for act in act_nearZero_pos_images:
+                str_act = '{:.02f}'.format(act)
+                title_imgs += [str_act]
+            name_fig = dataset+'_'+layer_name+'_'+str(num_feature) +'_Near_Zero_Pos_Images_NumberIm'+str(numberIm)
+            plt_multiple_imgs(list_images=list_nearZero_pos_images,path_output=output_path_for_img,\
                               path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
-                              Net=None)
+                              Net=None,title_imgs=title_imgs)
     
 if __name__ == '__main__': 
     # Petit test 
     #compute_meanValue_Feature(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1')
-#    plot_images_positives_and_slightyPos_Images(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1',
-#                                                layer_name='mixed4d_3x3_bottleneck_pre_relu',
-#                                                num_feature=64,
-#                                                numberIm=9)
-    plot_images_positives_and_slightyPos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
+    plot_images_positives_and_slightyPos_Images(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1',
                                                 layer_name='mixed4d_3x3_bottleneck_pre_relu',
                                                 num_feature=64,
                                                 numberIm=9)
+    plot_images_positives_and_slightyPos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
+                                                layer_name='mixed4d_3x3_bottleneck_pre_relu',
+                                                num_feature=64,
+                                                numberIm=81)
+    plot_images_positives_and_slightyPos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
+                                                layer_name='mixed4d_3x3_pre_relu',
+                                                num_feature=52,
+                                                numberIm=81)
+    # mixed4d_pool_reduce_pre_reluConv2D_63_RASTA_small01_modif.png	
+    plot_images_positives_and_slightyPos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
+                                                layer_name='mixed4d_pool_reduce_pre_relu',
+                                                num_feature=63,
+                                                numberIm=81)
+    #Nom de fichier	mixed4b_3x3_bottleneck_pre_reluConv2D_35_RASTA_small01_modif.png	
+    plot_images_positives_and_slightyPos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
+                                                layer_name='mixed4b_3x3_bottleneck_pre_relu',
+                                                num_feature=35,
+                                                numberIm=81)
+#    plot_images_positives_and_slightyPos_Images(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1',
+#                                                layer_name='mixed4b_3x3_bottleneck_pre_relu',
+#                                                num_feature=35,
+#                                                numberIm=81)
         

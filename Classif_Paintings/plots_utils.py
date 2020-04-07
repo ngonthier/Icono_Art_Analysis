@@ -12,6 +12,7 @@ import scipy
 import numpy as np
 import tensorflow as tf
 import seaborn as sns
+import matplotlib
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
@@ -27,26 +28,42 @@ from PIL import Image
 from preprocess_crop import load_and_crop_img
 
 def plt_multiple_imgs(list_images,path_output,path_img='',name_fig='',\
-                      cropCenter=False,Net='VGG'):
+                      cropCenter=False,Net='VGG',title_imgs=None):
+    
+    matplotlib.use('Agg')
     number_imgs = len(list_images)
-    hspace = 0.05
-    wspace = 0.05
-    if(number_imgs<6):
-         fig, axes = plt.subplots(1,number_imgs)
+    if title_imgs is None:
+        hspace = 0.05
+        wspace = 0.05
+        gridspec_kw = {'wspace':wspace, 'hspace':hspace}
     else:
-         if(number_imgs%4==0):
-             fig, axes = plt.subplots(number_imgs//4, 4, gridspec_kw = {'wspace':wspace, 'hspace':hspace})
-         elif(number_imgs%3==0):
-             fig, axes = plt.subplots(number_imgs//3, 3, gridspec_kw = {'wspace':wspace, 'hspace':hspace})
-         elif(number_imgs%5==0):
-             fig, axes = plt.subplots(number_imgs//5, 5, gridspec_kw = {'wspace':wspace, 'hspace':hspace})
-         elif(number_imgs%2==0):
-             fig, axes = plt.subplots(number_imgs//2, 2, gridspec_kw = {'wspace':wspace, 'hspace':hspace})
-         else:
-             j=6
-             while(not(number_imgs%j==0)):
-                 j += 1
-             fig, axes = plt.subplots(number_imgs//j, j, gridspec_kw = {'wspace':wspace, 'hspace':hspace})
+        gridspec_kw = {}
+#    if(number_imgs<6):
+#         fig, axes = plt.subplots(1,number_imgs)
+#    else:
+#         if(number_imgs%4==0):
+#             fig, axes = plt.subplots(number_imgs//4, 4, gridspec_kw =gridspec_kw)
+#         elif(number_imgs%3==0):
+#             fig, axes = plt.subplots(number_imgs//3, 3, gridspec_kw =gridspec_kw)
+#         elif(number_imgs%5==0):
+#             fig, axes = plt.subplots(number_imgs//5, 5, gridspec_kw =gridspec_kw)
+#         elif(number_imgs%2==0):
+#             fig, axes = plt.subplots(number_imgs//2, 2, gridspec_kw =gridspec_kw)
+#         else:
+#             j=6
+#             while(not(number_imgs%j==0)):
+#                 fig, axes = plt.subplots(number_imgs//j, j, gridspec_kw =gridspec_kw)
+#                 j += 1
+    grid_size = int(np.ceil(np.sqrt(number_imgs)))
+    dpi = 300
+    if cropCenter:
+        target_size = 224
+        target_size_image_output = 1200*grid_size/3
+        size_inch = target_size_image_output//dpi
+        fig, axes = plt.subplots(grid_size, grid_size, gridspec_kw =gridspec_kw,figsize=(size_inch,size_inch))
+    else:
+        target_size = 500
+        fig, axes = plt.subplots(grid_size, grid_size, gridspec_kw =gridspec_kw)
      
     i = 0
     axes = axes.flatten()
@@ -62,15 +79,18 @@ def plt_multiple_imgs(list_images,path_output,path_img='',name_fig='',\
              img_name_path = img_name_path_ext
          if cropCenter:
              img = load_and_crop_img(path=img_name_path,Net=Net, grayscale=False, color_mode='rgb',\
-                               target_size=224,crop_size=224,interpolation='lanczos:center')
+                               target_size=target_size,crop_size=224,interpolation='lanczos:center')
              img = img[0,:,:,:] # Remove batch
              img = img.astype(np.uint8)
          else:
              img = Image.open(img_name_path)
          axis.imshow(img)
+         if not(title_imgs is None):
+             axis.set_title(title_imgs[i],fontdict={'fontsize':5})
          axis.set_axis_off()
          axis.set_aspect('equal')
          i += 1
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=0.985, wspace=0.15, hspace=0.15)
     pltname = os.path.join(path_output,name_fig+'.png')
-    fig.savefig(pltname, dpi = 300)
+    fig.savefig(pltname, dpi = dpi)
     plt.close()
