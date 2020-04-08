@@ -288,7 +288,7 @@ def print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_
                       ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
  
 
-def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
+def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_feature = False):
     """
     This function will load the two models (deep nets) before and after fine-tuning 
     and then compute the difference between the weights and finally run a 
@@ -325,9 +325,8 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
     # Semble diverger dans le cas de InceptionV1  :'RASTA_big01_modif',
     list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
                         'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
-                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch']
-    list_models_name = ['RASTA_big001_modif_LastEpoch',
-                        'RASTA_small01_modif_dataAug',
+                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch']
+    list_models_name = ['RASTA_small01_modif_dataAug',
                         'RASTA_small01_modif_ep120',
                         'RASTA_small01_modif_dataAug_ep120',
                         'RASTA_small01_modif_deepSupervision_ep120',
@@ -378,6 +377,19 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG'):
                 
                 print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
                                     constrNet=constrNet)
+                    
+                # Do the images for the other models case
+                if doAlsoImagesOfOtherModel_feature:
+                    for suffix_local in suffix_tab:
+                        if not(suffix_local==suffix):
+                            if model_name+suffix_local in dict_list_layer_index_to_print_base_model.keys():  
+                                print('Do lucid image for other features',suffix_local)
+                                list_layer_index_to_print = dict_list_layer_index_to_print_base_model[model_name+suffix_local]
+                                output_path_with_model_local =  os.path.join(output_path_with_model,'FromOtherTraining'+suffix_local)
+                                pathlib.Path(output_path_with_model_local).mkdir(parents=True, exist_ok=True)
+                                lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                                                         ,path_output=output_path_with_model_local,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
+                
                     
         else:
             # Random model 
