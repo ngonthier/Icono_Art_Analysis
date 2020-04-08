@@ -2051,7 +2051,6 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         # Then we load the best model on the monitored metric (val_loss)
         model.load_weights(tmp_model_path)
 
-    
     if plotConv:
        plotKerasHistory(history) 
        
