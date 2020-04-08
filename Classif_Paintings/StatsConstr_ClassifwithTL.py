@@ -16,6 +16,7 @@ from trouver_classes_parmi_K import TrainClassif
 import numpy as np
 import math
 import matplotlib
+import json
 import os.path
 import platform
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index,numeral_layers_index_bitsVersion
@@ -587,7 +588,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         name_base += '_'+set
     if constrNet=='VGG' or constrNet=='ResNet50':
         getBeforeReLU  = False
-    if constrNet in ['VGG','ResNet50'] and kind_method=='FT':
+    if constrNet in ['VGG','ResNet50','InceptionV1'] and kind_method=='FT':
         if type(pretrainingModif)==bool:
             if pretrainingModif==False:
                 name_base +=  '_wholePretrainedNetFreeze'
@@ -629,6 +630,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     if constrNet=='ResNet50_ROWD_CUMUL' and useFloat32:
         name_base += '_useFloat32'
     
+    # TO do, normalement cela devrait etre mis dans le AP file training name quoi
     if cropCenter:   
         name_base += '_CropCenter'  
         
@@ -902,7 +904,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             AP_file += '_dropout'+str(dropout) 
        if optimizer=='SGD':
            if nesterov:
-                AP_file += '_nes'
+               AP_file += '_nes'
            if not(BaysianOptimFT):
                if not(SGDmomentum==0.0):
                    AP_file += '_sgdm'+str(SGDmomentum)
@@ -911,7 +913,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 AP_file += '_m'+str(SGDmomentum)
        if not(BaysianOptimFT):
            if not(decay==0.0):
-               AP_file += '_dec'+str(decay)
+                AP_file += '_dec'+str(decay)
        if return_best_model:
            AP_file += '_BestOnVal'
        if NoValidationSetUsed:
@@ -926,12 +928,25 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 AP_file +=  '_wholePretrainedNetFreeze'
         else:
             if not(freezingType=='FromTop'):
-                name_base += '_'+freezingType
+                AP_file += '_'+freezingType
             AP_file += '_unfreeze'+str(pretrainingModif)
     
     AP_file_base =  AP_file
+    
     AP_file_pkl =AP_file_base+'_AP.pkl'
+    Hist_file ='History_'+name_base
     APfilePath =  os.path.join(output_path,AP_file_pkl)
+    output_history_path =  os.path.join(output_path,'history')
+    history_path =  os.path.join(output_history_path,Hist_file)
+    pathlib.Path(output_history_path).mkdir(parents=True, exist_ok=True) 
+    if not(BaysianOptimFT):
+        local_history_path = add_end_name_history_file(history_path,batch_size,epochs,regulOnNewLayer,\
+                          regulOnNewLayerParam,dropout,optimizer,nesterov,\
+                          SGDmomentum,decay,return_best_model,\
+                          NoValidationSetUsed,RandomValdiationSet,
+                          pretrainingModif,constrNet,freezingType,BaysianOptimFT=False)
+
+    
     if verbose: print(APfilePath)
     
     # TL or FT method
@@ -1010,6 +1025,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             df_label_test = df_label[df_label['set']=='test']
             y_test = classes_vectors[df_label['set']=='test',:]
         else:
+            print(target_dataset,'is unknown')
             raise(NotImplementedError)
     
         if kind_method=='TL':
@@ -1152,7 +1168,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 NoValidationSetUsed=NoValidationSetUsed,\
                                                 RandomValdiationSet=RandomValdiationSet,\
                                                 deepSupervision=deepSupervision,dataAug=dataAug,\
-                                                last_epochs_model_path=last_epochs_model_path)
+                                                last_epochs_model_path=last_epochs_model_path,\
+                                                history_path=local_history_path)
                             
                     else: # Baysian optimization of the model
                         model =  FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,pretrainingModif,
@@ -1170,7 +1187,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                 item_name,classes,path_to_img,\
                                 str_val,epochs,batch_size,AP_file_base,\
                                 final_activation,metrics,loss,deepSupervision,dataAug=dataAug,\
-                                return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path)
+                                return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path,\
+                                history_path=history_path)
                 else: # 'VGGsuffleInStatsSameLabel' case
                     if BaysianOptimFT:
                         raise(NotImplementedError('BaysianOptimFT is not implemented with VGGsuffleInStatsSameLabel model'))
@@ -1193,7 +1211,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                             Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
                                             NoValidationSetUsed=NoValidationSetUsed,\
                                             RandomValdiationSet=RandomValdiationSet,dataAug=dataAug,\
-                                            return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path)
+                                            return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path,\
+                                            history_path=local_history_path)
                     
                 # Need to add in load_model custom_objects !!! 
                 # tf.keras.models.save_model(
@@ -1556,14 +1575,14 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                         regulOnNewLayer,regulOnNewLayerParam
                         ,dropout,nesterov,style_layers,
                         source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
-                        BV,p,
+                        BV,p,return_best_model,
                         dbn_affine,m_per_group,kind_method,\
                         batch_size_RF,momentum,\
                         epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                         df_label,\
                         item_name,classes,path_to_img,\
                         str_val,epochs,batch_size,final_activation,metrics,loss,\
-                        deepSupervision,dataAug):
+                        deepSupervision,dataAug,history_path):
         
     curr_session = tf.get_default_session()
     # close current session
@@ -1597,12 +1616,18 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                                 epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                                 final_activation,metrics,loss,deepSupervision)
                 
+    history_path = add_end_name_history_file(history_path,batch_size,epochs,regulOnNewLayer,\
+                              regulOnNewLayerParam,dropout,optimizer,nesterov,\
+                              SGDmomentum,decay,return_best_model,\
+                              NoValidationSetUsed,RandomValdiationSet,
+                              pretrainingModif,constrNet,freezingType,BaysianOptimFT=False)
+    
     fined_model_best_metric = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                             x_col=item_name,y_col=classes,path_im=path_to_img,\
-                            str_val=str_val,num_classes=num_classes,epochs=epochs,\
+                            str_val=str_val,num_classes=num_classes,epochs=epochs,return_best_model=return_best_model,\
                             Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
                             NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet,\
-                            returnWhat='val_loss',dataAug=dataAug)
+                            returnWhat='val_loss',dataAug=dataAug,history_path=history_path)
         
     # To clean GPU memory
     K.clear_session()
@@ -1625,7 +1650,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         item_name,classes,path_to_img,\
                         str_val,epochs,batch_size,AP_file_base,\
                         final_activation,metrics,loss,deepSupervision,dataAug,\
-                        return_best_model,last_epochs_model_path):
+                        return_best_model,last_epochs_model_path,history_path):
     """
     Fine Tuned a deep model with bayesian optimization of the hyper-parameters, the one concerned are :
         - log10_learning_rate
@@ -1647,7 +1672,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam
                         ,dropout=dropout,nesterov=nesterov,style_layers=style_layers,
                         source_dataset=source_dataset,number_im_considered=number_im_considered,getBeforeReLU=getBeforeReLU,\
-                        BV=BV,p=p,
+                        BV=BV,p=p,return_best_model=return_best_model,
                         dbn_affine=dbn_affine,m_per_group=m_per_group,kind_method=kind_method,\
                         batch_size_RF=batch_size_RF,momentum=momentum,\
                         epochs_RF=epochs_RF,output_path=output_path,kind_of_shuffling=kind_of_shuffling,useFloat32=useFloat32,\
@@ -1655,7 +1680,8 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         item_name=item_name,classes=classes,path_to_img=path_to_img,\
                         str_val=str_val,epochs=epochs,batch_size=batch_size,cropCenter=cropCenter,\
                         final_activation=final_activation,metrics=metrics,loss=loss,\
-                        deepSupervision=deepSupervision,dataAug=dataAug)
+                        deepSupervision=deepSupervision,dataAug=dataAug,\
+                        history_path=history_path)
     
     hyperoptimizer = BayesianOptimization(
         f=function_to_miximaze,
@@ -1716,14 +1742,22 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                                 epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                                 final_activation=final_activation,metrics=metrics,\
                                 loss=loss,deepSupervision=deepSupervision)
-                
+    NoValidationSetUsed = False
+    RandomValdiationSet = True 
+               
+    local_history_path = add_end_name_history_file(history_path,batch_size,epochs,regulOnNewLayer,\
+                          regulOnNewLayerParam,dropout,optimizer,nesterov,\
+                          SGDmomentum,decay,return_best_model,\
+                          NoValidationSetUsed,RandomValdiationSet,
+                          pretrainingModif,constrNet,freezingType,BaysianOptimFT=True)
+
     model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                             x_col=item_name,y_col=classes,path_im=path_to_img,\
                             str_val=str_val,num_classes=num_classes,epochs=epochs,\
                             Net=constrNet,plotConv=False,batch_size=batch_size,cropCenter=cropCenter,\
-                            NoValidationSetUsed=False,RandomValdiationSet=True,return_best_model=return_best_model,\
+                            NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet,return_best_model=return_best_model,\
                             returnWhat=None,deepSupervision=deepSupervision,dataAug=dataAug,\
-                            last_epochs_model_path=last_epochs_model_path)
+                            last_epochs_model_path=last_epochs_model_path,history_path=local_history_path) # Only this element will have its history saved with the BaysianOptimFT based name
     return(model)
     
 
@@ -1870,13 +1904,16 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                   Net='VGG',batch_size = 32,plotConv=False,test_size=0.1,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
                   RandomValdiationSet=False,returnWhat=None,deepSupervision=False,\
-                  dataAug=False,last_epochs_model_path=None):
+                  dataAug=False,last_epochs_model_path=None,
+                  history_path=None):
     """
     To fine tune a deep model
     @param x_col : name of images
     @param y_col : classes
     @param path_im : path to images
     @param : return_best_model : return the best model on the val_loss
+    @param : history_path the path where to save the history of training
+        default is None if None no saving
     """
     assert(not(NoValidationSetUsed and return_best_model))
     
@@ -2022,6 +2059,11 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     if plotConv:
        plotKerasHistory(history) 
        
+    if not(history_path is None):
+        print(history_path)
+        with open(history_path, 'wb') as handle:
+            pickle.dump(history.history, handle)
+
     if cropCenter:
         kp.image.iterator.load_img = old_loading_img_fct
         
@@ -2061,7 +2103,8 @@ def generator_with_im_and_label_as_output(generator, dataframe, directory, x_col
 def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
-                  RandomValdiationSet=False,returnWhat=None,dataAug=False,last_epochs_model_path=None):
+                  RandomValdiationSet=False,returnWhat=None,dataAug=False,last_epochs_model_path=None,\
+                  history_path=None):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -2192,6 +2235,10 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
     if plotConv:
        plotKerasHistory(history) 
        
+    if not(history_path is None):
+       with open(history_path, 'wb') as handle:
+           pickle.dump(history, handle, protocol=pickle.HIGHEST_PROTOCOL)
+       
     if cropCenter:
         kp.image.iterator.load_img = old_loading_img_fct
         
@@ -2209,6 +2256,60 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
             metric = float(10**6)
         metric = - metric
         return(metric)
+
+def add_end_name_history_file(hist_file,batch_size,epochs,regulOnNewLayer,\
+                              regulOnNewLayerParam,dropout,optimizer,nesterov,\
+                              SGDmomentum,decay,return_best_model,\
+                              NoValidationSetUsed,RandomValdiationSet,
+                              pretrainingModif,Net,freezingType,BaysianOptimFT):
+   file_name = hist_file
+   if not(batch_size==32):
+       batch_size_str =''
+   else:
+       batch_size_str ='_bs'+str(batch_size)
+   file_name += '_'+str(epochs)+batch_size_str
+   if not(optimizer=='adam'):
+       file_name += '_'+optimizer
+   if not(regulOnNewLayer is None):
+       file_name += '_'+regulOnNewLayer
+       if len(regulOnNewLayerParam)>0:
+           if regulOnNewLayer=='l1' or  regulOnNewLayer=='l2':
+               file_name += '_'+  str(regulOnNewLayerParam[0])
+           elif regulOnNewLayer=='l1_l2':
+               file_name += '_'+  str(regulOnNewLayerParam[0])+'_'+ str(regulOnNewLayerParam[1])
+   if not(dropout is None):
+        file_name += '_dropout'+str(dropout) 
+   if optimizer=='SGD':
+       if nesterov:
+           file_name += '_nes'
+       if not(BaysianOptimFT):
+           if not(SGDmomentum==0.0):
+               file_name += '_sgdm'+str(SGDmomentum)
+   if optimizer=='RMSprop':
+       if not(SGDmomentum==0.0):
+            file_name += '_m'+str(SGDmomentum)
+   if not(BaysianOptimFT):
+       if not(decay==0.0):
+            file_name += '_dec'+str(decay)
+   if return_best_model:
+       file_name += '_BestOnVal'
+   if NoValidationSetUsed:
+       file_name +='_NoValidationSetUsed'
+   if RandomValdiationSet:
+       file_name +='_RnDValSet'
+   
+   if Net in ['ResNet50_ROWD','ResNet50_ROWD_CUMUL','ResNet50_BNRF']:
+        # In the case of the fine tuning of the ResNet50_ROWD model with only some part freezing or not
+        if type(pretrainingModif)==bool:
+            if pretrainingModif==False:
+                file_name +=  '_wholePretrainedNetFreeze'
+        else:
+            if not(freezingType=='FromTop'):
+                file_name += '_'+freezingType
+            file_name += '_unfreeze'+str(pretrainingModif)
+        
+   file_name += '.pkl'
+   return(file_name)
 
 def plotKerasHistory(history):
     plt.ion()
@@ -4107,7 +4208,7 @@ def test_InceptionV1_onIconArt_and_RASTA():
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 pretrainingModif=True,\
                 optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
-                epochs=20,cropCenter=True,verbose=True,deepSupervision=False) 
+                epochs=2,cropCenter=True,verbose=True,deepSupervision=False) 
     # InceptionV1  ep :20 BFReLU & 36.7 & 53.1 & 10.0 & 65.0 & 58.2 & 48.9 & 3.3 & 39.3 \\ 
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
