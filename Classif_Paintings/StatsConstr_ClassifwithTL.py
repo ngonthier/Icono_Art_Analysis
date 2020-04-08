@@ -1124,7 +1124,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             include_optimizer=False
         
             # This have not been tested maybe you have to put it after the get_deep_model_for_FT function
-            if os.path.exists(model_path): # We will load the model and return it
+            if os.path.exists(model_path) and not(ReDo): # We will load the model and return it
                 if not(constrNet=='ResNet50' or constrNet=='VGG' or constrNet=='InceptionV1'):
                     raise(NotImplementedError('You can only do it fot the predifined model VGG ResNet50 and InceptionV1'))
                     # Need to add in load_model custom_objects
