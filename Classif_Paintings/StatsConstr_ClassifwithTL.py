@@ -12,11 +12,8 @@ statistics imposed on the features maps of the layers
 
 from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
 
-from trouver_classes_parmi_K import TrainClassif
 import numpy as np
 import math
-import matplotlib
-import json
 import os.path
 import platform
 from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index,numeral_layers_index_bitsVersion
@@ -41,11 +38,9 @@ from LatexOuput import arrayToLatex
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from tensorflow.python.keras import backend as K
-from numba import cuda
 import matplotlib.pyplot as plt
 import matplotlib.cm as mplcm
 import matplotlib.colors as colors
-from matplotlib.backends.backend_pdf import PdfPages
 import gc 
 import tempfile
 from tensorflow.python.keras.callbacks import ModelCheckpoint
@@ -376,21 +371,22 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     'block3_conv1', 
                                     'block4_conv1', 
                                     'block5_conv1'
-                                   ],normalisation=False,gridSearch=True,ReDo=False,\
-                                   transformOnFinalLayer='',number_im_considered = 10000,\
-                                   set='',getBeforeReLU=True,forLatex=False,epochs=20,\
-                                   pretrainingModif=True,weights='imagenet',opt_option=[0.01],\
-                                   optimizer='SGD',freezingType='FromTop',verbose=False,\
-                                   plotConv=False,batch_size=32,regulOnNewLayer=None,\
-                                   regulOnNewLayerParam=[],return_best_model=False,\
-                                   onlyReturnResult=False,dbn_affine=True,m_per_group=16,
-                                   momentum=0.9,batch_size_RF=16,epochs_RF=20,cropCenter=True,\
-                                   BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
-                                   kind_of_shuffling='roll',useFloat32=True,\
-                                   computeGlobalVariance=True,returnStatistics=False,returnFeatures=False,\
-                                   NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
-                                   BaysianOptimFT = False,imSize=224,deepSupervision=False,\
-                                   suffix='',dataAug=False):
+                                   ],
+                   normalisation=False,gridSearch=True,ReDo=False,\
+                   transformOnFinalLayer='',number_im_considered = 10000,\
+                   set='',getBeforeReLU=True,forLatex=False,epochs=20,\
+                   pretrainingModif=True,weights='imagenet',opt_option=[0.01],\
+                   optimizer='SGD',freezingType='FromTop',verbose=False,\
+                   plotConv=False,batch_size=32,regulOnNewLayer=None,\
+                   regulOnNewLayerParam=[],return_best_model=False,\
+                   onlyReturnResult=False,dbn_affine=True,m_per_group=16,
+                   momentum=0.9,batch_size_RF=16,epochs_RF=20,cropCenter=True,\
+                   BV=True,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
+                   kind_of_shuffling='roll',useFloat32=True,\
+                   computeGlobalVariance=True,returnStatistics=False,returnFeatures=False,\
+                   NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
+                   BaysianOptimFT = False,imSize=224,deepSupervision=False,\
+                   suffix='',dataAug=False):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
     It will return the metrics or the model itself depending on the input parameters
@@ -1919,8 +1915,8 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     
     df_train = df[df['set']=='train']
     df_val = df[df['set']==str_val]
-    df_train[x_col] = df_train[x_col].apply(lambda x : x + '.jpg')
-    df_val[x_col] = df_val[x_col].apply(lambda x : x + '.jpg')
+    df_train.loc[:,x_col] = df_train[x_col].apply(lambda x : x + '.jpg')
+    df_val.loc[:,x_col] = df_val[x_col].apply(lambda x : x + '.jpg')
     
     if RandomValdiationSet:
         df_train = df_train.append(df_val)
@@ -2060,7 +2056,6 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
        plotKerasHistory(history) 
        
     if not(history_path is None):
-        print(history_path)
         with open(history_path, 'wb') as handle:
             pickle.dump(history.history, handle)
 
@@ -2116,8 +2111,8 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
     
     df_train = df[df['set']=='train']
     df_val = df[df['set']==str_val]
-    df_train[x_col] = df_train[x_col].apply(lambda x : x + '.jpg')
-    df_val[x_col] = df_val[x_col].apply(lambda x : x + '.jpg')
+    df_train.loc[:,x_col] = df_train[x_col].apply(lambda x : x + '.jpg')
+    df_val.loc[:,x_col] = df_val[x_col].apply(lambda x : x + '.jpg')
     
     if RandomValdiationSet:
         df_train = df_train.append(df_val)
@@ -2237,7 +2232,7 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
        
     if not(history_path is None):
        with open(history_path, 'wb') as handle:
-           pickle.dump(history, handle, protocol=pickle.HIGHEST_PROTOCOL)
+           pickle.dump(history.history, handle, protocol=pickle.HIGHEST_PROTOCOL)
        
     if cropCenter:
         kp.image.iterator.load_img = old_loading_img_fct
@@ -2402,7 +2397,7 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
     """
     This function predict on tht provide test set for a fine-tuned network
     """
-    df_test[x_col] = df_test[x_col].apply(lambda x : x + '.jpg')
+    df_test.loc[:,x_col] = df_test[x_col].apply(lambda x : x + '.jpg')
     
     if cropCenter:
         interpolation='lanczos:center'
