@@ -39,6 +39,10 @@ def get_Network(Net):
     return(imagenet_model)
 
 def get_Model_that_output_StatsOnActivation(model,stats_on_layer='mean'):
+    """
+    Provide a keras model which outputs the stats_on_layer == mean or max of each 
+    features maps
+    """
     
     list_outputs = []
     list_outputs_name = []
@@ -50,6 +54,8 @@ def get_Model_that_output_StatsOnActivation(model,stats_on_layer='mean'):
                 stats_each_feature = tf.keras.backend.mean(layer_output, axis=[1,2], keepdims=False)
             elif stats_on_layer=='max':
                 stats_each_feature = tf.keras.backend.max(layer_output, axis=[1,2], keepdims=False)
+            else:
+                raise(ValueError(stats_on_layer+' is unknown'))
             list_outputs += [stats_each_feature]
             list_outputs_name += [layer.name]
             
