@@ -58,7 +58,8 @@ def get_Model_that_output_StatsOnActivation(model,stats_on_layer='mean'):
     return(new_model,list_outputs_name)
     
     
-def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='mean',suffix=''):
+def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='mean',
+                                 suffix='',cropCenter = True):
     """
     This function will compute the mean activation of each features maps for all
     the convolutionnal layers 
@@ -69,7 +70,7 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     path_data,Not_on_NicolasPC = get_database(dataset)
     df_train = df_label[df_label['set']=='train']
     
-    cropCenter = True
+    
     
     if model_name=='pretrained':
         base_model = get_Network(constrNet)
@@ -85,9 +86,9 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     print('activations len and shape',len(activations),activations[0].shape)
     
     if platform.system()=='Windows': 
-        output_path = os.path.join('CompModifModel',constrNet,model_name)
+        output_path = os.path.join('CompModifModel',constrNet,model_name+suffix)
     else:
-        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     
     act_plus_layer = [list_outputs_name,activations]
@@ -100,7 +101,7 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     
     return(list_outputs_name,activations)
   
-def dead_kernel_QuestionMark(dataset,model_name,constrNet,fraction = 1.0):
+def dead_kernel_QuestionMark(dataset,model_name,constrNet,fraction = 1.0,suffix=''):
     """
     This function will see if some of the kernel are fired (positive activation)
     by none of the training images 
@@ -115,9 +116,9 @@ def dead_kernel_QuestionMark(dataset,model_name,constrNet,fraction = 1.0):
     name_images = df_train[item_name].values
     
     if platform.system()=='Windows': 
-        output_path = os.path.join('CompModifModel',constrNet,model_name)
+        output_path = os.path.join('CompModifModel',constrNet,model_name+suffix)
     else:
-        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
     # For images
     output_path_for_img = os.path.join(output_path,'ActivationsImages')
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
@@ -132,7 +133,8 @@ def dead_kernel_QuestionMark(dataset,model_name,constrNet,fraction = 1.0):
             [list_outputs_name,activations] = act_plus_layer
     else:
         list_outputs_name,activations = compute_OneValue_Per_Feature(dataset,
-                                                        model_name,constrNet,stats_on_layer='max')
+                                            model_name,constrNet,stats_on_layer='max',
+                                            cropCenter=cropCenter)
     
     
     
@@ -165,6 +167,7 @@ def dead_kernel_QuestionMark(dataset,model_name,constrNet,fraction = 1.0):
     
 def plot_images_Pos_Images(dataset,model_name,constrNet,
                             layer_name='mixed4d_3x3_bottleneck_pre_relu',
+                            suffix='',
                             num_feature=64,
                             numberIm=9,stats_on_layer='mean'):
     """
@@ -178,9 +181,9 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
     name_images = df_train[item_name].values
     
     if platform.system()=='Windows': 
-        output_path = os.path.join('CompModifModel',constrNet,model_name)
+        output_path = os.path.join('CompModifModel',constrNet,model_name+suffix)
     else:
-        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
     # For images
     output_path_for_img = os.path.join(output_path,'ActivationsImages')
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
@@ -197,7 +200,10 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
             act_plus_layer = pickle.load(handle)
             [list_outputs_name,activations] = act_plus_layer
     else:
-        list_outputs_name,activations = compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer=stats_on_layer)
+        list_outputs_name,activations = compute_OneValue_Per_Feature(dataset,
+                                            model_name,constrNet,suffix=suffix,
+                                            stats_on_layer=stats_on_layer,
+                                            cropCenter=cropCenter)
     
     for layer_name_inlist,activations_l in zip(list_outputs_name,activations):
         if layer_name==layer_name_inlist:
