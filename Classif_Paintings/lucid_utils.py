@@ -45,6 +45,8 @@ from tensorflow.python.platform import gfile
 
 from lucid.modelzoo.vision_base import IMAGENET_MEAN_BGR
 
+from ImageProcUtils import change_from_BRG_to_RGB
+
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
     Freezes the state of a session into a pruned computation graph.
@@ -294,9 +296,11 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
                                       param_f=lambda: param.image(sizeIm),
 #                                      optimizer=optimizer,
                                       use_fixed_seed=True)
-        image = np.array(output_im[0][0]*255)
+        image = np.array(output_im[0][0]*255) # car une seule image dans le batch
         name_output = os.path.join(path_output,name_base)
         tf.keras.preprocessing.image.save_img(name_output, image)
+        
+        change_from_BRG_to_RGB(img_name_path=name_output,output_path=None,ext_name='toRGB')
       
 def test_render_VGG19():
     
