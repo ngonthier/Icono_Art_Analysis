@@ -103,7 +103,9 @@ def load_and_crop_img(path,Net, grayscale=False, color_mode='rgb', target_size=2
         left_shift = random.randint(0, int((width - target_width)))
         down_shift = random.randint(0, int((height - target_height)))
         img = img.crop((left_shift, down_shift, target_width + left_shift, target_height + down_shift))
-        
+        # Returns a rectangular region from this image. 
+        #­ The box is a 4-tuple defining the left, 
+        #    upper, right, and lower pixel coordinate
     
     img = kp_image.img_to_array(img)
     img = np.expand_dims(img, axis=0) # Should be replace by expand_dims in tf
@@ -164,10 +166,10 @@ def load_and_crop_img_forImageGenerator(path,Net, grayscale=False, color_mode='r
 
     # Load original size image using Keras, it will return a PIL image object 
     img = preprocessing.image.load_img(path, 
-                                            grayscale=grayscale, 
-                                            color_mode=color_mode, 
-                                            target_size=None, 
-                                            interpolation=interpolation)
+                                        grayscale=grayscale, 
+                                        color_mode=color_mode, 
+                                        target_size=None, 
+                                        interpolation=interpolation)
 
     target_width = crop_size
     target_height = crop_size

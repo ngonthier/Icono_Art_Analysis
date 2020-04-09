@@ -279,7 +279,8 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
             if cropCenter:
                 interpolation='lanczos:center'
                 old_loading_img_fct = kp.image.iterator.load_img
-                kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
+                kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,
+                                                     Net=Net)
             else:
                 interpolation='nearest'
             if 'VGG' in Net:
@@ -386,7 +387,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                    computeGlobalVariance=True,returnStatistics=False,returnFeatures=False,\
                    NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
-                   suffix='',dataAug=False):
+                   suffix='',dataAug=False,randomCrop=False):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
     It will return the metrics or the model itself depending on the input parameters
@@ -463,12 +464,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : suffix : of the performance and model name in order to have several 
         models trained with the same hyperparameters ('' or None pour ne pas en avoir)
     @param : dataAug : use of some of the data augmentation method in the image space
+    @param : randomCrop : take a random crop of size 224*224 in an image in size 256*256 it is hard coded in the fct it should be change
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
     
     #tf.compat.v1.enable_eager_execution()
-    
+    assert(not(randomCrop and cropCenter))
+    if randomCrop and kind_method=='TL' :
+        raise(NotImplementedError)
     if deepSupervision and kind_method=='TL' and constrNet=='InceptionV1':
         print('You can not do a deep supervision in Transfer learning case')
         raise(ValueError)
@@ -629,6 +633,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     # TO do, normalement cela devrait etre mis dans le AP file training name quoi
     if cropCenter:   
         name_base += '_CropCenter'  
+    if randomCrop:   
+        name_base += '_randomCrop'  
         
     if constrNet=='ResNet50_ROWD_CUMUL' and computeGlobalVariance:
         name_base += '_computeGlobalVariance'
@@ -986,6 +992,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     model_path = os.path.join(model_output_path,AP_file_base+'.h5')
     if return_best_model:
         last_epochs_model_path = model_path.replace('_BestOnVal','')
+    else:
+        last_epochs_model_path = None
         # IE the name of the last model in the training that we will still save
     
     if ((not(os.path.isfile(APfilePath)) or ReDo) and not(onlyReturnResult)) or returnStatistics:
@@ -1165,7 +1173,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 RandomValdiationSet=RandomValdiationSet,\
                                                 deepSupervision=deepSupervision,dataAug=dataAug,\
                                                 last_epochs_model_path=last_epochs_model_path,\
-                                                history_path=local_history_path)
+                                                history_path=local_history_path,randomCrop=randomCrop)
                             
                     else: # Baysian optimization of the model
                         model =  FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,pretrainingModif,
@@ -1184,7 +1192,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                 str_val,epochs,batch_size,AP_file_base,\
                                 final_activation,metrics,loss,deepSupervision,dataAug=dataAug,\
                                 return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path,\
-                                history_path=history_path)
+                                history_path=history_path,randomCrop=randomCrop)
                 else: # 'VGGsuffleInStatsSameLabel' case
                     if BaysianOptimFT:
                         raise(NotImplementedError('BaysianOptimFT is not implemented with VGGsuffleInStatsSameLabel model'))
@@ -1208,7 +1216,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                             NoValidationSetUsed=NoValidationSetUsed,\
                                             RandomValdiationSet=RandomValdiationSet,dataAug=dataAug,\
                                             return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path,\
-                                            history_path=local_history_path)
+                                            history_path=local_history_path,randomCrop=randomCrop)
                     
                 # Need to add in load_model custom_objects !!! 
                 # tf.keras.models.save_model(
@@ -1228,7 +1236,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             # Prediction
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
                                            y_col=classes,path_im=path_to_img,Net=constrNet,\
-                                           cropCenter=cropCenter)
+                                           cropCenter=cropCenter,randomCrop=randomCrop)
             if constrNet=='InceptionV1' and deepSupervision: # As we have several outputs 
                 predictions = predictions[-1]
                 
@@ -1578,7 +1586,7 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                         df_label,\
                         item_name,classes,path_to_img,\
                         str_val,epochs,batch_size,final_activation,metrics,loss,\
-                        deepSupervision,dataAug,history_path):
+                        deepSupervision,dataAug,history_path,randomCrop):
         
     curr_session = tf.get_default_session()
     # close current session
@@ -1623,7 +1631,8 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                             str_val=str_val,num_classes=num_classes,epochs=epochs,return_best_model=return_best_model,\
                             Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
                             NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet,\
-                            returnWhat='val_loss',dataAug=dataAug,history_path=history_path)
+                            returnWhat='val_loss',dataAug=dataAug,history_path=history_path,\
+                            randomCrop=randomCrop)
         
     # To clean GPU memory
     K.clear_session()
@@ -1646,7 +1655,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         item_name,classes,path_to_img,\
                         str_val,epochs,batch_size,AP_file_base,\
                         final_activation,metrics,loss,deepSupervision,dataAug,\
-                        return_best_model,last_epochs_model_path,history_path):
+                        return_best_model,last_epochs_model_path,history_path,randomCrop):
     """
     Fine Tuned a deep model with bayesian optimization of the hyper-parameters, the one concerned are :
         - log10_learning_rate
@@ -1677,7 +1686,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         str_val=str_val,epochs=epochs,batch_size=batch_size,cropCenter=cropCenter,\
                         final_activation=final_activation,metrics=metrics,loss=loss,\
                         deepSupervision=deepSupervision,dataAug=dataAug,\
-                        history_path=history_path)
+                        history_path=history_path,randomCrop=randomCrop)
     
     hyperoptimizer = BayesianOptimization(
         f=function_to_miximaze,
@@ -1753,7 +1762,8 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                             Net=constrNet,plotConv=False,batch_size=batch_size,cropCenter=cropCenter,\
                             NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet,return_best_model=return_best_model,\
                             returnWhat=None,deepSupervision=deepSupervision,dataAug=dataAug,\
-                            last_epochs_model_path=last_epochs_model_path,history_path=local_history_path) # Only this element will have its history saved with the BaysianOptimFT based name
+                            last_epochs_model_path=last_epochs_model_path,history_path=local_history_path,\
+                            randomCrop=randomCrop) # Only this element will have its history saved with the BaysianOptimFT based name
     return(model)
     
 
@@ -1812,7 +1822,8 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
         if cropCenter:
             interpolation='lanczos:center'
             old_loading_img_fct = kp.image.iterator.load_img
-            kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
+            kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,
+                                                 Net=Net)
         else:
             interpolation='nearest'
         if 'VGG' in Net:
@@ -1901,7 +1912,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
                   RandomValdiationSet=False,returnWhat=None,deepSupervision=False,\
                   dataAug=False,last_epochs_model_path=None,
-                  history_path=None):
+                  history_path=None,randomCrop=False):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -1930,7 +1941,14 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     if cropCenter:
         interpolation='lanczos:center'
         old_loading_img_fct = kp.image.iterator.load_img
-        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
+        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,
+                                             Net=Net)
+    elif randomCrop:
+        interpolation='lanczos:random'
+        old_loading_img_fct = kp.image.iterator.load_img
+        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,
+                                             Net=Net,target_size=256,
+                                             crop_size=224)
     else:
         interpolation='nearest'
     if 'VGG' in Net:
@@ -2058,7 +2076,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         with open(history_path, 'wb') as handle:
             pickle.dump(history.history, handle)
 
-    if cropCenter:
+    if cropCenter or randomCrop:
         kp.image.iterator.load_img = old_loading_img_fct
         
     if returnWhat is None:
@@ -2098,7 +2116,7 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
                   RandomValdiationSet=False,returnWhat=None,dataAug=False,last_epochs_model_path=None,\
-                  history_path=None):
+                  history_path=None,randomCrop=False):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -2126,6 +2144,12 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
         interpolation='lanczos:center'
         old_loading_img_fct = kp.image.iterator.load_img
         kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
+    elif randomCrop:
+        interpolation='lanczos:random'
+        old_loading_img_fct = kp.image.iterator.load_img
+        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,
+                                             Net=Net,target_size=256,
+                                             crop_size=224)
     else:
         interpolation='nearest'
     if 'VGG' in Net:
@@ -2233,7 +2257,7 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
        with open(history_path, 'wb') as handle:
            pickle.dump(history.history, handle, protocol=pickle.HIGHEST_PROTOCOL)
        
-    if cropCenter:
+    if cropCenter or randomCrop:
         kp.image.iterator.load_img = old_loading_img_fct
         
     if returnWhat is None:
@@ -2392,7 +2416,8 @@ def TrainMLPwithGridSearch(builder_model,X,Y,batch_size,epochs):
     model = grid.fit(X, Y)
     return(model)
     
-def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=False):
+def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=False,
+                     randomCrop=False):
     """
     This function predict on tht provide test set for a fine-tuned network
     """
@@ -2402,6 +2427,12 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
         interpolation='lanczos:center'
         old_loading_img_fct = kp.image.iterator.load_img
         kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
+    elif randomCrop:
+        interpolation='lanczos:center'
+        old_loading_img_fct = kp.image.iterator.load_img
+        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,
+                                             Net=Net,target_size=256,
+                                             crop_size=224)
     else:
         interpolation='nearest'
     if 'VGG' in Net:
@@ -2435,7 +2466,7 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
                                                 interpolation=interpolation)
     predictions = model.predict_generator(test_generator)
     
-    if cropCenter:
+    if cropCenter or randomCrop:
         kp.image.iterator.load_img = old_loading_img_fct
         
     return(predictions)
@@ -4569,6 +4600,14 @@ def RASTAclassifTest():
     #Top-3 accuracy : 81.89%
     #Top-5 accuracy : 90.51%
         
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+       constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=False,\
+       regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+       epochs=1,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,
+       verbose=True,randomCrop=True)
+    # Baseline avec VGG  test randomCrop
+    
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
        constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
