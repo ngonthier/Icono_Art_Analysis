@@ -68,7 +68,20 @@ list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_mod
                         'RASTA_big001_modif_ep120',
                         'RASTA_big001_modif_dataAug_ep120',
                         'RASTA_big001_modif_deepSupervision_ep120',
-                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch'
+                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch',
+                        'RMN_small01_modif','RMN_big01_modif',
+                        'RMN_small001_modif','RMN_big001_modif',
+                        'RMN_small001_modif_LastEpoch','RMN_big001_modif_LastEpoch',
+                        'RMN_small001_modif_deepSupervision','RMN_big001_modif_deepSupervision',
+                        'RMN_small01_modif_dataAug',
+                        'RMN_small01_modif_ep120',
+                        'RMN_small01_modif_dataAug_ep120',
+                        'RMN_small01_modif_deepSupervision_ep120',
+                        'RMN_big001_modif_dataAug',
+                        'RMN_big001_modif_ep120',
+                        'RMN_big001_modif_dataAug_ep120',
+                        'RMN_big001_modif_deepSupervision_ep120',
+                        'RMN_small01_modif_LastEpoch','RMN_small001_modif_LastEpoch','RMN_big001_modif_LastEpoch'
                         ]
 
 def get_random_net(constrNet='VGG'):
@@ -124,6 +137,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
         
     if 'RASTA' in model_name:
         target_dataset = 'RASTA'
+    elif 'RMN' in model_name:
+        target_dataset = 'RMN'
     elif 'IconArt_v1' in model_name:
         target_dataset = 'IconArt_v1'
     else:
@@ -331,9 +346,9 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RASTA_small01_modif_dataAug_ep120',
                         'RASTA_small01_modif_deepSupervision_ep120',
                         'RASTA_big001_modif_dataAug',
-                        'RASTA_big001_modif_ep120',
-                        'RASTA_big001_modif_dataAug_ep120',
-                        'RASTA_big001_modif_deepSupervision_ep120']
+                        'RMN_small01_modif',
+                        'RMN_small001_modif','RMN_big001_modif',
+                        'RMN_small001_modif_deepSupervision']
     #list_models_name = ['random']
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
     

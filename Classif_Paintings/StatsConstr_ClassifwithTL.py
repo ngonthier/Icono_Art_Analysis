@@ -1013,7 +1013,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 df_label = df_copy
                 df_label_test = df_label[df_label['set']=='test']
             y_test = classes_vectors[df_label['set']=='test',:]
-        elif target_dataset=='IconArt_v1':
+        elif target_dataset=='IconArt_v1' or target_dataset=='RMN':
             sLength = len(df_label[item_name])
             classes_vectors =  df_label[classes].values
             df_label_test = df_label[df_label['set']=='test']
@@ -4257,6 +4257,14 @@ def test_InceptionV1_onIconArt_and_RASTA():
                 epochs=20,cropCenter=True,verbose=True,deepSupervision=True,\
                 SGDmomentum=0.9,decay=1e-4)
     #InceptionV1  ep :20 BFReLU & 43.8 & 71.3 & 17.5 & 77.7 & 68.6 & 67.4 & 7.5 & 50.5 \\ 
+    
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+            constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+            pretrainingModif=True,\
+            optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+            epochs=20,cropCenter=False,verbose=True,deepSupervision=False,\
+            SGDmomentum=0.9,decay=1e-4,randomCrop=True)
+    # InceptionV1  ep :20 BFReLU & 46.6 & 74.0 & 32.4 & 80.0 & 69.3 & 70.2 & 15.3 & 55.4 \\
     
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=True,\
