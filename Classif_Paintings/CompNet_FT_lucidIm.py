@@ -341,14 +341,13 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
     list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
                         'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
                         'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch']
-    list_models_name = ['RASTA_small01_modif_dataAug',
-                        'RASTA_small01_modif_ep120',
+    list_models_name = ['RMN_small01_modif',
+                        'RMN_small001_modif','RMN_big001_modif',
+                        'RMN_small001_modif_deepSupervision',
                         'RASTA_small01_modif_dataAug_ep120',
                         'RASTA_small01_modif_deepSupervision_ep120',
                         'RASTA_big001_modif_dataAug',
-                        'RMN_small01_modif',
-                        'RMN_small001_modif','RMN_big001_modif',
-                        'RMN_small001_modif_deepSupervision']
+                        ]
     #list_models_name = ['random']
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
     
