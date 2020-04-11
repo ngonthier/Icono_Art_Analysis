@@ -1013,11 +1013,21 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 df_label = df_copy
                 df_label_test = df_label[df_label['set']=='test']
             y_test = classes_vectors[df_label['set']=='test',:]
-        elif target_dataset=='IconArt_v1' or target_dataset=='RMN':
+        elif target_dataset=='IconArt_v1':
             sLength = len(df_label[item_name])
             classes_vectors =  df_label[classes].values
             df_label_test = df_label[df_label['set']=='test']
             y_test = classes_vectors[df_label['set']=='test',:]
+        elif target_dataset=='RMN':
+            sLength = len(df_label[item_name])
+            df_label['set'] = 'train'
+            # Dans ce cas la on utilise le RMN set for training but the IconArt one for testing
+            database_local = 'IconArt_v1'
+            item_name_local,path_to_img_local,default_path_imdb_local,classes,ext,num_classes,str_val_local,df_label_iconArt_v1,\
+                path_data,Not_on_NicolasPC = get_database(database_local) 
+            classes_vectors =  df_label_iconArt_v1[classes].values
+            df_label_test = df_label_iconArt_v1[df_label_iconArt_v1['set']=='test']
+            y_test = classes_vectors[df_label_iconArt_v1['set']=='test',:]
         elif target_dataset=='RASTA':
             sLength = len(df_label[item_name])
             classes_vectors =  df_label[classes].values
@@ -1234,6 +1244,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     model = Model(input=model.input[0],output=model.output)
             
             # Prediction
+            if target_dataset=='RMN':
+                path_to_img = path_to_img_local
+                item_name = item_name_local
+                path_to_img = path_to_img_local
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
                                            y_col=classes,path_im=path_to_img,Net=constrNet,\
                                            cropCenter=cropCenter,randomCrop=randomCrop)
