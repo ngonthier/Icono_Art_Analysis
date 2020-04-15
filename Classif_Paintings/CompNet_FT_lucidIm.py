@@ -156,6 +156,10 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
         features = 'avgpool'
         final_clf = 'MLP1'
         transformOnFinalLayer=None
+    elif constrNet=='ResNet50':
+        features = 'block5_pool'
+        final_clf = 'MLP2'
+        transformOnFinalLayer=None
     else:
         raise(ValueError(constrNet + ' is unknown in this function'))
         
