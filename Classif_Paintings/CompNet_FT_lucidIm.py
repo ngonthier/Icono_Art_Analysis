@@ -53,36 +53,54 @@ import lucid_utils
 import platform
 import pickle
 
-list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
-                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
-                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
-                        'RASTA_small01_modif','RASTA_big01_modif',
-                        'RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch',
-                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
-                        'RASTA_small01_modif_dataAug',
-                        'RASTA_small01_modif_ep120',
-                        'RASTA_small01_modif_dataAug_ep120',
-                        'RASTA_small01_modif_deepSupervision_ep120',
-                        'RASTA_big001_modif_dataAug',
-                        'RASTA_big001_modif_ep120',
-                        'RASTA_big001_modif_dataAug_ep120',
-                        'RASTA_big001_modif_deepSupervision_ep120',
-                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch',
-                        'RMN_small01_modif','RMN_big01_modif',
-                        'RMN_small001_modif','RMN_big001_modif',
-                        'RMN_small001_modif_LastEpoch','RMN_big001_modif_LastEpoch',
-                        'RMN_small001_modif_deepSupervision','RMN_big001_modif_deepSupervision',
-                        'RMN_small01_modif_dataAug',
-                        'RMN_small01_modif_ep120',
-                        'RMN_small01_modif_dataAug_ep120',
-                        'RMN_small01_modif_deepSupervision_ep120',
-                        'RMN_big001_modif_dataAug',
-                        'RMN_big001_modif_ep120',
-                        'RMN_big001_modif_dataAug_ep120',
-                        'RMN_big001_modif_deepSupervision_ep120',
-                        'RMN_small01_modif_LastEpoch','RMN_small001_modif_LastEpoch','RMN_big001_modif_LastEpoch'
-                        ]
+possible_datasets = ['IconArt_v1','RMN','RASTA']
+possible_lr = ['small001_modif','big001_modif','small01_modif','big01_modif']
+possible_crop = ['','_randomCrop']
+possible_Sup = ['','_deepSupervision']
+possible_Aug = ['','_dataAug']
+possible_epochs = ['','_ep120']
+possible_lastEpochs = ['','_LastEpoch']
+
+list_finetuned_models_name = []
+for dataset in possible_datasets:
+    for lr in possible_lr:
+        for crop in possible_crop:
+            for sup in possible_Sup:
+                for aug in possible_Aug:
+                    for ep in possible_epochs:
+                        for le in possible_lastEpochs:
+                            list_finetuned_models_name +=[dataset+'_'+lr+crop+sup+aug+ep+le]
+        
+#list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
+#                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
+#                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
+#                        'RASTA_small01_modif','RASTA_big01_modif',
+#                        'RASTA_small001_modif','RASTA_big001_modif',
+#                        'RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch',
+#                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
+#                        'RASTA_small01_modif_dataAug',
+#                        'RASTA_small01_modif_ep120',
+#                        'RASTA_small01_modif_dataAug_ep120',
+#                        'RASTA_small01_modif_deepSupervision_ep120',
+#                        'RASTA_big001_modif_dataAug',
+#                        'RASTA_big001_modif_ep120',
+#                        'RASTA_big001_modif_dataAug_ep120',
+#                        'RASTA_big001_modif_deepSupervision_ep120',
+#                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch',
+#                        'RMN_small01_modif','RMN_big01_modif',
+#                        'RMN_small001_modif','RMN_big001_modif',
+#                        'RMN_small001_modif_LastEpoch','RMN_big001_modif_LastEpoch',
+#                        'RMN_small001_modif_deepSupervision','RMN_big001_modif_deepSupervision',
+#                        'RMN_small01_modif_dataAug',
+#                        'RMN_small01_modif_ep120',
+#                        'RMN_small01_modif_dataAug_ep120',
+#                        'RMN_small01_modif_deepSupervision_ep120',
+#                        'RMN_big001_modif_dataAug',
+#                        'RMN_big001_modif_ep120',
+#                        'RMN_big001_modif_dataAug_ep120',
+#                        'RMN_big001_modif_deepSupervision_ep120',
+#                        'RMN_small01_modif_LastEpoch','RMN_small001_modif_LastEpoch','RMN_big001_modif_LastEpoch'
+#                        ]
 
 def get_random_net(constrNet='VGG'):
     seed = 0
@@ -137,6 +155,13 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
     else:
         deepSupervision=False
         
+    if 'randomCrop' in model_name:
+        randomCrop = True
+        cropCenter= False
+    else:
+        randomCrop = False
+        cropCenter=True
+        
     if 'RASTA' in model_name:
         target_dataset = 'RASTA'
     elif 'RMN' in model_name:
@@ -163,13 +188,13 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
     else:
         raise(ValueError(constrNet + ' is unknown in this function'))
         
+
+        
     normalisation = False
     source_dataset= 'ImageNet'
     kind_method=  'FT'
     optimizer='SGD'
     
-    
-    cropCenter=True
     SGDmomentum=0.9
     decay=1e-4
 
@@ -182,7 +207,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
                            optimizer=optimizer,opt_option=opt_option,epochs=epochs,\
                            SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model,\
                            pretrainingModif=True,suffix=suffix,deepSupervision=deepSupervision,\
-                           dataAug=dataAug)
+                           dataAug=dataAug,randomCrop=randomCrop)
     return(net_finetuned)
 
 def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suffix=''):
@@ -361,6 +386,11 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RASTA_small01_modif_dataAug_ep120',
                         'RASTA_small01_modif_deepSupervision_ep120',
                         'RASTA_big001_modif_dataAug',
+                        ]
+    list_models_name = ['RMN_small01_modif_randomCrop',
+                        'RMN_small001_modif_randomCrop','RMN_big001_modif_randomCrop',
+                        'RASTA_small01_modif_randomCrop',
+                        'RASTA_small01_modif_randomCrop_ep120'
                         ]
     #list_models_name = ['random']
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
