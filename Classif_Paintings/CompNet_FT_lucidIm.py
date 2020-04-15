@@ -91,6 +91,8 @@ def get_random_net(constrNet='VGG'):
         randomNet = tf.keras.applications.vgg19.VGG19(include_top=False, weights=None)
     elif constrNet=='InceptionV1':
         randomNet = Inception_V1(include_top=False, weights=None)
+    elif constrNet == 'ResNet50':
+        randomNet = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=None)
     return(randomNet)
 
 def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
@@ -273,6 +275,8 @@ def get_imageNet_weights(Net):
         imagenet_model = tf.keras.applications.vgg19.VGG19(include_top=False, weights=weights)
     elif Net == 'InceptionV1':
         imagenet_model = Inception_V1(include_top=False, weights=weights)
+    elif Net == 'ResNet50':
+        imagenet_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights)
     else:
         raise(NotImplementedError)
         
@@ -301,6 +305,10 @@ def print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_
         # For the original pretrained imagenet InceptionV1 from Lucid to keras to Lucid
         lucid_utils.print_images(model_path=os.path.join('model','tf_inception_v1.pb'),list_layer_index_to_print=list_layer_index_to_print_base_model\
                       ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
+    elif constrNet=='ResNet50':
+        # ResNet 50 from Keras
+        lucid_utils.print_images(model_path=os.path.join('model','tf_resnet50.pb'),list_layer_index_to_print=list_layer_index_to_print_base_model\
+                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
  
 
 def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_feature = False):
@@ -313,6 +321,8 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
     if constrNet=='VGG':
         input_name_lucid ='block1_conv1_input'
     elif constrNet=='InceptionV1':
+        input_name_lucid ='input_1'
+    elif constrNet=='ResNet50':
         input_name_lucid ='input_1'
     else:
         raise(NotImplementedError(constrNet + ' is not implemented sorry.'))

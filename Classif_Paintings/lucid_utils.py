@@ -87,6 +87,17 @@ def freeze_session(session, keep_var_names=None, output_names=None, clear_device
 
 
 
+class Lucid_ResNet(Model):
+    
+    def __init__(self,model_path = 'model/tf_resnet50.pb',image_shape = [224, 224, 3],\
+                 image_value_range = (-IMAGENET_MEAN_BGR, 255-IMAGENET_MEAN_BGR),input_name = 'input_1', **kwargs):
+       self.model_path = model_path
+       self.image_shape = image_shape
+       self.image_value_range = image_value_range
+       # Il semblerait que cela ne soit pas pris en compte !
+       self.input_name = input_name
+       super(Lucid_ResNet, self).__init__(**kwargs)
+       
 class Lucid_VGGNet(Model):
     
     def __init__(self,model_path = 'model/tf_vgg19.pb',image_shape = [224, 224, 3],\
@@ -246,6 +257,59 @@ def test_render_Inception_v1():
     ]
     
     imgs = render.render_vis(lucid_inception_v1, 'mixed4b_pre_relu/concat:452', transforms=transforms,
+                             param_f=lambda: param.image(64), 
+                             thresholds=[2048], verbose=False,
+                             relu_gradient_override=True,use_fixed_seed=True)
+    plt.figure()
+    plt.imshow(imgs[0][0])
+    
+def test_render_ResNet50():
+    
+    tf.reset_default_graph()
+    K.set_learning_phase(0)
+    if not(os.path.isfile("model/tf_resnet50.pb")):
+        with K.get_session().as_default():
+            model = tf.keras.applications.resnet50.ResNet50(include_top=True, weights='imagenet',\
+                                                          input_shape= (224, 224, 3))
+            print(model.input)
+            os.makedirs('./model', exist_ok=True)
+            
+            frozen_graph = freeze_session(K.get_session(),
+                                      output_names=[out.op.name for out in model.outputs],
+                                      clear_devices=True)
+            # Save the pb model 
+            tf.io.write_graph(frozen_graph,logdir= "model",name= "tf_resnet50.pb", as_text=False)
+            nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+            print(nodes_tab)
+
+    lucid_resnet50 = Lucid_ResNet()
+    lucid_resnet50.load_graphdef()
+        
+    
+    out = render.render_vis(lucid_resnet50, 'conv4_block6_2_conv/Conv2D:0',\
+                            relu_gradient_override=True,use_fixed_seed=True)
+    plt.figure()
+    plt.imshow(out[0][0])
+    
+    
+    out = render.render_vis(lucid_resnet50, 'conv2_block1_2_conv/Conv2D:32',\
+                            relu_gradient_override=True,use_fixed_seed=True)
+    plt.figure()
+    plt.imshow(out[0][0])
+
+    
+    JITTER = 1
+    ROTATE = 5
+    SCALE  = 1.1
+    
+    transforms = [
+        transform.pad(2*JITTER),
+        transform.jitter(JITTER),
+        transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
+        transform.random_rotate(range(-ROTATE, ROTATE+1))
+    ]
+    
+    imgs = render.render_vis(lucid_resnet50,'conv4_block4_2_conv/Conv2D:0', transforms=transforms,
                              param_f=lambda: param.image(64), 
                              thresholds=[2048], verbose=False,
                              relu_gradient_override=True,use_fixed_seed=True)
