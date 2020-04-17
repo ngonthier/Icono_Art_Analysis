@@ -113,7 +113,7 @@ def get_random_net(constrNet='VGG'):
         randomNet = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=None)
     return(randomNet)
 
-def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
+def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False):
     
     opt_option_small=[0.1,0.001]
     opt_option_small01=[0.1,0.01]
@@ -198,7 +198,10 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix=''):
     SGDmomentum=0.9
     decay=1e-4
 
-    returnStatistics = True   
+    if get_Metrics:
+        returnStatistics = False
+    else:  # To return the network
+        returnStatistics = True   
     net_finetuned = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                            constrNet,kind_method,style_layers=[],weights=weights,\
                            normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
@@ -475,9 +478,58 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
             print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
                                     constrNet=constrNet)
     
+def print_performance_FineTuned_network(constrNet='InceptionV1'):
+    """
+    This function will return and plot the metrics / compute them if needed
+    """    
+    
+    # Semble diverger dans le cas de InceptionV1  :'RASTA_big01_modif',
+    list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision',
+                        'RASTA_big001_modif_deepSupervision',
+                        'RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
+                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch',
+                        'RASTA_big001_modif_LastEpoch',
+                        'RASTA_small01_modif_dataAug_ep120',
+                        'RASTA_small01_modif_deepSupervision_ep120',
+                        'RASTA_big001_modif_dataAug',
+                        'RASTA_small01_modif_dataAug_ep120_LastEpoch',
+                        'RASTA_small01_modif_deepSupervision_ep120_LastEpoch',
+                        'RMN_small01_modif',
+                        'RMN_small001_modif','RMN_big001_modif',
+                        'RMN_small001_modif_deepSupervision']
+    
+    ####  RASTA_big001_modif_dataAug  suffix  1 manquant semble t il 
+    
+    suffix_tab = ['','1'] # In order to have more than once the model fine-tuned with some given hyperparameters
+    
+    K.set_learning_phase(0)
+    #with K.get_session().as_default(): 
+    #path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
+    #dict_list_layer_index_to_print_base_model = {}
+    
+    num_top = 3
+    for model_name in list_models_name:
+        
+        if not(model_name=='random'):
+            for suffix in suffix_tab:
+                #output_path_with_model = os.path.join(output_path,model_name+suffix)
+                #pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
+                
+                metrics = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix,
+                                               get_Metrics=True)
+                print('#### ',model_name,' ',suffix)
+                if not('RASTA' in model_name):
+                    AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
+                    print('MAP {0:.2f}'.format(np.mean(AP_per_class)))
+                else:
+                    top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class = metrics
+                    for k,top_k_acc in zip([1,3,5],top_k_accs):
+                        print('Top-{0} accuracy : {1:.2f}%'.format(k,top_k_acc*100))
     
 if __name__ == '__main__': 
     Comparaison_of_FineTunedModel(constrNet='InceptionV1')    
-        
+
         
         
