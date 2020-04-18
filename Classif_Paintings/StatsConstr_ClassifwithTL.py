@@ -24,7 +24,7 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,\
     get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet,\
     vgg_FRN,set_momentum_BN,ResNet_suffleInStats,vgg_suffleInStatsOnSameLabel,\
-    InceptionV1_baseline_model
+    InceptionV1_baseline_model,saveInitialisationOfModel_beforeFT,saveInitialisationOfMLP
 from IMDB import get_database
 import pickle
 import pathlib
@@ -387,7 +387,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                    computeGlobalVariance=True,returnStatistics=False,returnFeatures=False,\
                    NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
-                   suffix='',dataAug=False,randomCrop=False):
+                   suffix='',dataAug=False,randomCrop=False,\
+                   SaveInit=False):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
     It will return the metrics or the model itself depending on the input parameters
@@ -465,6 +466,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         models trained with the same hyperparameters ('' or None pour ne pas en avoir)
     @param : dataAug : use of some of the data augmentation method in the image space
     @param : randomCrop : take a random crop of size 224*224 in an image in size 256*256 it is hard coded in the fct it should be change
+    @param : SaveInit : we will save the initialisation of the model
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -672,7 +674,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 if constrNet=='VGG':
                     network_features_extraction = vgg_cut(final_layer,\
                                                           transformOnFinalLayer=transformOnFinalLayer,\
-                                                          weights='imagenet')
+                                                          weights=weights)
                 elif constrNet=='VGGInNorm' or constrNet=='VGGInNormAdapt':
                     whatToload = 'varmean'
                     dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
@@ -995,6 +997,12 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     else:
         last_epochs_model_path = None
         # IE the name of the last model in the training that we will still save
+    if SaveInit:
+        model_path_local = os.path.join(model_output_path,AP_file_base)
+        init_model_path = model_path_local.replace('_BestOnVal','')
+        init_model_path += '_Initial.h5'
+    else:
+        init_model_path = None
     
     if ((not(os.path.isfile(APfilePath)) or ReDo) and not(onlyReturnResult)) or returnStatistics:
         
@@ -1092,7 +1100,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                                 nesterov=nesterov,decay=decay,verbose=verbose,\
                                                 final_activation=final_activation,metrics=metrics,loss=loss)
-                        
+                    print('Dans ce cas la on ne sauvegarde pas l initialisation desole ')
                     model = TrainMLPwithGridSearch(builder_model,Xtrainval,ytrainval,batch_size,epochs)
                     
                 else:
@@ -1116,6 +1124,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     # TODO save also the last epoch model
                     if return_best_model:
                         print('Sorry we don t save the last model in the case of the return best model')
+                    
+                    if SaveInit:
+                        print('cela n a jamais ete teste desole')
+                        saveInitialisationOfMLP(model,init_model_path)
                     
                     model = TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,\
                                  verbose=verbose,plotConv=plotConv,return_best_model=return_best_model,\
@@ -1148,18 +1160,32 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     # Need to add in load_model custom_objects
                 print('We will load the trained model :')
                 print(model_path)
+                
                 if constrNet=='InceptionV1':
                     model = load_model(model_path,compile=False, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
                 else:
                     model = load_model(model_path,compile=False)
+ 
                 if returnStatistics :
-                    # In this case we return the model
+                    if SaveInit:
+                        if os.path.exists(init_model_path):
+                            if constrNet=='InceptionV1':
+                                init_model = load_model(init_model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
+                            else:
+                                init_model = load_model(init_model_path)
+                            return(model,init_model) 
+                            # Return the trained model + the initialisation 
+                        else:
+                            print('Sorry the Initialisation model don t exist, it have not been save, you should rerun the full fine tuning sorry')
+                            return(model,None)
+                    
+                    # In this case we return the only the trained model
                     return(model)
             else:
                 if returnStatistics: print('We will need to train the model before provide it to you !')
             
                 if not(constrNet=='VGGsuffleInStatsSameLabel'):
-                    if not(BaysianOptimFT):
+                    if not(BaysianOptimFT): # Cas normal : Non bayesian
                         
                         model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                     transformOnFinalLayer,weights,
@@ -1173,6 +1199,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     batch_size_RF,momentum,\
                                     epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                                     final_activation,metrics,loss,deepSupervision)
+                        
+                        if SaveInit:
+                            saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
+                                                      final_clf)
         
                         model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                                                 x_col=item_name,y_col=classes,path_im=path_to_img,\
@@ -1186,6 +1216,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 history_path=local_history_path,randomCrop=randomCrop)
                             
                     else: # Baysian optimization of the model
+                        
+                        # TODO ici metre le saveInitialisationOfModel
                         model =  FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,pretrainingModif,
                                 transformOnFinalLayer,weights,
                                 optimizer,freezingType,
@@ -1202,7 +1234,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                 str_val,epochs,batch_size,AP_file_base,\
                                 final_activation,metrics,loss,deepSupervision,dataAug=dataAug,\
                                 return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path,\
-                                history_path=history_path,randomCrop=randomCrop)
+                                history_path=history_path,randomCrop=randomCrop,\
+                                init_model_path=init_model_path)
                 else: # 'VGGsuffleInStatsSameLabel' case
                     if BaysianOptimFT:
                         raise(NotImplementedError('BaysianOptimFT is not implemented with VGGsuffleInStatsSameLabel model'))
@@ -1218,6 +1251,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     batch_size_RF,momentum,\
                                     epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                                     final_activation,metrics,loss,deepSupervision)
+        
+                    if SaveInit:
+                        saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
+                                                      final_clf)
         
                     model = FineTuneModel_forSameLabel(model,dataset=target_dataset,df=df_label,\
                                             x_col=item_name,y_col=classes,path_im=path_to_img,\
@@ -1238,6 +1275,18 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                         model = load_model(model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
                     else:
                         model = load_model(model_path)
+                    
+                    if SaveInit:
+                        if os.path.exists(init_model_path):
+                            if constrNet=='InceptionV1':
+                                init_model = load_model(init_model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
+                            else:
+                                init_model = load_model(init_model_path)
+                            return(model,init_model)
+                        else:
+                            print('Sorry the Initialisation model don t exist, it have not been save, you should rerun the full fine tuning sorry')
+                            return(model,None)
+                        
                     return(model)
                 
                 if constrNet=='VGGsuffleInStatsSameLabel':
@@ -1497,7 +1546,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                        style_layers,list_mean_and_std_target=list_mean_and_std_target,\
                        final_layer=features,\
                        transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
-                       weights='imagenet')
+                       weights=weights)
 
         model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
                      final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,
@@ -1525,7 +1574,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                        style_layers,list_mean_and_std_target=list_mean_and_std_target,\
                        final_layer=features,\
                        transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
-                       weights='imagenet')
+                       weights=weights)
 
         model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
                      final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
@@ -1669,7 +1718,8 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         item_name,classes,path_to_img,\
                         str_val,epochs,batch_size,AP_file_base,\
                         final_activation,metrics,loss,deepSupervision,dataAug,\
-                        return_best_model,last_epochs_model_path,history_path,randomCrop):
+                        return_best_model,last_epochs_model_path,history_path,randomCrop,\
+                        init_model_path):
     """
     Fine Tuned a deep model with bayesian optimization of the hyper-parameters, the one concerned are :
         - log10_learning_rate
@@ -1769,6 +1819,10 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                           SGDmomentum,decay,return_best_model,\
                           NoValidationSetUsed,RandomValdiationSet,
                           pretrainingModif,constrNet,freezingType,BaysianOptimFT=True)
+
+    if not(init_model_path in None):
+        saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
+                                                      final_clf)    
 
     model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                             x_col=item_name,y_col=classes,path_im=path_to_img,\
@@ -4322,6 +4376,21 @@ def test_InceptionV1_onIconArt_and_RASTA():
     # Top-3 accuracy : 79.90%
     # Top-5 accuracy : 89.22%
     
+def test_InceptionV1_SAVE_INIT():
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.001],return_best_model=True,
+                epochs=2,cropCenter=True,verbose=True,deepSupervision=False,SaveInit=True,
+                weights=None) 
+    model,model_init = learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.001],return_best_model=True,
+                epochs=2,cropCenter=True,verbose=True,deepSupervision=False,SaveInit=True,\
+                weights=None,returnStatistics=True) 
+    print(model.summary())
+    print(model_init.summary())
     
 def VGG_fineTuning_onIconArt():
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\

@@ -4202,6 +4202,32 @@ def test_change_mean_std(adapt=False):
                 object_decode = decode_predictions(object_predction)
                 print(object_decode) 
         K.clear_session() # To clean memory
+
+def saveInitialisationOfMLP(model,init_model_path):
+    
+  model.save(init_model_path,include_optimizer=False)
+  
+def saveInitialisationOfModel_beforeFT(model,init_model_path,weights,final_clf,\
+                                       shape_info=[None, 224, 224,3]):
+    
+    assert(weights in ['imagenet',None])
+    
+    if weights is None:
+        model.save(init_model_path,include_optimizer=False)
+        utils_keras.fix_layer0(init_model_path, shape_info, 'float32')
+    else: # ImageNet case : we only save the head !
+        raise(NotImplementedError)
+        layers = model.layers
+        assert('MLP' in final_clf)
+        number_last_layers = int(final_clf.replace('MLP',''))
+        layers_for_saving= layers[-number_last_layers:]
+        new_input = layers_for_saving[0].input
+        print(new_input)
+        # TODO : debugger ici, il ya un probleme avec la taille de input_1 qui est inconnu un truc dans le graph qui marche pas
+        new_output = model.output
+        new_model = Model(new_input, new_output)
+        new_model.save(init_model_path,include_optimizer=False)
+
             
 def unity_test_StatsCompute():
     """ In this function we try to se if we have a stable and consistent computation
