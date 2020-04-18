@@ -4243,6 +4243,11 @@ def Crowley_reproduction_results():
     # & 73.1 & 46.9 & 92.8 & 76.4 & 65.1 & 73.4 & 56.8 & 80.2 & 71.1 & 88.6 & 72.4 \\
  
 def test_InceptionV1_onIconArt_and_RASTA():
+    learn_and_eval('RMN',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=1,cropCenter=True,verbose=True,deepSupervision=False) 
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 pretrainingModif=True,\
