@@ -55,6 +55,7 @@ import pickle
 
 possible_datasets = ['IconArt_v1','RMN','RASTA']
 possible_lr = ['small001_modif','big001_modif','small01_modif','big01_modif']
+possibleInit = ['','_RandInit']
 possible_crop = ['','_randomCrop']
 possible_Sup = ['','_deepSupervision']
 possible_Aug = ['','_dataAug']
@@ -64,13 +65,14 @@ possible_lastEpochs = ['','_LastEpoch']
 list_finetuned_models_name = []
 for dataset in possible_datasets:
     for lr in possible_lr:
-        for crop in possible_crop:
-            for sup in possible_Sup:
-                for aug in possible_Aug:
-                    for ep in possible_epochs:
-                        for le in possible_lastEpochs:
-                            list_finetuned_models_name +=[dataset+'_'+lr+crop+sup+aug+ep+le]
-        
+        for init in  possibleInit:
+            for crop in possible_crop:
+                for sup in possible_Sup:
+                    for aug in possible_Aug:
+                        for ep in possible_epochs:
+                            for le in possible_lastEpochs:
+                                list_finetuned_models_name +=[dataset+'_'+lr+init+crop+sup+aug+ep+le]
+            
 #list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
 #                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
 #                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
@@ -171,7 +173,10 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
     else:
         raise(NotImplementedError)
 
-    weights = 'imagenet'
+    if 'RandInit' in model_name:
+        weights = None
+    else:
+        weights = 'imagenet'
     
     if constrNet=='VGG':
         features = 'block5_pool'
@@ -210,7 +215,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
                            optimizer=optimizer,opt_option=opt_option,epochs=epochs,\
                            SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model,\
                            pretrainingModif=True,suffix=suffix,deepSupervision=deepSupervision,\
-                           dataAug=dataAug,randomCrop=randomCrop)
+                           dataAug=dataAug,randomCrop=randomCrop,SaveInit=True)
     return(net_finetuned)
 
 def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suffix=''):
@@ -389,11 +394,18 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RASTA_small01_modif_dataAug_ep120',
                         'RASTA_small01_modif_deepSupervision_ep120',
                         'RASTA_big001_modif_dataAug',
-                        ]
-    list_models_name = ['RASTA_small01_modif_dataAug_ep120_LastEpoch',
+                        'RASTA_small01_modif_dataAug_ep120_LastEpoch',
                         'RASTA_small01_modif_deepSupervision_ep120_LastEpoch',
-                        'RMN_small01_modif_randomCrop',
-                        'RMN_small001_modif_randomCrop','RMN_big001_modif_randomCrop',
+                        'RMN_small01_modif_randomCrop'
+                        ]
+    list_models_name = ['RASTA_big001_modif_RandInit_ep120',
+                        'RASTA_big001_modif_RandInit_randomCrop_ep120',
+                        'RASTA_big001_modif_RandInit_deepSupervision_ep120',
+                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep120',
+                        'RASTA_big01_modif_RandInit_ep120',
+                        'RASTA_big01_modif_RandInit_randomCrop_ep120']
+    
+     list_models_name_afaireplusTard = ['RMN_small001_modif_randomCrop','RMN_big001_modif_randomCrop',
                         'RASTA_small01_modif_randomCrop',
                         'RASTA_small01_modif_randomCrop_ep120'
                         ]
@@ -416,7 +428,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                 output_path_with_model = os.path.join(output_path,model_name+suffix)
                 pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
                 
-                net_finetuned = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+                net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
                 dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
                                                                                 list_weights,net_finetuned)
                 save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
@@ -498,7 +510,10 @@ def print_performance_FineTuned_network(constrNet='InceptionV1'):
                         'RASTA_small01_modif_deepSupervision_ep120_LastEpoch',
                         'RMN_small01_modif',
                         'RMN_small001_modif','RMN_big001_modif',
-                        'RMN_small001_modif_deepSupervision']
+                        'RMN_small001_modif_deepSupervision_LastEpoch',
+                        'RMN_small01_modif_LastEpoch',
+                        'RMN_small001_modif','RMN_big001_modif_LastEpoch',
+                        'RMN_small001_modif_deepSupervision_LastEpoch']
     
     ####  RASTA_big001_modif_dataAug  suffix  1 manquant semble t il 
     
