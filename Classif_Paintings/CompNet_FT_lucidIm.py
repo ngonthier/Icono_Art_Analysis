@@ -207,7 +207,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         returnStatistics = False
     else:  # To return the network
         returnStatistics = True   
-    net_finetuned = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+    output = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                            constrNet,kind_method,style_layers=[],weights=weights,\
                            normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                            ReDo=False,
@@ -216,7 +216,13 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
                            SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model,\
                            pretrainingModif=True,suffix=suffix,deepSupervision=deepSupervision,\
                            dataAug=dataAug,randomCrop=randomCrop,SaveInit=True)
-    return(net_finetuned)
+    # If returnStatistics with RandInit 
+    # output = net_finetuned, init_net
+    # If returnStatistics without RandInit
+    # output = net_finetuned
+    # If Not returnStatistics ie get metrics
+    # output= metrics
+    return(output)
 
 def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suffix=''):
     
@@ -231,8 +237,11 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suff
     if model_name=='random':
         net_finetuned = get_random_net(constrNet)
     else:
-        net_finetuned = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
-        
+        if 'RandInit' in model_name:
+            net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+        else:
+            net_finetuned  = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+
     if path=='':
         os.makedirs('./model', exist_ok=True)
         path ='model'
@@ -317,7 +326,11 @@ def get_imageNet_weights(Net):
     else:
         raise(NotImplementedError)
         
-    net_layers = imagenet_model.layers
+    return(get_weights_and_name_layers(imagenet_model))
+    
+def get_weights_and_name_layers(keras_net):
+        
+    net_layers = keras_net.layers
        
     list_weights = []
     list_name_layers = []
@@ -429,43 +442,71 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                 pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
                 
                 net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
-                dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
+                
+                if not('RandInit' in model_name):
+                    num_top = 3
+                    # IE in the case of the fine tuning
+                    dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
                                                                                 list_weights,net_finetuned)
-                # save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
-                # with open(save_file, 'wb') as handle:
-                #     pickle.dump(dict_layers_relative_diff, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                
-                # name_pb = convert_finetuned_modelToFrozenGraph(model_name,
-                #               constrNet=constrNet,path=path_lucid_model,suffix=suffix)
-                # list_layer_index_to_print_base_model = []
-                # list_layer_index_to_print = []
-                # for key in dict_layers_argsort.keys():
-                #     for k in range(num_top):
-                #         topk = dict_layers_argsort[key][k]
-                #         list_layer_index_to_print += [[key,topk]]
-                #         list_layer_index_to_print_base_model += [[key,topk]]
-                
-                # dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
-                
-                # lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                #         ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
-                
-                # print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
-                #                     constrNet=constrNet)
+                    save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
+                    with open(save_file, 'wb') as handle:
+                        pickle.dump(dict_layers_relative_diff, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     
-                # # Do the images for the other models case
-                # if doAlsoImagesOfOtherModel_feature:
-                #     for suffix_local in suffix_tab:
-                #         if not(suffix_local==suffix):
-                #             if model_name+suffix_local in dict_list_layer_index_to_print_base_model.keys():  
-                #                 print('Do lucid image for other features',suffix_local)
-                #                 list_layer_index_to_print = dict_list_layer_index_to_print_base_model[model_name+suffix_local]
-                #                 output_path_with_model_local =  os.path.join(output_path_with_model,'FromOtherTraining'+suffix_local)
-                #                 pathlib.Path(output_path_with_model_local).mkdir(parents=True, exist_ok=True)
-                #                 lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                #                                          ,path_output=output_path_with_model_local,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
-                
+                    name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                                   constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+                    list_layer_index_to_print_base_model = []
+                    list_layer_index_to_print = []
+                    for key in dict_layers_argsort.keys():
+                        for k in range(num_top):
+                             topk = dict_layers_argsort[key][k]
+                             list_layer_index_to_print += [[key,topk]]
+                             list_layer_index_to_print_base_model += [[key,topk]]
                     
+                    dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
+                    
+                    lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                             ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
+                    
+                    print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
+                                         constrNet=constrNet)
+                        
+                     # Do the images for the other models case
+                    if doAlsoImagesOfOtherModel_feature:
+                         for suffix_local in suffix_tab:
+                             if not(suffix_local==suffix):
+                                 if model_name+suffix_local in dict_list_layer_index_to_print_base_model.keys():  
+                                     print('Do lucid image for other features',suffix_local)
+                                     list_layer_index_to_print = dict_list_layer_index_to_print_base_model[model_name+suffix_local]
+                                     output_path_with_model_local =  os.path.join(output_path_with_model,'FromOtherTraining'+suffix_local)
+                                     pathlib.Path(output_path_with_model_local).mkdir(parents=True, exist_ok=True)
+                                     lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                                                              ,path_output=output_path_with_model_local,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
+                    
+                else: # In the RandInit case : random initialisation
+                    list_weights_initialisation,list_name_layers_init = get_weights_and_name_layers(init_net)
+                    dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers_init,\
+                                                                                list_weights_initialisation,net_finetuned)
+                    save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
+                    with open(save_file, 'wb') as handle:
+                        pickle.dump(dict_layers_relative_diff, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                   
+                    name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                                   constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+                    list_layer_index_to_print_base_model = []
+                    list_layer_index_to_print = []
+                    num_top = 512
+                    for key in dict_layers_argsort.keys():
+                        dict_key = dict_layers_argsort[key]
+                        for k in range(min(len(dict_key),num_top)):
+                            topk = dict_key[k]
+                            list_layer_index_to_print += [[key,topk]]
+                            list_layer_index_to_print_base_model += [[key,topk]]
+                    
+                    dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
+                   
+                    lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                             ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
+        
         else:
             # Random model 
             net_finetuned = get_random_net(constrNet)
@@ -514,6 +555,11 @@ def print_performance_FineTuned_network(constrNet='InceptionV1'):
                         'RMN_small01_modif_LastEpoch',
                         'RMN_small001_modif','RMN_big001_modif_LastEpoch',
                         'RMN_small001_modif_deepSupervision_LastEpoch']
+    
+    # Pour 'RASTA_big001_modif_RandInit_ep120']    
+    #    Top-1 accuracy : 42.91%
+    #    Top-3 accuracy : 70.09%
+    #    Top-5 accuracy : 82.62%
     
     ####  RASTA_big001_modif_dataAug  suffix  1 manquant semble t il 
     

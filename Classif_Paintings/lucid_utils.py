@@ -47,6 +47,8 @@ from lucid.modelzoo.vision_base import IMAGENET_MEAN_BGR
 
 from ImageProcUtils import change_from_BRG_to_RGB
 
+import pathlib
+
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
     Freezes the state of a session into a pruned computation graph.
@@ -364,6 +366,8 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         name_output = os.path.join(path_output,name_base)
         tf.keras.preprocessing.image.save_img(name_output, image)
         
+        name_output = os.path.join(name_output,'RGB')
+        pathlib.Path(name_output).mkdir(parents=True, exist_ok=True) 
         change_from_BRG_to_RGB(img_name_path=name_output,output_path=None,ext_name='toRGB')
       
 def test_render_VGG19():
