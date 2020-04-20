@@ -431,39 +431,39 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                 net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
                 dict_layers_relative_diff,dict_layers_argsort = get_gap_between_weights(list_name_layers,\
                                                                                 list_weights,net_finetuned)
-                save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
-                with open(save_file, 'wb') as handle:
-                    pickle.dump(dict_layers_relative_diff, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                # save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
+                # with open(save_file, 'wb') as handle:
+                #     pickle.dump(dict_layers_relative_diff, handle, protocol=pickle.HIGHEST_PROTOCOL)
                 
-                name_pb = convert_finetuned_modelToFrozenGraph(model_name,
-                              constrNet=constrNet,path=path_lucid_model,suffix=suffix)
-                list_layer_index_to_print_base_model = []
-                list_layer_index_to_print = []
-                for key in dict_layers_argsort.keys():
-                    for k in range(num_top):
-                        topk = dict_layers_argsort[key][k]
-                        list_layer_index_to_print += [[key,topk]]
-                        list_layer_index_to_print_base_model += [[key,topk]]
+                # name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                #               constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+                # list_layer_index_to_print_base_model = []
+                # list_layer_index_to_print = []
+                # for key in dict_layers_argsort.keys():
+                #     for k in range(num_top):
+                #         topk = dict_layers_argsort[key][k]
+                #         list_layer_index_to_print += [[key,topk]]
+                #         list_layer_index_to_print_base_model += [[key,topk]]
                 
-                dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
+                # dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
                 
-                lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                        ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
+                # lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                #         ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
                 
-                print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
-                                    constrNet=constrNet)
+                # print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
+                #                     constrNet=constrNet)
                     
-                # Do the images for the other models case
-                if doAlsoImagesOfOtherModel_feature:
-                    for suffix_local in suffix_tab:
-                        if not(suffix_local==suffix):
-                            if model_name+suffix_local in dict_list_layer_index_to_print_base_model.keys():  
-                                print('Do lucid image for other features',suffix_local)
-                                list_layer_index_to_print = dict_list_layer_index_to_print_base_model[model_name+suffix_local]
-                                output_path_with_model_local =  os.path.join(output_path_with_model,'FromOtherTraining'+suffix_local)
-                                pathlib.Path(output_path_with_model_local).mkdir(parents=True, exist_ok=True)
-                                lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                                                         ,path_output=output_path_with_model_local,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
+                # # Do the images for the other models case
+                # if doAlsoImagesOfOtherModel_feature:
+                #     for suffix_local in suffix_tab:
+                #         if not(suffix_local==suffix):
+                #             if model_name+suffix_local in dict_list_layer_index_to_print_base_model.keys():  
+                #                 print('Do lucid image for other features',suffix_local)
+                #                 list_layer_index_to_print = dict_list_layer_index_to_print_base_model[model_name+suffix_local]
+                #                 output_path_with_model_local =  os.path.join(output_path_with_model,'FromOtherTraining'+suffix_local)
+                #                 pathlib.Path(output_path_with_model_local).mkdir(parents=True, exist_ok=True)
+                #                 lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                #                                          ,path_output=output_path_with_model_local,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
                 
                     
         else:
