@@ -412,8 +412,8 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RMN_small01_modif_randomCrop'
                         ]
     list_models_name = ['RASTA_big001_modif_RandInit_ep120',
-                        'RASTA_big001_modif_RandInit_randomCrop_ep120',
                         'RASTA_big001_modif_RandInit_deepSupervision_ep120',
+                        'RASTA_big001_modif_RandInit_randomCrop_ep120',
                         'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep120',
                         'RASTA_big01_modif_RandInit_ep120',
                         'RASTA_big01_modif_RandInit_randomCrop_ep120']
