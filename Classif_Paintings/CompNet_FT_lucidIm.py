@@ -411,11 +411,17 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RMN_small01_modif_randomCrop'
                         ]
     list_models_name = ['RASTA_big001_modif_RandInit_ep120',
+                        'RASTA_big001_modif_RandInit_ep120_LastEpoch',
                         'RASTA_big001_modif_RandInit_deepSupervision_ep120',
+                        'RASTA_big001_modif_RandInit_deepSupervision_ep120_LastEpoch',
                         'RASTA_big001_modif_RandInit_randomCrop_ep120',
+                        'RASTA_big001_modif_RandInit_randomCrop_ep120_LastEpoch',
                         'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep120',
+                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep120_LastEpoch',
                         'RASTA_big01_modif_RandInit_ep120',
-                        'RASTA_big01_modif_RandInit_randomCrop_ep120']
+                        'RASTA_big01_modif_RandInit_ep120_LastEpoch',
+                        'RASTA_big01_modif_RandInit_randomCrop_ep120',
+                        'RASTA_big01_modif_RandInit_randomCrop_ep120_LastEpoch']
     
     list_models_name_afaireplusTard = ['RMN_small001_modif_randomCrop','RMN_big001_modif_randomCrop',
                         'RASTA_small01_modif_randomCrop',
@@ -493,7 +499,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                                    constrNet=constrNet,path=path_lucid_model,suffix=suffix)
                     list_layer_index_to_print_base_model = []
                     list_layer_index_to_print = []
-                    num_top = 512
+                    num_top = 3
                     for key in dict_layers_argsort.keys():
                         dict_key = dict_layers_argsort[key]
                         for k in range(min(len(dict_key),num_top)):
