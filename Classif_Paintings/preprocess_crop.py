@@ -227,6 +227,10 @@ def load_and_crop_img_forImageGenerator(path,Net, grayscale=False, color_mode='r
         #print('rect',left_corner, top_corner, left_corner + target_width, top_corner + target_height)
         img = img.crop((left_corner, top_corner, left_corner + target_width, top_corner + target_height))
     elif crop == "random":
+        print('path',path)
+        print('img.size',img.size)
+        print('int((new_width - target_width))',int((new_width - target_width)))
+        print('int((new_height - target_height))',int((new_height - target_height)))
         left_shift = random.randint(0, int((new_width - target_width)))
         down_shift = random.randint(0, int((new_height - target_height)))
         img = img.crop((left_shift, down_shift, target_width + left_shift, target_height + down_shift))
