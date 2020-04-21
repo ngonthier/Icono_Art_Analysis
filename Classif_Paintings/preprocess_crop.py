@@ -191,13 +191,17 @@ def load_and_crop_img_forImageGenerator(path,Net, grayscale=False, color_mode='r
         new_height = target_smallest_size
         #target_size_before_crop = (target_smallest_size, target_biggest_size) # (img_height, img_width)`
         #target_size_before_crop = (target_biggest_size, target_smallest_size) # (img_height, img_width)`
-    else:
+    elif  width < height:
         ratio = target_smallest_size/width
         target_biggest_size = int(ratio*height)
         new_width = target_smallest_size
         new_height = target_biggest_size
         #target_size_before_crop =  (target_biggest_size, target_smallest_size) # (img_height, img_width)`
         #target_size_before_crop =  (target_smallest_size, target_biggest_size) # (img_height, img_width)`
+    else: # width == height
+        new_width = target_smallest_size
+        new_height = target_smallest_size
+        
         
     #height,width = target_size_before_crop # (img_height, img_width)`
     #width,height = target_size_before_crop # (img_height, img_width)`
@@ -227,10 +231,10 @@ def load_and_crop_img_forImageGenerator(path,Net, grayscale=False, color_mode='r
         #print('rect',left_corner, top_corner, left_corner + target_width, top_corner + target_height)
         img = img.crop((left_corner, top_corner, left_corner + target_width, top_corner + target_height))
     elif crop == "random":
-        print('path',path)
-        print('img.size',img.size)
-        print('int((new_width - target_width))',int((new_width - target_width)))
-        print('int((new_height - target_height))',int((new_height - target_height)))
+#        print('path',path)
+#        print('img.size',img.size)
+#        print('int((new_width - target_width))',int((new_width - target_width)))
+#        print('int((new_height - target_height))',int((new_height - target_height)))
         left_shift = random.randint(0, int((new_width - target_width)))
         down_shift = random.randint(0, int((new_height - target_height)))
         img = img.crop((left_shift, down_shift, target_width + left_shift, target_height + down_shift))

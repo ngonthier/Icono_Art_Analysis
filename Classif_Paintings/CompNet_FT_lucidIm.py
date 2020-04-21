@@ -51,7 +51,6 @@ from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getRes
 
 import lucid_utils
 import platform
-import pickle
 
 possible_datasets = ['IconArt_v1','RMN','RASTA']
 possible_lr = ['small001_modif','big001_modif','small01_modif','big01_modif']
@@ -592,6 +591,40 @@ def print_performance_FineTuned_network(constrNet='InceptionV1'):
                     top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class = metrics
                     for k,top_k_acc in zip([1,3,5],top_k_accs):
                         print('Top-{0} accuracy : {1:.2f}%'.format(k,top_k_acc*100))
+
+def plotHistory_of_training():
+    
+    path_folder= os.path.join(os.sep,'Users','gonthier','ownCloud','tmp3','Lucid_outputs','history')
+
+    
+    # RASTA_big001_modif_RandInit_ep120 suffix none
+    name = 'RASTA_big001_modif_RandInit_ep120'
+    history_pkl = 'History_InceptionV1_RASTA__RandInit_SGD_lr0.001_avgpool_CropCenter_FT_120_bs32_SGD_sgdm0.9_dec0.0001_BestOnVal.pkl'
+    
+    # RASTA_small01_modif_ep120 suffix None
+    name = 'RASTA_small01_modif_ep120'
+    history_pkl = 'History_InceptionV1_RASTA__SGD_lrp0.1_lr0.01_avgpool_CropCenter_FT_120_bs32_SGD_sgdm0.9_dec0.0001_BestOnVal.pkl'
+    
+    history_path = os.path.join(path_folder,history_pkl)
+    with open(history_path, 'rb') as handle:
+        history = pickle.load(handle)
+    print(history)
+    plt.ion()
+    plt.figure()
+    plt.plot(history['loss'], label='train')
+    plt.plot(history['val_loss'], label='val')
+    plt.title('Loss ' + name)
+    plt.legend()
+    plt.figure()
+    plt.plot(history['top_1_categorical_accuracy'], label='train')
+    plt.plot(history['val_top_1_categorical_accuracy'], label='val')
+    plt.title('Top1-Acc ' + name)
+    plt.legend()
+    plt.draw()
+    plt.pause(0.001)
+    
+    
+
     
 if __name__ == '__main__': 
     Comparaison_of_FineTunedModel(constrNet='InceptionV1')    
