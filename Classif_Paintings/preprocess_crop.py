@@ -77,10 +77,12 @@ def load_and_crop_img(path,Net, grayscale=False, color_mode='rgb', target_size=2
         ratio = target_smallest_size/height
         target_biggest_size = int(ratio*width)
         target_size_before_crop = (target_smallest_size, target_biggest_size) # (img_height, img_width)`
-    else:
+    elif  width < height:
         ratio = target_smallest_size/width
         target_biggest_size = int(ratio*height)
         target_size_before_crop =  (target_biggest_size, target_smallest_size) # (img_height, img_width)`
+    else: # width == height
+        target_size_before_crop = (target_smallest_size,target_smallest_size)
         
     height,width = target_size_before_crop # (img_height, img_width)`
     
