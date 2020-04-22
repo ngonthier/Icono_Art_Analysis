@@ -65,10 +65,12 @@ def get_Model_that_output_StatsOnActivation(model,stats_on_layer='mean'):
     
     
 def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='mean',
-                                 suffix='',cropCenter = True):
+                                 suffix='',cropCenter = True,FTmodel=True):
     """
     This function will compute the mean activation of each features maps for all
     the convolutionnal layers 
+    @param : FTmodel : in the case of finetuned from scratch if False use the initialisation
+    networks
     """
     K.set_learning_phase(0) #IE no training
     # Load info about dataset
@@ -83,7 +85,14 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     else:
         # Pour ton windows il va falloir copier les model .h5 finetuné dans ce dossier la 
         # C:\media\gonthier\HDD2\output_exp\Covdata\RASTA\model
-        base_model = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+        if 'RandInit' in model_name:
+            FT_model,init_model = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+            if FTmodel:
+                base_model = FT_model
+            else:
+               base_model = init_model 
+        else:
+            base_model = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
         
     model,list_outputs_name = get_Model_that_output_StatsOnActivation(base_model,stats_on_layer=stats_on_layer)
     #print(model.summary())
@@ -91,10 +100,15 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
                      Net=constrNet,cropCenter=cropCenter)
     print('activations len and shape',len(activations),activations[0].shape)
     
+    folder_name = model_name+suffix
+    
+    if not(FTmodel):
+        folder_name += '_Initialisation'
+    
     if platform.system()=='Windows': 
-        output_path = os.path.join('CompModifModel',constrNet,model_name+suffix)
+        output_path = os.path.join('CompModifModel',constrNet,folder_name)
     else:
-        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,folder_name)
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     
     act_plus_layer = [list_outputs_name,activations]
@@ -292,6 +306,22 @@ if __name__ == '__main__':
     plot_images_Pos_Images(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1',
                                                 layer_name='mixed4d_pool_reduce_pre_relu',
                                                 num_feature=63,
+                                                numberIm=81)
+    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
+                                                layer_name='mixed4d_3x3_pre_relu',
+                                                num_feature=80,
+                                                numberIm=81)
+    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
+                                                layer_name='mixed4b_3x3_bottleneck_pre_relu',
+                                                num_feature=21,
+                                                numberIm=81)
+    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
+                                                layer_name='mixed5a_pool_reduce_pre_relu',
+                                                num_feature=120,
+                                                numberIm=81)
+    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
+                                                layer_name='mixed5b_5x5_bottleneck_pre_relu',
+                                                num_feature=41,
                                                 numberIm=81)
     # Nom de fichier	mixed3a_5x5_bottleneck_pre_reluConv2D_8_RASTA_small01_modif.png	
     dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')

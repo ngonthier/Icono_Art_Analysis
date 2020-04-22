@@ -54,24 +54,26 @@ import platform
 
 possible_datasets = ['IconArt_v1','RMN','RASTA']
 possible_lr = ['small001_modif','big001_modif','small01_modif','big01_modif']
+possible_opt = ['','_adam']
 possibleInit = ['','_RandInit']
 possible_crop = ['','_randomCrop']
 possible_Sup = ['','_deepSupervision']
 possible_Aug = ['','_dataAug']
-possible_epochs = ['','_ep120']
+possible_epochs = ['','_ep120','_ep200']
 possible_lastEpochs = ['','_LastEpoch']
 
 list_finetuned_models_name = []
 for dataset in possible_datasets:
     for lr in possible_lr:
-        for init in  possibleInit:
-            for crop in possible_crop:
-                for sup in possible_Sup:
-                    for aug in possible_Aug:
-                        for ep in possible_epochs:
-                            for le in possible_lastEpochs:
-                                list_finetuned_models_name +=[dataset+'_'+lr+init+crop+sup+aug+ep+le]
-            
+        for opt in possible_opt:
+            for init in  possibleInit:
+                for crop in possible_crop:
+                    for sup in possible_Sup:
+                        for aug in possible_Aug:
+                            for ep in possible_epochs:
+                                for le in possible_lastEpochs:
+                                    list_finetuned_models_name +=[dataset+'_'+lr+opt+init+crop+sup+aug+ep+le]
+                
 #list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
 #                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
 #                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
@@ -136,6 +138,15 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         print('Model unknown :',model_name)
         raise(NotImplementedError)
         
+    if 'adam' in model_name:
+        optimizer='adam'
+        SGDmomentum=0.0
+        decay=0.0
+    else:
+        optimizer='SGD'
+        SGDmomentum=0.9
+        decay=1e-4
+        
     if 'LastEpoch' in model_name:
         return_best_model=False
     else:
@@ -148,6 +159,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         
     if 'ep120' in model_name:
         epochs=120
+    elif 'ep200' in model_name:
+        epochs=200
     else:
         epochs=20
         
@@ -174,8 +187,10 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
 
     if 'RandInit' in model_name:
         weights = None
+        SaveInit = True
     else:
         weights = 'imagenet'
+        SaveInit = False # car tu n'as pas encore code cela !
     
     if constrNet=='VGG':
         features = 'block5_pool'
@@ -191,16 +206,10 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         transformOnFinalLayer=None
     else:
         raise(ValueError(constrNet + ' is unknown in this function'))
-        
 
-        
     normalisation = False
     source_dataset= 'ImageNet'
     kind_method=  'FT'
-    optimizer='SGD'
-    
-    SGDmomentum=0.9
-    decay=1e-4
 
     if get_Metrics:
         returnStatistics = False
@@ -214,7 +223,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
                            optimizer=optimizer,opt_option=opt_option,epochs=epochs,\
                            SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model,\
                            pretrainingModif=True,suffix=suffix,deepSupervision=deepSupervision,\
-                           dataAug=dataAug,randomCrop=randomCrop,SaveInit=True)
+                           dataAug=dataAug,randomCrop=randomCrop,SaveInit=SaveInit)
     # If returnStatistics with RandInit 
     # output = net_finetuned, init_net
     # If returnStatistics without RandInit
@@ -408,12 +417,18 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RASTA_big001_modif_dataAug',
                         'RASTA_small01_modif_dataAug_ep120_LastEpoch',
                         'RASTA_small01_modif_deepSupervision_ep120_LastEpoch',
-                        'RMN_small01_modif_randomCrop'
-                        ]
-    list_models_name = ['RASTA_big001_modif_RandInit_ep120',
+                        'RMN_small01_modif_randomCrop',
+                        'RASTA_big001_modif_RandInit_ep120',
                         'RASTA_big001_modif_RandInit_ep120_LastEpoch',
+                        ]
+    list_models_name = ['RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',
+                        'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200_LastEpoch',
+                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200',
+                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_LastEpoch',
                         'RASTA_big001_modif_RandInit_deepSupervision_ep120',
                         'RASTA_big001_modif_RandInit_deepSupervision_ep120_LastEpoch',
+                        'RASTA_big001_modif_dataAug_ep120',
+                        'RASTA_big001_modif_dataAug_ep120_LastEpoch',
                         'RASTA_big001_modif_RandInit_randomCrop_ep120',
                         'RASTA_big001_modif_RandInit_randomCrop_ep120_LastEpoch',
                         'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep120',
@@ -421,7 +436,9 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RASTA_big01_modif_RandInit_ep120',
                         'RASTA_big01_modif_RandInit_ep120_LastEpoch',
                         'RASTA_big01_modif_RandInit_randomCrop_ep120',
-                        'RASTA_big01_modif_RandInit_randomCrop_ep120_LastEpoch']
+                        'RASTA_big01_modif_RandInit_randomCrop_ep120_LastEpoch'
+                        ]
+    # Car on a juste pas converger pour RASTA_big001_modif_dataAug_ep120
     
     list_models_name_afaireplusTard = ['RMN_small001_modif_randomCrop','RMN_big001_modif_randomCrop',
                         'RASTA_small01_modif_randomCrop',
@@ -431,6 +448,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
     
     suffix_tab = ['','1'] # In order to have more than once the model fine-tuned with some given hyperparameters
+    suffix_tab = [''] 
     
     K.set_learning_phase(0)
     #with K.get_session().as_default(): 
@@ -536,13 +554,15 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
             print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
                                     constrNet=constrNet)
     
-def print_performance_FineTuned_network(constrNet='InceptionV1'):
+def print_DiffRelat_FineTuned_network(constrNet='InceptionV1',list_models_name=None,
+                                        suffix_tab=None):
     """
-    This function will return and plot the metrics / compute them if needed
+    This function will print the relative difference of the model per layer 
     """    
     
     # Semble diverger dans le cas de InceptionV1  :'RASTA_big01_modif',
-    list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+    if list_models_name is None:
+        list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
                         'RASTA_small001_modif_deepSupervision',
                         'RASTA_big001_modif_deepSupervision',
                         'RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
@@ -559,8 +579,56 @@ def print_performance_FineTuned_network(constrNet='InceptionV1'):
                         'RMN_small001_modif_deepSupervision_LastEpoch',
                         'RMN_small01_modif_LastEpoch',
                         'RMN_small001_modif','RMN_big001_modif_LastEpoch',
-                        'RMN_small001_modif_deepSupervision_LastEpoch']
+                        'RMN_small001_modif_deepSupervision_LastEpoch',
+                        'RASTA_big001_modif_RandInit_ep120']
+        
+    if suffix_tab is None:
+        suffix_tab = ['','1']
+        
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet)
     
+    for model_name in list_models_name:
+        for suffix in suffix_tab:
+            output_path_with_model = os.path.join(output_path,model_name+suffix)
+            save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
+            with open(save_file, 'rb') as handle:
+                dict_layers_relative_diff = pickle.load(handle)
+            
+            
+        
+        
+        
+def print_performance_FineTuned_network(constrNet='InceptionV1',list_models_name=None,
+                                        suffix_tab=None):
+    """
+    This function will return and print the metrics / compute them if needed
+    """    
+    
+    # Semble diverger dans le cas de InceptionV1  :'RASTA_big01_modif',
+    if list_models_name is None:
+        list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision',
+                        'RASTA_big001_modif_deepSupervision',
+                        'RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
+                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch',
+                        'RASTA_big001_modif_LastEpoch',
+                        'RASTA_small01_modif_dataAug_ep120',
+                        'RASTA_small01_modif_deepSupervision_ep120',
+                        'RASTA_big001_modif_dataAug',
+                        'RASTA_small01_modif_dataAug_ep120_LastEpoch',
+                        'RASTA_small01_modif_deepSupervision_ep120_LastEpoch',
+                        'RMN_small01_modif',
+                        'RMN_small001_modif','RMN_big001_modif',
+                        'RMN_small001_modif_deepSupervision_LastEpoch',
+                        'RMN_small01_modif_LastEpoch',
+                        'RMN_small001_modif','RMN_big001_modif_LastEpoch',
+                        'RMN_small001_modif_deepSupervision_LastEpoch',
+                        'RASTA_big001_modif_RandInit_ep120']
+        
     # Pour 'RASTA_big001_modif_RandInit_ep120']    
     #    Top-1 accuracy : 42.91%
     #    Top-3 accuracy : 70.09%
@@ -568,7 +636,8 @@ def print_performance_FineTuned_network(constrNet='InceptionV1'):
     
     ####  RASTA_big001_modif_dataAug  suffix  1 manquant semble t il 
     
-    suffix_tab = ['','1'] # In order to have more than once the model fine-tuned with some given hyperparameters
+    if suffix_tab is None:
+        suffix_tab = ['','1'] # In order to have more than once the model fine-tuned with some given hyperparameters
     
     K.set_learning_phase(0)
     #with K.get_session().as_default(): 
@@ -607,6 +676,10 @@ def plotHistory_of_training():
     name = 'RASTA_small01_modif_ep120'
     history_pkl = 'History_InceptionV1_RASTA__SGD_lrp0.1_lr0.01_avgpool_CropCenter_FT_120_bs32_SGD_sgdm0.9_dec0.0001_BestOnVal.pkl'
     
+    # RASTA_big001_modif_dataAug
+    name = 'RASTA_big001_modif_dataAug'
+    history_pkl = 'History_InceptionV1_RASTA__SGD_lr0.001_dataAug_avgpool_CropCenter_FT_20_bs32_SGD_sgdm0.9_dec0.0001_BestOnVal.pkl'
+    
     history_path = os.path.join(path_folder,history_pkl)
     with open(history_path, 'rb') as handle:
         history = pickle.load(handle)
@@ -629,6 +702,22 @@ def plotHistory_of_training():
 
     
 if __name__ == '__main__': 
+#    print_performance_FineTuned_network(constrNet='InceptionV1',
+#                                        list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+#                            'RASTA_big001_modif_dataAug','RMN_small01_modif_randomCrop'],
+#    
+#                                        suffix_tab = [''])
+    print_performance_FineTuned_network(constrNet='InceptionV1',
+                                        list_models_name = ['RMN_small01_modif',
+                                                            'RMN_small001_modif','RMN_big001_modif',
+                                                            'RMN_small001_modif_deepSupervision',
+                                                            'RMN_small01_modif_LastEpoch',
+                                                            'RMN_small001_modif_LastEpoch','RMN_big001_modif_LastEpoch',
+                                                            'RMN_small001_modif_deepSupervision_LastEpoch',
+                                                            'RMN_small01_modif_randomCrop'],
+    
+                                        suffix_tab = [''])
+    
     Comparaison_of_FineTunedModel(constrNet='InceptionV1')    
 
         
