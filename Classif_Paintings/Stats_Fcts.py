@@ -28,6 +28,7 @@ from tensorflow.python.keras.applications.imagenet_utils import decode_predictio
 from tensorflow.keras.optimizers import SGD,Adam,RMSprop
 from tensorflow.python.ops import math_ops,array_ops
 from tensorflow import dtypes
+import pickle
 
 from googlenet import inception_v1_oldTF as Inception_V1
 
@@ -4208,6 +4209,7 @@ def saveInitialisationOfMLP(model,init_model_path):
   model.save(init_model_path,include_optimizer=False)
   
 def saveInitialisationOfModel_beforeFT(model,init_model_path,weights,final_clf,\
+                                       deepSupervision,\
                                        shape_info=[None, 224, 224,3]):
     
     assert(weights in ['imagenet',None])
@@ -4216,17 +4218,24 @@ def saveInitialisationOfModel_beforeFT(model,init_model_path,weights,final_clf,\
         model.save(init_model_path,include_optimizer=False)
         utils_keras.fix_layer0(init_model_path, shape_info, 'float32')
     else: # ImageNet case : we only save the head !
-        raise(NotImplementedError)
         layers = model.layers
         assert('MLP' in final_clf)
         number_last_layers = int(final_clf.replace('MLP',''))
-        layers_for_saving= layers[-number_last_layers:]
-        new_input = layers_for_saving[0].input
-        print(new_input)
-        # TODO : debugger ici, il ya un probleme avec la taille de input_1 qui est inconnu un truc dans le graph qui marche pas
-        new_output = model.output
-        new_model = Model(new_input, new_output)
-        new_model.save(init_model_path,include_optimizer=False)
+        
+        if not(deepSupervision):
+            layers_for_saving= layers[-number_last_layers:]
+        else: # IE deepSupervision
+            layers_for_saving= layers[-3*number_last_layers:]
+            
+        modelWeights = []
+        for layer in layers_for_saving:
+            layerWeights = []
+            for weight in layer.get_weights():
+                layerWeights.append(weight)
+            modelWeights.append(layerWeights)
+        
+        with open(init_model_path, 'wb') as handle:
+            pickle.dump(modelWeights, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
             
 def unity_test_StatsCompute():

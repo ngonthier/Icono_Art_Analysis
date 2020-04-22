@@ -1202,7 +1202,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                         
                         if SaveInit:
                             saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
-                                                      final_clf)
+                                                      final_clf,deepSupervision)
         
                         model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                                                 x_col=item_name,y_col=classes,path_im=path_to_img,\
@@ -1254,7 +1254,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         
                     if SaveInit:
                         saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
-                                                      final_clf)
+                                                      final_clf,deepSupervision)
         
                     model = FineTuneModel_forSameLabel(model,dataset=target_dataset,df=df_label,\
                                             x_col=item_name,y_col=classes,path_im=path_to_img,\
@@ -1820,9 +1820,9 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                           NoValidationSetUsed,RandomValdiationSet,
                           pretrainingModif,constrNet,freezingType,BaysianOptimFT=True)
 
-    if not(init_model_path in None):
+    if not(init_model_path is None):
         saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
-                                                      final_clf)    
+                                                      final_clf,deepSupervision)    
 
     model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
                             x_col=item_name,y_col=classes,path_im=path_to_img,\

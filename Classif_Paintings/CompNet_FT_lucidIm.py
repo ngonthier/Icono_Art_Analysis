@@ -191,6 +191,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
     else:
         weights = 'imagenet'
         SaveInit = False # car tu n'as pas encore code cela !
+    SaveInit = True # il faudra corriger cela
     
     if constrNet=='VGG':
         features = 'block5_pool'
@@ -421,7 +422,8 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RASTA_big001_modif_RandInit_ep120',
                         'RASTA_big001_modif_RandInit_ep120_LastEpoch',
                         ]
-    list_models_name = [
+    list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_ep200',
+                        'IconArt_v1_big001_modif_adam_randomCrop_ep200_LastEpoch',
                         'IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200',
                         'IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200_LastEpoch',
                         'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',
@@ -710,16 +712,16 @@ if __name__ == '__main__':
 #                            'RASTA_big001_modif_dataAug','RMN_small01_modif_randomCrop'],
 #    
 #                                        suffix_tab = [''])
-    print_performance_FineTuned_network(constrNet='InceptionV1',
-                                        list_models_name = ['RMN_small01_modif',
-                                                            'RMN_small001_modif','RMN_big001_modif',
-                                                            'RMN_small001_modif_deepSupervision',
-                                                            'RMN_small01_modif_LastEpoch',
-                                                            'RMN_small001_modif_LastEpoch','RMN_big001_modif_LastEpoch',
-                                                            'RMN_small001_modif_deepSupervision_LastEpoch',
-                                                            'RMN_small01_modif_randomCrop'],
-    
-                                        suffix_tab = [''])
+#    print_performance_FineTuned_network(constrNet='InceptionV1',
+#                                        list_models_name = ['RMN_small01_modif',
+#                                                            'RMN_small001_modif','RMN_big001_modif',
+#                                                            'RMN_small001_modif_deepSupervision',
+#                                                            'RMN_small01_modif_LastEpoch',
+#                                                            'RMN_small001_modif_LastEpoch','RMN_big001_modif_LastEpoch',
+#                                                            'RMN_small001_modif_deepSupervision_LastEpoch',
+#                                                            'RMN_small01_modif_randomCrop'],
+#    
+#                                        suffix_tab = [''])
     
     Comparaison_of_FineTunedModel(constrNet='InceptionV1')    
 
