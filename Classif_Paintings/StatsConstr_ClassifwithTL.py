@@ -1169,12 +1169,26 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 if returnStatistics :
                     if SaveInit:
                         if os.path.exists(init_model_path):
-                            if constrNet=='InceptionV1':
-                                init_model = load_model(init_model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
-                            else:
-                                init_model = load_model(init_model_path)
-                            return(model,init_model) 
+                            if weights is None: # Random Init
+                                if constrNet=='InceptionV1':
+                                    init_model = load_model(init_model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
+                                else:
+                                    init_model = load_model(init_model_path)
+                            else: # ImageNet initialisation
+                                init_model = load_init_model_with_ImageNetWeights(init_model_path,constrNet,target_dataset,num_classes,pretrainingModif,
+                                                transformOnFinalLayer,weights,
+                                                optimizer,opt_option,freezingType,
+                                                final_clf,features,verbose,
+                                                regulOnNewLayer,regulOnNewLayerParam
+                                                ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                                                source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                                                BV,p,
+                                                dbn_affine,m_per_group,kind_method,\
+                                                batch_size_RF,momentum,\
+                                                epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                                                final_activation,metrics,loss,deepSupervision)
                             # Return the trained model + the initialisation 
+                            return(model,init_model)
                         else:
                             print('Sorry the Initialisation model don t exist, it have not been save, you should rerun the full fine tuning sorry')
                             return(model,None)
@@ -1278,11 +1292,26 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     
                     if SaveInit:
                         if os.path.exists(init_model_path):
-                            if constrNet=='InceptionV1':
-                                init_model = load_model(init_model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
-                            else:
-                                init_model = load_model(init_model_path)
+                            if weights is None: # Random Init
+                                if constrNet=='InceptionV1':
+                                    init_model = load_model(init_model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
+                                else:
+                                    init_model = load_model(init_model_path)
+                            else: # ImageNet initialisation
+                                init_model = load_init_model_with_ImageNetWeights(init_model_path,constrNet,target_dataset,num_classes,pretrainingModif,
+                                                transformOnFinalLayer,weights,
+                                                optimizer,opt_option,freezingType,
+                                                final_clf,features,verbose,
+                                                regulOnNewLayer,regulOnNewLayerParam
+                                                ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                                                source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                                                BV,p,
+                                                dbn_affine,m_per_group,kind_method,\
+                                                batch_size_RF,momentum,\
+                                                epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                                                final_activation,metrics,loss,deepSupervision)
                             return(model,init_model)
+                            
                         else:
                             print('Sorry the Initialisation model don t exist, it have not been save, you should rerun the full fine tuning sorry')
                             return(model,None)
@@ -1633,6 +1662,53 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
         raise(NotImplementedError)
     
     return(model)
+    
+def load_init_model_with_ImageNetWeights(init_model_path,constrNet,target_dataset,num_classes,pretrainingModif,
+                            transformOnFinalLayer,weights,
+                            optimizer,opt_option,freezingType,
+                            final_clf,features,verbose,
+                            regulOnNewLayer,regulOnNewLayerParam
+                            ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                            source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                            BV,p,
+                            dbn_affine,m_per_group,kind_method,\
+                            batch_size_RF,momentum,\
+                            epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                            final_activation,metrics,loss,deepSupervision):
+    weights = 'imagenet'
+    model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
+                            transformOnFinalLayer,weights,
+                            optimizer,opt_option,freezingType,
+                            final_clf,features,verbose,
+                            regulOnNewLayer,regulOnNewLayerParam
+                            ,dropout,nesterov,SGDmomentum,decay,style_layers,
+                            source_dataset,number_im_considered,getBeforeReLU,cropCenter,\
+                            BV,p,
+                            dbn_affine,m_per_group,kind_method,\
+                            batch_size_RF,momentum,\
+                            epochs_RF,output_path,kind_of_shuffling,useFloat32,\
+                            final_activation,metrics,loss,deepSupervision)
+    
+    layers = model.layers
+    assert('MLP' in final_clf)
+    number_last_layers = int(final_clf.replace('MLP',''))
+        
+    if not(deepSupervision):
+        layers_for_saving= layers[-number_last_layers:]
+    else: # IE deepSupervision
+        layers_for_saving= layers[-3*number_last_layers:]
+         
+    with open(init_model_path, 'rb') as handle:
+        modelWeights=pickle.load(handle)
+
+    for i_layer, layer in enumerate(layers_for_saving):
+        weights_1 = modelWeights[i_layer][0]  
+        weights_2 = modelWeights[i_layer][1]
+        layer.set_weights([weights_1,weights_2])
+        layer.trainable = False
+
+    return(model)
+    
 
 def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomentum,log10_decay,\
                           constrNet,target_dataset,num_classes,pretrainingModif,

@@ -59,7 +59,7 @@ possibleInit = ['','_RandInit']
 possible_crop = ['','_randomCrop']
 possible_Sup = ['','_deepSupervision']
 possible_Aug = ['','_dataAug']
-possible_epochs = ['','_ep120','_ep200']
+possible_epochs = ['','_ep120','_ep200','_ep1']
 possible_lastEpochs = ['','_LastEpoch']
 
 list_finetuned_models_name = []
@@ -161,6 +161,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         epochs=120
     elif 'ep200' in model_name:
         epochs=200
+    elif 'ep1' in model_name:
+        epochs=1 # For testing
     else:
         epochs=20
         
@@ -422,6 +424,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RASTA_big001_modif_RandInit_ep120',
                         'RASTA_big001_modif_RandInit_ep120_LastEpoch',
                         ]
+    #list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep1']
     list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_ep200',
                         'IconArt_v1_big001_modif_adam_randomCrop_ep200_LastEpoch',
                         'IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200',
