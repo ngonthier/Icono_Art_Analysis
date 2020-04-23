@@ -251,7 +251,7 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suff
         if 'RandInit' in model_name:
             net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
         else:
-            net_finetuned  = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+            net_finetuned,_  = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
 
     if path=='':
         os.makedirs('./model', exist_ok=True)
