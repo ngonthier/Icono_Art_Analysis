@@ -688,6 +688,12 @@ def plotHistory_of_training():
     name = 'RASTA_big001_modif_dataAug'
     history_pkl = 'History_InceptionV1_RASTA__SGD_lr0.001_dataAug_avgpool_CropCenter_FT_20_bs32_SGD_sgdm0.9_dec0.0001_BestOnVal.pkl'
     
+    name ='IconArt_v1_big001_modif_adam_randomCrop_ep200'
+    history_pkl ='History_InceptionV1_IconArt_v1__lr0.001_avgpool_randomCrop_FT_200_bs32_BestOnVal.pkl'
+    name ='IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200'
+    history_pkl = 'History_InceptionV1_IconArt_v1__deepSupervision_lr0.001_avgpool_randomCrop_FT_200_bs32_BestOnVal.pkl'
+
+    
     history_path = os.path.join(path_folder,history_pkl)
     with open(history_path, 'rb') as handle:
         history = pickle.load(handle)
@@ -698,11 +704,23 @@ def plotHistory_of_training():
     plt.plot(history['val_loss'], label='val')
     plt.title('Loss ' + name)
     plt.legend()
-    plt.figure()
-    plt.plot(history['top_1_categorical_accuracy'], label='train')
-    plt.plot(history['val_top_1_categorical_accuracy'], label='val')
-    plt.title('Top1-Acc ' + name)
-    plt.legend()
+    if 'RASTA' in name:
+        plt.figure()
+        plt.plot(history['top_1_categorical_accuracy'], label='train')
+        plt.plot(history['val_top_1_categorical_accuracy'], label='val')
+        plt.title('Top1-Acc ' + name)
+        plt.legend()
+    else:
+        plt.figure()
+        try:
+            plt.plot(history['acc'], label='train')
+            plt.plot(history['val_acc'], label='val')
+        except KeyError as e:
+            plt.plot(history['avgpool_prediction_acc'], label='train')
+            plt.plot(history['val_avgpool_prediction_acc'], label='val')
+            
+        plt.title('Acc ' + name)
+        plt.legend()
     plt.draw()
     plt.pause(0.001)
     
