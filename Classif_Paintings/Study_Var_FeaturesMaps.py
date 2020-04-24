@@ -34,8 +34,9 @@ from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
     load_resize_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\
     get_ResNet_ROWD_gram_mean_features,get_VGGmodel_4Param_features,get_VGGmodel_features,\
-    get_cov_mean_of_InputImages,get_those_layers_output
+    get_cov_mean_of_InputImages,get_those_layers_output,get_Model_gram_mean_features
 from keras_resnet_utils import getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion
+from inceptionV1_keras_utils import getInceptionV1LayersNumeral_bitsVersion,getInceptionV1LayersNumeral
 from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
 from OnlineHistogram import NumericHistogram
 ### To copy only the image from the dataset
@@ -95,7 +96,7 @@ def get_partition(collection):
 
 
 
-def get_list_im(dataset,set=''):
+def get_list_im(dataset,set='',classe=None):
     """
     Returns the list of images and the number of images
     """    
@@ -124,12 +125,17 @@ def get_list_im(dataset,set=''):
         images_path = os.path.join(os.sep,'media','gonthier','HDD2','data','OIV5','Images')
         list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
     # Attention si jamais tu fais pour les autres bases il faut verifier que tu n'as que les images du datasets dans le dossier en question
-    if not(set is None or set==''):
+    if not(set is None or set=='') or not(classe is None):
         if dataset in ['ImageNet','OIV5','ImageNetTest','ImageNetTrain']:
             print('Sorry we do not have the splitting information on ',dataset)
             raise(NotImplementedError)
         item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
         path_data,Not_on_NicolasPC = get_database(dataset)
+        
+        if not(classe is None):
+          assert(classe in classes)
+          df_label = df_label[df_label[classe]==1.0]
+        
         if set=='trainval' or set=='trainvalidation':
             images_in_set = np.concatenate([df_label[df_label['set']=='train'][item_name].values,df_label[df_label['set']==str_val][item_name].values])
         else:
@@ -322,17 +328,18 @@ def Precompute_Cumulated_Hist_4Moments(filename_path,model_toUse,Net,list_of_con
         store.close()
     return(dict_var,dict_histo,dict_num_f)
     
-    
-    
 def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                         dataset='ImageNet',set='',saveformat='h5',whatToload='var',\
                         getBeforeReLU=False,Net='VGG',style_layers_imposed=[],\
                         list_mean_and_std_source=[],list_mean_and_std_target=[],\
-                        cropCenter=False,sizeIm=224):
+                        cropCenter=False,sizeIm=224,model_alreadyLoaded=None,
+                        randomCropValid=False,classe=None):
     """
     In this function we precompute the mean and cov for certain dataset
     @param : whatToload mention what you want to load by default only return variances
     """
+    assert(not(randomCropValid and cropCenter))
+    
     if not(whatToload in ['var','cov','mean','covmean','varmean','all','']):
         print(whatToload,'is not known')
         raise(NotImplementedError)
@@ -341,7 +348,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
         # Create a storage file where data is to be stored
         store = h5py.File(filename_path, 'a')
     print('We will compute features')
-    list_imgs,images_in_set,number_im_list = get_list_im(dataset,set=set)
+    list_imgs,images_in_set,number_im_list = get_list_im(dataset,set=set,classe=classe)
     
     # 6000 images pour IconArt
     # Un peu moins de 8700 images pour ArtUK
@@ -366,27 +373,31 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
     if not(sizeIm==224) and not(Net=='VGG'):
         print('/!\ I did not implement the gram matrices computation for a size different from 224*244 for the moment !')
         raise(NotImplementedError)
-    
-    if Net=='VGG':
-        net_get_cov =  get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
-        # Don t need sizeIm because we don t load the head of the model
-    elif Net=='VGGBaseNorm' or Net=='VGGBaseNormCoherent':
-        style_layers_exported = style_layers
-        net_get_cov = get_BaseNorm_gram_mean_features(style_layers_exported,\
-                        style_layers_imposed,list_mean_and_std_source,list_mean_and_std_target,\
-                        getBeforeReLU=getBeforeReLU)
-    elif Net=='ResNet50_ROWD': # Base coherent here also but only update the batch normalisation
-        style_layers_exported = style_layers
-        net_get_cov = get_ResNet_ROWD_gram_mean_features(style_layers_exported,style_layers_imposed,\
-                                    list_mean_and_std_target,transformOnFinalLayer=None,
-                                    res_num_layers=50,weights='imagenet')
-        
-    elif Net=='Input': # In this case we only compute mean and covariance of RGB channel
-        net_get_cov = get_cov_mean_of_InputImages()
-        style_layers = ['input']
+
+    if model_alreadyLoaded is None:
+
+        if Net=='VGG':
+            net_get_cov =  get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
+            # Don t need sizeIm because we don t load the head of the model
+        elif Net=='VGGBaseNorm' or Net=='VGGBaseNormCoherent':
+            style_layers_exported = style_layers
+            net_get_cov = get_BaseNorm_gram_mean_features(style_layers_exported,\
+                            style_layers_imposed,list_mean_and_std_source,list_mean_and_std_target,\
+                            getBeforeReLU=getBeforeReLU)
+        elif Net=='ResNet50_ROWD': # Base coherent here also but only update the batch normalisation
+            style_layers_exported = style_layers
+            net_get_cov = get_ResNet_ROWD_gram_mean_features(style_layers_exported,style_layers_imposed,\
+                                        list_mean_and_std_target,transformOnFinalLayer=None,
+                                        res_num_layers=50,weights='imagenet')
+            
+        elif Net=='Input': # In this case we only compute mean and covariance of RGB channel
+            net_get_cov = get_cov_mean_of_InputImages()
+            style_layers = ['input']
+        else:
+            print(Net,'is inknown')
+            raise(NotImplementedError)
     else:
-        print(Net,'is inknown')
-        raise(NotImplementedError)
+        net_get_cov = get_Model_gram_mean_features(style_layers,model_alreadyLoaded)
     
     for l,layer in enumerate(style_layers):
         dict_var[layer] = []
@@ -402,12 +413,33 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             # Get the covairances matrixes and the means
             try:
                 #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
-                if cropCenter:
-                    image_array= load_and_crop_img(path=image_path,Net=Net,target_size=sizeIm,
-                                            crop_size=sizeIm,interpolation='lanczos:center')
-                    # For VGG or ResNet with classification head size == 224
-                else:
-                    image_array = load_resize_and_process_img(image_path,Net=Net,max_dim=sizeIm)
+                # Erreur : 
+                #FileNotFoundError: [Errno 2] No such file or directory: 'data/RASTA_LAMSADE/wikipaintings_full/wikipaintings_train/Northern_Renaissance/hans-holbein-the-younger_henry-viii-handing-over-a-charter-to-thomas-vicary-commemorating-the-joining-of-the-barbers-and-1541.jpg'
+                try:
+                    if cropCenter:
+                        image_array= load_and_crop_img(path=image_path,Net=Net,target_size=sizeIm,
+                                                crop_size=sizeIm,interpolation='lanczos:center')
+                        # For VGG or ResNet with classification head size == 224
+                    elif randomCropValid:
+                        image_array= load_and_crop_img(path=image_path,Net=Net,target_size=256,
+                                                crop_size=sizeIm,interpolation='lanczos:center')
+                    else:
+                        image_array = load_resize_and_process_img(image_path,Net=Net,max_dim=sizeIm)
+                except FileNotFoundError as error:
+                    # A workaround because name too long for windows system file !
+                    if 'hans-holbein-the-younger_henry-viii-handing-over-a-charter-to-thomas-vicary-commemorating-the-joining-of-the-barbers-and-1541' in image_path:
+                        image_path = image_path.replace('hans-holbein-the-younger_henry-viii-handing-over-a-charter-to-thomas-vicary-commemorating-the-joining-of-the-barbers-and-1541','hans-holbein-henry-viii-handing')
+                        if cropCenter:
+                            image_array= load_and_crop_img(path=image_path,Net=Net,target_size=sizeIm,
+                                                    crop_size=sizeIm,interpolation='lanczos:center')
+                            # For VGG or ResNet with classification head size == 224
+                        elif randomCropValid:
+                            image_array= load_and_crop_img(path=image_path,Net=Net,target_size=256,
+                                                    crop_size=sizeIm,interpolation='lanczos:center')
+                        else:
+                            image_array = load_resize_and_process_img(image_path,Net=Net,max_dim=sizeIm)
+                    else:
+                        raise(error)
                 net_cov_mean = net_get_cov.predict(image_array, batch_size=1)
             except IndexError as e:
                 print(e)
@@ -444,8 +476,9 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
         else:
             continue
     for l,layer in enumerate(style_layers):
-        stacked = np.stack(dict_var[layer]) 
-        dict_var[layer] = stacked
+        if not(whatToload in ['covmean','','all']):
+            stacked = np.stack(dict_var[layer]) 
+            dict_var[layer] = stacked
     
     # Save data
     if saveformat=='pkl':
@@ -616,8 +649,10 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
                 elif whatToload=='varmean':
                     dict_var[layer] += [[np.diag(cov),mean]]
         for l,layer in enumerate(style_layers):
-            stacked = np.stack(dict_var[layer]) 
-            dict_var[layer] = stacked
+            if not(whatToload in ['covmean','','all']):
+                stacked = np.stack(dict_var[layer]) 
+                dict_var[layer] = stacked
+           
     if saveformat=='h5':
         try:
             store = h5py.File(filename_path, 'r')
@@ -647,8 +682,9 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
                 elif whatToload=='varmean':
                     dict_var[layer] += [[np.diag(cov),mean]]
         for l,layer in enumerate(style_layers):
-            stacked = np.stack(dict_var[layer]) 
-            dict_var[layer] = stacked
+            if not(whatToload in ['covmean','','all']):
+                stacked = np.stack(dict_var[layer]) 
+                dict_var[layer] = stacked
         store.close()
     return(dict_var)
     
@@ -799,7 +835,13 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    whatToload,saveformat='h5',set='',getBeforeReLU=False,\
                    Net='VGG',style_layers_imposed=[],\
                    list_mean_and_std_source=[],list_mean_and_std_target=[],\
-                   cropCenter=False,BV=True,sizeIm=224):
+                   cropCenter=False,BV=True,sizeIm=224,model_alreadyLoaded=None,\
+                   name_model=None,\
+                   randomCropValid=False,classe=None):
+    
+    if not(model_alreadyLoaded is None) and name_model is None:
+        print("You need to provide a name with the model !")
+        raise(ValueError)
     if 'VGG' in Net:
         if BV:
             str_layers = numeral_layers_index(style_layers)
@@ -810,24 +852,36 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
             str_layers = getResNetLayersNumeral_bitsVersion(style_layers,num_layers=50)
         else:
             str_layers = getResNetLayersNumeral(style_layers,num_layers=50)
+    elif 'InceptionV1' in Net:
+        if BV:
+            str_layers = getInceptionV1LayersNumeral_bitsVersion(style_layers)
+        else:
+            str_layers = getInceptionV1LayersNumeral(style_layers)
     else:
         raise(NotImplementedError)
-    filename = source_dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
+        
+    if not(name_model is None):
+        filename = name_model+'_'+source_dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
+    else:
+        filename = source_dataset + '_' + str(number_im_considered) + '_CovMean'+'_'+str_layers
+    
+    if not(Net=='VGG'):
+        filename +='_'+Net
     
     if not(sizeIm==224):
         filename += '_ImSize'+str(sizeIm)
     
-    if not(Net=='VGG'):
+    if not(Net=='VGG') and len(style_layers_imposed)>0:
         if 'VGG' in Net:
             if BV:
-                filename += '_'+Net + numeral_layers_index_bitsVersion(style_layers_imposed)
+                filename +=  numeral_layers_index_bitsVersion(style_layers_imposed)
             else:
-                filename += '_'+Net + numeral_layers_index(style_layers_imposed)
+                filename +=  numeral_layers_index(style_layers_imposed)
         elif 'ResNet50' in Net:
             if BV:
-                filename += '_'+Net + getResNetLayersNumeral_bitsVersion(style_layers_imposed,num_layers=50)
+                filename += getResNetLayersNumeral_bitsVersion(style_layers_imposed,num_layers=50)
             else:
-                filename += '_'+Net + getResNetLayersNumeral(style_layers_imposed,num_layers=50)
+                filename += getResNetLayersNumeral(style_layers_imposed,num_layers=50)
         else:
             raise(NotImplementedError)
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp')
@@ -839,10 +893,17 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
     pathlib.Path(output_path_full).mkdir(parents=True, exist_ok=True)  
     if not(set=='' or set is None):
         filename += '_'+set
+    if not(classe is None):
+        filename += '_'+str(classe)
+        
     if getBeforeReLU:
         filename += '_BeforeReLU'
     if cropCenter:
         filename += '_cropCenter'
+        
+    if randomCropValid:
+        filename += '_randomCropValid'
+
     if saveformat=='pkl':
         filename += '.pkl'
     if saveformat=='h5':
@@ -854,7 +915,10 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                                        whatToload=whatToload,Net=Net,style_layers_imposed=style_layers_imposed,\
                                        list_mean_and_std_source=list_mean_and_std_source,\
                                        list_mean_and_std_target=list_mean_and_std_target,\
-                                       cropCenter=cropCenter,sizeIm=sizeIm)
+                                       cropCenter=cropCenter,sizeIm=sizeIm,\
+                                       model_alreadyLoaded=model_alreadyLoaded,\
+                                       randomCropValid=randomCropValid,\
+                                       classe=classe)
     else:
         dict_stats = load_precomputed_mean_cov(filename_path,style_layers,source_dataset,\
                                             saveformat=saveformat,whatToload=whatToload)
