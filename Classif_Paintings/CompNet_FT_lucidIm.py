@@ -189,10 +189,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
 
     if 'RandInit' in model_name:
         weights = None
-        SaveInit = True
     else:
         weights = 'imagenet'
-        SaveInit = False # car tu n'as pas encore code cela !
     SaveInit = True # il faudra corriger cela
     
     if constrNet=='VGG':

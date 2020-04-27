@@ -367,7 +367,7 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         tf.keras.preprocessing.image.save_img(name_output, image)
         
         new_output_path = os.path.join(path_output,'RGB')
-        pathlib.Path(name_output).mkdir(parents=True, exist_ok=True) 
+        pathlib.Path(new_output_path).mkdir(parents=True, exist_ok=True) 
         change_from_BRG_to_RGB(img_name_path=name_output,output_path=new_output_path,ext_name='toRGB')
       
 def test_render_VGG19():
