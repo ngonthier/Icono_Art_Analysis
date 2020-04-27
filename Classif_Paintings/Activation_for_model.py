@@ -92,8 +92,11 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
             else:
                base_model = init_model 
         else:
-            base_model = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
-        
+            output = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+            if len(output)==2:
+                base_model, init_model = output
+            else:
+                base_model = output
     model,list_outputs_name = get_Model_that_output_StatsOnActivation(base_model,stats_on_layer=stats_on_layer)
     #print(model.summary())
     activations = predictionFT_net(model,df_train,x_col=item_name,y_col=classes,path_im=path_to_img,
@@ -246,6 +249,7 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
             plt_multiple_imgs(list_images=list_most_pos_images,path_output=output_path_for_img,\
                               path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
                               Net=None,title_imgs=title_imgs)
+            print(output_path_for_img,name_fig)
             
 #            # Slightly positive images : TODO
 #            list_slightly_pos_images = name_images_l_f_pos[argsort[-numberIm:]]
@@ -323,6 +327,17 @@ if __name__ == '__main__':
                                                 layer_name='mixed5b_5x5_bottleneck_pre_relu',
                                                 num_feature=41,
                                                 numberIm=81)
+    
+    # Pour IconArt
+    plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_big001_modif_adam_randomCrop_ep200',constrNet='InceptionV1',
+                                                layer_name='mixed4c_pool_reduce_pre_relu',
+                                                num_feature=13,
+                                                numberIm=81)
+    plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_big001_modif_adam_randomCrop_ep200',constrNet='InceptionV1',
+                                                layer_name='mixed4c_pool_reduce_pre_relu',
+                                                num_feature=13,
+                                                numberIm=81)
+    
     # Nom de fichier	mixed3a_5x5_bottleneck_pre_reluConv2D_8_RASTA_small01_modif.png	
     dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')
 

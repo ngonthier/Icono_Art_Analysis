@@ -464,7 +464,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : deepSupervision : for the InceptionV1 use of the deep supervision with 3 heads
     @param : suffix : of the performance and model name in order to have several 
         models trained with the same hyperparameters ('' or None pour ne pas en avoir)
-    @param : dataAug : use of some of the data augmentation method in the image space
+    @param : dataAug : use of some of the data augmentation method in the image space can be a boolean or 'SmallDataAug' or 'MediumDataAug'
     @param : randomCrop : take a random crop of size 224*224 in an image in size 256*256 it is hard coded in the fct it should be change
     @param : SaveInit : we will save the initialisation of the model
     """
@@ -577,9 +577,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 name_base += '_Affine'
         if BaysianOptimFT:
             name_base += '_BayHyperOpt'
-        if dataAug:
-            name_base+= '_dataAug'
-                
+        if type(dataAug)==bool:
+            if dataAug:
+                name_base+= '_dataAug'
+        else:
+            assert(dataAug in ['SmallDataAug','MediumDataAug'])
+            name_base+= '_'+str(dataAug)
+            
+            
     if constrNet=='ResNet50_BNRF': # BN Refinement
         name_base += '_m'+str(momentum)+'_bsRF'+str(batch_size_RF)+'_ep'+str(epochs_RF)
         
@@ -2107,26 +2112,50 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     else:
         print(Net,'is unknwon')
         raise(NotImplementedError)
-            
-    if dataAug:
-        horizontal_flip = True
-        rotation_range = 90
-        width_shift_range = 224
-        height_shift_range = 224
-        zoom_range = [0,2]
+       
+    if type(dataAug)==bool:
+        if dataAug:
+            horizontal_flip = True
+            rotation_range = 90
+            width_shift_range = 224
+            height_shift_range = 224
+            zoom_range = [0,2]
+        else:
+            horizontal_flip = False
+            rotation_range = 0
+            width_shift_range = 0
+            height_shift_range = 0
+            zoom_range = 0.0
+        shear_range=0.0
     else:
-        horizontal_flip = False
-        rotation_range = 0
-        width_shift_range = 0
-        height_shift_range = 0
-        zoom_range = 0.0
+        if dataAug=='MedimDataAug':
+            rotation_range=20
+            width_shift_range=0.2
+            height_shift_range=0.2
+            shear_range=0.2
+            zoom_range=0.2
+            horizontal_flip=True
+        elif dataAug=='SmallDAtaAug':
+            rotation_range=0
+            width_shift_range=0.125
+            height_shift_range=0.125
+            horizontal_flip=True
+            shear_range=0.0
+            zoom_range=0.0
+        else:
+            rotation_range=0
+            width_shift_range=0
+            height_shift_range=0
+            horizontal_flip=False
+            shear_range=0.0
+            zoom_range=0.0
           
     datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function,\
                                                              horizontal_flip=horizontal_flip,\
                                                              rotation_range=rotation_range,\
                                                              width_shift_range=width_shift_range,\
                                                              height_shift_range=height_shift_range,\
-                                                             zoom_range=zoom_range)    
+                                                             zoom_range=zoom_range,shear_range=shear_range)    
     # preprocessing_function will be implied on each input. The function will run after the image is 
     # load resized and augmented. That's why we need to modify the load_img fct
     

@@ -58,7 +58,7 @@ possible_opt = ['','_adam']
 possibleInit = ['','_RandInit']
 possible_crop = ['','_randomCrop']
 possible_Sup = ['','_deepSupervision']
-possible_Aug = ['','_dataAug']
+possible_Aug = ['','_dataAug','_SmallDataAug','_MediumDataAug']
 possible_epochs = ['','_ep120','_ep200','_ep1']
 possible_lastEpochs = ['','_LastEpoch']
 
@@ -154,6 +154,10 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         
     if 'dataAug' in model_name:
         dataAug=True
+    elif 'SmallDataAug' in model_name:
+        dataAug='SmallDataAug' 
+    elif 'MediumDataAug' in model_name:
+        dataAug='MediumDataAug'
     else:
         dataAug=False
         
@@ -421,16 +425,28 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RMN_small01_modif_randomCrop',
                         'RASTA_big001_modif_RandInit_ep120',
                         'RASTA_big001_modif_RandInit_ep120_LastEpoch',
-                        ]
-    #list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep1']
-    list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_ep200',
+                        'IconArt_v1_big001_modif_adam_randomCrop_ep200',
                         'IconArt_v1_big001_modif_adam_randomCrop_ep200_LastEpoch',
                         'IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200',
                         'IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200_LastEpoch',
                         'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',
                         'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200_LastEpoch',
                         'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200',
-                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_LastEpoch',
+                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_LastEpoch'
+                        ]
+    #list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep1']
+    list_models_name = ['IconArt_v1_big001_modif_adam_SmallDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_SmallDataAug_ep200_LastEpoch',
+                        'IconArt_v1_big001_modif_adam_MediumDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_MediumDataAug_ep200_LastEpoch',
+                        'RASTA_big001_modif_adam_SmallDataAug_ep200',
+                        'RASTA_big001_modif_adam_ep200_SmallDataAug_LastEpoch',
+                        'RASTA_big001_modif_adam_MediumDataAug_ep200',
+                        'RASTA_big001_modif_adam_ep200_MediumDataAug_LastEpoch',
+                        ]
+    # Car on a juste pas converger pour RASTA_big001_modif_dataAug_ep120
+    SmallDataAug
+    list_models_name_afaireplusTard = [
                         'RASTA_big001_modif_RandInit_deepSupervision_ep120',
                         'RASTA_big001_modif_RandInit_deepSupervision_ep120_LastEpoch',
                         'RASTA_big001_modif_dataAug_ep120',
@@ -442,11 +458,8 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RASTA_big01_modif_RandInit_ep120',
                         'RASTA_big01_modif_RandInit_ep120_LastEpoch',
                         'RASTA_big01_modif_RandInit_randomCrop_ep120',
-                        'RASTA_big01_modif_RandInit_randomCrop_ep120_LastEpoch'
-                        ]
-    # Car on a juste pas converger pour RASTA_big001_modif_dataAug_ep120
-    
-    list_models_name_afaireplusTard = ['RMN_small001_modif_randomCrop','RMN_big001_modif_randomCrop',
+                        'RASTA_big01_modif_RandInit_randomCrop_ep120_LastEpoch',
+                        'RMN_small001_modif_randomCrop','RMN_big001_modif_randomCrop',
                         'RASTA_small01_modif_randomCrop',
                         'RASTA_small01_modif_randomCrop_ep120'
                         ]
@@ -686,6 +699,17 @@ def plotHistory_of_training():
     name = 'RASTA_big001_modif_dataAug'
     history_pkl = 'History_InceptionV1_RASTA__SGD_lr0.001_dataAug_avgpool_CropCenter_FT_20_bs32_SGD_sgdm0.9_dec0.0001_BestOnVal.pkl'
     
+    name ='IconArt_v1_big001_modif_adam_randomCrop_ep200'
+    history_pkl ='History_InceptionV1_IconArt_v1__lr0.001_avgpool_randomCrop_FT_200_bs32_BestOnVal.pkl'
+    name ='IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200'
+    history_pkl = 'History_InceptionV1_IconArt_v1__deepSupervision_lr0.001_avgpool_randomCrop_FT_200_bs32_BestOnVal.pkl'
+
+    name = 'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200'
+    history_pkl = 'History_InceptionV1_RASTA__deepSupervision_lr0.001_avgpool_randomCrop_FT_200_bs32_BestOnVal.pkl'
+    name = 'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200'
+    history_pkl = 'History_InceptionV1_RASTA__RandInit_deepSupervision_lr0.001_avgpool_randomCrop_FT_200_bs32_BestOnVal.pkl'
+
+    
     history_path = os.path.join(path_folder,history_pkl)
     with open(history_path, 'rb') as handle:
         history = pickle.load(handle)
@@ -696,11 +720,27 @@ def plotHistory_of_training():
     plt.plot(history['val_loss'], label='val')
     plt.title('Loss ' + name)
     plt.legend()
-    plt.figure()
-    plt.plot(history['top_1_categorical_accuracy'], label='train')
-    plt.plot(history['val_top_1_categorical_accuracy'], label='val')
-    plt.title('Top1-Acc ' + name)
-    plt.legend()
+    if 'RASTA' in name:
+        plt.figure()
+        try:
+            plt.plot(history['top_1_categorical_accuracy'], label='train')
+            plt.plot(history['val_top_1_categorical_accuracy'], label='val')
+        except KeyError as e: # deepSupervision certainement
+            plt.plot(history['avgpool_prediction_top_1_categorical_accuracy'], label='train')
+            plt.plot(history['val_avgpool_prediction_top_1_categorical_accuracy'], label='val')
+        plt.title('Top1-Acc ' + name)
+        plt.legend()
+    else:
+        plt.figure()
+        try:
+            plt.plot(history['acc'], label='train')
+            plt.plot(history['val_acc'], label='val')
+        except KeyError as e: # deepSupervision certainement
+            plt.plot(history['avgpool_prediction_acc'], label='train')
+            plt.plot(history['val_avgpool_prediction_acc'], label='val')
+            
+        plt.title('Acc ' + name)
+        plt.legend()
     plt.draw()
     plt.pause(0.001)
     

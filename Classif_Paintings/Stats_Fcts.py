@@ -2287,7 +2287,28 @@ def InceptionV1_baseline_model(num_of_classes=10,\
   if verbose: print(model.summary())
   return model
     
+### Convert a already loaded model to a Mean Cov Model
+  
+def get_Model_gram_mean_features(style_layers,pre_model):
     
+  list_stats = []
+  last_layer = None
+  for layer in pre_model.layers:
+      if layer.name in style_layers:
+          if not(last_layer is None):
+              input_cov_layer = layer.output
+          else: 
+              input_cov_layer = pre_model.input
+          mean_layer = Mean_Matrix_Layer()(input_cov_layer)
+          cov_layer = Cov_Matrix_Layer()([input_cov_layer,mean_layer])
+          list_stats += [cov_layer,mean_layer]
+      else:
+          last_layer = layer
+  
+  model = models.Model(pre_model.input,list_stats)
+  model.trainable = False
+  return(model)
+
 ### Preprocessing functions 
 
 def load_resize(path_to_img,max_dim = 224):
