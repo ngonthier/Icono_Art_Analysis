@@ -445,7 +445,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RASTA_big001_modif_adam_ep200_MediumDataAug_LastEpoch',
                         ]
     # Car on a juste pas converger pour RASTA_big001_modif_dataAug_ep120
-    SmallDataAug
+
     list_models_name_afaireplusTard = [
                         'RASTA_big001_modif_RandInit_deepSupervision_ep120',
                         'RASTA_big001_modif_RandInit_deepSupervision_ep120_LastEpoch',
