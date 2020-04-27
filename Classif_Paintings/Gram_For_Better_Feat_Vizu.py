@@ -35,6 +35,7 @@ def compute_mean_var_of_GramMatrix():
                    cropCenter=cropCenter,BV=True,sizeIm=224,model_alreadyLoaded=fine_tuned_model,\
                    name_model=model_name,\
                    randomCropValid=False,classe=None)
+    # Dans le cas de RASTA ce fichier fait plus de 60Go
     
     stats_layer = dict_stats[style_layers[0]]
     del dict_stats
@@ -47,9 +48,9 @@ def compute_mean_var_of_GramMatrix():
 #    list_cov = []
 #    list_mean = []
     
-    matrix_of_cov_matrix = np.memmap('cov_matrix .dat', dtype=np.float32,
+    matrix_of_cov_matrix = np.memmap('cov_matrix.dat', dtype=np.float32,
               mode='w+', shape=(number_img,features_size,features_size))
-    matrix_of_mean_matrix = np.memmap('mean_matrix .dat', dtype=np.float32,
+    matrix_of_mean_matrix = np.memmap('mean_matrix.dat', dtype=np.float32,
               mode='w+', shape=(number_img,features_size))
     for i in range(number_img):
         [cov,mean] = stats_layer[i]
