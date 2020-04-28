@@ -667,7 +667,7 @@ def load_precomputed_mean_cov(filename_path,style_layers,dataset,saveformat='h5'
                     cov_str = layer + '_cov'
                     cov = vgg_cov_mean[cov_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
                     cov = cov[0,:,:]
-                if 'mean' in whatToload:
+                if 'mean' in whatToload or 'all' in whatToload or whatToload=='':
                     mean_str = layer + '_mean'
                     mean = vgg_cov_mean[mean_str] # , dtype=np.float32,shape=vgg_cov_mean[l].shape
                     mean = mean[0,:]

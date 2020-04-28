@@ -370,6 +370,67 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         pathlib.Path(new_output_path).mkdir(parents=True, exist_ok=True) 
         change_from_BRG_to_RGB(img_name_path=name_output,output_path=new_output_path,ext_name='toRGB')
       
+def print_PCA_images(model_path,layer_to_print,weights,path_output='',prexif_name='',\
+                 input_name='block1_conv1_input',Net='VGG',sizeIm=256):
+    #with tf.Graph().as_default() as graph, tf.Session() as sess:
+    
+    print('Here')
+    if Net=='VGG':
+        lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
+    elif Net=='InceptionV1':
+        lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
+    lucid_net.load_graphdef()
+    #nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+    #print(nodes_tab)
+    print('there')
+    JITTER = 1
+    ROTATE = 5
+    SCALE  = 1.1
+    
+    transforms = [
+        transform.pad(2*JITTER),
+        transform.jitter(JITTER),
+        transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
+        transform.random_rotate(range(-ROTATE, ROTATE+1))
+    ]
+    input('wait')
+#    LEARNING_RATE = 0.005 # Valeur par default
+#    optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
+      
+    if Net=='VGG':
+        name_base = layer_to_print  + 'Relu_'+prexif_name+'.png'
+    elif Net=='InceptionV1':
+        name_base = layer_to_print  + 'Conv2D_'+prexif_name+'.png'
+            
+    C = lambda layer_i: objectives.channel(*layer_i)
+    
+    total_obj = None
+    for i,weight_i in enumerate(weights):
+        if Net=='VGG':
+            obj_str = layer_to_print  + '/Relu:'+str(i)
+        elif Net=='InceptionV1':
+            obj_str = layer_to_print  + '/Conv2D:'+str(i)
+        if total_obj is None:
+            total_obj = weight_i*C(obj_str)
+        else: 
+            total_obj += weight_i*C(obj_str)
+        print(i,total_obj)
+
+    print(total_obj)
+    output_im = render.render_vis(lucid_net,total_obj ,
+                                  transforms=transforms,
+                                  thresholds=[2048],
+                                  param_f=lambda: param.image(sizeIm),
+#                                      optimizer=optimizer,
+                                  use_fixed_seed=True)
+    image = np.array(output_im[0][0]*255) # car une seule image dans le batch
+    name_output = os.path.join(path_output,name_base)
+    tf.keras.preprocessing.image.save_img(name_output, image)
+    
+    new_output_path = os.path.join(path_output,'RGB')
+    pathlib.Path(new_output_path).mkdir(parents=True, exist_ok=True) 
+    change_from_BRG_to_RGB(img_name_path=name_output,output_path=new_output_path,ext_name='toRGB')
+  
 def test_render_VGG19():
     
     #with tf.Graph().as_default() as graph, tf.Session() as sess:

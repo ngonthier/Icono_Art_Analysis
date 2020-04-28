@@ -387,6 +387,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
         input_name_lucid ='input_1'
     elif constrNet=='ResNet50':
         input_name_lucid ='input_1'
+        raise(NotImplementedError('Not implemented yet with ResNet for print_images'))
     else:
         raise(NotImplementedError(constrNet + ' is not implemented sorry.'))
     
