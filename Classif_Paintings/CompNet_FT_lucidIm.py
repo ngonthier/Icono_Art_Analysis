@@ -710,6 +710,12 @@ def plotHistory_of_training():
     name = 'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200'
     history_pkl = 'History_InceptionV1_RASTA__RandInit_deepSupervision_lr0.001_avgpool_randomCrop_FT_200_bs32_BestOnVal.pkl'
 
+    name ='IconArt_v1_big001_modif_adam_SmallDataAug_ep200'
+    history_pkl ='History_InceptionV1_IconArt_v1__lr0.001_SmallDataAug_avgpool_CropCenter_FT_200_bs32_BestOnVal.pkl'
+    name ='IconArt_v1_big001_modif_adam_MediumDataAug_ep200'
+    history_pkl = 'History_InceptionV1_IconArt_v1__lr0.001_MediumDataAug_avgpool_CropCenter_FT_200_bs32_BestOnVal.pkl'
+
+    
     
     history_path = os.path.join(path_folder,history_pkl)
     with open(history_path, 'rb') as handle:

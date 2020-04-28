@@ -13,6 +13,7 @@ from numpy import linalg as LA
 import os
 import platform
 import pathlib
+import time
 
 from tensorflow.python.keras import backend as K
 
@@ -95,6 +96,7 @@ def compute_mean_var_of_GramMatrix():
         mean_cov_matrix = np.load(path_data_cov_matrix)
         std_cov_matrix = np.load(path_data_std_cov_matrix)
         
+    features_size,_ = mean_cov_matrix.shape
     print(style_layers[0],str(classe))
     print('Mean {0:.2e}, median {1:.2e}, min {2:.2e} and max {3:.2e} of Mean of the cov matrices'.format(np.mean(mean_cov_matrix),np.median(mean_cov_matrix),np.min(mean_cov_matrix),np.max(mean_cov_matrix)))
     #Mean 9.48e+01, median 8.80e+01, min -1.40e+03 and max 4.97e+03 of Mean of the cov matrices
@@ -151,9 +153,40 @@ def compute_mean_var_of_GramMatrix():
         input_name_lucid ='input_1'
     for comp_number in range(num_components_draw):
         weights = eigen_vectors[:,comp_number]
+        #weights = weights[0:1]
+        #print('weights',weights)
+        #time.sleep(.300)
         prexif_name = '_PCA'+str(comp_number)
-        print_PCA_images(model_path=name_pb,layer_to_print=style_layers[0],weights=weights,path_output=path_output_lucid_im,prexif_name=prexif_name,\
-                 input_name=input_name_lucid,Net=constrNet,sizeIm=128)
+        if not(classe is None):
+           prexif_name += '_'+classe 
+        index_features_withinLayer_all = np.arange(0,features_size)
+        print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+                         layer_to_print=style_layers[0],weights=weights,\
+                         index_features_withinLayer=index_features_withinLayer_all,\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        
+        prexif_name_pos = prexif_name + '_PosContrib'
+        where_pos = np.where(weights>0.)[0]
+        weights_pos = list(weights[where_pos])
+        print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+                         layer_to_print=style_layers[0],weights=weights_pos,\
+                         index_features_withinLayer=where_pos,\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name_pos,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        
+        where_max = np.argmax(weights)
+        prexif_name_max = prexif_name+  '_Max'+str(where_max)
+        print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+                         layer_to_print=style_layers[0],weights=[1.],\
+                         index_features_withinLayer=[where_max],\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        
+        # Faire que les positives après
+        
+#        print_images(model_path=name_pb,list_layer_index_to_print,path_output='',prexif_name='',\
+#                 input_name='block1_conv1_input',Net='VGG')
 #    
 #    
 #    matrix_of_cov_matrix = np.empty((number_img,features_size,features_size),dtype=np.float32)

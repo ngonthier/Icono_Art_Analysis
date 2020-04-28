@@ -32,6 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from inception_v1 import InceptionV1_slim
+from inceptionV1_keras_utils import get_dico_layers_type
 
 from googlenet import create_googlenet as InceptionV1
 from googlenet import inception_v1_oldTF
@@ -118,7 +119,6 @@ class Lucid_InceptionV1_caffe(Model):
        self.model_path = model_path
        self.image_shape = image_shape
        self.image_value_range = image_value_range
-       # Il semblerait que cela ne soit pas pris en compte !
        self.input_name = input_name
        super(Lucid_InceptionV1_caffe, self).__init__(**kwargs)
        
@@ -129,7 +129,6 @@ class Lucid_InceptionV1(Model):
        self.model_path = model_path
        self.image_shape = image_shape
        self.image_value_range = image_value_range
-       # Il semblerait que cela ne soit pas pris en compte !
        self.input_name = input_name
        super(Lucid_InceptionV1, self).__init__(**kwargs)
        
@@ -140,7 +139,6 @@ class Lucid_Inception_v1_slim(Model):
        self.model_path = model_path
        self.image_shape = image_shape
        self.image_value_range = image_value_range
-       # Il semblerait que cela ne soit pas pris en compte !
        self.input_name = input_name
        super(Lucid_Inception_v1_slim, self).__init__(**kwargs)
 
@@ -323,10 +321,17 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
                  input_name='block1_conv1_input',Net='VGG',sizeIm=256):
     #with tf.Graph().as_default() as graph, tf.Session() as sess:
     
+    if not(os.path.isfile(os.path.join(model_path))):
+        raise(ValueError(model_path + ' does not exist !'))
+    
     if Net=='VGG':
         lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
     elif Net=='InceptionV1':
-        lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
+        lucid_net = Lucid_InceptionV1(model_path=model_path,input_name=input_name)
+    elif Net=='ResNet':
+        lucid_net = Lucid_ResNet(model_path=model_path,input_name=input_name)
+    else:
+        raise(ValueError(Net+ 'is unkonwn'))
     lucid_net.load_graphdef()
     #nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
     #print(nodes_tab)
@@ -370,19 +375,45 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         pathlib.Path(new_output_path).mkdir(parents=True, exist_ok=True) 
         change_from_BRG_to_RGB(img_name_path=name_output,output_path=new_output_path,ext_name='toRGB')
       
-def print_PCA_images(model_path,layer_to_print,weights,path_output='',prexif_name='',\
-                 input_name='block1_conv1_input',Net='VGG',sizeIm=256):
-    #with tf.Graph().as_default() as graph, tf.Session() as sess:
+def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLayer,\
+                     path_output='',prexif_name='',\
+                     input_name='block1_conv1_input',Net='VGG',sizeIm=256):
+#    with tf.Graph().as_default() as graph, tf.Session() as sess:
     
-    print('Here')
+    if not(os.path.isfile(os.path.join(model_path))):
+        raise(ValueError(model_path + ' does not exist !'))
+         
     if Net=='VGG':
         lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
     elif Net=='InceptionV1':
-        lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
+        lucid_net = Lucid_InceptionV1(model_path=model_path,input_name=input_name)
+    elif Net=='ResNet':
+        lucid_net = Lucid_ResNet(model_path=model_path,input_name=input_name)
+    else:
+        raise(ValueError(Net+ 'is unkonwn'))
     lucid_net.load_graphdef()
-    #nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
-    #print(nodes_tab)
-    print('there')
+    #nodes_tab = [n.name for n in tf.compat.v1.get_default_graph().as_graph_def().node]
+    
+    if Net=='VGG':
+        obj_str = layer_to_print  + '/Relu'
+        kind_layer = 'Relu'
+    elif Net=='InceptionV1':
+        dico = get_dico_layers_type()
+        type_layer = dico[layer_to_print]
+        obj_str = layer_to_print  + '/'+type_layer # It could also be BiasAdd or concat
+        kind_layer = type_layer
+#        if not(obj_str in nodes_tab):
+#            obj_str = layer_to_print  + '/Concat'
+#            kind_layer = 'Concat'
+#            if not(obj_str in nodes_tab):
+#                obj_str = layer_to_print  + '/Relu'
+#                kind_layer = 'Relu'
+#                if not(obj_str in nodes_tab):
+#                    print(nodes_tab)
+#                    raise(KeyError(obj_str +' not in the graph'))
+    else:
+        raise(NotImplementedError)
+        
     JITTER = 1
     ROTATE = 5
     SCALE  = 1.1
@@ -393,30 +424,29 @@ def print_PCA_images(model_path,layer_to_print,weights,path_output='',prexif_nam
         transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
         transform.random_rotate(range(-ROTATE, ROTATE+1))
     ]
-    input('wait')
+
 #    LEARNING_RATE = 0.005 # Valeur par default
 #    optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
       
     if Net=='VGG':
-        name_base = layer_to_print  + 'Relu_'+prexif_name+'.png'
+        name_base = layer_to_print  + kind_layer+'_'+prexif_name+'.png'
     elif Net=='InceptionV1':
-        name_base = layer_to_print  + 'Conv2D_'+prexif_name+'.png'
+        name_base = layer_to_print  + kind_layer+'_'+prexif_name+'.png'
+    else:
+        raise(NotImplementedError)
             
     C = lambda layer_i: objectives.channel(*layer_i)
+    # input = couple of Two arguments : first one name of the layer, 
+    # second one number of the features must be an integer
     
     total_obj = None
-    for i,weight_i in enumerate(weights):
-        if Net=='VGG':
-            obj_str = layer_to_print  + '/Relu:'+str(i)
-        elif Net=='InceptionV1':
-            obj_str = layer_to_print  + '/Conv2D:'+str(i)
+    for i,weight_i in zip(index_features_withinLayer,weights):
+        
         if total_obj is None:
-            total_obj = weight_i*C(obj_str)
+            total_obj = weight_i*C((obj_str,i))
         else: 
-            total_obj += weight_i*C(obj_str)
-        print(i,total_obj)
+            total_obj += weight_i*C((obj_str,i))
 
-    print(total_obj)
     output_im = render.render_vis(lucid_net,total_obj ,
                                   transforms=transforms,
                                   thresholds=[2048],
