@@ -5,6 +5,10 @@ Created on Thu Apr 23 14:36:04 2020
 The goal of this script is to look at the gram matrices of a fine-tuned network
 To see the eigen values of its to see if we can have a better features visualisation
 
+Pour le moment, on calcule les covariances après sous-traction de la moyenne spatiale
+d'une image donnée et non pas après soustraction de la moyenne globale sur tout le 
+dataset
+
 @author: gonthier
 """
 
@@ -23,18 +27,20 @@ from CompNet_FT_lucidIm import get_fine_tuned_model,convert_finetuned_modelToFro
 
 from lucid_utils import print_PCA_images
 
-def compute_mean_var_of_GramMatrix():
+def compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = None):
     
     constrNet = 'InceptionV1'
     cropCenter = True
     set_ = 'train'
     
-    model_name = 'RASTA_small01_modif'
-    source_dataset = 'RASTA'
+    if 'RASTA' in model_name:
+        source_dataset = 'RASTA'
+    elif 'IconArt_v1' in model_name:
+        source_dataset = 'IconArt_v1'
     number_im_considered = None
     style_layers = ['mixed4d_pre_relu']
     whatToload = 'all'
-    classe = None
+    
     
     #classe = 'Color_Field_Painting'
     
@@ -70,7 +76,9 @@ def compute_mean_var_of_GramMatrix():
                        randomCropValid=False,classe=classe)
         # Dans le cas de RASTA ce fichier fait plus de 60Go
         
+        
         stats_layer = dict_stats[style_layers[0]]
+        print('len(stats_layer)',len(stats_layer))
         del dict_stats
         number_img = len(stats_layer)
         [cov,mean] = stats_layer[0]
@@ -81,9 +89,21 @@ def compute_mean_var_of_GramMatrix():
         for i in range(number_img):
             [cov,mean] = stats_layer[i]
             mean_cov_matrix += cov/number_img
-            mean_squared_value_cov_matrix += (cov**2)/number_img
+            cov_squared = cov**2
+            mean_squared_value_cov_matrix += (cov_squared)/number_img
+            
+            isnan_cov_squared = np.isnan(cov_squared)
+            where_is_nan = np.where(isnan_cov_squared)
+            for ci,cj in zip(where_is_nan[0],where_is_nan[1]):
+                print('nan in cov_squared',i,ci,cj,cov[ci,cj],cov_squared[ci,cj])
+            isnan_mean_cov = np.isnan(mean_cov_matrix)
+            where_is_nan = np.where(isnan_mean_cov)
+            for ci,cj in zip(where_is_nan[0],where_is_nan[1]):
+                print('nan in cov_squared',i,ci,cj,isnan_mean_cov[ci,cj])
+            
         squared_mean_cov_matrix = mean_cov_matrix**2
         var_cov_matrix = mean_squared_value_cov_matrix - squared_mean_cov_matrix
+        var_cov_matrix = np.clip(var_cov_matrix,0.0,np.inf)
         std_cov_matrix = np.sqrt(var_cov_matrix)
         
         if classe is None:
@@ -111,7 +131,7 @@ def compute_mean_var_of_GramMatrix():
     where_std_sup_abs_mean = np.where(std_cov_matrix > np.abs(mean_cov_matrix))
     print('Number of time std > mean in the 528*528 = 278784 matrice :',len(where_std_sup_abs_mean[0]))
     # 271679   
-    
+
 #    mixed4d_pre_relu None
 #    Mean 9.48e+01, median 8.80e+01, min -1.40e+03 and max 4.97e+03 of Mean of the cov matrices
 #    Mean 1.47e+02, median 1.16e+02, min 6.99e-04 and max 4.97e+03 of abs Mean of the cov matrices
@@ -137,6 +157,9 @@ def compute_mean_var_of_GramMatrix():
     #del std_cov_matrix,where_std_sup_abs_mean,where_std_sup_mean
     eigen_values, eigen_vectors = LA.eig(mean_cov_matrix)
     print('Eigen values 10 first value',eigen_values[0:10])
+    print('First eigen vector :',eigen_vectors[:,0])
+    print('Max imag part first vector :',np.max(np.imag(eigen_vectors[:,0])))
+    eigen_vectors = np.real(eigen_vectors)
     
     num_components_draw = 3
 
