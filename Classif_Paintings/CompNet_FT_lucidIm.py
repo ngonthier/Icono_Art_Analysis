@@ -36,6 +36,8 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
 from StatsConstr_ClassifwithTL import learn_and_eval
 from googlenet import inception_v1_oldTF as Inception_V1
 
+from inception_v1 import InceptionV1_slim
+
 import cv2
 
 import pickle
@@ -54,7 +56,7 @@ import platform
 
 possible_datasets = ['IconArt_v1','RMN','RASTA']
 possible_lr = ['small001_modif','big001_modif','small01_modif','big01_modif']
-possible_opt = ['','_adam']
+possible_opt = ['','_adam','_Adadelta']
 possibleInit = ['','_RandInit']
 possible_crop = ['','_randomCrop']
 possible_Sup = ['','_deepSupervision']
@@ -124,7 +126,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
     opt_option_big01=[0.01]
     
     if not(model_name in list_finetuned_models_name):
-        raise(NotImplementedError)
+        raise(NotImplementedError(model_name+' is unknown.'))
         
     if 'small001' in  model_name:
         opt_option = opt_option_small
@@ -140,6 +142,10 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         
     if 'adam' in model_name:
         optimizer='adam'
+        SGDmomentum=0.0
+        decay=0.0
+    elif 'Adadelta' in model_name:
+        optimizer='Adadelta'
         SGDmomentum=0.0
         decay=0.0
     else:
@@ -202,6 +208,10 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         final_clf = 'MLP2'
         transformOnFinalLayer='GlobalAveragePooling2D' 
     elif constrNet=='InceptionV1':
+        features = 'avgpool'
+        final_clf = 'MLP1'
+        transformOnFinalLayer=None
+    elif constrNet=='InceptionV1_slim':
         features = 'avgpool'
         final_clf = 'MLP1'
         transformOnFinalLayer=None
@@ -334,6 +344,8 @@ def get_imageNet_weights(Net):
         imagenet_model = tf.keras.applications.vgg19.VGG19(include_top=False, weights=weights)
     elif Net == 'InceptionV1':
         imagenet_model = Inception_V1(include_top=False, weights=weights)
+    elif Net == 'InceptionV1_slim':
+        imagenet_model = InceptionV1_slim(include_top=False, weights=weights)
     elif Net == 'ResNet50':
         imagenet_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights)
     else:
@@ -385,6 +397,8 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
         input_name_lucid ='block1_conv1_input'
     elif constrNet=='InceptionV1':
         input_name_lucid ='input_1'
+    elif constrNet=='InceptionV1_slim':
+        input_name_lucid ='input_1'
     elif constrNet=='ResNet50':
         input_name_lucid ='input_1'
         raise(NotImplementedError('Not implemented yet with ResNet for print_images'))
@@ -435,11 +449,15 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                         'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200',
                         'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_LastEpoch'
                         ]
+    
+    # En fait pour Celebra :
+    # model.compile(optimizer='adadelta', loss='cosine_proximity', metrics=['binary_accuracy'])
+    
+    # Pour Flower :
+    # model.compile(optimizer=Adam(lr=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
+    
     #list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep1']
-    list_models_name = ['IconArt_v1_big001_modif_adam_SmallDataAug_ep200',
-                        'IconArt_v1_big001_modif_adam_SmallDataAug_ep200_LastEpoch',
-                        'IconArt_v1_big001_modif_adam_MediumDataAug_ep200',
-                        'IconArt_v1_big001_modif_adam_MediumDataAug_ep200_LastEpoch',
+    list_models_name = [
                         'RASTA_big001_modif_adam_SmallDataAug_ep200',
                         'RASTA_big001_modif_adam_ep200_SmallDataAug_LastEpoch',
                         'RASTA_big001_modif_adam_MediumDataAug_ep200',
@@ -448,6 +466,13 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
     # Car on a juste pas converger pour RASTA_big001_modif_dataAug_ep120
 
     list_models_name_afaireplusTard = [
+                        'IconArt_v1_big001_modif_adam_ep1',
+                        'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_SmallDataAug_ep200_LastEpoch',
+                        'IconArt_v1_big001_modif_adam_MediumDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_MediumDataAug_ep200_LastEpoch',
+                        'IconArt_v1_big001_modif_adam_ep200',
+                        'IconArt_v1_big001_modif_adam_ep200_LastEpoch',
                         'RASTA_big001_modif_RandInit_deepSupervision_ep120',
                         'RASTA_big001_modif_RandInit_deepSupervision_ep120_LastEpoch',
                         'RASTA_big001_modif_dataAug_ep120',
@@ -771,7 +796,8 @@ if __name__ == '__main__':
 #    
 #                                        suffix_tab = [''])
     
-    Comparaison_of_FineTunedModel(constrNet='InceptionV1')    
+    #Comparaison_of_FineTunedModel(constrNet='InceptionV1')    
+    Comparaison_of_FineTunedModel(constrNet='InceptionV1_slim')    
 
         
         
