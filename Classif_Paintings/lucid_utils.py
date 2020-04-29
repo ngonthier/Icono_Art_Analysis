@@ -50,6 +50,8 @@ from ImageProcUtils import change_from_BRG_to_RGB
 
 import pathlib
 
+from new_obhectif_lucid import autocorr
+
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
     Freezes the state of a session into a pruned computation graph.
@@ -210,6 +212,60 @@ def test_render_Inception_v1_slim():
         plt.imshow(out[0][0])
         
 def test_render_Inception_v1():
+    
+    tf.reset_default_graph()
+    K.set_learning_phase(0)
+    if not(os.path.isfile("model/tf_inception_v1.pb")):
+        with K.get_session().as_default():
+            model = inception_v1_oldTF(weights='imagenet',include_top=True) #include_top=True, weights='imagenet')
+            print(model.input)
+            os.makedirs('./model', exist_ok=True)
+            
+            frozen_graph = freeze_session(K.get_session(),
+                                      output_names=[out.op.name for out in model.outputs],
+                                      clear_devices=True)
+            # Save the pb model 
+            tf.io.write_graph(frozen_graph,logdir= "model",name= "tf_inception_v1.pb", as_text=False)
+            nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+            print(nodes_tab)
+        
+    #with tf.Graph().as_default() as graph, tf.Session() as sess:
+    with gradient_override_map({'Relu': redirected_relu_grad,'ReLU': redirected_relu_grad}):
+        lucid_inception_v1 = Lucid_InceptionV1()
+        lucid_inception_v1.load_graphdef()
+        
+    
+    out = render.render_vis(lucid_inception_v1, 'mixed4a_1x1_pre_relu/Conv2D:0',\
+                            relu_gradient_override=True,use_fixed_seed=True)
+    plt.figure()
+    plt.imshow(out[0][0])
+    
+    
+    out = render.render_vis(lucid_inception_v1, 'mixed4b_pre_relu/concat:452',\
+                            relu_gradient_override=True,use_fixed_seed=True)
+    plt.figure()
+    plt.imshow(out[0][0])
+
+    
+    JITTER = 1
+    ROTATE = 5
+    SCALE  = 1.1
+    
+    transforms = [
+        transform.pad(2*JITTER),
+        transform.jitter(JITTER),
+        transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
+        transform.random_rotate(range(-ROTATE, ROTATE+1))
+    ]
+    
+    imgs = render.render_vis(lucid_inception_v1, 'mixed4b_pre_relu/concat:452', transforms=transforms,
+                             param_f=lambda: param.image(64), 
+                             thresholds=[2048], verbose=False,
+                             relu_gradient_override=True,use_fixed_seed=True)
+    plt.figure()
+    plt.imshow(imgs[0][0])
+    
+def test_autocorr_render_Inception_v1():
     
     tf.reset_default_graph()
     K.set_learning_phase(0)
