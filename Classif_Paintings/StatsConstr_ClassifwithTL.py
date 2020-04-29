@@ -421,6 +421,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         ResNet50AdaIn
         ResNet50_ROWD_CUMUL_AdaIn : fine tune only the batch normalisation refined
         InceptionV1
+        InceptionV1_slim
 
         TODO : VGGGram that modify the gram matrices
     @param : kind_method the type of methods we will use : TL or FT
@@ -478,6 +479,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     if deepSupervision and kind_method=='TL' and constrNet=='InceptionV1':
         print('You can not do a deep supervision in Transfer learning case')
         raise(ValueError)
+        
+    if constrNet=='InceptionV1_slim' and deepSupervision:
+        raise(NotImplementedError)
     
     if target_dataset=='RASTA':
         if final_clf=='LinearSVC':
@@ -519,7 +523,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         pathlib.Path(model_output_path).mkdir(parents=True, exist_ok=True) 
     
     if kind_method=='TL':
-        if not(constrNet=='InceptionV1'):
+        if not(constrNet=='InceptionV1' or constrNet=='InceptionV1_slim'):
             if not (transformOnFinalLayer is None or transformOnFinalLayer=='') and features in ['fc2','fc1','flatten','avg_pool']:
                 print('Incompatible feature layer and transformation applied to this layer')
                 raise(NotImplementedError)
@@ -543,7 +547,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     path_data,Not_on_NicolasPC = get_database(target_dataset)
         
     name_base = constrNet + '_'  +target_dataset +'_'
-    if not(constrNet=='VGG') and not(constrNet=='ResNet50') and not(constrNet=='InceptionV1'):
+    if not(constrNet=='VGG') and not(constrNet=='ResNet50') and not(constrNet=='InceptionV1') and not(constrNet=='InceptionV1_slim'):
         if kind_method=='TL' and constrNet in ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']:
             name_base += source_dataset +str(number_im_considered)
         name_base +=  '_' + num_layers
@@ -595,7 +599,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         name_base += '_'+set
     if constrNet=='VGG' or constrNet=='ResNet50':
         getBeforeReLU  = False
-    if constrNet in ['VGG','ResNet50','InceptionV1'] and kind_method=='FT':
+    if constrNet in ['VGG','ResNet50','InceptionV1','InceptionV1_slim'] and kind_method=='FT':
         if type(pretrainingModif)==bool:
             if pretrainingModif==False:
                 name_base +=  '_wholePretrainedNetFreeze'
@@ -625,7 +629,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 name_base += '_' + features
             if not((transformOnFinalLayer is None) or (transformOnFinalLayer=='')):
                name_base += '_'+ transformOnFinalLayer
-    elif constrNet=='InceptionV1':
+    elif constrNet=='InceptionV1' or constrNet=='InceptionV1_slim':
         name_base += '_' + features
    
     if constrNet in ['VGGsuffleInStats','ResNet50suffleInStats','VGGsuffleInStatsSameLabel']:
@@ -1160,7 +1164,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         
             # This have not been tested maybe you have to put it after the get_deep_model_for_FT function
             if os.path.exists(model_path) and not(ReDo): # We will load the model and return it
-                if not(constrNet=='ResNet50' or constrNet=='VGG' or constrNet=='InceptionV1'):
+                if not(constrNet=='ResNet50' or constrNet=='VGG' or constrNet=='InceptionV1' or constrNet=='InceptionV1_slim'):
                     raise(NotImplementedError('You can only do it fot the predifined model VGG ResNet50 and InceptionV1'))
                     # Need to add in load_model custom_objects
                 print('We will load the trained model :')
@@ -1661,6 +1665,14 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                              dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,
                              final_activation=final_activation,metrics=metrics,
                              loss=loss,deepSupervision=deepSupervision)
+    elif constrNet=='InceptionV1_slim':
+        model = InceptionV1_baseline_model(num_of_classes=num_classes,\
+                             pretrainingModif=pretrainingModif,verbose=verbose,weights=weights,\
+                             optimizer=optimizer,opt_option=opt_option,freezingType=freezingType,final_clf=final_clf,\
+                             regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
+                             dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,
+                             final_activation=final_activation,metrics=metrics,
+                             loss=loss,deepSupervision=deepSupervision,slim=True)
         
     else:
         print(constrNet,'is unkwon in the context of TL')
@@ -1981,8 +1993,11 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
         elif 'ResNet50' in Net:
             preprocessing_function = tf.keras.applications.resnet50.preprocess_input
             target_size = (224,224)
-        elif 'InceptionV1' in Net:
+        elif 'InceptionV1'==Net:
             preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
+            target_size = (224,224)
+        elif Net=='InceptionV1_slim':
+            preprocessing_function = tf.keras.applications.inception_v3.preprocess_input()
             target_size = (224,224)
         else:
             print(Net,'is unknwon')
@@ -2106,8 +2121,11 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     elif 'ResNet50' in Net:
         preprocessing_function = tf.keras.applications.resnet50.preprocess_input
         target_size = (224,224)
-    elif 'InceptionV1' in Net:
+    elif 'InceptionV1'==Net:
         preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
+        target_size = (224,224)
+    elif Net=='InceptionV1_slim':
+        preprocessing_function = tf.keras.applications.inception_v3.preprocess_input()
         target_size = (224,224)
     else:
         print(Net,'is unknwon')
@@ -2331,8 +2349,11 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
     elif 'ResNet50' in Net:
         preprocessing_function = tf.keras.applications.resnet50.preprocess_input
         target_size = (224,224)
-    elif 'InceptionV1' in Net:
+    elif 'InceptionV1'==Net:
         preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
+        target_size = (224,224)
+    elif Net=='InceptionV1_slim':
+        preprocessing_function = tf.keras.applications.inception_v3.preprocess_input()
         target_size = (224,224)
     else:
         print(Net,'is unknwon')
@@ -2614,8 +2635,11 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
     elif 'ResNet50' in Net:
         preprocessing_function = tf.keras.applications.resnet50.preprocess_input
         target_size = (224,224)
-    elif 'InceptionV1' in Net:
+    elif 'InceptionV1'==Net:
         preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
+        target_size = (224,224)
+    elif Net=='InceptionV1_slim':
+        preprocessing_function = tf.keras.applications.inception_v3.preprocess_input()
         target_size = (224,224)
     else:
         print(Net,'is unknwon')

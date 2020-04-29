@@ -100,29 +100,40 @@ def get_list_im(dataset,set='',classe=None):
     """
     Returns the list of images and the number of images
     """    
+    default_path_imdb2 = os.path.join(os.sep,'media','gonthier','HDD2','data')
+    default_path_imdb = os.path.join(os.sep,'media','gonthier','HDD','data')
+    if not(os.path.exists(default_path_imdb)): # Thats means you are not on the Nicolas Computer
+        # Modification of the path used
+        Not_on_NicolasPC = True
+        print('you are not on the Nicolas PC, so I think you have the data in the data folder')
+        default_path_imdb ='data' 
+        if not(os.path.isdir(default_path_imdb)):
+            print('The path the to data folder is not in this machine')
+            raise(ValueError(default_path_imdb))
+    
     if dataset == 'ImageNet': # It is the validation set
-        ImageNet_val_path = os.path.join(os.sep,'media','gonthier','HDD2','data','IMAGENET','val')
+        ImageNet_val_path = os.path.join(default_path_imdb2,'IMAGENET','val')
         list_imgs = glob.glob(os.path.join(ImageNet_val_path,'*.JPEG'))
     if dataset == 'ImageNetTest':
-        ImageNet_val_path = os.path.join(os.sep,'media','gonthier','HDD2','data','IMAGENET','test')
+        ImageNet_val_path = os.path.join(default_path_imdb2,'IMAGENET','test')
         list_imgs = glob.glob(os.path.join(ImageNet_val_path,'*.JPEG'))
     if dataset == 'ImageNetTrain':
-        ImageNet_val_path = os.path.join(os.sep,'media','gonthier','HDD2','data','IMAGENET','train')
+        ImageNet_val_path = os.path.join(default_path_imdb2,'IMAGENET','train')
         list_imgs = glob.glob(os.path.join(ImageNet_val_path,'*.JPEG'))
     elif dataset == 'Paintings':
-        images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Painting_Dataset')
+        images_path = os.path.join(default_path_imdb,'Painting_Dataset')
         list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
     elif dataset == 'watercolor':
-        images_path = os.path.join(os.sep,'media','gonthier','HDD','data','cross-domain-detection','datasets','watercolor','JPEGImages')
+        images_path = os.path.join(default_path_imdb,'cross-domain-detection','datasets','watercolor','JPEGImages')
         list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
     elif dataset == 'IconArt_v1':
-        images_path = os.path.join(os.sep,'media','gonthier','HDD','data','Wikidata_Paintings','IconArt_v1','JPEGImages')
+        images_path = os.path.join(default_path_imdb,'Wikidata_Paintings','IconArt_v1','JPEGImages')
         list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
     elif dataset == 'T':
-        images_path = os.path.join(os.sep,'media','gonthier','HDD','data','T')
+        images_path = os.path.join(default_path_imdb,'T')
         list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
     elif dataset == 'OIV5':
-        images_path = os.path.join(os.sep,'media','gonthier','HDD2','data','OIV5','Images')
+        images_path = os.path.join(default_path_imdb2,'OIV5','Images')
         list_imgs = glob.glob(os.path.join(images_path,'*.jpg'))
     # Attention si jamais tu fais pour les autres bases il faut verifier que tu n'as que les images du datasets dans le dossier en question
     if not(set is None or set=='') or not(classe is None):
@@ -363,6 +374,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             itera=1
     else:
         itera=1000
+
     print('Number of images :',number_im_list)
     if not(number_im_considered is None):
         if number_im_considered >= number_im_list:

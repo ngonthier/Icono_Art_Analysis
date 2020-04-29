@@ -31,6 +31,7 @@ from tensorflow import dtypes
 import pickle
 
 from googlenet import inception_v1_oldTF as Inception_V1
+from inception_v1 import InceptionV1_slim
 
 #from custom_pooling import GlobalMinPooling2D
 from lr_multiplier import LearningRateMultiplier
@@ -2119,7 +2120,7 @@ def extract_Norm_stats_of_ResNet(model,res_num_layers=50,model_type='normal'):
 def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,\
                          lr,opt,regularizers,dropout,
                     final_activation='sigmoid',metrics='accuracy',
-                    loss='binary_crossentropy',deepSupervision=True):
+                    loss='binary_crossentropy',deepSupervision=True,slim=False):
   """
     Add a functionnal head to a functionnal model of type InceptionV1 
   
@@ -2162,7 +2163,10 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
       name_head = head.name
       name_head = name_head.split('/')[0]
       name_head_prediction = name_head + '_prediction'
-      x = Flatten()(head)
+      if not(slim):
+          x = Flatten()(head)
+      else:
+          x = head
       if final_clf=='MLP2' or final_clf=='MLP3' :
           new_layer = Dense(256, activation='relu',kernel_regularizer=regularizers)
           if lr_multiple:multipliers[new_layer.name] = None
@@ -2177,7 +2181,8 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
           if final_clf=='MLP1':
               if not(dropout is None): x = Dropout(dropout)(x)
           final_output_layer =  Dense(num_of_classes, activation=final_activation,\
-                                      kernel_regularizer=regularizers,name=name_head_prediction)
+                                      kernel_regularizer=regularizers,
+                                      name=name_head_prediction)
           if deepSupervision:
               losses[name_head_prediction] = loss
               if i==2:
@@ -2186,6 +2191,10 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
                   lossWeight = 0.3
               lossWeights[name_head_prediction] = lossWeight
           if lr_multiple: multipliers[final_output_layer.name] = None 
+#          print('x',x)
+#          print('pre_model.output',pre_model.output)
+#          print('final_output_layer',final_output_layer)
+          # ValueError: 'strided_slice:0_prediction' is not a valid scope name
           predictions = final_output_layer(x)
           
       list_classif_output += [predictions]
@@ -2210,7 +2219,8 @@ def InceptionV1_baseline_model(num_of_classes=10,\
                              regulOnNewLayer=None,regulOnNewLayerParam=[],\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
-                             loss='binary_crossentropy',deepSupervision=True): 
+                             loss='binary_crossentropy',deepSupervision=True,\
+                             slim=False): 
   """
   Return a trainable keras model of InceptionV1 with new classification head
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
@@ -2218,10 +2228,18 @@ def InceptionV1_baseline_model(num_of_classes=10,\
   # create model
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
   
-  pre_model = Inception_V1(include_top=False, weights=weights,\
+  if slim:
+      assert(not(deepSupervision))
+      pre_model = InceptionV1_slim(include_top=False, weights=weights,\
+                          input_shape= (224, 224, 3),pooling='avg')
+      number_of_trainable_layers = 199
+  else:
+      pre_model = Inception_V1(include_top=False, weights=weights,\
                           input_shape= (224, 224, 3))
-  number_of_trainable_layers = 146
+      number_of_trainable_layers = 146
   
+  #print(pre_model.summary())
+    
   SomePartFreezed = False
   if type(pretrainingModif)==bool:
       pre_model.trainable = pretrainingModif
@@ -2282,7 +2300,8 @@ def InceptionV1_baseline_model(num_of_classes=10,\
   model = new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,\
                                lr_multiple,lr,opt,regularizers,dropout,
                                final_activation=final_activation,metrics=metrics,\
-                               loss=loss,deepSupervision=deepSupervision)
+                               loss=loss,deepSupervision=deepSupervision,\
+                               slim=slim)
  
   if verbose: print(model.summary())
   return model
