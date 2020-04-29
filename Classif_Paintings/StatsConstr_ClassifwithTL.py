@@ -388,7 +388,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                    NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
                    suffix='',dataAug=False,randomCrop=False,\
-                   SaveInit=False):
+                   SaveInit=False,loss=None):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
     It will return the metrics or the model itself depending on the input parameters
@@ -421,7 +421,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         ResNet50AdaIn
         ResNet50_ROWD_CUMUL_AdaIn : fine tune only the batch normalisation refined
         InceptionV1
-        InceptionV1_slim
+        InceptionV1_slim : ne fonctionne pas !
 
         TODO : VGGGram that modify the gram matrices
     @param : kind_method the type of methods we will use : TL or FT
@@ -468,6 +468,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : dataAug : use of some of the data augmentation method in the image space can be a boolean or 'SmallDataAug' or 'MediumDataAug'
     @param : randomCrop : take a random crop of size 224*224 in an image in size 256*256 it is hard coded in the fct it should be change
     @param : SaveInit : we will save the initialisation of the model
+    @param : loss : if none or '' we will define one otherwise it will be the one you propose
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -489,18 +490,24 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             raise(NotImplementedError)
         final_activation='softmax'
         metrics='top_k_categorical_accuracy'
-        loss='categorical_crossentropy'
+        loss_default='categorical_crossentropy'
     elif 'Ukiyoe' in target_dataset:
         if final_clf=='LinearSVC':
             print('LinearSVC is not implemented yet with the Ukiyoe dataset, the number of images is too big')
             raise(NotImplementedError)
         final_activation='softmax'
         metrics='accuracy'
-        loss='categorical_crossentropy'
+        loss_default='categorical_crossentropy'
     else:
         final_activation='sigmoid'
         metrics='accuracy'
-        loss='binary_crossentropy'
+        loss_default='binary_crossentropy'
+        
+    if loss is None or loss=='':
+        loss = loss_default
+        loss_str =''
+    else:
+        loss_str = '_'+loss
 
     if constrNet=='ResNet50_BNRF' and kind_method=='FT':
         style_layers = getBNlayersResNet50()
@@ -567,6 +574,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     if kind_method=='FT':
         if not(optimizer=='adam'):
             name_base += '_'+optimizer
+        name_base += loss_str
         if not(BaysianOptimFT):
             if len(opt_option)==2:
                 multiply_lrp, lr = opt_option
@@ -869,7 +877,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     if kind_method=='TL':
         AP_file += '_'+final_clf
         if final_clf in ['MLP2','MLP1','MLP3']:
-            AP_file += '_'+str(epochs)+batch_size_str+'_'+optimizer
+            AP_file += '_'+str(epochs)+batch_size_str+'_'+optimizer+loss_str
             lr = opt_option[-1]
             AP_file += '_lr' +str(lr) 
             if return_best_model:
@@ -4431,6 +4439,12 @@ def test_InceptionV1_onIconArt_and_RASTA():
                 pretrainingModif=True,\
                 optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
                 epochs=1,cropCenter=True,verbose=True,deepSupervision=False) 
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=44,\
+                optimizer='Adadelta',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=2,cropCenter=True,verbose=True,deepSupervision=False,
+                loss='cosine_similarity') 
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 pretrainingModif=True,\

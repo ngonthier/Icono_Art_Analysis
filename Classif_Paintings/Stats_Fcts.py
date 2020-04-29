@@ -81,7 +81,7 @@ def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers
   elif optimizer=='RMSprop':
       opt= RMSprop(learning_rate=lr,decay=decay,momentum=SGDmomentum)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
 
   model =  tf.keras.Sequential()
   if num_layers==2:
@@ -119,7 +119,7 @@ def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
   elif optimizer=='RMSprop':
       opt= RMSprop(learning_rate=lr,decay=decay,momentum=SGDmomentum)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
   model =  tf.keras.Sequential()
   if not(dropout is None): model.add(Dropout(dropout))
   model.add(Dense(num_of_classes, activation=final_activation, kernel_regularizer=regularizers))
@@ -247,7 +247,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   elif optimizer=='RMSprop':
       opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
   else:
       opt = optimizer
 
@@ -339,7 +339,7 @@ def vgg_FRN(style_layers,num_of_classes=10,\
   elif optimizer=='adam': 
       opt = partial(Adam,decay=decay)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
   else:
       opt = optimizer
   
@@ -435,7 +435,7 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
   elif optimizer=='RMSprop':
       opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
   else:
       opt = optimizer
   
@@ -538,7 +538,7 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
   elif optimizer=='RMSprop':
       opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
   else:
       opt = optimizer
   
@@ -653,7 +653,7 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
   elif optimizer=='RMSprop':
       opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
   else:
       opt = optimizer
   
@@ -824,7 +824,7 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
   elif optimizer=='RMSprop':
       opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
   else:
       opt = optimizer
   
@@ -1032,7 +1032,7 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
   elif optimizer=='RMSprop':
       opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
   else:
       opt =  optimizer
       
@@ -1200,7 +1200,7 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
   elif optimizer=='RMSprop':
       opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
   else:
       opt =  optimizer
       
@@ -1352,7 +1352,7 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
   elif optimizer=='RMSprop':
       opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
   else:
       opt = optimizer
 
@@ -1489,7 +1489,7 @@ def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=
     elif optimizer=='RMSprop':
         opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
     elif optimizer=='Adadelta':
-        opt= Adadelta(learning_rate=lr,decay=decay)
+        opt= partial(Adadelta,decay=decay)
     else:
         opt = optimizer
         
@@ -2257,14 +2257,16 @@ def InceptionV1_baseline_model(num_of_classes=10,\
       assert(not(deepSupervision))
       pre_model = InceptionV1_slim(include_top=False, weights=weights,\
                           input_shape= (224, 224, 3),pooling='avg')
-      number_of_trainable_layers = 199
+      number_of_trainable_layers = 199 # TODO Chiffre faux qu il faudra modifier TODO
   else:
       pre_model = Inception_V1(include_top=False, weights=weights,\
                           input_shape= (224, 224, 3))
-      number_of_trainable_layers = 146
-  
+      if deepSupervision:
+          number_of_trainable_layers = 65
+      else:
+          number_of_trainable_layers = 65
   #print(pre_model.summary())
-    
+  
   SomePartFreezed = False
   if type(pretrainingModif)==bool:
       pre_model.trainable = pretrainingModif
@@ -2288,9 +2290,9 @@ def InceptionV1_baseline_model(num_of_classes=10,\
   elif optimizer=='adam': 
       opt = partial(Adam,decay=decay)
   elif optimizer=='RMSprop':
-      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
+      opt= partial(RMSprop,decay=decay,momentum=SGDmomentum)
   elif optimizer=='Adadelta':
-      opt= Adadelta(learning_rate=lr,decay=decay)
+      opt= partial(Adadelta,decay=decay)
   else:
       opt =  optimizer
       
@@ -2316,8 +2318,8 @@ def InceptionV1_baseline_model(num_of_classes=10,\
                  layer.trainable = True
              else:
                  layer.trainable = False
-                 
-      ilayer += 1
+    
+         ilayer += 1
       # Only if the layer have some trainable parameters
       if lr_multiple and layer.trainable: 
           multipliers[layer.name] = multiply_lrp

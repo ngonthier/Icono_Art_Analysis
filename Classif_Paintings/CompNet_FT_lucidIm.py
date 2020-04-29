@@ -35,6 +35,7 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
     vgg_FRN,get_those_layers_output
 from StatsConstr_ClassifwithTL import learn_and_eval
 from googlenet import inception_v1_oldTF as Inception_V1
+from inceptionV1_keras_utils import get_trainable_layers_name
 
 from inception_v1 import InceptionV1_slim
 
@@ -57,6 +58,8 @@ import platform
 possible_datasets = ['IconArt_v1','RMN','RASTA']
 possible_lr = ['small001_modif','big001_modif','small01_modif','big01_modif']
 possible_opt = ['','_adam','_Adadelta']
+possible_freeze= ['','_unfreeze44']
+possible_loss= ['','_cosineloss']
 possibleInit = ['','_RandInit']
 possible_crop = ['','_randomCrop']
 possible_Sup = ['','_deepSupervision']
@@ -68,14 +71,16 @@ list_finetuned_models_name = []
 for dataset in possible_datasets:
     for lr in possible_lr:
         for opt in possible_opt:
-            for init in  possibleInit:
-                for crop in possible_crop:
-                    for sup in possible_Sup:
-                        for aug in possible_Aug:
-                            for ep in possible_epochs:
-                                for le in possible_lastEpochs:
-                                    list_finetuned_models_name +=[dataset+'_'+lr+opt+init+crop+sup+aug+ep+le]
-                
+            for f in possible_freeze:
+                for loss in possible_loss:
+                    for init in  possibleInit:
+                        for crop in possible_crop:
+                            for sup in possible_Sup:
+                                for aug in possible_Aug:
+                                    for ep in possible_epochs:
+                                        for le in possible_lastEpochs:
+                                            list_finetuned_models_name +=[dataset+'_'+lr+opt+f+loss+init+crop+sup+aug+ep+le]
+                        
 #list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
 #                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
 #                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
@@ -152,6 +157,11 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         optimizer='SGD'
         SGDmomentum=0.9
         decay=1e-4
+    
+    if 'cosineloss' in model_name:
+        loss = 'cosine_similarity'
+    else:
+        loss= None
         
     if 'LastEpoch' in model_name:
         return_best_model=False
@@ -175,6 +185,15 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         epochs=1 # For testing
     else:
         epochs=20
+        
+    if 'unfreeze' in model_name:
+        model_name_split = model_name.split('_')
+        for elt in model_name_split:
+            if  'unfreeze' in elt:
+                num_layer = int(elt.replace('unfreeze',''))
+        pretrainingModif = num_layer
+    else:
+        pretrainingModif = True
         
     if 'deepSupervision' in model_name:
         deepSupervision=True
@@ -237,8 +256,9 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
                            returnStatistics=returnStatistics,cropCenter=cropCenter,\
                            optimizer=optimizer,opt_option=opt_option,epochs=epochs,\
                            SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model,\
-                           pretrainingModif=True,suffix=suffix,deepSupervision=deepSupervision,\
-                           dataAug=dataAug,randomCrop=randomCrop,SaveInit=SaveInit)
+                           pretrainingModif=pretrainingModif,suffix=suffix,deepSupervision=deepSupervision,\
+                           dataAug=dataAug,randomCrop=randomCrop,SaveInit=SaveInit,\
+                           loss=loss)
     # If returnStatistics with RandInit 
     # output = net_finetuned, init_net
     # If returnStatistics without RandInit
@@ -397,6 +417,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
         input_name_lucid ='block1_conv1_input'
     elif constrNet=='InceptionV1':
         input_name_lucid ='input_1'
+        trainable_layers_name = get_trainable_layers_name()
     elif constrNet=='InceptionV1_slim':
         input_name_lucid ='input_1'
     elif constrNet=='ResNet50':
@@ -458,10 +479,18 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
     
     #list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep1']
     list_models_name = [
-                        'RASTA_big001_modif_adam_SmallDataAug_ep200',
-                        'RASTA_big001_modif_adam_ep200_SmallDataAug_LastEpoch',
-                        'RASTA_big001_modif_adam_MediumDataAug_ep200',
-                        'RASTA_big001_modif_adam_ep200_MediumDataAug_LastEpoch',
+                        'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
+                        'IconArt_v1_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
+                        'IconArt_v1_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
+                        'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                        'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
+                        'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
+                        'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
+                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200_LastEpoch',
+                        'RASTA_big001_modif_Adadelta_RandInit_MediumDataAug_ep200',
+                        'RASTA_big001_modif_Adadelta_RandInit_MediumDataAug_ep200_LastEpoch',
                         ]
     # Car on a juste pas converger pour RASTA_big001_modif_dataAug_ep120
 
@@ -511,6 +540,14 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                 
                 net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
                 
+                if 'unfreeze' in model_name:
+                    layer_considered_for_print_im = []
+                    for layer in net_finetuned.layers:
+                        trainable_l = layer.trainable
+                        name_l = layer.name
+                        if trainable_l and name_l in trainable_layers_name:
+                            layer_considered_for_print_im += [name_l]
+
                 if not('RandInit' in model_name):
                     num_top = 3
                     # IE in the case of the fine tuning
@@ -525,6 +562,8 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
                     list_layer_index_to_print_base_model = []
                     list_layer_index_to_print = []
                     for key in dict_layers_argsort.keys():
+                        if 'unfreeze' in model_name and not(key in layer_considered_for_print_im):
+                            continue
                         for k in range(num_top):
                              topk = dict_layers_argsort[key][k]
                              list_layer_index_to_print += [[key,topk]]
