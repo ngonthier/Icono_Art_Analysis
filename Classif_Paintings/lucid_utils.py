@@ -50,7 +50,7 @@ from ImageProcUtils import change_from_BRG_to_RGB
 
 import pathlib
 
-from new_obhectif_lucid import autocorr
+#from new_obhectif_lucid import autocorr
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """

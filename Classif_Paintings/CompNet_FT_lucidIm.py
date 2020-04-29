@@ -835,8 +835,8 @@ if __name__ == '__main__':
 #    
 #                                        suffix_tab = [''])
     
-    #Comparaison_of_FineTunedModel(constrNet='InceptionV1')    
-    Comparaison_of_FineTunedModel(constrNet='InceptionV1_slim')    
+    Comparaison_of_FineTunedModel(constrNet='InceptionV1')    
+    #Comparaison_of_FineTunedModel(constrNet='InceptionV1_slim')    
 
         
         
