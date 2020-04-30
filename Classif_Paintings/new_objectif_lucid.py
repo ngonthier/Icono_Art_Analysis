@@ -14,19 +14,25 @@ import numpy as np
 import tensorflow as tf
 
 
-from lucid.optvis.objectives_util import _dot, _dot_cossim, _extract_act_pos, _make_arg_str, _T_force_NHWC, _T_handle_batch
-from lucid.optvis.objectives import wrap_objective,handle_batch
+#from lucid.optvis.objectives_util import _dot, _dot_cossim, _extract_act_pos, _make_arg_str, _T_force_NHWC, _T_handle_batch
+from lucid.optvis.objectives import wrap_objective
+#,handle_batch
 
-@wrap_objective(require_format='NHWC')
+@wrap_objective
 def autocorr(layer, n_channel, batch=None):
   """Visualize a single channel by maximizing it autocorrelation"""
 
-  @handle_batch(batch)
   def inner(T):
       layer_t = T(layer)
+      if batch is None:
+          layer_t_channel_n = layer_t[..., n_channel]
+      else:
+          layer_t_channel_n = layer_t[batch, ..., n_channel]
       layer_t_channel_n = layer_t[..., n_channel]
       F_x = tf.fft2d(tf.complex(layer_t_channel_n,0.))
+      print(F_x)
       R_x = tf.real(tf.multiply(F_x,tf.conj(F_x))) 
+      print(R_x)
       # Module de la transformee de Fourrier : produit terme a terme
       norm2 = tf.nn.l2_normalize(R_x, axis=[1,2], epsilon=1e-10)
      
