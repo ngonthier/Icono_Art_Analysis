@@ -378,7 +378,8 @@ def test_render_ResNet50():
 
   
 def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name='',\
-                 input_name='block1_conv1_input',Net='VGG',sizeIm=256):
+                 input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
+                 DECORRELATE = True,ROBUSTNESS  = True,just_return_output=False):
     #with tf.Graph().as_default() as graph, tf.Session() as sess:
     
     if not(os.path.isfile(os.path.join(model_path))):
@@ -395,49 +396,59 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     lucid_net.load_graphdef()
     #nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
     #print(nodes_tab)
-
-    JITTER = 1
-    ROTATE = 5
-    SCALE  = 1.1
     
-    transforms = [
-        transform.pad(2*JITTER),
-        transform.jitter(JITTER),
-        transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
-        transform.random_rotate(range(-ROTATE, ROTATE+1))
-    ]
+    # `fft` parameter controls spatial decorrelation
+    # `decorrelate` parameter controls channel decorrelation
+    param_f = lambda: param.image(sizeIm, fft=DECORRELATE, decorrelate=DECORRELATE)
     
+    if DECORRELATE:
+        ext='_Deco'
+    else:
+        ext=''
+    
+    if ROBUSTNESS:
+      transforms = transform.standard_transforms
+      ext+= ''
+    else:
+      transforms = []
+      ext+= '_noRob'
 
 #    LEARNING_RATE = 0.005 # Valeur par default
 #    optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
-
+    output_im_list = []
     for layer_index_to_print in list_layer_index_to_print:
         layer, i = layer_index_to_print
         
         if Net=='VGG':
             obj = layer  + '/Relu:'+str(i)
-            name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+'.png'
+            name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+ext+'.png'
         elif Net=='InceptionV1':
             obj = layer  + '/Conv2D:'+str(i)
-            name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+'.png'
+            name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
             
         output_im = render.render_vis(lucid_net,obj ,
                                       transforms=transforms,
                                       thresholds=[2048],
-                                      param_f=lambda: param.image(sizeIm),
+                                      param_f=param_f,
 #                                      optimizer=optimizer,
                                       use_fixed_seed=True)
-        image = np.array(output_im[0][0]*255) # car une seule image dans le batch
-        name_output = os.path.join(path_output,name_base)
-        tf.keras.preprocessing.image.save_img(name_output, image)
-        
-        new_output_path = os.path.join(path_output,'RGB')
-        pathlib.Path(new_output_path).mkdir(parents=True, exist_ok=True) 
-        change_from_BRG_to_RGB(img_name_path=name_output,output_path=new_output_path,ext_name='toRGB')
+        if just_return_output:
+            output_im_list += [output_im]
+        else:
+            image = np.array(output_im[0][0]*255) # car une seule image dans le batch
+            name_output = os.path.join(path_output,name_base)
+            tf.keras.preprocessing.image.save_img(name_output, image)
+            
+            new_output_path = os.path.join(path_output,'RGB')
+            pathlib.Path(new_output_path).mkdir(parents=True, exist_ok=True) 
+            change_from_BRG_to_RGB(img_name_path=name_output,output_path=new_output_path,
+                                   ext_name='toRGB')
+    return(output_im_list)
       
 def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLayer,\
                      path_output='',prexif_name='',\
-                     input_name='block1_conv1_input',Net='VGG',sizeIm=256):
+                     input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
+                     DECORRELATE=True,ROBUSTNESS=True):
 #    with tf.Graph().as_default() as graph, tf.Session() as sess:
     
     if not(os.path.isfile(os.path.join(model_path))):
@@ -474,24 +485,27 @@ def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLaye
     else:
         raise(NotImplementedError)
         
-    JITTER = 1
-    ROTATE = 5
-    SCALE  = 1.1
+    param_f = lambda: param.image(sizeIm, fft=DECORRELATE, decorrelate=DECORRELATE)
     
-    transforms = [
-        transform.pad(2*JITTER),
-        transform.jitter(JITTER),
-        transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
-        transform.random_rotate(range(-ROTATE, ROTATE+1))
-    ]
+    if DECORRELATE:
+        ext='_Deco'
+    else:
+        ext=''
+    
+    if ROBUSTNESS:
+      transforms = transform.standard_transforms
+      ext+= ''
+    else:
+      transforms = []
+      ext+= '_noRob'
 
 #    LEARNING_RATE = 0.005 # Valeur par default
 #    optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
       
     if Net=='VGG':
-        name_base = layer_to_print  + kind_layer+'_'+prexif_name+'.png'
+        name_base = layer_to_print  + kind_layer+'_'+prexif_name+ext+'.png'
     elif Net=='InceptionV1':
-        name_base = layer_to_print  + kind_layer+'_'+prexif_name+'.png'
+        name_base = layer_to_print  + kind_layer+'_'+prexif_name+ext+'.png'
     else:
         raise(NotImplementedError)
             
@@ -510,7 +524,7 @@ def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLaye
     output_im = render.render_vis(lucid_net,total_obj ,
                                   transforms=transforms,
                                   thresholds=[2048],
-                                  param_f=lambda: param.image(sizeIm),
+                                  param_f=param_f,
 #                                      optimizer=optimizer,
                                   use_fixed_seed=True)
     image = np.array(output_im[0][0]*255) # car une seule image dans le batch

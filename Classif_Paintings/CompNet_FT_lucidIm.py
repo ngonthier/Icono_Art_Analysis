@@ -37,7 +37,7 @@ from StatsConstr_ClassifwithTL import learn_and_eval
 from googlenet import inception_v1_oldTF as Inception_V1
 from inceptionV1_keras_utils import get_trainable_layers_name
 
-from inception_v1 import InceptionV1_slim
+from inception_v1 import InceptionV1_slim,trainable_layers
 
 import cv2
 
@@ -58,7 +58,8 @@ import platform
 possible_datasets = ['IconArt_v1','RMN','RASTA']
 possible_lr = ['small001_modif','big001_modif','small01_modif','big01_modif']
 possible_opt = ['','_adam','_Adadelta']
-possible_freeze= ['','_unfreeze44']
+possible_freeze= ['','_unfreeze44','_unfreeze60']
+# _unfreeze44 for InceptionV1 but _unfreeze60 for InceptionV1_slim !
 possible_loss= ['','_cosineloss']
 possibleInit = ['','_RandInit']
 possible_crop = ['','_randomCrop']
@@ -406,6 +407,49 @@ def print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_
                       ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
  
 
+def why_white_output():
+    """
+    The goal of this function is to find why this feature is completely white !
+    mixed4b_3x3_pre_reluConv2D_81_RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200
+    """
+    
+    input_name_lucid ='input_1'
+    constrNet='InceptionV1'
+    model_name = 'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200'
+    suffix =''
+    net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+    path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
+
+    name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+               constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+    output_path_with_model =''
+    list_layer_index_to_print = [['mixed4b_3x3_pre_relu',81]]
+    output_list = lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+         ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet,
+         just_return_output=True)
+    output_im = output_list[0]
+    image01 = np.array(output_im[0][0])
+    print('shape',image01.shape)
+    print('max',np.max(image01))
+    print('min',np.min(image01))
+    print('median',np.median(image01))
+    num_bins = len(np.unique(np.mean(image01,axis=-1)))
+    x = np.ravel(np.mean(image01,axis=-1))
+    n, bins, patches = plt.hist(x, num_bins, facecolor='blue', alpha=0.5)
+    plt.show()
+    from skimage import exposure
+    plt.figure()
+    plt.imshow(image01)
+    # Equalization
+    img_eq = exposure.equalize_hist(image01)
+    plt.figure()
+    plt.imshow(img_eq)
+    # Contrast stretching
+    p2, p98 = np.percentile(image01, (2, 98))
+    img_rescale = exposure.rescale_intensity(image01, in_range=(p2, p98))
+    plt.figure()
+    plt.imshow(img_rescale)
+    
 def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_feature = False):
     """
     This function will load the two models (deep nets) before and after fine-tuning 
@@ -420,6 +464,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
         trainable_layers_name = get_trainable_layers_name()
     elif constrNet=='InceptionV1_slim':
         input_name_lucid ='input_1'
+        trainable_layers_name = trainable_layers()
     elif constrNet=='ResNet50':
         input_name_lucid ='input_1'
         raise(NotImplementedError('Not implemented yet with ResNet for print_images'))
@@ -479,10 +524,6 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
     
     #list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep1']
     list_models_name = [
-                        'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                        'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
-                        'IconArt_v1_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
-                        'IconArt_v1_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
                         'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                         'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
                         'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
@@ -495,7 +536,6 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
     # Car on a juste pas converger pour RASTA_big001_modif_dataAug_ep120
 
     list_models_name_afaireplusTard = [
-                        'IconArt_v1_big001_modif_adam_ep1',
                         'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',
                         'IconArt_v1_big001_modif_adam_SmallDataAug_ep200_LastEpoch',
                         'IconArt_v1_big001_modif_adam_MediumDataAug_ep200',
@@ -685,8 +725,9 @@ def print_DiffRelat_FineTuned_network(constrNet='InceptionV1',list_models_name=N
         
         
         
-def print_performance_FineTuned_network(constrNet='InceptionV1',list_models_name=None,
-                                        suffix_tab=None):
+def print_performance_FineTuned_network(constrNet='InceptionV1',
+                                        list_models_name=None,
+                                        suffix_tab=['']):
     """
     This function will return and print the metrics / compute them if needed
     """    
@@ -721,6 +762,7 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',list_models_name
     ####  RASTA_big001_modif_dataAug  suffix  1 manquant semble t il 
     
     if suffix_tab is None:
+        print("Warning we will define the suffix such as ['','1']")
         suffix_tab = ['','1'] # In order to have more than once the model fine-tuned with some given hyperparameters
     
     K.set_learning_phase(0)
@@ -733,12 +775,13 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',list_models_name
         
         if not(model_name=='random'):
             for suffix in suffix_tab:
+                print('#### ',model_name,' ',suffix)
                 #output_path_with_model = os.path.join(output_path,model_name+suffix)
                 #pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
                 
                 metrics = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix,
                                                get_Metrics=True)
-                print('#### ',model_name,' ',suffix)
+                
                 if not('RASTA' in model_name):
                     AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
                     print('MAP {0:.2f}'.format(np.mean(AP_per_class)))
@@ -778,6 +821,12 @@ def plotHistory_of_training():
     history_pkl ='History_InceptionV1_IconArt_v1__lr0.001_SmallDataAug_avgpool_CropCenter_FT_200_bs32_BestOnVal.pkl'
     name ='IconArt_v1_big001_modif_adam_MediumDataAug_ep200'
     history_pkl = 'History_InceptionV1_IconArt_v1__lr0.001_MediumDataAug_avgpool_CropCenter_FT_200_bs32_BestOnVal.pkl'
+
+    name ='IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200'
+    history_pkl = 'History_InceptionV1_IconArt_v1__lr0.001_SmallDataAug_unfreeze44_avgpool_CropCenter_FT_200_bs32_BestOnVal.pkl'
+                        
+    name ='IconArt_v1_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200'
+    history_pkl = 'History_InceptionV1_IconArt_v1__Adadelta_cosine_similarity_lr0.001_MediumDataAug_unfreeze44_avgpool_CropCenter_FT_200_bs32_Adadelta_BestOnVal.pkl'
 
     
     

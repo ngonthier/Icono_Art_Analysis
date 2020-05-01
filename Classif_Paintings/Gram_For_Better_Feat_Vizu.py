@@ -18,6 +18,7 @@ import os
 import platform
 import pathlib
 import time
+import matplotlib.pyplot as plt
 
 from tensorflow.python.keras import backend as K
 
@@ -27,7 +28,8 @@ from CompNet_FT_lucidIm import get_fine_tuned_model,convert_finetuned_modelToFro
 
 from lucid_utils import print_PCA_images
 
-def compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = None):
+def compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = None,\
+                                   layer='mixed4d_pre_relu'):
     
     constrNet = 'InceptionV1'
     cropCenter = True
@@ -38,9 +40,12 @@ def compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = N
     elif 'IconArt_v1' in model_name:
         source_dataset = 'IconArt_v1'
     number_im_considered = None
-    style_layers = ['mixed4d_pre_relu']
+    style_layers = [layer]
     whatToload = 'all'
-    
+    if not(classe is None):
+        classe_str = classe
+    else:
+        classe_str = ''
     
     #classe = 'Color_Field_Painting'
     
@@ -77,7 +82,7 @@ def compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = N
         # Dans le cas de RASTA ce fichier fait plus de 60Go
         
         
-        stats_layer = dict_stats[style_layers[0]]
+        stats_layer = dict_stats[layer]
         print('len(stats_layer)',len(stats_layer))
         del dict_stats
         number_img = len(stats_layer)
@@ -156,14 +161,21 @@ def compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = N
     # Compute the eigen values 
     #del std_cov_matrix,where_std_sup_abs_mean,where_std_sup_mean
     eigen_values, eigen_vectors = LA.eig(mean_cov_matrix)
+    
+    pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True) 
+    plt.figure()
+    plt.scatter(np.arange(0,len(eigen_values)),eigen_values,s=4)
+    plt.ylabel('Eigen Value')
+    plt.savefig(os.path.join(path_output_lucid_im,'EigenValues_'+layer+'_'+classe_str+'.png'),\
+                dpi=300)
+    plt.close()
+    
     print('Eigen values 10 first value',eigen_values[0:10])
-    print('First eigen vector :',eigen_vectors[:,0])
+    #print('First eigen vector :',eigen_vectors[:,0])
     print('Max imag part first vector :',np.max(np.imag(eigen_vectors[:,0])))
     eigen_vectors = np.real(eigen_vectors)
-    
-    num_components_draw = 3
 
-    pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True) 
+    num_components_draw = 10
     
     name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
     if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
@@ -184,7 +196,7 @@ def compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = N
            prexif_name += '_'+classe 
         index_features_withinLayer_all = np.arange(0,features_size)
         print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-                         layer_to_print=style_layers[0],weights=weights,\
+                         layer_to_print=layer,weights=weights,\
                          index_features_withinLayer=index_features_withinLayer_all,\
                          path_output=path_output_lucid_im,prexif_name=prexif_name,\
                          input_name=input_name_lucid,Net=constrNet,sizeIm=256)
@@ -193,16 +205,33 @@ def compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = N
         where_pos = np.where(weights>0.)[0]
         weights_pos = list(weights[where_pos])
         print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-                         layer_to_print=style_layers[0],weights=weights_pos,\
+                         layer_to_print=layer,weights=weights_pos,\
                          index_features_withinLayer=where_pos,\
                          path_output=path_output_lucid_im,prexif_name=prexif_name_pos,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        
+        prexif_name_neg = prexif_name + '_NegContrib'
+        where_neg = np.where(weights>0.)[0]
+        weights_neg = list(-weights[where_neg])
+        print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+                         layer_to_print=layer,weights=weights_neg,\
+                         index_features_withinLayer=where_neg,\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name_neg,\
                          input_name=input_name_lucid,Net=constrNet,sizeIm=256)
         
         where_max = np.argmax(weights)
         prexif_name_max = prexif_name+  '_Max'+str(where_max)
         print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-                         layer_to_print=style_layers[0],weights=[1.],\
+                         layer_to_print=layer,weights=[1.],\
                          index_features_withinLayer=[where_max],\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        
+        where_min = np.argmin(weights)
+        prexif_name_max = prexif_name+  '_Min'+str(where_min)
+        print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+                         layer_to_print=layer,weights=[1.],\
+                         index_features_withinLayer=[where_min],\
                          path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
                          input_name=input_name_lucid,Net=constrNet,sizeIm=256)
         
@@ -230,7 +259,18 @@ def compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = N
 #    del stats_layer
     
 if __name__ == '__main__':
-    compute_mean_var_of_GramMatrix()
+    compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = None,\
+                                   layer='mixed4d_pre_relu')
+    compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe ='Color_Field_Painting',\
+                                   layer='mixed4d_pre_relu')
+    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe = None,\
+                                   layer='mixed4d_pre_relu')
+    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe ='Mary',\
+                                   layer='mixed4d_pre_relu')
+    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe = None,\
+                                   layer='mixed4b_pre_relu')
+    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe ='Mary',\
+                                   layer='mixed4b_pre_relu')
     
     
     

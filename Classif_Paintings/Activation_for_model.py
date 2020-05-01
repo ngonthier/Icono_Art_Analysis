@@ -176,23 +176,26 @@ def dead_kernel_QuestionMark(dataset,model_name,constrNet,fraction = 1.0,suffix=
                 list_dead_features += [num_feature]
         if len(list_dead_features) >0:
             print('==>',layer_name_inlist,list_dead_features,' are negative for ',fraction*100,' % of the images of the training set of',dataset)
+            print(len(list_dead_features),'on ',num_features,'features')
         else:
             print('No dead kernel for layer :',layer_name_inlist)
         noFire = False
+        image_that_dontfire = 0
         for number_img in range(num_training_ex):
             activations_l_i = activations_l[number_img,:]
             where_max_activation_is_neg = np.where(activations_l_i<=0)[0]
             if len(where_max_activation_is_neg) == num_features:
-                print('==>',name_images[number_img],'has all is activation negative at the layer',layer_name_inlist)
+#                print('==>',name_images[number_img],'has all is activation negative at the layer',layer_name_inlist)
                 noFire = True
+                image_that_dontfire += 1
         if not(noFire):
             print('No image that doesn t fire for this layer :',layer_name_inlist)
+            
     
 def plot_images_Pos_Images(dataset,model_name,constrNet,
                             layer_name='mixed4d_3x3_bottleneck_pre_relu',
-                            suffix='',
                             num_feature=64,
-                            numberIm=9,stats_on_layer='mean'):
+                            numberIm=9,stats_on_layer='mean',suffix=''):
     """
     This function will plot k image a given layer with a given features number
     """
@@ -230,7 +233,7 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
     
     for layer_name_inlist,activations_l in zip(list_outputs_name,activations):
         if layer_name==layer_name_inlist:
-            print(layer_name,num_feature)
+            print('===',layer_name,num_feature,'===')
             activations_l_f = activations_l[:,num_feature]
             where_activations_l_f_pos = np.where(activations_l_f>0)[0]
             activations_l_f_pos = activations_l_f[where_activations_l_f_pos]
@@ -342,7 +345,10 @@ if __name__ == '__main__':
     dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')
 
     dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')
+
     #you are not on the Nicolas PC, so I think you have the data in the data folder
     #mixed5a_5x5_pre_relu [116]  are negative for  100.0  % of the images of the training set of RASTA
     #mixed5b_5x5_pre_relu [15]  are negative for  100.0  % of the images of the training set of RASTA
     #mixed5b_pool_reduce_pre_relu [15, 16, 28, 87]  are negative for  100.0  % of the images of the training set of RASTA
+    dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',constrNet='InceptionV1')
+    

@@ -32,6 +32,7 @@ def plt_multiple_imgs(list_images,path_output,path_img='',name_fig='',\
     
     matplotlib.use('Agg')
     number_imgs = len(list_images)
+    assert(number_imgs>0)
     if title_imgs is None:
         hspace = 0.05
         wspace = 0.05
