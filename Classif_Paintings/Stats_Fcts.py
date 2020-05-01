@@ -2171,10 +2171,13 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
 
     """
     
-  if not(deepSupervision):
-      list_heads = [x[-1]] # We only keep the last head, the last classification part
-  else:
-      list_heads = x
+  if not(slim):
+      if not(deepSupervision):
+          list_heads = [x[-1]] # We only keep the last head, the last classification part
+      else:
+          list_heads = x
+  else:      
+      list_heads = [x]
     
   if metrics=='accuracy':
       metrics = [metrics]
@@ -2187,10 +2190,11 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
   for i,head in enumerate(list_heads): # list of heads
       name_head = head.name
       name_head = name_head.split('/')[0]
-      name_head_prediction = name_head + '_prediction'
       if not(slim):
+          name_head_prediction = name_head + '_prediction'
           x = Flatten()(head)
       else:
+          name_head_prediction = 'Predictions'
           x = head
       if final_clf=='MLP2' or final_clf=='MLP3' :
           new_layer = Dense(256, activation='relu',kernel_regularizer=regularizers)
@@ -2257,7 +2261,8 @@ def InceptionV1_baseline_model(num_of_classes=10,\
       assert(not(deepSupervision))
       pre_model = InceptionV1_slim(include_top=False, weights=weights,\
                           input_shape= (224, 224, 3),pooling='avg')
-      number_of_trainable_layers = 199 # TODO Chiffre faux qu il faudra modifier TODO
+      number_of_trainable_layers = 199
+      # TODO Chiffre faux qu il faudra modifier TODO
   else:
       pre_model = Inception_V1(include_top=False, weights=weights,\
                           input_shape= (224, 224, 3))
@@ -2265,7 +2270,6 @@ def InceptionV1_baseline_model(num_of_classes=10,\
           number_of_trainable_layers = 65
       else:
           number_of_trainable_layers = 65
-  #print(pre_model.summary())
   
   SomePartFreezed = False
   if type(pretrainingModif)==bool:

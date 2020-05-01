@@ -2005,7 +2005,7 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
             preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
             target_size = (224,224)
         elif Net=='InceptionV1_slim':
-            preprocessing_function = tf.keras.applications.inception_v3.preprocess_input()
+            preprocessing_function = tf.keras.applications.inception_v3.preprocess_input
             target_size = (224,224)
         else:
             print(Net,'is unknwon')
@@ -2133,7 +2133,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
         target_size = (224,224)
     elif Net=='InceptionV1_slim':
-        preprocessing_function = tf.keras.applications.inception_v3.preprocess_input()
+        preprocessing_function = tf.keras.applications.inception_v3.preprocess_input
         target_size = (224,224)
     else:
         print(Net,'is unknwon')
@@ -2361,7 +2361,7 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
         preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
         target_size = (224,224)
     elif Net=='InceptionV1_slim':
-        preprocessing_function = tf.keras.applications.inception_v3.preprocess_input()
+        preprocessing_function = tf.keras.applications.inception_v3.preprocess_input
         target_size = (224,224)
     else:
         print(Net,'is unknwon')
@@ -2647,7 +2647,7 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
         preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
         target_size = (224,224)
     elif Net=='InceptionV1_slim':
-        preprocessing_function = tf.keras.applications.inception_v3.preprocess_input()
+        preprocessing_function = tf.keras.applications.inception_v3.preprocess_input
         target_size = (224,224)
     else:
         print(Net,'is unknwon')
@@ -4445,6 +4445,11 @@ def test_InceptionV1_onIconArt_and_RASTA():
                 optimizer='Adadelta',opt_option=[0.1,0.001],return_best_model=True,
                 epochs=2,cropCenter=True,verbose=True,deepSupervision=False,
                 loss='cosine_similarity') 
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1_slim',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.1,0.001],return_best_model=True,
+                epochs=2,cropCenter=True,verbose=True,deepSupervision=False) 
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 pretrainingModif=True,\
