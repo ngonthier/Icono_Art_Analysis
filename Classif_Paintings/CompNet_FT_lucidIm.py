@@ -450,7 +450,7 @@ def why_white_output():
     plt.figure()
     plt.imshow(img_rescale)
     
-def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_feature = False):
+def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImagesOfOtherModel_feature = False):
     """
     This function will load the two models (deep nets) before and after fine-tuning 
     and then compute the difference between the weights and finally run a 
@@ -481,83 +481,7 @@ def Comparaison_of_FineTunedModel(constrNet = 'VGG',doAlsoImagesOfOtherModel_fea
     
     list_weights,list_name_layers = get_imageNet_weights(Net=constrNet)
     
-    list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
-                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
-                        'RASTA_small01_modif','RASTA_big01_modif',
-                        'RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
-    
-    list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
-                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
-                        'RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
-    # Semble diverger dans le cas de InceptionV1  :'RASTA_big01_modif',
-    list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
-                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch']
-    list_models_name = ['RMN_small01_modif',
-                        'RMN_small001_modif','RMN_big001_modif',
-                        'RMN_small001_modif_deepSupervision',
-                        'RASTA_small01_modif_dataAug_ep120',
-                        'RASTA_small01_modif_deepSupervision_ep120',
-                        'RASTA_big001_modif_dataAug',
-                        'RASTA_small01_modif_dataAug_ep120_LastEpoch',
-                        'RASTA_small01_modif_deepSupervision_ep120_LastEpoch',
-                        'RMN_small01_modif_randomCrop',
-                        'RASTA_big001_modif_RandInit_ep120',
-                        'RASTA_big001_modif_RandInit_ep120_LastEpoch',
-                        'IconArt_v1_big001_modif_adam_randomCrop_ep200',
-                        'IconArt_v1_big001_modif_adam_randomCrop_ep200_LastEpoch',
-                        'IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200',
-                        'IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200_LastEpoch',
-                        'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',
-                        'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200_LastEpoch',
-                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200',
-                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_LastEpoch'
-                        ]
-    
-    # En fait pour Celebra :
-    # model.compile(optimizer='adadelta', loss='cosine_proximity', metrics=['binary_accuracy'])
-    
-    # Pour Flower :
-    # model.compile(optimizer=Adam(lr=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
-    
-    #list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep1']
-    list_models_name = [
-                        'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                        'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
-                        'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
-                        'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
-                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
-                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200_LastEpoch',
-                        'RASTA_big001_modif_Adadelta_RandInit_MediumDataAug_ep200',
-                        'RASTA_big001_modif_Adadelta_RandInit_MediumDataAug_ep200_LastEpoch',
-                        ]
-    # Car on a juste pas converger pour RASTA_big001_modif_dataAug_ep120
 
-    list_models_name_afaireplusTard = [
-                        'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',
-                        'IconArt_v1_big001_modif_adam_SmallDataAug_ep200_LastEpoch',
-                        'IconArt_v1_big001_modif_adam_MediumDataAug_ep200',
-                        'IconArt_v1_big001_modif_adam_MediumDataAug_ep200_LastEpoch',
-                        'IconArt_v1_big001_modif_adam_ep200',
-                        'IconArt_v1_big001_modif_adam_ep200_LastEpoch',
-                        'RASTA_big001_modif_RandInit_deepSupervision_ep120',
-                        'RASTA_big001_modif_RandInit_deepSupervision_ep120_LastEpoch',
-                        'RASTA_big001_modif_dataAug_ep120',
-                        'RASTA_big001_modif_dataAug_ep120_LastEpoch',
-                        'RASTA_big001_modif_RandInit_randomCrop_ep120',
-                        'RASTA_big001_modif_RandInit_randomCrop_ep120_LastEpoch',
-                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep120',
-                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep120_LastEpoch',
-                        'RASTA_big01_modif_RandInit_ep120',
-                        'RASTA_big01_modif_RandInit_ep120_LastEpoch',
-                        'RASTA_big01_modif_RandInit_randomCrop_ep120',
-                        'RASTA_big01_modif_RandInit_randomCrop_ep120_LastEpoch',
-                        'RMN_small001_modif_randomCrop','RMN_big001_modif_randomCrop',
-                        'RASTA_small01_modif_randomCrop',
-                        'RASTA_small01_modif_randomCrop_ep120'
-                        ]
     #list_models_name = ['random']
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
     
@@ -884,8 +808,100 @@ if __name__ == '__main__':
 #    
 #                                        suffix_tab = [''])
     
-    Comparaison_of_FineTunedModel(constrNet='InceptionV1')    
-    #Comparaison_of_FineTunedModel(constrNet='InceptionV1_slim')    
+#    list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
+#                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
+#                        'RASTA_small01_modif','RASTA_big01_modif',
+#                        'RASTA_small001_modif','RASTA_big001_modif',
+#                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
+#    
+#    list_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
+#                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
+#                        'RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+#                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
+#    # Semble diverger dans le cas de InceptionV1  :'RASTA_big01_modif',
+#    list_models_name = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+#                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision',
+#                        'RASTA_small01_modif_LastEpoch','RASTA_small001_modif_LastEpoch','RASTA_big001_modif_LastEpoch']
+#    list_models_name = ['RMN_small01_modif',
+#                        'RMN_small001_modif','RMN_big001_modif',
+#                        'RMN_small001_modif_deepSupervision',
+#                        'RASTA_small01_modif_dataAug_ep120',
+#                        'RASTA_small01_modif_deepSupervision_ep120',
+#                        'RASTA_big001_modif_dataAug',
+#                        'RASTA_small01_modif_dataAug_ep120_LastEpoch',
+#                        'RASTA_small01_modif_deepSupervision_ep120_LastEpoch',
+#                        'RMN_small01_modif_randomCrop',
+#                        'RASTA_big001_modif_RandInit_ep120',
+#                        'RASTA_big001_modif_RandInit_ep120_LastEpoch',
+#                        'IconArt_v1_big001_modif_adam_randomCrop_ep200',
+#                        'IconArt_v1_big001_modif_adam_randomCrop_ep200_LastEpoch',
+#                        'IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200',
+#                        'IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200_LastEpoch',
+#                        'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',
+#                        'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200_LastEpoch',
+#                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200',
+#                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_LastEpoch'
+#                        ]
+#    
+#    # En fait pour Celebra :
+#    # model.compile(optimizer='adadelta', loss='cosine_proximity', metrics=['binary_accuracy'])
+#    
+#    # Pour Flower :
+#    # model.compile(optimizer=Adam(lr=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
+#    
+#    #list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep1']
+#    list_models_name = [
+#                        'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                        'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
+#                        'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
+#                        'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
+#                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
+#                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200_LastEpoch',
+#                        'RASTA_big001_modif_Adadelta_RandInit_MediumDataAug_ep200',
+#                        'RASTA_big001_modif_Adadelta_RandInit_MediumDataAug_ep200_LastEpoch',
+#                        ]
+#    # Car on a juste pas converger pour RASTA_big001_modif_dataAug_ep120
+#
+#    list_models_name_afaireplusTard = [
+#                        'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',
+#                        'IconArt_v1_big001_modif_adam_SmallDataAug_ep200_LastEpoch',
+#                        'IconArt_v1_big001_modif_adam_MediumDataAug_ep200',
+#                        'IconArt_v1_big001_modif_adam_MediumDataAug_ep200_LastEpoch',
+#                        'IconArt_v1_big001_modif_adam_ep200',
+#                        'IconArt_v1_big001_modif_adam_ep200_LastEpoch',
+#                        'RASTA_big001_modif_RandInit_deepSupervision_ep120',
+#                        'RASTA_big001_modif_RandInit_deepSupervision_ep120_LastEpoch',
+#                        'RASTA_big001_modif_dataAug_ep120',
+#                        'RASTA_big001_modif_dataAug_ep120_LastEpoch',
+#                        'RASTA_big001_modif_RandInit_randomCrop_ep120',
+#                        'RASTA_big001_modif_RandInit_randomCrop_ep120_LastEpoch',
+#                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep120',
+#                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep120_LastEpoch',
+#                        'RASTA_big01_modif_RandInit_ep120',
+#                        'RASTA_big01_modif_RandInit_ep120_LastEpoch',
+#                        'RASTA_big01_modif_RandInit_randomCrop_ep120',
+#                        'RASTA_big01_modif_RandInit_randomCrop_ep120_LastEpoch',
+#                        'RMN_small001_modif_randomCrop','RMN_big001_modif_randomCrop',
+#                        'RASTA_small01_modif_randomCrop',
+#                        'RASTA_small01_modif_randomCrop_ep120'
+#                        ]
+     
+    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                             'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
+                             'IconArt_v1_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
+                             'IconArt_v1_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
+                             'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                             'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
+                             'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
+                             'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch']
+    
+    Comparaison_of_FineTunedModel(constrNet='InceptionV1_slim')    
 
+
+    list_model_name_1 = ['RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
+                        'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
+                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200_LastEpoch']
+    Comparaison_of_FineTunedModel(list_model_name_1,constrNet='InceptionV1') 
         
         
