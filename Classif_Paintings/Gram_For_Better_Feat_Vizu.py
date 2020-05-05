@@ -259,14 +259,18 @@ def compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = N
 #    del stats_layer
     
 if __name__ == '__main__':
-    compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = None,\
-                                   layer='mixed4d_pre_relu')
-    compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe ='Color_Field_Painting',\
-                                   layer='mixed4d_pre_relu')
-    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe = None,\
-                                   layer='mixed4d_pre_relu')
-    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe ='Mary',\
-                                   layer='mixed4d_pre_relu')
+#    compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = None,\
+#                                   layer='mixed4d_pre_relu')
+#    compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe ='Color_Field_Painting',\
+#                                   layer='mixed4d_pre_relu')
+#    compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe ='Abstract_Art',\
+#                                   layer='mixed4d_pre_relu')
+#    compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe ='Northern_Renaissance',\
+#                                   layer='mixed4d_pre_relu')
+#    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe = None,\
+#                                   layer='mixed4d_pre_relu')
+#    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe ='Mary',\
+#                                   layer='mixed4d_pre_relu')
     compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe = None,\
                                    layer='mixed4b_pre_relu')
     compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe ='Mary',\
