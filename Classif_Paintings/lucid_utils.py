@@ -144,6 +144,34 @@ class Lucid_Inception_v1_slim(Model):
        self.input_name = input_name
        super(Lucid_Inception_v1_slim, self).__init__(**kwargs)
 
+def create_pb_model_of_pretrained(Net):
+    K.set_learning_phase(0)
+    with K.get_session().as_default():
+        if Net=='InceptionV1_slim':
+            model = InceptionV1_slim(include_top=True, weights='imagenet')
+            name= "tf_inception_v1_slim.pb"
+        elif Net=='InceptionV1':
+            model = inception_v1_oldTF(weights='imagenet',include_top=True)
+            name= "tf_inception_v1.pb"
+        elif Net=='VGG':
+            model = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet',input_shape=(224,224,3))
+            name= "tf_vgg19.pb"
+        elif Net=='ResNet50':
+            model = tf.keras.applications.resnet50.ResNet50(include_top=True, weights='imagenet',\
+                                                          input_shape= (224, 224, 3))
+            name= "tf_resnet50.pb"
+        else:
+            raise(ValueError(Net+' is unknown'))
+            
+        os.makedirs('./model', exist_ok=True)
+        
+        frozen_graph = freeze_session(K.get_session(),
+                                  output_names=[out.op.name for out in model.outputs],
+                                  clear_devices=True)
+        # Save the pb model 
+        tf.io.write_graph(frozen_graph,logdir= "model",name=name, as_text=False)
+        
+
 def test_render_Inception_v1_slim():
     
     K.set_learning_phase(0)
@@ -389,8 +417,11 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
     elif Net=='InceptionV1':
         lucid_net = Lucid_InceptionV1(model_path=model_path,input_name=input_name)
+    elif Net=='InceptionV1_slim':
+        lucid_net = Lucid_Inception_v1_slim(model_path=model_path,input_name=input_name)
     elif Net=='ResNet':
         lucid_net = Lucid_ResNet(model_path=model_path,input_name=input_name)
+        raise(NotImplementedError(Net))
     else:
         raise(ValueError(Net+ 'is unkonwn'))
     lucid_net.load_graphdef()
@@ -423,6 +454,9 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
             obj = layer  + '/Relu:'+str(i)
             name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+ext+'.png'
         elif Net=='InceptionV1':
+            obj = layer  + '/Conv2D:'+str(i)
+            name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
+        elif Net=='InceptionV1_slim':
             obj = layer  + '/Conv2D:'+str(i)
             name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
             

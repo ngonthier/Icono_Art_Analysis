@@ -2248,7 +2248,7 @@ def InceptionV1_baseline_model(num_of_classes=10,\
                              regulOnNewLayer=None,regulOnNewLayerParam=[],\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
-                             loss='binary_crossentropy',deepSupervision=True,\
+                             loss='binary_crossentropy',deepSupervision=False,\
                              slim=False): 
   """
   Return a trainable keras model of InceptionV1 with new classification head
@@ -2261,7 +2261,7 @@ def InceptionV1_baseline_model(num_of_classes=10,\
       assert(not(deepSupervision))
       pre_model = InceptionV1_slim(include_top=False, weights=weights,\
                           input_shape= (224, 224, 3),pooling='avg')
-      number_of_trainable_layers = 199
+      number_of_trainable_layers = 114 # Total number of layers 199
       # TODO Chiffre faux qu il faudra modifier TODO
   else:
       pre_model = Inception_V1(include_top=False, weights=weights,\
@@ -2300,6 +2300,9 @@ def InceptionV1_baseline_model(num_of_classes=10,\
   else:
       opt =  optimizer
       
+  # TODO : ici il se passe quelque chose de bizarre avec les couches qui sont
+  # freeze ou pas, il semblerait que les ce soit juste les couches act qui soit 
+  # concernés ! 
   ilayer = 0
   for layer in pre_model.layers:
       if SomePartFreezed and (layer.count_params() > 0):
@@ -2324,6 +2327,9 @@ def InceptionV1_baseline_model(num_of_classes=10,\
                  layer.trainable = False
     
          ilayer += 1
+      elif SomePartFreezed and not(layer.count_params() > 0):
+          layer.trainable = False
+      #print(layer.name,layer.trainable)
       # Only if the layer have some trainable parameters
       if lr_multiple and layer.trainable: 
           multipliers[layer.name] = multiply_lrp

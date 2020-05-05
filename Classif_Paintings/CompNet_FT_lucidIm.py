@@ -58,8 +58,10 @@ import platform
 possible_datasets = ['IconArt_v1','RMN','RASTA']
 possible_lr = ['small001_modif','big001_modif','small01_modif','big01_modif']
 possible_opt = ['','_adam','_Adadelta']
-possible_freeze= ['','_unfreeze44','_unfreeze60']
-# _unfreeze44 for InceptionV1 but _unfreeze60 for InceptionV1_slim !
+possible_freeze= ['','_unfreeze50','_unfreeze84']
+# _unfreeze50 for InceptionV1 to train starting at mixed4a_3x3_bottleneck_pre_relu
+# but _unfreeze84 for InceptionV1_slim to train at 
+#  Mixed_4b_Branch_1_a_1x1_conv : because the name of the layer are not the same !
 possible_loss= ['','_cosineloss']
 possibleInit = ['','_RandInit']
 possible_crop = ['','_randomCrop']
@@ -305,7 +307,7 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suff
 
     return(name_pb)
 
-def get_gap_between_weights(list_name_layers,list_weights,net_finetuned):
+def get_gap_between_weights(list_name_layers,list_weights,net_finetuned,verbose=False):
     finetuned_layers = net_finetuned.layers
         
     dict_layers_argsort = {}
@@ -320,9 +322,16 @@ def get_gap_between_weights(list_name_layers,list_weights,net_finetuned):
         if not(layer_name in list_name_layers):
             continue
         if isinstance(finetuned_layer, Conv2D) :
-            o_filters, o_biases = list_weights[j]
+            
+            list_weights_j = list_weights[j]
+            if len(list_weights)==2:
+                o_filters, o_biases = list_weights_j
+                f_filters, f_biases = finetuned_layer.get_weights()
+            else:
+                o_filters = np.array(list_weights_j[0]) # We certainly are in the Inception_V1 case with no biases
+                f_filters = np.array(finetuned_layer.get_weights()[0])
             j+=1
-            f_filters, f_biases = finetuned_layer.get_weights()
+            
 #            print(layer_name, f_filters.shape)
             #num_filters = o_filters.shape[-1]
             # Norm 2 between the weights of the filters
@@ -336,15 +345,16 @@ def get_gap_between_weights(list_name_layers,list_weights,net_finetuned):
             mean_abs = np.mean(diff_abs,axis=(0,1,2))
             relative_diff_squared = mean_squared / norm2_filter
             relative_diff_abs = mean_abs / norm1_filter
-            print('== For layer :',layer_name,' ==')
-            print('= Absolute squared of difference =')
-            print_stats_on_diff(mean_squared)
-            print('= Absolute abs of difference =')
-            print_stats_on_diff(mean_abs)
-            print('= Relative squared of difference =')
-            print_stats_on_diff(relative_diff_squared)
-            print('= Relative abs of difference =')
-            print_stats_on_diff(relative_diff_abs)
+            if verbose:
+                print('== For layer :',layer_name,' ==')
+                print('= Absolute squared of difference =')
+                print_stats_on_diff(mean_squared)
+                print('= Absolute abs of difference =')
+                print_stats_on_diff(mean_abs)
+                print('= Relative squared of difference =')
+                print_stats_on_diff(relative_diff_squared)
+                print('= Relative abs of difference =')
+                print_stats_on_diff(relative_diff_abs)
             
             dict_layers_relative_diff[layer_name] = relative_diff_abs
             argsort = np.argsort(relative_diff_abs)[::-1]
@@ -395,17 +405,34 @@ def print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_
                                     constrNet='InceptionV1'):
     if constrNet=='VGG':
         # For the original pretrained imagenet VGG
-        lucid_utils.print_images(model_path=os.path.join('model','tf_vgg19.pb'),list_layer_index_to_print=list_layer_index_to_print_base_model\
+        model_path = os.path.join('model','tf_vgg19.pb')
+        if not(os.path.exists(model_path)):
+            lucid_utils.create_pb_model_of_pretrained(constrNet)
+        lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
                       ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
     elif constrNet=='InceptionV1':
+        model_path = os.path.join('model','tf_inception_v1.pb')
+        if not(os.path.exists(model_path)):
+            lucid_utils.create_pb_model_of_pretrained(constrNet)
         # For the original pretrained imagenet InceptionV1 from Lucid to keras to Lucid
-        lucid_utils.print_images(model_path=os.path.join('model','tf_inception_v1.pb'),list_layer_index_to_print=list_layer_index_to_print_base_model\
+        lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
+                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
+    elif constrNet=='InceptionV1_slim':
+        model_path = os.path.join('model','tf_inception_v1_slim.pb')
+        if not(os.path.exists(model_path)):
+            lucid_utils.create_pb_model_of_pretrained(constrNet)
+        # For the original pretrained imagenet InceptionV1 from slim convert to keras
+        lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
                       ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
     elif constrNet=='ResNet50':
+        model_path = os.path.join('model','tf_resnet50.pb')
+        if not(os.path.exists(model_path)):
+            lucid_utils.create_pb_model_of_pretrained(constrNet)
         # ResNet 50 from Keras
-        lucid_utils.print_images(model_path=os.path.join('model','tf_resnet50.pb'),list_layer_index_to_print=list_layer_index_to_print_base_model\
+        lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
                       ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
- 
+    else:
+        raise(NotImplementedError(constrNet+' is unknown here.'))
 
 def why_white_output():
     """
@@ -509,6 +536,7 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                     for layer in net_finetuned.layers:
                         trainable_l = layer.trainable
                         name_l = layer.name
+                        print(name_l,trainable_l)
                         if trainable_l and name_l in trainable_layers_name:
                             layer_considered_for_print_im += [name_l]
 
@@ -525,7 +553,9 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                                    constrNet=constrNet,path=path_lucid_model,suffix=suffix)
                     list_layer_index_to_print_base_model = []
                     list_layer_index_to_print = []
+                    #print(layer_considered_for_print_im)
                     for key in dict_layers_argsort.keys():
+                        #print(key)
                         if 'unfreeze' in model_name and not(key in layer_considered_for_print_im):
                             continue
                         for k in range(num_top):
@@ -533,6 +563,7 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                              list_layer_index_to_print += [[key,topk]]
                              list_layer_index_to_print_base_model += [[key,topk]]
                     
+                    #print('list_layer_index_to_print',list_layer_index_to_print)
                     dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
                     
                     lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
@@ -886,22 +917,33 @@ if __name__ == '__main__':
 #                        'RASTA_small01_modif_randomCrop_ep120'
 #                        ]
      
-    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                             'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
-                             'IconArt_v1_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
-                             'IconArt_v1_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
-                             'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                             'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
-                             'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
-                             'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch']
+#    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep1']
+    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+                             'IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
+                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
+                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch',
+                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
+                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
+                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch']
     
-    Comparaison_of_FineTunedModel(constrNet='InceptionV1_slim')    
+    Comparaison_of_FineTunedModel(list_models_name_slim,constrNet='InceptionV1_slim')    
 
+    list_model_name_1 = ['IconArt_v1_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                             'IconArt_v1_big001_modif_adam_unfreeze50_SmallDataAug_ep200_LastEpoch',
+                             'IconArt_v1_big001_modif_Adadelta_unfreeze50_cosineloss_MediumDataAug_ep200',
+                             'IconArt_v1_big001_modif_Adadelta_unfreeze50_cosineloss_MediumDataAug_ep200_LastEpoch',
+                             'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                             'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200_LastEpoch',
+                             'RASTA_big001_modif_Adadelta_unfreeze50_cosineloss_MediumDataAug_ep200',
+                             'RASTA_big001_modif_Adadelta_unfreeze50_cosineloss_MediumDataAug_ep200_LastEpoch',
+                             'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
+                             'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200_LastEpoch']
 
-    list_model_name_1 = ['RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
-                        'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
-                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
-                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200_LastEpoch']
+#    list_model_name_1 = ['RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
+#                        'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
+#                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
+#                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200_LastEpoch']
     Comparaison_of_FineTunedModel(list_model_name_1,constrNet='InceptionV1') 
         
         

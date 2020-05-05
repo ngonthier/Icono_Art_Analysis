@@ -278,7 +278,6 @@ def InceptionV1_slim(include_top=True,
         min_size=139,
         data_format=K.image_data_format(),require_flatten=include_top)
 
-    print('input_shape',input_shape)
     if input_tensor is None:
         img_input = Input(shape=input_shape)
     else:
