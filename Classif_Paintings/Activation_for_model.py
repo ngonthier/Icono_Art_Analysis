@@ -52,6 +52,8 @@ def get_Model_that_output_StatsOnActivation(model,stats_on_layer='mean'):
             layer_output = layer.output
             if stats_on_layer=='mean':
                 stats_each_feature = tf.keras.backend.mean(layer_output, axis=[1,2], keepdims=False)
+            elif stats_on_layer=='meanAfterRelu':
+                stats_each_feature = tf.keras.backend.mean(tf.keras.activations.relu(layer_output), axis=[1,2], keepdims=False)
             elif stats_on_layer=='max':
                 stats_each_feature = tf.keras.backend.max(layer_output, axis=[1,2], keepdims=False)
             else:
@@ -117,8 +119,12 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     act_plus_layer = [list_outputs_name,activations]
     if stats_on_layer=='mean':
         save_file = os.path.join(output_path,'activations_per_img.pkl')
+    elif stats_on_layer=='meanAfterRelu':
+        save_file = os.path.join(output_path,'meanAfterRelu_activations_per_img.pkl')
     elif stats_on_layer=='max':
         save_file = os.path.join(output_path,'max_activations_per_img.pkl')
+    else:
+        raise(ValueError(stats_on_layer+' is unknown'))
     with open(save_file, 'wb') as handle:
         pickle.dump(act_plus_layer, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
@@ -217,8 +223,12 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
         
     if stats_on_layer=='mean':
         save_file = os.path.join(output_path,'activations_per_img.pkl')
+    elif stats_on_layer=='meanAfterRelu':
+        save_file = os.path.join(output_path,'meanAfterRelu_activations_per_img.pkl')
     elif stats_on_layer=='max':
         save_file = os.path.join(output_path,'max_activations_per_img.pkl')
+    else:
+        raise(ValueError(stats_on_layer+' is unknown'))
         
     if os.path.exists(save_file):
         # The file exist
@@ -236,6 +246,10 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
             print('===',layer_name,num_feature,'===')
             activations_l_f = activations_l[:,num_feature]
             where_activations_l_f_pos = np.where(activations_l_f>0)[0]
+            if len(where_activations_l_f_pos)==0:
+                print('No activation positive for this layer')
+                print(activations_l_f)
+                continue
             activations_l_f_pos = activations_l_f[where_activations_l_f_pos]
             name_images_l_f_pos = name_images[where_activations_l_f_pos]
             argsort = np.argsort(activations_l_f_pos)[::-1]

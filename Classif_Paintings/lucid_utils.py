@@ -124,6 +124,16 @@ class Lucid_InceptionV1_caffe(Model):
        self.input_name = input_name
        super(Lucid_InceptionV1_caffe, self).__init__(**kwargs)
        
+class Lucid_GenericFeatureMaps(Model):
+    
+    def __init__(self,model_path,image_shape = [224, 224, 3],\
+                 image_value_range =  (0., np.inf),input_name = 'input_1', **kwargs):
+       self.model_path = model_path
+       self.image_shape = image_shape
+       self.image_value_range = image_value_range
+       self.input_name = input_name
+       super(Lucid_InceptionV1, self).__init__(**kwargs)
+       
 class Lucid_InceptionV1(Model):
     
     def __init__(self,model_path = 'model/tf_inception_v1.pb',image_shape = [224, 224, 3],\
@@ -419,6 +429,8 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         lucid_net = Lucid_InceptionV1(model_path=model_path,input_name=input_name)
     elif Net=='InceptionV1_slim':
         lucid_net = Lucid_Inception_v1_slim(model_path=model_path,input_name=input_name)
+    elif Net=='GenericFeatureMaps':
+        lucid_net = Lucid_GenericFeatureMaps(model_path=model_path,input_name=input_name)
     elif Net=='ResNet':
         lucid_net = Lucid_ResNet(model_path=model_path,input_name=input_name)
         raise(NotImplementedError(Net))

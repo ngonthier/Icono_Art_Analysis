@@ -18,9 +18,13 @@ import os
 import platform
 import pathlib
 import time
+import glob
 import matplotlib.pyplot as plt
 
 from tensorflow.python.keras import backend as K
+import tensorflow as tf
+from tensorflow.python.keras import Model
+from tensorflow.python.keras.layers import Concatenate,Activation,Dense,Flatten,Input,Dropout,InputLayer
 
 from Study_Var_FeaturesMaps import get_dict_stats
 
@@ -257,6 +261,307 @@ def compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = N
 #        matrix_of_mean_matrix[i,:] = mean
     
 #    del stats_layer
+        
+def produce_latex_text(model_name = 'RASTA_small01_modif',
+                       layer_tab=['mixed4d_pre_relu'],classe_tab = [None],
+                       folder_im_latex='im'):
+    
+    path_base  = os.path.join('C:\\','Users','gonthier')
+    ownCloudname = 'ownCloud'
+    
+    if not(os.path.exists(path_base)):
+        path_base  = os.path.join(os.sep,'media','gonthier','HDD')
+        ownCloudname ='owncloud'
+    
+    path_to_im_local = os.path.join(folder_im_latex,model_name,'PCAlucid')
+    
+    folder_im_this_model = os.path.join(path_base,ownCloudname,'Mes_Presentations_Latex','2020-04_Feature_Visualisation',path_to_im_local)
+    
+    list_all_image = glob.glob(folder_im_this_model+'\*.png')
+    #print(list_all_image)
+    
+    file_path = os.path.join(folder_im_this_model,'printImages.tex')
+    file = open(file_path,"w") 
+    num_components_draw = 10
+    for layer in layer_tab:
+        for classe in classe_tab:
+            if classe is None:
+                classe_str =''
+                latex_str = ''
+            else:
+                classe_str = '_'+classe
+                latex_str = r" - %s" % classe.replace('_','\_') 
+                latex_str += r" classe only"
+            
+            for i in range(num_components_draw):
+                base_name_im = layer + 'concat__PCA'+str(i)+classe_str
+                base_name_im_max = layer + 'concat__PCA'+str(i)+'_Max'
+                base_name_im_min = layer + 'concat__PCA'+str(i)+'_Min'
+                name_main_image = base_name_im + '_Deco'+'_toRGB.png'
+                name_maxcontrib_image = base_name_im + '_PosContrib_Deco'+'_toRGB.png'
+                name_mincontrib_image = base_name_im + '_NegContrib_Deco'+'_toRGB.png'
+                for name_local in list_all_image:
+                    _,name_local = os.path.split(name_local)
+                    #print(name_local)
+                    if base_name_im_max in name_local:
+                        #print('Max')
+                        name_local_tab = name_local.split('_')
+                        for elt in name_local_tab:
+                            if 'Max' in elt:
+                                max_index = elt.replace('Max','')
+                        name_max_image = base_name_im_max + max_index + '_Deco_toRGB.png'
+                    elif base_name_im_min in name_local:
+                        #print('Min')
+                        name_min_image = name_local
+                        name_local_tab = name_local.split('_')
+                        for elt in name_local_tab:
+                            if 'Min' in elt:
+                                min_index = elt.replace('Min','')
+                        name_min_image = base_name_im_min + min_index + '_Deco_toRGB.png'
+                                
+                # Text for Positive contrib slide
+                newline = " \n"
+                str_beg = r"\frame{  " +newline
+                str_beg += r" \frametitle{%s" % model_name.replace('_','\_')
+                str_beg += r" - %s" % layer.replace('_','\_')
+                str_beg += r" - component %s" % str(i) 
+                str_beg +=  latex_str 
+                str_beg +=  "} \n " 
+                str_beg += r"\begin{figure}[!tbp] " +newline
+                str_beg += r"\begin{minipage}[b]{0.29\textwidth}   "+newline
+                path_to_im = os.path.join(path_to_im_local,name_main_image).replace("\\", "/")
+                str_beg += r"\includegraphics[width=\textwidth]{%s} \\ " % path_to_im
+                str_beg += newline
+                str_beg += r"{\scriptsize All contribution}"  +newline
+                str_beg += r"\end{minipage} \hfill"  +newline
+                str_pos = str_beg+  r"\begin{minipage}[b]{0.29\textwidth} " +newline
+                path_to_im = os.path.join(path_to_im_local,name_maxcontrib_image).replace("\\", "/")
+                str_pos += r"\includegraphics[width=\textwidth]{%s} \\  " % path_to_im
+                str_pos += newline
+                str_pos += r"{\scriptsize Pos contribution}  " +newline
+                str_pos += r"\end{minipage} \hfill " +newline
+                str_pos += r"\begin{minipage}[b]{0.29\textwidth} " +newline
+                path_to_im = os.path.join(path_to_im_local,name_max_image).replace("\\", "/")
+                str_pos += r"\includegraphics[width=\textwidth]{%s} \\  " % path_to_im
+                str_pos += newline
+                str_pos += r"{\scriptsize Max contribution %s  } "% max_index
+                str_pos += newline
+                str_pos += r"\end{minipage} \hfill " +newline
+                str_pos += r"\end{figure} " +newline
+                str_pos += "} \n "
+                
+                str_neg = str_beg+  r"\begin{minipage}[b]{0.29\textwidth} " +newline
+                path_to_im = os.path.join(path_to_im_local,name_mincontrib_image).replace("\\", "/")
+                str_neg += r"\includegraphics[width=\textwidth]{%s} \\ " % path_to_im
+                str_neg += newline
+                str_neg += r"{\scriptsize Neg contribution} "+newline
+                str_neg += r"\end{minipage} \hfill " +newline
+                str_neg += r"\begin{minipage}[b]{0.29\textwidth}  "+newline
+                path_to_im = os.path.join(path_to_im_local,name_min_image).replace("\\", "/")
+                str_neg += r"\includegraphics[width=\textwidth]{%s} \\  "% path_to_im
+                str_neg += newline
+                str_neg += r"{\scriptsize Min contribution  %s  } "% min_index
+                str_neg += newline
+                str_neg += r"\end{minipage} \hfill   " +newline
+                str_neg += r"\end{figure} " +newline
+                str_neg += "} \n "
+                
+                file.write(str_pos)
+                file.write(str_neg)
+
+    file.close()
+        
+def Generate_Im_class_conditionated(model_name='IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                                    constrNet = 'InceptionV1',
+                                    classe='Mary',layer='mixed4d_pre_relu'):
+    """
+    L idee de cette fonction est la suivante en deux étapes :
+        Step 1 : creer le block au milieu du reseau qui maximise de maniere robuste
+        la réponse a une des classes 
+        Step 2 : faire la PCA de ce block de features
+        Step 3 : generer l'image qui maximise la premiere composante de cette 
+        decomposition
+        
+    """
+    
+    if constrNet=='VGG':
+        input_name_lucid ='block1_conv1_input'
+    elif constrNet=='InceptionV1':
+        input_name_lucid ='input_1'
+        #trainable_layers_name = get_trainable_layers_name()
+    elif constrNet=='InceptionV1_slim':
+        input_name_lucid ='input_1'
+        #trainable_layers_name = trainable_layers()
+    elif constrNet=='ResNet50':
+        input_name_lucid ='input_1'
+        raise(NotImplementedError('Not implemented yet with ResNet for print_images'))
+    else:
+        raise(NotImplementedError(constrNet + ' is not implemented sorry.'))
+    
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet)
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+
+    #matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
+    
+   suffix = ''
+    
+    K.set_learning_phase(0)
+    #with K.get_session().as_default(): 
+    path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
+    
+    print('#### ',model_name)
+    output_path_with_model = os.path.join(output_path,model_name+suffix)
+    pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
+    net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+    
+    name_pb = convert_Part_finetuned_modelToFrozenGraph(model=net_finetuned,
+                                                        model_name=model_name,
+                                                        new_input_layer_name=layer,
+                                                        constrNet=constrNet,
+                                                        path=path_lucid_model,
+                                                        suffix=suffix)
+    layer = net_finetuned.get_layer(new_input_layer_name)
+    layer_output = layer.output
+    dim_shape = layer_output.shape.dims
+    new_input_shape = []
+    for dim in dim_shape:
+        new_input_shape += [dim.value]
+    spatial_dim = new_input_shape[1]
+    
+    index_class = 0 # Index de la classe en question
+    index_features_withinLayer_all = ['avgpool_prediction',index_class]
+    input_name_lucid = 'input_1'
+    prexif_name=''
+    constrNet = 'GenericFeatureMaps'
+    # TODO a finir ici
+    output_im_list = print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+                         layer_to_print=layer,weights=weights,\
+                         index_features_withinLayer=index_features_withinLayer_all,\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=spatial_dim,
+                         just_return_output=True)
+                
+   
+def layers_unique(liste):
+    new_liste= []
+    new_liste_name= []
+    for elt in liste:
+        if elt.name in new_liste_name:
+            continue
+        else:
+            new_liste_name += [elt.name]
+            new_liste += [elt]
+        
+    return(new_liste)
+    
+def convert_Part_finetuned_modelToFrozenGraph(model,model_name,new_input_layer_name,
+                                              constrNet='InceptionV1',path='',
+                                              suffix=''):
+    
+    tf.keras.backend.clear_session()
+    tf.reset_default_graph()
+    K.set_learning_phase(0)
+    
+#    if constrNet=='VGG':
+#        input_name_lucid ='block1_conv1_input'
+#        raise(NotImplementedError)
+#    elif constrNet=='InceptionV1':
+#        input_name_lucid ='input_1'
+#        #trainable_layers_name = get_trainable_layers_name()
+#    elif constrNet=='InceptionV1_slim':
+#        input_name_lucid ='input_1'
+#        #trainable_layers_name = trainable_layers()
+#        raise(NotImplementedError)
+#    elif constrNet=='ResNet50':
+#        input_name_lucid ='input_1'
+#        raise(NotImplementedError)
+#    else:
+#        raise(NotImplementedError)
+
+    layer = model.get_layer(new_input_layer_name)
+    layer_output = layer.output
+    dim_shape = layer_output.shape.dims
+    new_input_shape = []
+    for dim in dim_shape:
+        new_input_shape += [dim.value]
+    new_input_shape.pop(0) #remove the batch size dim
+    new_input = Input(shape=new_input_shape,name='input_1') 
+    
+    # Auxiliary dictionary to describe the network graph
+    network_dict = {'input_layers_of': {}, 'new_output_tensor_of': {}}
+    
+    # Set the input layers of each layer
+    for layer in model.layers:
+        for node in layer.outbound_nodes:
+            layer_name = node.outbound_layer.name
+            if layer_name not in network_dict['input_layers_of']:
+                network_dict['input_layers_of'].update(
+                        {layer_name: [layer.name]})
+            else:
+                if (layer.name not in network_dict['input_layers_of'][layer_name]):
+                    network_dict['input_layers_of'][layer_name].append(layer.name)
+    # Set the output tensor of the input layer
+    network_dict['new_output_tensor_of'].update(
+            {model.layers[0].name: model.input})
+
+    # Iterate over all layers after the input
+    firstTime_here = True
+    new_input_layer_passed = False
+    for layer in model.layers[1:]:
+        print(layer.name)
+        # Determine input tensors
+        if new_input_layer_passed and not(firstTime_here):
+            layer_input = [network_dict['new_output_tensor_of'][layer_aux] 
+                for layer_aux in network_dict['input_layers_of'][layer.name]]
+            
+        if new_input_layer_passed:
+                
+            if isinstance(layer, Concatenate) and firstTime_here: # We will skip it !
+                continue
+            
+            if firstTime_here:
+                firstTime_here = False
+            else:
+                #layer_input = layer_input[0,...]
+                if len(layer_input) >1:
+                    layer_input = layers_unique(layer_input)
+                if len(layer_input) == 1:
+                    layer_input = layer_input[0]
+                    if len(layer_input.shape)==5:
+                        layer_input = layer_input[0,...]
+            
+            x = layer(layer_input)
+            print(x,layer_input)
+            network_dict['new_output_tensor_of'].update({layer.name: x})
+            
+        if layer.name == new_input_layer_name:
+            
+            layer_input = new_input
+            new_input_layer_passed = True
+            
+    new_model = Model(inputs=new_input,outputs=x)
+        
+    if path=='':
+        os.makedirs('./model', exist_ok=True)
+        path ='model'
+    else:
+        os.makedirs(path, exist_ok=True)
+    frozen_graph = lucid_utils.freeze_session(K.get_session(),
+                              output_names=[out.op.name for out in net_finetuned_truncated.outputs])
+    if not(suffix=='' or suffix is None):
+        suffix_str = '_'+suffix
+    else:
+        suffix_str = ''
+    name_pb = 'tf_graph_'+constrNet+model_name+new_input_layer+suffix_str+'.pb'
+    
+    #nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+    #print(nodes_tab)
+    tf.io.write_graph(frozen_graph,logdir= path,name= name_pb, as_text=False)
+
+    return(name_pb)            
     
 if __name__ == '__main__':
 #    compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe = None,\
@@ -267,14 +572,37 @@ if __name__ == '__main__':
 #                                   layer='mixed4d_pre_relu')
 #    compute_mean_var_of_GramMatrix(model_name = 'RASTA_small01_modif',classe ='Northern_Renaissance',\
 #                                   layer='mixed4d_pre_relu')
+#    produce_latex_text(model_name = 'RASTA_small01_modif',
+#                       layer_tab=['mixed4d_pre_relu'],classe_tab = [None,'Color_Field_Painting','Abstract_Art','Northern_Renaissance'],
+#                       folder_im_latex='im')
+    
 #    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe = None,\
 #                                   layer='mixed4d_pre_relu')
 #    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe ='Mary',\
 #                                   layer='mixed4d_pre_relu')
-    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe = None,\
-                                   layer='mixed4b_pre_relu')
-    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe ='Mary',\
-                                   layer='mixed4b_pre_relu')
+
+#    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe = None,\
+#                                   layer='mixed4b_pre_relu')
+#    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',classe ='Mary',\
+#                                   layer='mixed4b_pre_relu')
+#    produce_latex_text(model_name = 'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',
+#                       layer_tab=['mixed4d_pre_relu','mixed4b_pre_relu'],classe_tab = [None,'Mary'],
+#                       folder_im_latex='im')
+    
+    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = None,\
+                                   layer='mixed4d_pre_relu')
+    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = None,\
+                                   layer='mixed4c_pre_relu')
+    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = 'Mary',\
+                                   layer='mixed4d_pre_relu')
+    compute_mean_var_of_GramMatrix(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = 'Mary',\
+                                   layer='mixed4c_pre_relu')
+    compute_mean_var_of_GramMatrix(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = None,\
+                                   layer='mixed4c_pre_relu')
+    compute_mean_var_of_GramMatrix(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe ='Northern_Renaissance',\
+                                   layer='mixed4c_pre_relu')
+    compute_mean_var_of_GramMatrix(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe ='Abstract_Art',\
+                                   layer='mixed4c_pre_relu')
     
     
     

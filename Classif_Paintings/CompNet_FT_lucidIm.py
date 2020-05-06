@@ -58,7 +58,7 @@ import platform
 possible_datasets = ['IconArt_v1','RMN','RASTA']
 possible_lr = ['small001_modif','big001_modif','small01_modif','big01_modif']
 possible_opt = ['','_adam','_Adadelta']
-possible_freeze= ['','_unfreeze50','_unfreeze84']
+possible_freeze= ['','_unfreeze50','_unfreeze84','_unfreeze44']
 # _unfreeze50 for InceptionV1 to train starting at mixed4a_3x3_bottleneck_pre_relu
 # but _unfreeze84 for InceptionV1_slim to train at 
 #  Mixed_4b_Branch_1_a_1x1_conv : because the name of the layer are not the same !
@@ -477,6 +477,7 @@ def why_white_output():
     plt.figure()
     plt.imshow(img_rescale)
     
+
 def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImagesOfOtherModel_feature = False):
     """
     This function will load the two models (deep nets) before and after fine-tuning 
@@ -507,7 +508,6 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
     matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
     
     list_weights,list_name_layers = get_imageNet_weights(Net=constrNet)
-    
 
     #list_models_name = ['random']
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
@@ -783,7 +783,8 @@ def plotHistory_of_training():
     name ='IconArt_v1_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200'
     history_pkl = 'History_InceptionV1_IconArt_v1__Adadelta_cosine_similarity_lr0.001_MediumDataAug_unfreeze44_avgpool_CropCenter_FT_200_bs32_Adadelta_BestOnVal.pkl'
 
-    
+    name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200'
+    history_pkl = 'History_InceptionV1_RASTA__lr0.001_SmallDataAug_unfreeze44_avgpool_CropCenter_FT_200_bs32_BestOnVal.pkl'
     
     history_path = os.path.join(path_folder,history_pkl)
     with open(history_path, 'rb') as handle:
