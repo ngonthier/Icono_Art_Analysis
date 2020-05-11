@@ -24,6 +24,9 @@ import lucid.modelzoo.vision_models as lucid_model
 import lucid.optvis.transform as transform
 import lucid.optvis.objectives as objectives
 
+from lucid.optvis.param.color import to_valid_rgb
+from lucid.optvis.param.spatial import naive, fft_image
+
 import scipy.ndimage as nd
 import tensorflow as tf 
 from tensorflow.python.keras import backend as K
@@ -52,6 +55,7 @@ import pathlib
 
 from new_objectif_lucid import autocorr
 
+from infere_layers_info import get_dico_layers_type_all_layers
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
@@ -415,10 +419,28 @@ def test_render_ResNet50():
     plt.figure()
     plt.imshow(imgs[0][0])
 
+
+
+def feature_block(channels,w, h=None, batch=None, sd=None, fft=True):
+  #decorrelate=True
+  h = h or w
+  batch = batch or 1
+  shape = [batch, w, h, channels]
+  #param_f = fft_image if fft else naive
+  #t = param_f(shape, sd=sd)
+  #rgb = to_valid_rgb(t[..., :3], decorrelate=decorrelate, sigmoid=True)
+  sd = sd or 0.0001
+  init_val = sd*np.random.randn(*shape).astype("float32")
+  t = tf.Variable(init_val)
+  t = tf.nn.sigmoid(t) # To cast in 0-1 but maybe need to be cast in -1/1 or something else
+  #t = tf.math.tanh(t) # To cast in -1/1 avec tanh or other => divergence
+  #return(t)
+  return tf.convert_to_tensor(t)
   
 def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name='',\
                  input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
-                 DECORRELATE = True,ROBUSTNESS  = True,just_return_output=False):
+                 DECORRELATE = True,ROBUSTNESS  = True,just_return_output=False,
+                 dico=None,image_shape=None):
     #with tf.Graph().as_default() as graph, tf.Session() as sess:
     
     if not(os.path.isfile(os.path.join(model_path))):
@@ -431,7 +453,10 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     elif Net=='InceptionV1_slim':
         lucid_net = Lucid_Inception_v1_slim(model_path=model_path,input_name=input_name)
     elif 'GenericFeatureMaps' in Net:
-        lucid_net = Lucid_GenericFeatureMaps(model_path=model_path,input_name=input_name)
+        assert(not(image_shape is None))
+        lucid_net = Lucid_GenericFeatureMaps(model_path=model_path,
+                                             image_shape=image_shape,
+                                             input_name=input_name)
     elif Net=='ResNet':
         lucid_net = Lucid_ResNet(model_path=model_path,input_name=input_name)
         raise(NotImplementedError(Net))
@@ -439,11 +464,19 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         raise(ValueError(Net+ 'is unkonwn'))
     lucid_net.load_graphdef()
     nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
-    print(nodes_tab)
+    assert(input_name in nodes_tab)
+    #print(nodes_tab)
     
     # `fft` parameter controls spatial decorrelation
     # `decorrelate` parameter controls channel decorrelation
-    param_f = lambda: param.image(sizeIm, fft=DECORRELATE, decorrelate=DECORRELATE)
+    if not('GenericFeatureMaps' in Net):
+        param_f = lambda: param.image(sizeIm, fft=DECORRELATE, decorrelate=DECORRELATE)
+    else:
+        assert(not(DECORRELATE))
+        print('image_shape[2],image_shape[0], h=image_shape[1]')
+        print(image_shape[2],image_shape[0],image_shape[1])
+        param_f = lambda: feature_block(image_shape[2],image_shape[0], h=image_shape[1], batch=1, sd=None, fft=DECORRELATE)
+        #print(feature_block(image_shape[2],image_shape[0], h=image_shape[1], batch=1, sd=None, fft=DECORRELATE))
     
     if DECORRELATE:
         ext='_Deco'
@@ -457,8 +490,13 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
       transforms = []
       ext+= '_noRob'
 
-#    if 'GenericFeatureMaps' in Net:
-#        dico =  get_dico_layers_type_all_layers()
+    if 'GenericFeatureMaps' in Net:
+        verbose = False
+        # You need to  provide a dico of the correspondance between the layer name
+        # an op node !
+        assert(not(dico is None))
+    else:
+        verbose = True
 
 #    LEARNING_RATE = 0.005 # Valeur par default
 #    optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
@@ -467,19 +505,10 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         layer, i = layer_index_to_print
         
         if 'GenericFeatureMaps' in Net:
-            raise(NotImplementedError)
-#            if 'VGG' in Net:
-#                obj = layer  + '/Relu:'+str(i)
-#                name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+ext+'.png'
-#            elif 'InceptionV1_slim' in Net:
-#                obj = layer  + '/Conv2D:'+str(i)
-#                name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
-#            elif 'InceptionV1' in Net:
-#                dico = get_dico_layers_type()
-#                type_layer = dico[layer]
-#                obj = layer  + '/'+type_layer+':'+str(i) # It could also be BiasAdd or concat
-#                kind_layer = type_layer
-#                name_base = layer  + kind_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
+            layer_str = dico[layer]
+            obj = layer  + '/'+layer_str+':'+str(i)
+            name_base = layer  + layer_str+'_'+str(i)+'_'+prexif_name+ext+'.png'
+            print('obj',obj)
         else: # cas normal
             if Net=='VGG':
                 obj = layer  + '/Relu:'+str(i)
@@ -499,7 +528,8 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
                                       thresholds=[2048],
                                       param_f=param_f,
 #                                      optimizer=optimizer,
-                                      use_fixed_seed=True)
+                                      use_fixed_seed=True,
+                                      verbose=verbose)
         if just_return_output:
             output_im_list += [output_im]
         else:
