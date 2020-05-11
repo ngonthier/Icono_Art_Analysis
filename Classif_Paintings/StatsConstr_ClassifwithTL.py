@@ -483,6 +483,10 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         
     if constrNet=='InceptionV1_slim' and deepSupervision:
         raise(NotImplementedError)
+    if weights=='RandForUnfreezed':
+        if not(constrNet in ['InceptionV1_slim','InceptionV1','ResNet50','VGG']):
+            print("weights=='RandForUnfreezed' only implemented fot baseline model")
+            raise(NotImplementedError)
     
     if target_dataset=='RASTA':
         if final_clf=='LinearSVC':
@@ -560,6 +564,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         name_base +=  '_' + num_layers
     if kind_method=='FT' and (weights is None):
         name_base += '_RandInit' # Random initialisation 
+    if kind_method=='FT' and (weights=='RandForUnfreezed'):
+        name_base += '_RandForUnfreezed' # Random initialisation 
     
     if deepSupervision and constrNet=='InceptionV1' and kind_method=='FT':
         name_base += '_deepSupervision'
@@ -1186,9 +1192,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 if returnStatistics :
                     if SaveInit:
                         if os.path.exists(init_model_path):
-                            if weights is None: # Random Init
+                            if weights is None or weights=='RandForUnfreezed': # Random Init
                                 if constrNet=='InceptionV1':
                                     init_model = load_model(init_model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
+                                elif constrNet=='InceptionV1_slim':
+                                    raise(NotImplementedError)
                                 else:
                                     init_model = load_model(init_model_path)
                             else: # ImageNet initialisation
@@ -1309,9 +1317,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     
                     if SaveInit:
                         if os.path.exists(init_model_path):
-                            if weights is None: # Random Init
+                            if weights is None or weights=='RandForUnfreezed': # Random Init
                                 if constrNet=='InceptionV1':
                                     init_model = load_model(init_model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
+                                elif constrNet=='InceptionV1_slim':
+                                    raise(NotImplementedError)
                                 else:
                                     init_model = load_model(init_model_path)
                             else: # ImageNet initialisation
@@ -4528,6 +4538,18 @@ def test_InceptionV1_onIconArt_and_RASTA():
     # Top-1 accuracy : 53.24%
     # Top-3 accuracy : 79.90%
     # Top-5 accuracy : 89.22%
+    
+def test_RandForUnfreezed():
+    # Inception V1
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',
+                   features='avgpool',\
+                    constrNet='InceptionV1',kind_method='FT',gridSearch=False,
+                    ReDo=False,\
+                    pretrainingModif=60,\
+                    optimizer='SGD',opt_option=[0.001],return_best_model=True,
+                    epochs=2,cropCenter=True,verbose=True,deepSupervision=False,
+                    SaveInit=True,
+                    weights='RandForUnfreezed') 
     
 def test_InceptionV1_SAVE_INIT():
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\

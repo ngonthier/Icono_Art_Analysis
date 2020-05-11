@@ -212,8 +212,15 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
   
   model =  tf.keras.Sequential()
-  pre_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights,\
+  if weights=='imagenet' or weights is None:
+          pre_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights,\
                                                 input_shape=(224, 224, 3))
+  elif weights=='RandForUnfreezed':
+      pre_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet',\
+                                            input_shape=(224, 224, 3))
+      random_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=None,\
+                                            input_shape=(224, 224, 3))
+  
   # Need to shape that to be able to have different input size later ! 
   SomePartFreezed = False
   
@@ -273,6 +280,12 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
              else:
                  layer.trainable = False
          ilayer += 1
+         
+         if weights=='RandForUnfreezed' and (layer.count_params() > 0) and layer.trainable:
+             random_layer = random_model.get_layer(layer.name)
+             random_weights = random_layer.get_weights()
+             layer.set_weights(random_weights)
+         
          model.add(layer)
      else:
          model.add(layer)
@@ -1002,8 +1015,15 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
   # create model
 #  input_tensor = Input(shape=(224, 224, 3)) 
   if res_num_layers==50:
-      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+      if weights=='imagenet' or weights is None:
+          pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
                                                           input_shape= (224, 224, 3))
+      elif weights=='RandForUnfreezed':
+          pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights='imagenet',\
+                                                          input_shape= (224, 224, 3))
+          random_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=None,\
+                                                          input_shape= (224, 224, 3))
+          
       number_of_trainable_layers = 106
   else:
       print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
@@ -1066,6 +1086,11 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
       # Only if the layer have some trainable parameters
       if lr_multiple and layer.trainable: 
           multipliers[layer.name] = multiply_lrp
+         
+      if weights=='RandForUnfreezed' and (layer.count_params() > 0) and layer.trainable:
+          random_layer = random_model.get_layer(layer.name)
+          random_weights = random_layer.get_weights()
+          layer.set_weights(random_weights)
 
   x = pre_model.output
   if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
@@ -2259,13 +2284,25 @@ def InceptionV1_baseline_model(num_of_classes=10,\
   
   if slim:
       assert(not(deepSupervision))
-      pre_model = InceptionV1_slim(include_top=False, weights=weights,\
+      if weights=='imagenet' or weights is None:
+          pre_model = InceptionV1_slim(include_top=False, weights=weights,\
                           input_shape= (224, 224, 3),pooling='avg')
+      elif weights=='RandForUnfreezed':
+          pre_model = InceptionV1_slim(include_top=False, weights='imagenet',\
+                              input_shape= (224, 224, 3),pooling='avg')
+          random_model = InceptionV1_slim(include_top=False, weights=None,\
+                              input_shape= (224, 224, 3),pooling='avg')   
       number_of_trainable_layers = 114 # Total number of layers 199
       # TODO Chiffre faux qu il faudra modifier TODO
   else:
-      pre_model = Inception_V1(include_top=False, weights=weights,\
-                          input_shape= (224, 224, 3))
+      if weights=='imagenet' or weights is None:
+          pre_model = Inception_V1(include_top=False, weights=weights,\
+                              input_shape= (224, 224, 3))
+      elif weights=='RandForUnfreezed':
+          pre_model = Inception_V1(include_top=False, weights='imagenet',\
+                              input_shape= (224, 224, 3))
+          random_model = Inception_V1(include_top=False, weights=None,\
+                              input_shape= (224, 224, 3))
       if deepSupervision:
           number_of_trainable_layers = 65
       else:
@@ -2333,6 +2370,12 @@ def InceptionV1_baseline_model(num_of_classes=10,\
       # Only if the layer have some trainable parameters
       if lr_multiple and layer.trainable: 
           multipliers[layer.name] = multiply_lrp
+          
+      if weights=='RandForUnfreezed' and (layer.count_params() > 0) and layer.trainable:
+          random_layer = random_model.get_layer(layer.name)
+          random_weights = random_layer.get_weights()
+          ft_layer = pre_model.get_layer(layer.name)
+          ft_layer.set_weights(random_weights)
 
   x = pre_model.output
   
@@ -4291,9 +4334,9 @@ def saveInitialisationOfModel_beforeFT(model,init_model_path,weights,final_clf,\
                                        deepSupervision,\
                                        shape_info=[None, 224, 224,3]):
     
-    assert(weights in ['imagenet',None])
+    assert(weights in ['imagenet',None,'RandForUnfreezed'])
     
-    if weights is None:
+    if weights is None or weights=='RandForUnfreezed':
         model.save(init_model_path,include_optimizer=False)
         utils_keras.fix_layer0(init_model_path, shape_info, 'float32')
     else: # ImageNet case : we only save the head !

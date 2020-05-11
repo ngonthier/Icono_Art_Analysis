@@ -52,6 +52,7 @@ import pathlib
 
 from new_objectif_lucid import autocorr
 
+
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
     Freezes the state of a session into a pruned computation graph.
@@ -132,7 +133,7 @@ class Lucid_GenericFeatureMaps(Model):
        self.image_shape = image_shape
        self.image_value_range = image_value_range
        self.input_name = input_name
-       super(Lucid_InceptionV1, self).__init__(**kwargs)
+       super(Lucid_GenericFeatureMaps, self).__init__(**kwargs)
        
 class Lucid_InceptionV1(Model):
     
@@ -429,7 +430,7 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         lucid_net = Lucid_InceptionV1(model_path=model_path,input_name=input_name)
     elif Net=='InceptionV1_slim':
         lucid_net = Lucid_Inception_v1_slim(model_path=model_path,input_name=input_name)
-    elif Net=='GenericFeatureMaps':
+    elif 'GenericFeatureMaps' in Net:
         lucid_net = Lucid_GenericFeatureMaps(model_path=model_path,input_name=input_name)
     elif Net=='ResNet':
         lucid_net = Lucid_ResNet(model_path=model_path,input_name=input_name)
@@ -437,8 +438,8 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     else:
         raise(ValueError(Net+ 'is unkonwn'))
     lucid_net.load_graphdef()
-    #nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
-    #print(nodes_tab)
+    nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+    print(nodes_tab)
     
     # `fft` parameter controls spatial decorrelation
     # `decorrelate` parameter controls channel decorrelation
@@ -456,21 +457,42 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
       transforms = []
       ext+= '_noRob'
 
+#    if 'GenericFeatureMaps' in Net:
+#        dico =  get_dico_layers_type_all_layers()
+
 #    LEARNING_RATE = 0.005 # Valeur par default
 #    optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
     output_im_list = []
     for layer_index_to_print in list_layer_index_to_print:
         layer, i = layer_index_to_print
         
-        if Net=='VGG':
-            obj = layer  + '/Relu:'+str(i)
-            name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+ext+'.png'
-        elif Net=='InceptionV1':
-            obj = layer  + '/Conv2D:'+str(i)
-            name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
-        elif Net=='InceptionV1_slim':
-            obj = layer  + '/Conv2D:'+str(i)
-            name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
+        if 'GenericFeatureMaps' in Net:
+            raise(NotImplementedError)
+#            if 'VGG' in Net:
+#                obj = layer  + '/Relu:'+str(i)
+#                name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+ext+'.png'
+#            elif 'InceptionV1_slim' in Net:
+#                obj = layer  + '/Conv2D:'+str(i)
+#                name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
+#            elif 'InceptionV1' in Net:
+#                dico = get_dico_layers_type()
+#                type_layer = dico[layer]
+#                obj = layer  + '/'+type_layer+':'+str(i) # It could also be BiasAdd or concat
+#                kind_layer = type_layer
+#                name_base = layer  + kind_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
+        else: # cas normal
+            if Net=='VGG':
+                obj = layer  + '/Relu:'+str(i)
+                name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+ext+'.png'
+            elif Net=='InceptionV1':
+                dico = get_dico_layers_type()
+                type_layer = dico[layer]
+                obj = layer  + '/'+type_layer+':'+str(i) # It could also be BiasAdd or concat
+                kind_layer = type_layer
+                name_base = layer  + kind_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
+            elif Net=='InceptionV1_slim':
+                obj = layer  + '/Conv2D:'+str(i)
+                name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
             
         output_im = render.render_vis(lucid_net,obj ,
                                       transforms=transforms,

@@ -279,9 +279,9 @@ def InceptionV1_slim(include_top=True,
         data_format=K.image_data_format(),require_flatten=include_top)
 
     if input_tensor is None:
-        img_input = Input(shape=input_shape)
+        img_input = Input(shape=input_shape,  name='input_1')
     else:
-        img_input = Input(tensor=input_tensor, shape=input_shape)
+        img_input = Input(tensor=input_tensor, shape=input_shape,   name='input_1')
 
     if K.image_data_format() == 'channels_first':
         channel_axis = 1

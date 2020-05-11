@@ -2,6 +2,8 @@
 """
 Created on Thu Apr 23 15:06:48 2020
 
+For the InceptionV1 from Lucid (based on old TF it seems)
+
 @author: gonthier
 """
 

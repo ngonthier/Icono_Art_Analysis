@@ -63,7 +63,7 @@ possible_freeze= ['','_unfreeze50','_unfreeze84','_unfreeze44']
 # but _unfreeze84 for InceptionV1_slim to train at 
 #  Mixed_4b_Branch_1_a_1x1_conv : because the name of the layer are not the same !
 possible_loss= ['','_cosineloss']
-possibleInit = ['','_RandInit']
+possibleInit = ['','_RandInit','_RandForUnfreezed']
 possible_crop = ['','_randomCrop']
 possible_Sup = ['','_deepSupervision']
 possible_Aug = ['','_dataAug','_SmallDataAug','_MediumDataAug']
@@ -221,6 +221,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
 
     if 'RandInit' in model_name:
         weights = None
+    elif 'RandForUnfreezed' in model_name:
+        weights = 'RandForUnfreezed'
     else:
         weights = 'imagenet'
     SaveInit = True # il faudra corriger cela
@@ -409,28 +411,28 @@ def print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_
         if not(os.path.exists(model_path)):
             lucid_utils.create_pb_model_of_pretrained(constrNet)
         lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
+                      ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
     elif constrNet=='InceptionV1':
         model_path = os.path.join('model','tf_inception_v1.pb')
         if not(os.path.exists(model_path)):
             lucid_utils.create_pb_model_of_pretrained(constrNet)
         # For the original pretrained imagenet InceptionV1 from Lucid to keras to Lucid
         lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
+                      ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
     elif constrNet=='InceptionV1_slim':
         model_path = os.path.join('model','tf_inception_v1_slim.pb')
         if not(os.path.exists(model_path)):
             lucid_utils.create_pb_model_of_pretrained(constrNet)
         # For the original pretrained imagenet InceptionV1 from slim convert to keras
         lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
+                      ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
     elif constrNet=='ResNet50':
         model_path = os.path.join('model','tf_resnet50.pb')
         if not(os.path.exists(model_path)):
             lucid_utils.create_pb_model_of_pretrained(constrNet)
         # ResNet 50 from Keras
         lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                      ,path_output=output_path,prexif_name='ImagnetVGG',input_name='input_1',Net=constrNet)
+                      ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
     else:
         raise(NotImplementedError(constrNet+' is unknown here.'))
 
@@ -536,7 +538,7 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                     for layer in net_finetuned.layers:
                         trainable_l = layer.trainable
                         name_l = layer.name
-                        print(name_l,trainable_l)
+                        #print(name_l,trainable_l)
                         if trainable_l and name_l in trainable_layers_name:
                             layer_considered_for_print_im += [name_l]
 
@@ -566,8 +568,8 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                     #print('list_layer_index_to_print',list_layer_index_to_print)
                     dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
                     
-                    lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                             ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
+                    #lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                    #         ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
                     
                     print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
                                          constrNet=constrNet)
@@ -940,6 +942,7 @@ if __name__ == '__main__':
                              'RASTA_big001_modif_Adadelta_unfreeze50_cosineloss_MediumDataAug_ep200_LastEpoch',
                              'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
                              'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200_LastEpoch']
+    # RandForUnfreezed
 
 #    list_model_name_1 = ['RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
 #                        'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
