@@ -57,6 +57,11 @@ from new_objectif_lucid import autocorr
 
 from infere_layers_info import get_dico_layers_type_all_layers
 
+from lucid.optvis import objectives, param, transform
+from lucid.misc.io import show
+from lucid.misc.redirected_relu_grad import redirected_relu_grad, redirected_relu6_grad
+from lucid.misc.gradient_override import gradient_override_map
+
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
     Freezes the state of a session into a pruned computation graph.
@@ -429,13 +434,30 @@ def feature_block(channels,w, h=None, batch=None, sd=None, fft=True):
   #param_f = fft_image if fft else naive
   #t = param_f(shape, sd=sd)
   #rgb = to_valid_rgb(t[..., :3], decorrelate=decorrelate, sigmoid=True)
-  sd = sd or 0.0001
+  sd = sd or 0.01
   init_val = sd*np.random.randn(*shape).astype("float32")
   t = tf.Variable(init_val)
-  t = tf.nn.sigmoid(t) # To cast in 0-1 but maybe need to be cast in -1/1 or something else
+  #t = tf.nn.sigmoid(t) # To cast in 0-1 but maybe need to be cast in -1/1 or something else
   #t = tf.math.tanh(t) # To cast in -1/1 avec tanh or other => divergence
   #return(t)
   return tf.convert_to_tensor(t)
+
+def feature_block_var(channels,w, h=None, batch=None, sd=None, fft=True):
+  #decorrelate=True
+  h = h or w
+  batch = batch or 1
+  shape = [batch, w, h, channels]
+  #param_f = fft_image if fft else naive
+  #t = param_f(shape, sd=sd)
+  #rgb = to_valid_rgb(t[..., :3], decorrelate=decorrelate, sigmoid=True)
+  sd = sd or 0.00001
+  init_val = sd*np.random.randn(*shape).astype("float32")
+  print('init_val',np.max(init_val),np.min(init_val))
+  t = tf.Variable(init_val)
+  #t = tf.nn.sigmoid(t) # To cast in 0-1 but maybe need to be cast in -1/1 or something else
+  #t = tf.math.tanh(t) # To cast in -1/1 avec tanh or other => divergence
+  #return(t)
+  return t
   
 def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name='',\
                  input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
@@ -452,11 +474,6 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         lucid_net = Lucid_InceptionV1(model_path=model_path,input_name=input_name)
     elif Net=='InceptionV1_slim':
         lucid_net = Lucid_Inception_v1_slim(model_path=model_path,input_name=input_name)
-    elif 'GenericFeatureMaps' in Net:
-        assert(not(image_shape is None))
-        lucid_net = Lucid_GenericFeatureMaps(model_path=model_path,
-                                             image_shape=image_shape,
-                                             input_name=input_name)
     elif Net=='ResNet':
         lucid_net = Lucid_ResNet(model_path=model_path,input_name=input_name)
         raise(NotImplementedError(Net))
@@ -469,14 +486,7 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     
     # `fft` parameter controls spatial decorrelation
     # `decorrelate` parameter controls channel decorrelation
-    if not('GenericFeatureMaps' in Net):
-        param_f = lambda: param.image(sizeIm, fft=DECORRELATE, decorrelate=DECORRELATE)
-    else:
-        assert(not(DECORRELATE))
-        print('image_shape[2],image_shape[0], h=image_shape[1]')
-        print(image_shape[2],image_shape[0],image_shape[1])
-        param_f = lambda: feature_block(image_shape[2],image_shape[0], h=image_shape[1], batch=1, sd=None, fft=DECORRELATE)
-        #print(feature_block(image_shape[2],image_shape[0], h=image_shape[1], batch=1, sd=None, fft=DECORRELATE))
+    param_f = lambda: param.image(sizeIm, fft=DECORRELATE, decorrelate=DECORRELATE)
     
     if DECORRELATE:
         ext='_Deco'
@@ -490,13 +500,7 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
       transforms = []
       ext+= '_noRob'
 
-    if 'GenericFeatureMaps' in Net:
-        verbose = False
-        # You need to  provide a dico of the correspondance between the layer name
-        # an op node !
-        assert(not(dico is None))
-    else:
-        verbose = True
+    verbose = True
 
 #    LEARNING_RATE = 0.005 # Valeur par default
 #    optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
@@ -504,24 +508,18 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     for layer_index_to_print in list_layer_index_to_print:
         layer, i = layer_index_to_print
         
-        if 'GenericFeatureMaps' in Net:
-            layer_str = dico[layer]
-            obj = layer  + '/'+layer_str+':'+str(i)
-            name_base = layer  + layer_str+'_'+str(i)+'_'+prexif_name+ext+'.png'
-            print('obj',obj)
-        else: # cas normal
-            if Net=='VGG':
-                obj = layer  + '/Relu:'+str(i)
-                name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+ext+'.png'
-            elif Net=='InceptionV1':
-                dico = get_dico_layers_type()
-                type_layer = dico[layer]
-                obj = layer  + '/'+type_layer+':'+str(i) # It could also be BiasAdd or concat
-                kind_layer = type_layer
-                name_base = layer  + kind_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
-            elif Net=='InceptionV1_slim':
-                obj = layer  + '/Conv2D:'+str(i)
-                name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
+        if Net=='VGG':
+            obj = layer  + '/Relu:'+str(i)
+            name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+ext+'.png'
+        elif Net=='InceptionV1':
+            dico = get_dico_layers_type()
+            type_layer = dico[layer]
+            obj = layer  + '/'+type_layer+':'+str(i) # It could also be BiasAdd or concat
+            kind_layer = type_layer
+            name_base = layer  + kind_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
+        elif Net=='InceptionV1_slim':
+            obj = layer  + '/Conv2D:'+str(i)
+            name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
             
         output_im = render.render_vis(lucid_net,obj ,
                                       transforms=transforms,
@@ -542,7 +540,177 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
             change_from_BRG_to_RGB(img_name_path=name_output,output_path=new_output_path,
                                    ext_name='toRGB')
     return(output_im_list)
+    
+def get_feature_block_that_maximizeGivenOutput(model_path,list_layer_index_to_print,
+                                         input_name='block1_conv1_input',sizeIm=256,\
+                                         DECORRELATE = True,ROBUSTNESS  = True,
+                                         dico=None,image_shape=None):
+
+    
+    if not(os.path.isfile(os.path.join(model_path))):
+        raise(ValueError(model_path + ' does not exist !'))
+    
+    assert(not(image_shape is None))
+    lucid_net = Lucid_GenericFeatureMaps(model_path=model_path,
+                                         image_shape=image_shape,
+                                         input_name=input_name)
+    lucid_net.load_graphdef()
+    nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+    assert(input_name in nodes_tab)
+    #print(nodes_tab)
+    
+    # `fft` parameter controls spatial decorrelation
+    # `decorrelate` parameter controls channel decorrelation
+    print('image_shape[2],image_shape[0], h=image_shape[1]')
+    print(image_shape[2],image_shape[0],image_shape[1])
+    param_f = lambda: feature_block_var(image_shape[2],image_shape[0], h=image_shape[1], batch=1, sd=None, fft=DECORRELATE)
       
+    #print(feature_block(image_shape[2],image_shape[0], h=image_shape[1], batch=1, sd=None, fft=DECORRELATE))
+    
+#    if DECORRELATE:
+#        ext='_Deco'
+#    else:
+#        ext=''
+    
+    if ROBUSTNESS:
+        JITTER = 1
+        #ROTATE = 1
+        SCALE  = 1.1
+        
+        transforms = [
+            transform.pad(2*JITTER),
+            transform.jitter(JITTER),
+            transform.random_scale([SCALE ** (n/10.) for n in range(-10, 11)]),
+            #transform.random_rotate(range(-ROTATE, ROTATE+1))
+        ]
+    else:
+      transforms = []
+
+    verbose = False
+    # You need to  provide a dico of the correspondance between the layer name
+    # an op node !
+    assert(not(dico is None))
+    
+    LEARNING_RATE = 0.0005 # Valeur par default
+    optimizer = tf.train.GradientDescentOptimizer(LEARNING_RATE)
+    output_im_list = []
+    for layer_index_to_print in list_layer_index_to_print:
+        layer, i = layer_index_to_print
+        
+        layer_str = dico[layer]
+        obj = layer  + '/'+layer_str+':'+str(i)
+        print('obj',obj)
+        
+#        output_im = render.render_vis(lucid_net,obj ,
+#                                      transforms=transforms,
+#                                      thresholds=[0],
+#                                      param_f=param_f,
+#                                      optimizer=optimizer,
+#                                      use_fixed_seed=True,
+#                                      verbose=verbose)
+        output_im = lbfgs_min(lucid_net,obj ,
+                                      transforms=transforms,
+                                      thresholds=[2048],
+                                      param_f=param_f,
+                                      optimizer=optimizer,
+                                      use_fixed_seed=True,
+                                      verbose=verbose)
+        output_im_list += [output_im]
+        
+    return(output_im_list)
+    
+def lbfgs_min(model, objective_f, param_f=None, optimizer=None,
+               transforms=None, thresholds=(512,), print_objectives=None,
+               verbose=True, relu_gradient_override=True, use_fixed_seed=False):
+    with tf.Graph().as_default() as graph, tf.Session() as sess:
+    
+        if use_fixed_seed:  # does not mean results are reproducible, see Args doc
+          tf.set_random_seed(0)
+    
+#        T = render.make_vis_T(model, objective_f, param_f, optimizer, transforms,
+#                       relu_gradient_override)
+        
+        t_image = param_f()
+#        placeholder = tf.placeholder(tf.float32, shape=init_img.shape)
+#        placeholder_clip = tf.placeholder(tf.float32, shape=init_img.shape)
+#
+#        assign_op = net['input'].assign(placeholder)
+        #assert(isinstance(t_image, tf.Tensor))
+        objective_f = objectives.as_objective(objective_f)
+        transform_f = render.make_transform_f(transforms)
+        #optimizer = make_optimizer(optimizer, [])
+        
+        #global_step = tf.train.get_or_create_global_step()
+        #init_global_step = tf.variables_initializer([global_step])
+        #init_global_step.run()
+        
+        if relu_gradient_override:
+            with gradient_override_map({'Relu': redirected_relu_grad,
+                                        'Relu6': redirected_relu6_grad}):
+                T = render.import_model(model, transform_f(t_image), t_image)
+        else:
+            T = render.import_model(model, transform_f(t_image), t_image)
+        loss = objective_f(T)
+        t_image= T("input")
+        
+        #print_objective_func = render.make_print_objective_func(print_objectives, T)
+        #loss, vis_op, t_image = T("loss"), T("vis_op"), T("input")
+        
+        gradient = tf.gradients(loss,t_image)
+        
+        i = 0
+        def callback(loss,var,grad):
+          nonlocal i
+          print('Loss evaluation #', i, ', loss:', loss,'var max',np.max(var),'grad max',np.max(grad))
+          i += 1
+        maxcor = 30
+        print_disp = 1
+        optimizer_kwargs = {'maxiter':max(thresholds),'maxcor': maxcor, \
+                    'disp': print_disp}
+          #bnds = get_lbfgs_bnds(init_img,clip_value_min,clip_value_max,BGR)
+        trainable_variables = tf.trainable_variables()[0]
+        print(trainable_variables)
+#        var_eval = trainable_variables.eval()
+#        print('initialization before variable init',np.max(var_eval),np.min(var_eval))
+          #var_to_bounds = {trainable_variables: bnds}
+#        optimizer = tf.contrib.opt.ScipyOptimizerInterface(loss_total,var_to_bounds=var_to_bounds,
+#                        method='L-BFGS-B',options=optimizer_kwargs)
+        optimizer = tf.contrib.opt.ScipyOptimizerInterface(-loss,
+                        method='L-BFGS-B',options=optimizer_kwargs)
+        
+        tf.global_variables_initializer().run()
+        
+        var_eval = trainable_variables.eval()
+        print('initialization after variable init',np.max(var_eval),np.min(var_eval))
+        var_eval = t_image.eval()
+        print('initialization',np.max(var_eval),np.min(var_eval))
+        images = []
+        loss_ = sess.run([loss])
+        print("beginning loss :", loss_)
+        optimizer.minimize(sess, fetches=[loss,t_image,gradient], loss_callback=callback)
+        vis = t_image.eval()
+        images.append(vis)
+        loss_ = sess.run([loss])
+        print("End loss :", loss_)
+#        try:
+#          #sess.run(assign_op, {placeholder: init_img})
+#          optimizer.minimize(sess,step_callback=callback)
+#          for i in range(max(thresholds)+1):
+#            loss_, _ = sess.run([loss, vis_op])
+#            if i in thresholds:
+#              vis = t_image.eval()
+#              images.append(vis)
+#              if verbose:
+#                print(i, loss_)
+#                print_objective_func(sess)
+#                show(np.hstack(vis))
+#        except KeyboardInterrupt:
+#          log.warning("Interrupted optimization at step {:d}.".format(i+1))
+#          vis = t_image.eval()
+#          show(np.hstack(vis))
+    
+        return images
+    
 def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLayer,\
                      path_output='',prexif_name='',\
                      input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
