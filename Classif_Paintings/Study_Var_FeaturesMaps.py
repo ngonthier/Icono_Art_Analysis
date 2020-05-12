@@ -34,7 +34,7 @@ from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
     load_resize_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\
     get_ResNet_ROWD_gram_mean_features,get_VGGmodel_4Param_features,get_VGGmodel_features,\
-    get_cov_mean_of_InputImages,get_those_layers_output,get_Model_gram_mean_features
+    get_cov_mean_of_InputImages,get_those_layers_output,get_Model_gram_mean_features,get_Model_cov_mean_features
 from keras_resnet_utils import getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion
 from inceptionV1_keras_utils import getInceptionV1LayersNumeral_bitsVersion,getInceptionV1LayersNumeral
 from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
@@ -344,7 +344,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                         getBeforeReLU=False,Net='VGG',style_layers_imposed=[],\
                         list_mean_and_std_source=[],list_mean_and_std_target=[],\
                         cropCenter=False,sizeIm=224,model_alreadyLoaded=None,
-                        randomCropValid=False,classe=None):
+                        randomCropValid=False,classe=None,KindOfMeanReduciton='instance'):
     """
     In this function we precompute the mean and cov for certain dataset
     @param : whatToload mention what you want to load by default only return variances
@@ -388,6 +388,7 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
 
     if model_alreadyLoaded is None:
 
+        # In fact in all those case, we substract the spatial mean before computing the gram matrix
         if Net=='VGG':
             net_get_cov =  get_VGGmodel_gram_mean_features(style_layers,getBeforeReLU=getBeforeReLU)
             # Don t need sizeIm because we don t load the head of the model
@@ -409,8 +410,11 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             print(Net,'is inknown')
             raise(NotImplementedError)
     else:
-        net_get_cov = get_Model_gram_mean_features(style_layers,model_alreadyLoaded)
-    
+        if KindOfMeanReduciton=='instance':
+            net_get_cov = get_Model_cov_mean_features(style_layers,model_alreadyLoaded)
+        elif KindOfMeanReduciton is None or  KindOfMeanReduciton=='':
+            net_get_cov = get_Model_gram_mean_features(style_layers,model_alreadyLoaded)
+
     for l,layer in enumerate(style_layers):
         dict_var[layer] = []
     for i,image_path in enumerate(list_imgs):
@@ -849,7 +853,8 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    list_mean_and_std_source=[],list_mean_and_std_target=[],\
                    cropCenter=False,BV=True,sizeIm=224,model_alreadyLoaded=None,\
                    name_model=None,\
-                   randomCropValid=False,classe=None):
+                   randomCropValid=False,classe=None,
+                   KindOfMeanReduciton='instance'):
     
     if not(model_alreadyLoaded is None) and name_model is None:
         print("You need to provide a name with the model !")
@@ -908,6 +913,13 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
     if not(classe is None):
         filename += '_'+str(classe)
         
+    if KindOfMeanReduciton=='instance':
+       filename +=  '_CovMean'
+    elif KindOfMeanReduciton=='' or KindOfMeanReduciton is None:
+       filename +=  '_GramMean'
+    else:
+        raise(NotImplementedError)
+        
     if getBeforeReLU:
         filename += '_BeforeReLU'
     if cropCenter:
@@ -930,7 +942,7 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                                        cropCenter=cropCenter,sizeIm=sizeIm,\
                                        model_alreadyLoaded=model_alreadyLoaded,\
                                        randomCropValid=randomCropValid,\
-                                       classe=classe)
+                                       classe=classe,KindOfMeanReduciton=KindOfMeanReduciton)
     else:
         dict_stats = load_precomputed_mean_cov(filename_path,style_layers,source_dataset,\
                                             saveformat=saveformat,whatToload=whatToload)
@@ -1256,7 +1268,7 @@ def Net_MeanAndVar_of_featuresMaps(saveformat='h5',number_im_considered = np.inf
  
 def return_dicts_of_Var_or_Mean_for_VGGfeatures(dataset_tab,printoutput,output_path,\
            style_layers,number_im_considered,set,getBeforeReLU,cropCenter,\
-           saveformat,Net,BV):
+           saveformat,Net,BV,KindOfMeanReduciton):
     dict_of_dict = {}
     if printoutput=='Var':
         whatToload= 'var'
@@ -1276,8 +1288,14 @@ def return_dicts_of_Var_or_Mean_for_VGGfeatures(dataset_tab,printoutput,output_p
             str_layers = numeral_layers_index_bitsVersion(style_layers)
         else:
             str_layers = numeral_layers_index(style_layers)
-        filename = dataset + '_' + str(number_im_considered_tmp) + '_CovMean'+\
-            '_'+str_layers
+        filename = dataset + '_' + str(number_im_considered_tmp) 
+        if KindOfMeanReduciton=='instance':
+           filename +=  '_CovMean'
+        elif KindOfMeanReduciton=='' or KindOfMeanReduciton is None:
+           filename +=  '_GramMean'
+        else:
+            raise(NotImplementedError)
+        filename +='_'+str_layers
         if not(set=='' or set is None):
             filename += '_'+set
         if getBeforeReLU:
@@ -1296,7 +1314,7 @@ def return_dicts_of_Var_or_Mean_for_VGGfeatures(dataset_tab,printoutput,output_p
             dict_var = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered_tmp,\
                                            dataset=dataset,set=set,saveformat=saveformat,
                                            whatToload=whatToload,getBeforeReLU=getBeforeReLU,cropCenter=cropCenter,\
-                                           Net=Net)
+                                           Net=Net,KindOfMeanReduciton=KindOfMeanReduciton)
             dict_of_dict[dataset] = dict_var
         else:
             print('We will load the features ')

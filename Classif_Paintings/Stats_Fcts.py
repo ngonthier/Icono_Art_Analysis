@@ -2390,7 +2390,7 @@ def InceptionV1_baseline_model(num_of_classes=10,\
     
 ### Convert a already loaded model to a Mean Cov Model
   
-def get_Model_gram_mean_features(style_layers,pre_model):
+def get_Model_cov_mean_features(style_layers,pre_model):
     
   list_stats = []
   last_layer = None
@@ -2402,6 +2402,26 @@ def get_Model_gram_mean_features(style_layers,pre_model):
               input_cov_layer = pre_model.input
           mean_layer = Mean_Matrix_Layer()(input_cov_layer)
           cov_layer = Cov_Matrix_Layer()([input_cov_layer,mean_layer])
+          list_stats += [cov_layer,mean_layer]
+      else:
+          last_layer = layer
+  
+  model = models.Model(pre_model.input,list_stats)
+  model.trainable = False
+  return(model)
+  
+def get_Model_gram_mean_features(style_layers,pre_model):
+    
+  list_stats = []
+  last_layer = None
+  for layer in pre_model.layers:
+      if layer.name in style_layers:
+          if not(last_layer is None):
+              input_cov_layer = layer.output
+          else: 
+              input_cov_layer = pre_model.input
+          mean_layer = Mean_Matrix_Layer()(input_cov_layer)
+          cov_layer = Gram_Matrix_Layer()([input_cov_layer])
           list_stats += [cov_layer,mean_layer]
       else:
           last_layer = layer
@@ -2532,6 +2552,23 @@ def covariance_matrix_only(features_map,mean, eps=1e-8):
   # bsxCxHxW -> bsxCxH*W
   features_map_flat = tf.reshape(features_map_reshaped, (bs,C, H*W))
   f = features_map_flat - tf.reshape(mean, (bs,C, 1))
+  # Covariance
+  cov = tf.matmul(f, f, transpose_b=True) / (tf.cast(H*W, tf.float32)) # + tf.eye(C)*eps                          
+  return(cov)
+  
+def gram_matrix_only(features_map, eps=1e-8):
+  """
+  Compute the covariance matric of a specific features map with shape 1xHxWxC
+  Return : covariance matrix and means 
+  """
+  bs, H, W, C = tf.unstack(tf.shape(features_map))
+  # Remove batch dim 
+  #features_map_squeezed = tf.reshape(features_map,[H, W, C])
+  # reorder to bsxCxHxW
+  features_map_reshaped = tf.transpose(features_map, (0,3, 1, 2))
+  # bsxCxHxW -> bsxCxH*W
+  features_map_flat = tf.reshape(features_map_reshaped, (bs,C, H*W))
+  f = features_map_flat
   # Covariance
   cov = tf.matmul(f, f, transpose_b=True) / (tf.cast(H*W, tf.float32)) # + tf.eye(C)*eps                          
   return(cov)
@@ -3379,6 +3416,25 @@ class Cov_Matrix_Layer(Layer):
         f,mean= x
         # f size bs,H,W,C
         cov = covariance_matrix_only(f,mean)
+        return cov
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        b,k1,k2,c = input_shape[0]
+        return (b,c,c)
+    
+class Gram_Matrix_Layer(Layer):
+
+    def __init__(self, **kwargs):
+        super(Cov_Matrix_Layer, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(Cov_Matrix_Layer, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        # f size bs,H,W,C
+        cov = gram_matrix_only(x)
         return cov
 
     def compute_output_shape(self, input_shape):
