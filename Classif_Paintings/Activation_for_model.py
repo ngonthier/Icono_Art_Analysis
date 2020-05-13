@@ -21,6 +21,7 @@ import pickle
 import matplotlib
 
 from StatsConstr_ClassifwithTL import predictionFT_net
+import Stats_Fcts
 from googlenet import inception_v1_oldTF as Inception_V1
 from IMDB import get_database
 from plots_utils import plt_multiple_imgs
@@ -38,6 +39,45 @@ def get_Network(Net):
         
     return(imagenet_model)
 
+def get_Model_that_output_StatsOnActivation_forGivenLayers(model,
+                                                           list_layers,
+                                                           stats_on_layer='mean',
+                                                           list_means=None):
+    """
+    Provide a keras model which outputs the stats_on_layer == mean or max of each 
+    features maps
+    """
+    if stats_on_layer=='cov_global_mean':
+        assert(not(list_means is None))
+        assert(len(list_means)==len(list_layers))
+    list_outputs = []
+    
+    i= 0
+    for layer in model.layers:
+        if  layer.name in list_layers :
+            layer_output = layer.output
+            if stats_on_layer=='mean':
+                stats_each_feature = tf.keras.backend.mean(layer_output, axis=[1,2], keepdims=False)
+            elif stats_on_layer=='meanAfterRelu':
+                stats_each_feature = tf.keras.backend.mean(tf.keras.activations.relu(layer_output), axis=[1,2], keepdims=False)
+            elif stats_on_layer=='max':
+                stats_each_feature = tf.keras.backend.max(layer_output, axis=[1,2], keepdims=False)
+            elif stats_on_layer== 'cov_instance_mean':
+                stats_each_feature = Stats_Fcts.covariance_mean_matrix_only(layer_output)[0]
+            elif stats_on_layer=='cov_global_mean':
+                means = list_means[i]
+                i+=1
+                stats_each_feature = Stats_Fcts.covariance_matrix_only(layer_output,means)
+            elif stats_on_layer== 'gram':
+                stats_each_feature = Stats_Fcts.gram_matrix_only(layer_output)
+            else:
+                raise(ValueError(stats_on_layer+' is unknown'))
+            list_outputs += [stats_each_feature]
+            
+    new_model = Model(model.input,list_outputs)
+    
+    return(new_model)
+    
 def get_Model_that_output_StatsOnActivation(model,stats_on_layer='mean'):
     """
     Provide a keras model which outputs the stats_on_layer == mean or max of each 
@@ -79,9 +119,7 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
     path_data,Not_on_NicolasPC = get_database(dataset)
     df_train = df_label[df_label['set']=='train']
-    
-    
-    
+
     if model_name=='pretrained':
         base_model = get_Network(constrNet)
     else:

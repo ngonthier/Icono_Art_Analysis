@@ -34,7 +34,8 @@ from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
     load_resize_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\
     get_ResNet_ROWD_gram_mean_features,get_VGGmodel_4Param_features,get_VGGmodel_features,\
-    get_cov_mean_of_InputImages,get_those_layers_output,get_Model_gram_mean_features,get_Model_cov_mean_features
+    get_cov_mean_of_InputImages,get_those_layers_output,get_Model_gram_mean_features,\
+    get_Model_cov_mean_features,get_Model_cov_mean_features_global_mean
 from keras_resnet_utils import getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion
 from inceptionV1_keras_utils import getInceptionV1LayersNumeral_bitsVersion,getInceptionV1LayersNumeral
 from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
@@ -344,7 +345,9 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                         getBeforeReLU=False,Net='VGG',style_layers_imposed=[],\
                         list_mean_and_std_source=[],list_mean_and_std_target=[],\
                         cropCenter=False,sizeIm=224,model_alreadyLoaded=None,
-                        randomCropValid=False,classe=None,KindOfMeanReduciton='instance'):
+                        randomCropValid=False,classe=None,
+                        KindOfMeanReduciton='instance',
+                        dict_global_means=None):
     """
     In this function we precompute the mean and cov for certain dataset
     @param : whatToload mention what you want to load by default only return variances
@@ -414,6 +417,11 @@ def Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
             net_get_cov = get_Model_cov_mean_features(style_layers,model_alreadyLoaded)
         elif KindOfMeanReduciton is None or  KindOfMeanReduciton=='':
             net_get_cov = get_Model_gram_mean_features(style_layers,model_alreadyLoaded)
+        elif KindOfMeanReduciton=='global':
+            net_get_cov = get_Model_cov_mean_features_global_mean(style_layers,model_alreadyLoaded,
+                                                       dict_global_means)
+        else:
+            raise(ValueError(KindOfMeanReduciton))
 
     for l,layer in enumerate(style_layers):
         dict_var[layer] = []
@@ -854,7 +862,8 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                    cropCenter=False,BV=True,sizeIm=224,model_alreadyLoaded=None,\
                    name_model=None,\
                    randomCropValid=False,classe=None,
-                   KindOfMeanReduciton='instance'):
+                   KindOfMeanReduciton='instance',
+                   dict_global_means=None):
     
     if not(model_alreadyLoaded is None) and name_model is None:
         print("You need to provide a name with the model !")
@@ -915,6 +924,8 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
         
     if KindOfMeanReduciton=='instance':
        filename +=  '_CovMean'
+    if KindOfMeanReduciton=='global':
+       filename +=  '_CovGMMean'
     elif KindOfMeanReduciton=='' or KindOfMeanReduciton is None:
        filename +=  '_GramMean'
     else:
@@ -933,6 +944,7 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
     if saveformat=='h5':
         filename += '.h5'
     filename_path= os.path.join(output_path_full,filename)
+    print('Filename of the gram/cov +mean data',filename_path)
     if not os.path.isfile(filename_path):
         dict_stats = Precompute_Mean_Cov(filename_path,style_layers,number_im_considered,\
                                        dataset=source_dataset,set=set,saveformat=saveformat,\
@@ -942,7 +954,9 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
                                        cropCenter=cropCenter,sizeIm=sizeIm,\
                                        model_alreadyLoaded=model_alreadyLoaded,\
                                        randomCropValid=randomCropValid,\
-                                       classe=classe,KindOfMeanReduciton=KindOfMeanReduciton)
+                                       classe=classe,\
+                                       KindOfMeanReduciton=KindOfMeanReduciton,\
+                                       dict_global_means=dict_global_means)
     else:
         dict_stats = load_precomputed_mean_cov(filename_path,style_layers,source_dataset,\
                                             saveformat=saveformat,whatToload=whatToload)

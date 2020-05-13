@@ -2401,7 +2401,7 @@ def get_Model_cov_mean_features(style_layers,pre_model):
           else: 
               input_cov_layer = pre_model.input
           mean_layer = Mean_Matrix_Layer()(input_cov_layer)
-          cov_layer = Cov_Matrix_Layer()([input_cov_layer,mean_layer])
+          cov_layer = Cov_Matrix_Layer([input_cov_layer,mean_layer])
           list_stats += [cov_layer,mean_layer]
       else:
           last_layer = layer
@@ -2421,7 +2421,28 @@ def get_Model_gram_mean_features(style_layers,pre_model):
           else: 
               input_cov_layer = pre_model.input
           mean_layer = Mean_Matrix_Layer()(input_cov_layer)
-          cov_layer = Gram_Matrix_Layer()([input_cov_layer])
+          cov_layer = Gram_Matrix_Layer()(input_cov_layer)
+          list_stats += [cov_layer,mean_layer]
+      else:
+          last_layer = layer
+  
+  model = models.Model(pre_model.input,list_stats)
+  model.trainable = False
+  return(model)
+  
+def get_Model_cov_mean_features_global_mean(style_layers,pre_model,dict_global_means):
+    
+  list_stats = []
+  last_layer = None
+  for layer in pre_model.layers:
+      if layer.name in style_layers:
+          global_mean_layer = dict_global_means[layer.name]
+          if not(last_layer is None):
+              input_cov_layer = layer.output
+          else: 
+              input_cov_layer = pre_model.input
+          mean_layer = Mean_Matrix_Layer()(input_cov_layer)
+          cov_layer = Cov_Global_Mean_Matrix_Layer(global_mean_layer)(input_cov_layer)
           list_stats += [cov_layer,mean_layer]
       else:
           last_layer = layer
@@ -2551,7 +2572,7 @@ def covariance_matrix_only(features_map,mean, eps=1e-8):
   features_map_reshaped = tf.transpose(features_map, (0,3, 1, 2))
   # bsxCxHxW -> bsxCxH*W
   features_map_flat = tf.reshape(features_map_reshaped, (bs,C, H*W))
-  f = features_map_flat - tf.reshape(mean, (bs,C, 1))
+  f = features_map_flat - tf.reshape(mean, (1,C, 1))
   # Covariance
   cov = tf.matmul(f, f, transpose_b=True) / (tf.cast(H*W, tf.float32)) # + tf.eye(C)*eps                          
   return(cov)
@@ -3423,13 +3444,33 @@ class Cov_Matrix_Layer(Layer):
         b,k1,k2,c = input_shape[0]
         return (b,c,c)
     
+class Cov_Global_Mean_Matrix_Layer(Layer):
+
+    def __init__(self,means, **kwargs):
+        self.means = means
+        super(Cov_Global_Mean_Matrix_Layer, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        super(Cov_Global_Mean_Matrix_Layer, self).build(input_shape)  
+        # Be sure to call this at the end
+
+    def call(self, x):
+        # f size bs,H,W,C
+        cov = covariance_matrix_only(x,self.means)
+        return cov
+
+    def compute_output_shape(self, input_shape):
+        assert isinstance(input_shape, list)
+        b,k1,k2,c = input_shape[0]
+        return (b,c,c)
+    
 class Gram_Matrix_Layer(Layer):
 
     def __init__(self, **kwargs):
-        super(Cov_Matrix_Layer, self).__init__(**kwargs)
+        super(Gram_Matrix_Layer, self).__init__(**kwargs)
 
     def build(self,input_shape):
-        super(Cov_Matrix_Layer, self).build(input_shape)  
+        super(Gram_Matrix_Layer, self).build(input_shape)  
         # Be sure to call this at the end
 
     def call(self, x):
