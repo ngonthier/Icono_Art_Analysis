@@ -462,7 +462,7 @@ def feature_block_var(channels,w, h=None, batch=None, sd=None, fft=True):
 def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name='',\
                  input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
                  DECORRELATE = True,ROBUSTNESS  = True,just_return_output=False,
-                 dico=None,image_shape=None):
+                 dico=None,image_shape=None,printOnlyRGB=True):
     #with tf.Graph().as_default() as graph, tf.Session() as sess:
     
     if not(os.path.isfile(os.path.join(model_path))):
@@ -533,7 +533,8 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         else:
             image = np.array(output_im[0][0]*255) # car une seule image dans le batch
             name_output = os.path.join(path_output,name_base)
-            tf.keras.preprocessing.image.save_img(name_output, image)
+            if not(printOnlyRGB):
+                tf.keras.preprocessing.image.save_img(name_output, image)
             
             new_output_path = os.path.join(path_output,'RGB')
             pathlib.Path(new_output_path).mkdir(parents=True, exist_ok=True) 
@@ -714,7 +715,7 @@ def lbfgs_min(model, objective_f, param_f=None, optimizer=None,
 def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLayer,\
                      path_output='',prexif_name='',\
                      input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
-                     DECORRELATE=True,ROBUSTNESS=True):
+                     DECORRELATE=True,ROBUSTNESS=True,printOnlyRGB=True):
 #    with tf.Graph().as_default() as graph, tf.Session() as sess:
     
     if not(os.path.isfile(os.path.join(model_path))):
@@ -795,7 +796,8 @@ def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLaye
                                   use_fixed_seed=True)
     image = np.array(output_im[0][0]*255) # car une seule image dans le batch
     name_output = os.path.join(path_output,name_base)
-    tf.keras.preprocessing.image.save_img(name_output, image)
+    if not(printOnlyRGB):
+        tf.keras.preprocessing.image.save_img(name_output, image)
     
     new_output_path = os.path.join(path_output,'RGB')
     pathlib.Path(new_output_path).mkdir(parents=True, exist_ok=True) 
