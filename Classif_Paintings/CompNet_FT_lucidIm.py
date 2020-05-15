@@ -56,7 +56,7 @@ import lucid_utils
 import platform
 
 possible_datasets = ['IconArt_v1','RMN','RASTA']
-possible_lr = ['small001_modif','big001_modif','small01_modif','big01_modif']
+possible_lr = ['big0001_modif','small001_modif','big001_modif','small01_modif','big01_modif']
 possible_opt = ['','_adam','_Adadelta']
 possible_freeze= ['','_unfreeze50','_unfreeze84','_unfreeze44']
 # _unfreeze50 for InceptionV1 to train starting at mixed4a_3x3_bottleneck_pre_relu
@@ -132,6 +132,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
     opt_option_small01=[0.1,0.01]
     opt_option_big=[0.001]
     opt_option_big01=[0.01]
+    opt_option_big001=[0.0001]
     
     if not(model_name in list_finetuned_models_name):
         raise(NotImplementedError(model_name+' is unknown.'))
@@ -140,6 +141,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         opt_option = opt_option_small
     elif 'big001' in model_name:
         opt_option = opt_option_big
+    elif 'big0001' in model_name:
+        opt_option = opt_option_big001
     elif 'small01' in  model_name:
         opt_option = opt_option_small01
     elif 'big01' in model_name:
@@ -720,7 +723,8 @@ def print_RASTA_performance():
                         'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',
                         'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200',
                         'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                        'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200'
+                        'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                        'RASTA_big001_modif_Adadelta_unfreeze50_cosineloss_MediumDataAug_ep200',
                         ]
     print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=list_models_name,
@@ -739,7 +743,8 @@ def print_IconArtv1_performance():
                         'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                         'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',
                         'IconArt_v1_big001_modif_adam_MediumDataAug_ep200',
-                        'IconArt_v1_big001_modif_adam_randomCrop_ep200'
+                        'IconArt_v1_big001_modif_adam_randomCrop_ep200',
+                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200'
                         ]
     print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=list_models_name,
@@ -1004,16 +1009,16 @@ if __name__ == '__main__':
 #                        ]
      
 #    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep1']
-    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
-                             'IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
-                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
-                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch',
-                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
-                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
-                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
-                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch']
-    
-    Comparaison_of_FineTunedModel(list_models_name_slim,constrNet='InceptionV1_slim')    
+#    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+#                             'IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
+#                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
+#                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch',
+#                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+#                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
+#                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
+#                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch']
+#    
+#    Comparaison_of_FineTunedModel(list_models_name_slim,constrNet='InceptionV1_slim')    
 
     list_model_name_1 = ['IconArt_v1_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                              'IconArt_v1_big001_modif_adam_unfreeze50_SmallDataAug_ep200_LastEpoch',
@@ -1025,12 +1030,27 @@ if __name__ == '__main__':
                              'RASTA_big001_modif_Adadelta_unfreeze50_cosineloss_MediumDataAug_ep200_LastEpoch',
                              'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
                              'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200_LastEpoch']
+    list_model_name_2 = ['IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
+                         'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200_LastEpoch',
+                         'IconArt_v1_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                         'IconArt_v1_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200_LastEpoch',
+                         'IconArt_v1_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                         'IconArt_v1_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200_LastEpoch',
+                         'IconArt_v1_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                         'IconArt_v1_big0001_modif_adam_unfreeze50_SmallDataAug_ep200_LastEpoch',
+                         'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                         'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200_LastEpoch',
+                         'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                         'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200_LastEpoch',
+                         'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                         'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200_LastEpoch'
+                         ]
     # RandForUnfreezed
 
 #    list_model_name_1 = ['RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200',
 #                        'RASTA_big001_modif_Adadelta_unfreeze44_cosineloss_MediumDataAug_ep200_LastEpoch',
 #                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
 #                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200_LastEpoch']
-    Comparaison_of_FineTunedModel(list_model_name_1,constrNet='InceptionV1') 
+    Comparaison_of_FineTunedModel(list_model_name_2,constrNet='InceptionV1') 
         
         

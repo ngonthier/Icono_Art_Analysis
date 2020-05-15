@@ -533,12 +533,12 @@ def print_rect_matrix(matrix,name,path,title=''):
     plt.title(title+' log(1+ abs(value))')
     plt.savefig(os.path.join(path,name+'_log_colormap.png'),dpi=dpi)
     plt.close()
-    fig,ax = plt.subplots()
-    pos = ax.imshow(np.log(1.+np.abs(matrix)),interpolation='none')
-    fig.colorbar(pos, ax=ax)
-    plt.title(title+' log(1+ abs(value))')
-    plt.savefig(os.path.join(path,name+'_log_colormap.png'),dpi=dpi)
-    plt.close()
+#    fig,ax = plt.subplots()
+#    pos = ax.imshow(np.log(1.+np.abs(matrix)),interpolation='none')
+#    fig.colorbar(pos, ax=ax)
+#    plt.title(title+' log(1+ abs(value))')
+#    plt.savefig(os.path.join(path,name+'_log_colormap.png'),dpi=dpi)
+#    plt.close()
     
     ## Cela semble beaucoup trop long a faire !
 #    fig, ax = plt.subplots()
@@ -549,7 +549,7 @@ def print_rect_matrix(matrix,name,path,title=''):
 #    
 #    plt.savefig(os.path.join(path,name+'_values.png'),dpi=dpi)
     
-def print_values(list_labels,list_arrays,path,name):
+def print_values(list_labels,list_arrays,path,name,title=''):
     assert(len(list_labels)==len(list_arrays))
     dpi = 600
     plt.figure()
@@ -558,6 +558,7 @@ def print_values(list_labels,list_arrays,path,name):
         plt.plot(x, array, label=label,linestyle = 'None',
                  marker='o',alpha=0.5)
     plt.legend()
+    plt.title(title)
     plt.savefig(os.path.join(path,name+'_plots.png'),dpi=dpi)
     
     
@@ -573,6 +574,8 @@ def print_stats_matrices(model_name = 'RASTA_small01_modif',
     if model_name=='pretrained':
         assert(not(source_dataset is None))
         str_folder = source_dataset
+    else:
+        str_folder = ''
     
     if platform.system()=='Windows': 
         output_path = os.path.join('CompModifModel',constrNet,model_name)
@@ -612,22 +615,25 @@ def print_stats_matrices(model_name = 'RASTA_small01_modif',
         if np.isnan(std_cov_matrix).any():
             print('There is nan value in std_cov_matrix')
             
-        name = 'GlobalCov_'+str(classe)
-        title = 'GlobalCov '+str(classe)
+        name = 'GlobalCov_'+layer+'_'+str(classe)
+        title = 'GlobalCov '+layer+' '+str(classe)
         print_rect_matrix(matrix=mean_cov_matrix,name=name,path=path_output_lucid_im,
                           title=title)
-        name = 'StdGlobalCov_'+str(classe)
-        title = 'StdGlobalCov '+str(classe)
+        name = 'StdGlobalCov_'+layer+'_'+str(classe)
+        title = 'StdGlobalCov '+layer+' '+str(classe)
         print_rect_matrix(matrix=std_cov_matrix,name=name,path=path_output_lucid_im,
                           title=title)
         list_means += [mean_spatial_means]
         list_cov += [np.ravel(mean_cov_matrix)]
         
-    name = 'Means'
-    print_values(list_labels=list_classes,list_arrays=list_means,path=path_output_lucid_im,name=name)
-    
-    name = 'Covs'
-    print_values(list_labels=list_classes,list_arrays=list_cov,path=path_output_lucid_im,name=name)
+    name = 'Means_'+layer
+    title = 'Means '+layer
+    print_values(list_labels=list_classes,list_arrays=list_means,path=path_output_lucid_im,name=name,
+                title=title)
+    name = 'Covs_'+layer
+    title = 'Covs '+layer
+    print_values(list_labels=list_classes,list_arrays=list_cov,path=path_output_lucid_im,name=name,
+                 title=title)
     
 
     
@@ -1502,6 +1508,8 @@ if __name__ == '__main__':
                        KindOfMeanReduciton='global')
     
     print_stats_matrices(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                         list_classes=[None,'Mary','ruins','nudity'],layer='mixed4d')
+    print_stats_matrices(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
                          list_classes=[None,'Mary','ruins','nudity'],layer='mixed4d')
     
 #    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = None,\
