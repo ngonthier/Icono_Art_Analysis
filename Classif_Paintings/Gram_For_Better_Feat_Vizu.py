@@ -35,8 +35,8 @@ from tensorflow.python.keras.layers import Concatenate,Activation,Dense,Flatten,
 
 from Study_Var_FeaturesMaps import get_dict_stats
 
-from CompNet_FT_lucidIm import get_fine_tuned_model,convert_finetuned_modelToFrozenGraph
-
+from CompNet_FT_lucidIm import get_fine_tuned_model,convert_finetuned_modelToFrozenGraph,\
+    get_path_pbmodel_pretrainedModel
 import lucid_utils
 
 from IMDB import get_database
@@ -49,7 +49,8 @@ from utils_keras import fix_layer0
 
 import Activation_for_model
 from StatsConstr_ClassifwithTL import predictionFT_net
-from CompNet_FT_lucidIm import get_fine_tuned_model
+
+from inceptionV1_keras_utils import get_dico_layers_type
 
 def plot_PCAlike_featureVizu_basedOnGramMatrix(model_name = 'RASTA_small01_modif',classe = None,\
                                    layer='mixed4d_pre_relu'):
@@ -374,15 +375,18 @@ def compute_global_mean_cov_matrices_onBigSet(
                                     classe = None,\
                                     layer='mixed4d_pre_relu',
                                     KindOfMeanReduciton = 'global',
-                                    verbose=False):
+                                    verbose=False,
+                                    source_dataset=None):
     """
     For a given layer and a given dataset given class
     """
-
-    if 'RASTA' in model_name:
-        source_dataset = 'RASTA'
-    elif 'IconArt_v1' in model_name:
-        source_dataset = 'IconArt_v1'
+    if model_name=='pretrained':
+        assert(not(source_dataset is None))
+    else:
+        if 'RASTA' in model_name:
+            source_dataset = 'RASTA'
+        elif 'IconArt_v1' in model_name:
+            source_dataset = 'IconArt_v1'
     number_im_considered = None
     style_layers = [layer]
     whatToload = 'all'
@@ -413,8 +417,11 @@ def compute_global_mean_cov_matrices_onBigSet(
     K.set_learning_phase(0)
 
     if not (os.path.isfile(path_data_cov_matrix) and os.path.isfile(path_data_std_cov_matrix) and os.path.isfile(path_data_mean_matrix)):
-    
-        fine_tuned_model, _ = get_fine_tuned_model(model_name,constrNet=constrNet,suffix='',get_Metrics=False)
+        
+        if model_name=='pretrained':
+            fine_tuned_model = Activation_for_model.get_Network(constrNet)
+        else:
+            fine_tuned_model, _ = get_fine_tuned_model(model_name,constrNet=constrNet,suffix='',get_Metrics=False)
 
         item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
         path_data,Not_on_NicolasPC = get_database(source_dataset)
@@ -526,6 +533,12 @@ def print_rect_matrix(matrix,name,path,title=''):
     plt.title(title+' log(1+ abs(value))')
     plt.savefig(os.path.join(path,name+'_log_colormap.png'),dpi=dpi)
     plt.close()
+    fig,ax = plt.subplots()
+    pos = ax.imshow(np.log(1.+np.abs(matrix)),interpolation='none')
+    fig.colorbar(pos, ax=ax)
+    plt.title(title+' log(1+ abs(value))')
+    plt.savefig(os.path.join(path,name+'_log_colormap.png'),dpi=dpi)
+    plt.close()
     
     ## Cela semble beaucoup trop long a faire !
 #    fig, ax = plt.subplots()
@@ -549,12 +562,17 @@ def print_values(list_labels,list_arrays,path,name):
     
     
 def print_stats_matrices(model_name = 'RASTA_small01_modif',
-                         list_classes=[None],layer='mixed4d_pre_relu'):
+                         list_classes=[None],layer='mixed4d_pre_relu',
+                         source_dataset=None):
     
     constrNet = 'InceptionV1'
     cropCenter = True
     set_ = 'train'
     KindOfMeanReduciton='global'
+    
+    if model_name=='pretrained':
+        assert(not(source_dataset is None))
+        str_folder = source_dataset
     
     if platform.system()=='Windows': 
         output_path = os.path.join('CompModifModel',constrNet,model_name)
@@ -562,13 +580,15 @@ def print_stats_matrices(model_name = 'RASTA_small01_modif',
         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
 
     if KindOfMeanReduciton=='instance':
-        path_output_lucid_im = os.path.join(output_path,'PCAlucid')
+        path_output_lucid_im = os.path.join(output_path,'PCAlucid'+str_folder)
     if KindOfMeanReduciton=='global':
-        path_output_lucid_im = os.path.join(output_path,'PCACovGMeanlucid')
+        path_output_lucid_im = os.path.join(output_path,'PCACovGMeanlucid'+str_folder)
     elif KindOfMeanReduciton=='' or KindOfMeanReduciton is None:
-        path_output_lucid_im = os.path.join(output_path,'PCAGramlucid')
+        path_output_lucid_im = os.path.join(output_path,'PCAGramlucid'+str_folder)
     else:
         raise(NotImplementedError)
+    
+    pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True) 
     
     list_means = []
     list_cov = []
@@ -577,12 +597,13 @@ def print_stats_matrices(model_name = 'RASTA_small01_modif',
         print('classe',classe)
         
         mean_cov_matrix,std_cov_matrix,mean_spatial_means = compute_global_mean_cov_matrices_onBigSet(constrNet=constrNet,
-                                                  cropCenter=cropCenter,
-                                                  set_=set_,
+                                                  cropCenter=cropCenter,\
+                                                  set_=set_,\
                                                   model_name = model_name,
                                                    classe = classe,\
-                                                   layer=layer,
-                                                   KindOfMeanReduciton=KindOfMeanReduciton)
+                                                   layer=layer,\
+                                                   KindOfMeanReduciton=KindOfMeanReduciton,\
+                                                   source_dataset=source_dataset)
         
         features_size,_ = mean_cov_matrix.shape
         
@@ -610,10 +631,12 @@ def print_stats_matrices(model_name = 'RASTA_small01_modif',
     
 
     
-def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',
+def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
                                classe = None,\
-                               layer='mixed4d_pre_relu',
-                               plot_FeatVizu=False):
+                               layer='mixed4d_pre_relu',\
+                               plot_FeatVizu=False,\
+                               source_dataset=None,
+                               num_components_draw = 10):
     
     constrNet = 'InceptionV1'
     cropCenter = True
@@ -621,12 +644,13 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',
     KindOfMeanReduciton='global'
     
     mean_cov_matrix,std_cov_matrix,mean_spatial_means = compute_global_mean_cov_matrices_onBigSet(constrNet=constrNet,
-                                              cropCenter=cropCenter,
-                                              set_=set_,
-                                              model_name = model_name,
+                                              cropCenter=cropCenter,\
+                                              set_=set_,\
+                                              model_name = model_name,\
                                                classe = classe,\
-                                               layer=layer,
-                                               KindOfMeanReduciton=KindOfMeanReduciton)
+                                               layer=layer,\
+                                               KindOfMeanReduciton=KindOfMeanReduciton,\
+                                               source_dataset=source_dataset)
     
     features_size,_ = mean_cov_matrix.shape
     
@@ -656,7 +680,7 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',
     # Compute the eigen values 
     #del std_cov_matrix,where_std_sup_abs_mean,where_std_sup_mean
     
-    print('plot_FeatVizu',plot_FeatVizu)
+    print('plot_FeatVizu',plot_FeatVizu,'for ',classe)
     if plot_FeatVizu:
     
         eigen_values, eigen_vectors = LA.eig(mean_cov_matrix)
@@ -672,30 +696,46 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',
         print('Eigen values 10 first value',eigen_values[0:10])
         #print('First eigen vector :',eigen_vectors[:,0])
         print('Max imag part first vector :',np.max(np.imag(eigen_vectors[:,0])))
-        eigen_vectors = np.real(eigen_vectors)
-    
-        num_components_draw = 10
+        eigen_vectors = np.real(eigen_vectors) 
+#        if KindOfMeanReduciton=='global':
+#            eigen_vectors = eigen_vectors + np.reshape(mean_spatial_means,(1,features_size))
+#    
         
-        name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
-        if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
-            name_pb = convert_finetuned_modelToFrozenGraph(model_name,
-                                       constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+        if not(model_name=='pretrained'):
+            name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
+            if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
+                name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                                           constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+            if constrNet=='VGG':
+                input_name_lucid ='block1_conv1_input'
+            elif constrNet=='InceptionV1':
+                input_name_lucid ='input_1'
         
-        if constrNet=='VGG':
-            input_name_lucid ='block1_conv1_input'
-        elif constrNet=='InceptionV1':
-            input_name_lucid ='input_1'
+        else:
+            name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
+            
+            
+
         for comp_number in range(num_components_draw):
             weights = eigen_vectors[:,comp_number]
-            #weights = weights[0:1]
-            #print('weights',weights)
-            #time.sleep(.300)
             prexif_name = '_PCA'+str(comp_number)
             if not(classe is None):
                prexif_name += '_'+classe 
             index_features_withinLayer_all = np.arange(0,features_size)
             lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
                              layer_to_print=layer,weights=weights,\
+                             index_features_withinLayer=index_features_withinLayer_all,\
+                             path_output=path_output_lucid_im,prexif_name=prexif_name,\
+                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+           
+            minus_weights = -weights
+            prexif_name = '_PCA'+str(comp_number)
+            if not(classe is None):
+               prexif_name += '_'+classe 
+            prexif_name += '_NegDir' # Negative direction
+            index_features_withinLayer_all = np.arange(0,features_size)
+            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+                             layer_to_print=layer,weights=minus_weights,\
                              index_features_withinLayer=index_features_withinLayer_all,\
                              path_output=path_output_lucid_im,prexif_name=prexif_name,\
                              input_name=input_name_lucid,Net=constrNet,sizeIm=256)
@@ -708,16 +748,16 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',
                              index_features_withinLayer=where_pos,\
                              path_output=path_output_lucid_im,prexif_name=prexif_name_pos,\
                              input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-            
+#            
             prexif_name_neg = prexif_name + '_NegContrib'
-            where_neg = np.where(weights>0.)[0]
+            where_neg = np.where(weights<0.)[0]
             weights_neg = list(-weights[where_neg])
             lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
                              layer_to_print=layer,weights=weights_neg,\
                              index_features_withinLayer=where_neg,\
                              path_output=path_output_lucid_im,prexif_name=prexif_name_neg,\
                              input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-            
+#            
             where_max = np.argmax(weights)
             prexif_name_max = prexif_name+  '_Max'+str(where_max)
             lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
@@ -725,7 +765,7 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',
                              index_features_withinLayer=[where_max],\
                              path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
                              input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-            
+#            
             where_min = np.argmin(weights)
             prexif_name_max = prexif_name+  '_Min'+str(where_min)
             lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
@@ -865,6 +905,152 @@ def produce_latex_text(model_name = 'RASTA_small01_modif',
                 file.write(str_neg)
 
     file.close()
+    
+def produce_latex_textV2(model_name = 'RASTA_small01_modif',
+                       layer_tab=['mixed4d_pre_relu'],classe_tab = [None],
+                       folder_im_latex='im',
+                       num_components_draw = 10,
+                       KindOfMeanReduciton='global'):
+    
+    constrNet = 'InceptionV1'
+    
+    if constrNet=='InceptionV1':
+        dico = get_dico_layers_type()
+    else:
+        raise(NotImplementedError)
+    
+    
+    
+    path_base  = os.path.join('C:\\','Users','gonthier')
+    ownCloudname = 'ownCloud'
+    
+    if not(os.path.exists(path_base)):
+        path_base  = os.path.join(os.sep,'media','gonthier','HDD')
+        ownCloudname ='owncloud'
+        
+    if KindOfMeanReduciton=='instance':
+        path_to_im_local = os.path.join(folder_im_latex,model_name,'PCAlucid')
+    if KindOfMeanReduciton=='global':
+        path_to_im_local = os.path.join(folder_im_latex,model_name,'PCACovGMeanlucid')
+    elif KindOfMeanReduciton=='' or KindOfMeanReduciton is None:
+        path_to_im_local = os.path.join(folder_im_latex,model_name,'PCAGramlucid')
+    else:
+        raise(NotImplementedError)
+    
+    folder_im_this_model = os.path.join(path_base,ownCloudname,'Mes_Presentations_Latex','2020-04_Feature_Visualisation',path_to_im_local)
+    
+    list_all_image = glob.glob(folder_im_this_model+'\*.png')
+    #print(list_all_image)
+    
+    file_path = os.path.join(folder_im_this_model,'printImages.tex')
+    file = open(file_path,"w") 
+    
+    for layer in layer_tab:
+        typelayer = dico[layer]
+        for classe in classe_tab:
+            if classe is None:
+                classe_str =''
+                latex_str = ''
+            else:
+                classe_str = '_'+classe
+                latex_str = r" - %s" % classe.replace('_','\_') 
+                latex_str += r" classe only"
+            
+            for i in range(num_components_draw):
+                base_name_im = layer + typelayer+'__PCA'+str(i)+classe_str
+                base_name_im_max = layer + typelayer+'__PCA'+str(i)+'_Max'
+                base_name_im_min = layer + typelayer+'__PCA'+str(i)+'_Min'
+                name_main_image = base_name_im + '_Deco'+'_toRGB.png'
+                name_negdir = base_name_im + '_NegDir_Deco'+'_toRGB.png'
+                name_maxcontrib_image = base_name_im + '_PosContrib_Deco'+'_toRGB.png'
+                name_mincontrib_image = base_name_im + '_NegContrib_Deco'+'_toRGB.png'
+                print(list_all_image)
+                name_max_image = None
+                name_min_image = None
+                for name_local in list_all_image:
+                    _,name_local = os.path.split(name_local)
+                    #print(name_local)
+                    if base_name_im_max in name_local:
+                        #print('Max')
+                        name_local_tab = name_local.split('_')
+                        for elt in name_local_tab:
+                            if 'Max' in elt:
+                                max_index = elt.replace('Max','')
+                        name_max_image = base_name_im_max + max_index + '_Deco_toRGB.png'
+                    elif base_name_im_min in name_local:
+                        #print('Min')
+                        name_min_image = name_local
+                        name_local_tab = name_local.split('_')
+                        for elt in name_local_tab:
+                            if 'Min' in elt:
+                                min_index = elt.replace('Min','')
+                        name_min_image = base_name_im_min + min_index + '_Deco_toRGB.png'
+                           
+                if name_min_image is None:
+                    print(base_name_im_min,'not found !')
+                    return(0)
+                if name_max_image is None:
+                    print(base_name_im_max,'not found !')
+                    return(0)
+                # Text for Positive contrib slide
+                newline = " \n"
+                str_beg = r"\frame{  " +newline
+                str_beg += r" \frametitle{%s" % model_name.replace('_','\_')
+                str_beg += r" - %s" % layer.replace('_','\_')
+                str_beg += r" - component %s" % str(i) 
+                str_beg +=  latex_str 
+                str_beg +=  "} \n " 
+                str_pos = str_beg + r"\begin{figure}[!tbp] " +newline
+                str_pos += r"\begin{minipage}[b]{0.29\textwidth}   "+newline
+                path_to_im = os.path.join(path_to_im_local,name_main_image).replace("\\", "/")
+                str_pos += r"\includegraphics[width=\textwidth]{%s} \\ " % path_to_im
+                str_pos += newline
+                str_pos += r"{\scriptsize All contribution}"  +newline
+                str_pos += r"\end{minipage} \hfill"  +newline
+                str_pos +=  r"\begin{minipage}[b]{0.29\textwidth} " +newline
+                path_to_im = os.path.join(path_to_im_local,name_maxcontrib_image).replace("\\", "/")
+                str_pos += r"\includegraphics[width=\textwidth]{%s} \\  " % path_to_im
+                str_pos += newline
+                str_pos += r"{\scriptsize Pos contribution}  " +newline
+                str_pos += r"\end{minipage} \hfill " +newline
+                str_pos += r"\begin{minipage}[b]{0.29\textwidth} " +newline
+                path_to_im = os.path.join(path_to_im_local,name_max_image).replace("\\", "/")
+                str_pos += r"\includegraphics[width=\textwidth]{%s} \\  " % path_to_im
+                str_pos += newline
+                str_pos += r"{\scriptsize Max contribution %s  } "% max_index
+                str_pos += newline
+                str_pos += r"\end{minipage} \hfill " +newline
+                str_pos += r"\end{figure} " +newline
+                str_pos += "} \n "
+                
+                str_neg = str_beg
+                str_neg += r"\begin{figure}[!tbp] " +newline
+                str_neg += r"\begin{minipage}[b]{0.29\textwidth}   "+newline
+                path_to_im = os.path.join(path_to_im_local,name_negdir).replace("\\", "/")
+                str_neg += r"\includegraphics[width=\textwidth]{%s} \\ " % path_to_im
+                str_neg += newline
+                str_neg += r"{\scriptsize All contribution Neg Direction}"  +newline
+                str_neg += r"\end{minipage} \hfill"  +newline
+                str_neg +=  r"\begin{minipage}[b]{0.29\textwidth} " +newline
+                path_to_im = os.path.join(path_to_im_local,name_mincontrib_image).replace("\\", "/")
+                str_neg += r"\includegraphics[width=\textwidth]{%s} \\ " % path_to_im
+                str_neg += newline
+                str_neg += r"{\scriptsize Neg contribution} "+newline
+                str_neg += r"\end{minipage} \hfill " +newline
+                str_neg += r"\begin{minipage}[b]{0.29\textwidth}  "+newline
+                path_to_im = os.path.join(path_to_im_local,name_min_image).replace("\\", "/")
+                str_neg += r"\includegraphics[width=\textwidth]{%s} \\  "% path_to_im
+                str_neg += newline
+                str_neg += r"{\scriptsize Min contribution  %s  } "% min_index
+                str_neg += newline
+                str_neg += r"\end{minipage} \hfill   " +newline
+                str_neg += r"\end{figure} " +newline
+                str_neg += "} \n "
+                
+                file.write(str_pos)
+                file.write(str_neg)
+
+    file.close()
         
 def Generate_Im_class_conditionated(model_name='IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                                     constrNet = 'InceptionV1',
@@ -876,6 +1062,8 @@ def Generate_Im_class_conditionated(model_name='IconArt_v1_big001_modif_adam_unf
         Step 2 : faire la PCA de ce block de features
         Step 3 : generer l'image qui maximise la premiere composante de cette 
         decomposition
+        
+    Cela ne fonctionne pas du tout !!!
         
     """
     
@@ -1289,14 +1477,29 @@ if __name__ == '__main__':
 #                       layer_tab=['mixed4d_pre_relu','mixed4b_pre_relu'],classe_tab = [None,'Mary'],
 #                       folder_im_latex='im')
     
+
+    PCAbased_FeaVizu_deepmodel(model_name = 'pretrained',\
+                                   layer='mixed4d',classe='nudity',
+                                   source_dataset='IconArt_v1',plot_FeatVizu=True)
+    
+    print_stats_matrices(model_name = 'pretrained',
+                         list_classes=[None,'Mary','ruins','nudity'],layer='mixed4d',
+                         source_dataset='IconArt_v1')
+    
     PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = None,\
-                                   layer='mixed4d',plot_FeatVizu=False)
+                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
     PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
-                                   layer='mixed4d',classe='Mary')
+                                   layer='mixed4d',classe='Mary',plot_FeatVizu=True,num_components_draw=3)
     PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
-                                   layer='mixed4d',classe='ruins')
+                                   layer='mixed4d',classe='ruins',plot_FeatVizu=True,num_components_draw=3)
     PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
-                                   layer='mixed4d',classe='nudity')
+                                   layer='mixed4d',classe='nudity',plot_FeatVizu=True,num_components_draw=3)
+    
+    produce_latex_textV2(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                       layer_tab=['mixed4d'],classe_tab = [None,'Mary','ruins','nudity'],
+                       folder_im_latex='im',
+                       num_components_draw = 3,
+                       KindOfMeanReduciton='global')
     
     print_stats_matrices(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                          list_classes=[None,'Mary','ruins','nudity'],layer='mixed4d')
@@ -1319,6 +1522,15 @@ if __name__ == '__main__':
     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                                classe ='Ukiyo-e',\
                                 layer='mixed4d')
+    
+    print_stats_matrices(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                         list_classes=[None,'Northern_Renaissance','Abstract_Art','Ukiyo-e'],
+                         layer='mixed4d',
+                         source_dataset='RASTA')
+    print_stats_matrices(model_name = 'pretrained',
+                         list_classes=[None,'Northern_Renaissance','Abstract_Art','Ukiyo-e'],
+                         layer='mixed4d',
+                         source_dataset='RASTA')
     
     
     

@@ -435,6 +435,29 @@ def print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_
                       ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
     else:
         raise(NotImplementedError(constrNet+' is unknown here.'))
+        
+def get_path_pbmodel_pretrainedModel(constrNet='InceptionV1'):
+    if constrNet=='VGG':
+        # For the original pretrained imagenet VGG
+        model_path = os.path.join('model','tf_vgg19.pb')
+        if not(os.path.exists(model_path)):
+            lucid_utils.create_pb_model_of_pretrained(constrNet)
+    elif constrNet=='InceptionV1':
+        model_path = os.path.join('model','tf_inception_v1.pb')
+        if not(os.path.exists(model_path)):
+            lucid_utils.create_pb_model_of_pretrained(constrNet)
+    elif constrNet=='InceptionV1_slim':
+        model_path = os.path.join('model','tf_inception_v1_slim.pb')
+        if not(os.path.exists(model_path)):
+            lucid_utils.create_pb_model_of_pretrained(constrNet)
+    elif constrNet=='ResNet50':
+        model_path = os.path.join('model','tf_resnet50.pb')
+        if not(os.path.exists(model_path)):
+            lucid_utils.create_pb_model_of_pretrained(constrNet)
+    else:
+        raise(NotImplementedError(constrNet+' is unknown here.'))
+    input_name_lucid = 'input_1'
+    return(model_path,input_name_lucid)
 
 def why_white_output():
     """
@@ -679,12 +702,58 @@ def print_DiffRelat_FineTuned_network(constrNet='InceptionV1',list_models_name=N
                 dict_layers_relative_diff = pickle.load(handle)
             
             
-        
-        
-        
+def print_RASTA_performance():
+    list_models_name = ['RASTA_small01_modif',
+                        'RASTA_small001_modif',
+                        'RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision',
+                        'RASTA_big001_modif_deepSupervision',
+                        'RASTA_small01_modif',
+                        'RASTA_small001_modif',
+                        'RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision',
+                        'RASTA_big001_modif_deepSupervision',
+                        'RASTA_small01_modif_dataAug_ep120',
+                        'RASTA_small01_modif_deepSupervision_ep120',
+                        'RASTA_big001_modif_dataAug',
+                        'RASTA_big001_modif_RandInit_ep120',
+                        'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',
+                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200',
+                        'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                        'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200'
+                        ]
+    print_performance_FineTuned_network(constrNet='InceptionV1',
+                                        list_models_name=list_models_name,
+                                        suffix_tab=[''],latexOutput=True)
+    
+    list_models_name=['RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+                      'RASTA_big001_modif_Adadelta_unfreeze84_MediumDataAug_ep200']
+    print_performance_FineTuned_network(constrNet='InceptionV1_slim',
+                                        list_models_name=list_models_name,
+                                        suffix_tab=[''],latexOutput=True)
+def print_IconArtv1_performance():
+
+    list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200',
+                        'IconArt_v1_big001_modif_Adadelta_unfreeze50_MediumDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_MediumDataAug_ep200',
+                        'IconArt_v1_big001_modif_adam_randomCrop_ep200'
+                        ]
+    print_performance_FineTuned_network(constrNet='InceptionV1',
+                                        list_models_name=list_models_name,
+                                        suffix_tab=[''],latexOutput=True)
+    
+    list_models_name=['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+                      'IconArt_v1_big001_modif_Adadelta_unfreeze84_MediumDataAug_ep200']
+    print_performance_FineTuned_network(constrNet='InceptionV1_slim',
+                                        list_models_name=list_models_name,
+                                        suffix_tab=[''],latexOutput=True)
+    
 def print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=None,
-                                        suffix_tab=['']):
+                                        suffix_tab=[''],latexOutput=False):
     """
     This function will return and print the metrics / compute them if needed
     """    
@@ -739,13 +808,27 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                 metrics = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix,
                                                get_Metrics=True)
                 
-                if not('RASTA' in model_name):
-                    AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
-                    print('MAP {0:.2f}'.format(np.mean(AP_per_class)))
+                if not(latexOutput):
+                    if not('RASTA' in model_name):
+                        AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
+                        print('MAP {0:.2f}'.format(np.mean(AP_per_class)))
+                    else:
+                        top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class = metrics
+                        for k,top_k_acc in zip([1,3,5],top_k_accs):
+                            print('Top-{0} accuracy : {1:.2f}%'.format(k,top_k_acc*100))
                 else:
-                    top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class = metrics
-                    for k,top_k_acc in zip([1,3,5],top_k_accs):
-                        print('Top-{0} accuracy : {1:.2f}%'.format(k,top_k_acc*100))
+                    latex_str = constrNet.replace('_','\_')  
+                    latex_str += ' & ' + model_name.replace('_','\_')
+                    if not('RASTA' in model_name):
+                        AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
+                        latex_str += ' & ' + '{0:.2f}'.format(np.mean(AP_per_class))
+                    else:
+                        top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class = metrics
+                        for k,top_k_acc in zip([1,3,5],top_k_accs):
+                            latex_str += ' & ' + '{0:.2f}'.format(np.mean(top_k_acc*100))
+                            #print('Top-{0} accuracy : {1:.2f}%'.format(k,top_k_acc*100))
+                    latex_str += "\\\\"
+                    print(latex_str)
 
 def plotHistory_of_training():
     
