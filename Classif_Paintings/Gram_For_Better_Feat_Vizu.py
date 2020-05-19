@@ -20,13 +20,11 @@ import pathlib
 import time
 import glob
 import matplotlib.pyplot as plt
-
 import tempfile
 import json
 import h5py
 
 from tensorflow.python.keras.models import load_model
-
 from sklearn.decomposition import PCA
 from tensorflow.python.keras import backend as K
 import tensorflow as tf
@@ -34,17 +32,12 @@ from tensorflow.python.keras import Model
 from tensorflow.python.keras.layers import Concatenate,Activation,Dense,Flatten,Input,Dropout,InputLayer
 
 from Study_Var_FeaturesMaps import get_dict_stats
-
 from CompNet_FT_lucidIm import get_fine_tuned_model,convert_finetuned_modelToFrozenGraph,\
     get_path_pbmodel_pretrainedModel
 import lucid_utils
-
 from IMDB import get_database
-
 from infere_layers_info import get_dico_layers_type_all_layers_fromNet
-
 from googlenet import LRN,PoolHelper
-
 from utils_keras import fix_layer0
 
 import Activation_for_model
@@ -735,15 +728,12 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
                              input_name=input_name_lucid,Net=constrNet,sizeIm=256)
            
             minus_weights = -weights
-            prexif_name = '_PCA'+str(comp_number)
-            if not(classe is None):
-               prexif_name += '_'+classe 
-            prexif_name += '_NegDir' # Negative direction
+            prexif_name_negDir =prexif_name+ '_NegDir' # Negative direction
             index_features_withinLayer_all = np.arange(0,features_size)
             lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
                              layer_to_print=layer,weights=minus_weights,\
                              index_features_withinLayer=index_features_withinLayer_all,\
-                             path_output=path_output_lucid_im,prexif_name=prexif_name,\
+                             path_output=path_output_lucid_im,prexif_name=prexif_name_negDir,\
                              input_name=input_name_lucid,Net=constrNet,sizeIm=256)
             
             prexif_name_pos = prexif_name + '_PosContrib'
@@ -1058,9 +1048,9 @@ def produce_latex_textV2(model_name = 'RASTA_small01_modif',
 
     file.close()
         
-def Generate_Im_class_conditionated(model_name='IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+def Generate_Im_class_conditionated_oldOne(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                                     constrNet = 'InceptionV1',
-                                    classe='Mary',layer='mixed4d_pre_relu'):
+                                    classe='Northern_Renaissance',layer='mixed4d_pre_relu'):
     """
     L idee de cette fonction est la suivante en deux étapes :
         Step 1 : creer le block au milieu du reseau qui maximise de maniere robuste
@@ -1239,6 +1229,294 @@ def Generate_Im_class_conditionated(model_name='IconArt_v1_big001_modif_adam_unf
                          input_name=input_name_lucid,Net=constrNet,sizeIm=256)
 
 
+def normalize(x):
+    """utility function to normalize a tensor.
+
+    # Arguments
+        x: An input tensor.
+
+    # Returns
+        The normalized input tensor.
+    """
+    return x / (K.sqrt(K.mean(K.square(x))) + K.epsilon())
+
+        
+def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                                    constrNet = 'InceptionV1',
+                                    classe='Northern_Renaissance',layer='mixed4d',
+                                    num_components_draw = 3):
+    """
+    L idee de cette fonction est la suivante en deux étapes :
+        Step 1 : creer le block au milieu du reseau qui maximise de maniere robuste
+        la réponse a une des classes 
+        Step 2 : faire la PCA de ce block de features
+        Step 3 : generer l'image qui maximise la premiere composante de cette 
+        decomposition
+        
+    Cela ne fonctionne pas du tout !!!
+        
+    """
+    
+    if 'IconArt_v1' in model_name:
+        dataset = 'IconArt_v1'
+    elif 'RASTA'  in model_name:
+        dataset = 'RASTA'
+    else:
+        raise(ValueError('The dataset is unknown'))
+    
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+    path_data,Not_on_NicolasPC = get_database(dataset)
+    
+    assert(classe in classes)
+    
+    index_class = classes.index(classe) # Index de la classe en question
+    #print(classe,index_class)
+    
+    if constrNet=='VGG':
+        input_name_lucid ='block1_conv1_input'
+    elif constrNet=='InceptionV1':
+        input_name_lucid ='input_1'
+        #trainable_layers_name = get_trainable_layers_name()
+    elif constrNet=='InceptionV1_slim':
+        input_name_lucid ='input_1'
+        #trainable_layers_name = trainable_layers()
+    elif constrNet=='ResNet50':
+        input_name_lucid ='input_1'
+        raise(NotImplementedError('Not implemented yet with ResNet for print_images'))
+    else:
+        raise(NotImplementedError(constrNet + ' is not implemented sorry.'))
+    
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet)
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
+    path_output_lucid_im = os.path.join(output_path,'PCAlucid')
+
+
+    #matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
+    
+    suffix = ''
+    
+    #K.set_learning_phase(0)
+    #with K.get_session().as_default(): 
+    path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
+    
+    #print('#### ',model_name)
+    output_path_with_model = os.path.join(output_path,model_name+suffix)
+    pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
+    
+    net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+    
+    layer_concerned = net_finetuned.get_layer(layer)
+    
+    # Ici il faudrait calculer le max et le min possible pour cette feature maps
+    
+    # Tester pour mixed4d mais pas pour mixed4d_pre_relu
+    part_model = get_truncated_keras_model(model=net_finetuned,
+                                           model_name=model_name,
+                                           new_input_layer_name=layer,
+                                           constrNet=constrNet,
+                                           batch_size=1,
+                                           reshape=False)  
+    part_model.trainable = False
+
+    
+    
+    loss_c = part_model.output[0][index_class]
+    grad_symbolic = K.gradients(loss_c, part_model.inputs[0])[0]
+    grad_symbolic_minus_loss = K.gradients(-loss_c, part_model.inputs[0])[0]
+    #grad_symbolic = K.gradients(loss_c, part_model.get_layer('new_input_1').input)[0]
+    symbolic_loss_c_plus_gradient = K.function(part_model.inputs[0], [loss_c,grad_symbolic])
+    symbolic_minus_loss_c_and_gradient = K.function(part_model.inputs[0], [-loss_c,grad_symbolic_minus_loss])
+    #symbolic_loss_c_plus_gradient = K.function([part_model.get_layer('new_input_1').input], [loss_c,grad_symbolic])
+    symbolic_loss_c = K.function(part_model.inputs[0], loss_c)
+    symbolic_minus_loss = K.function(part_model.inputs[0], -loss_c)
+    iterate_only_grad = K.function([part_model.input], [grad_symbolic])
+    iterate = K.function([part_model.input], [grad_symbolic,loss_c])
+    
+    layer_output = layer_concerned.output
+    dim_shape = layer_output.shape.dims
+    new_input_shape = []
+    for dim in dim_shape:
+        new_input_shape += [dim.value]
+    new_input_shape.pop(0) #remove the batch size dim
+    variable_shape = [1] + new_input_shape
+    part_model.build(variable_shape)
+    max_x_value= 1
+    variable = max_x_value*np.random.random(variable_shape) # il faudrait peut etre 
+
+    grads = normalize(grad_symbolic)
+    # this function returns the loss and grads given the input picture
+    iterate = K.function(part_model.inputs[0], [loss_c, grads])
+    epochs = 200
+    step = 1.
+    for _ in range(epochs):
+        loss_value, grads_value = iterate(variable)
+        variable += grads_value * step
+    
+    print('Final Loss : ',loss_value)
+    print('Bounds of the block',np.max(variable),np.min(variable))
+    
+    features_size = new_input_shape[-1]
+    feature_block_reshaped = variable.reshape((-1,variable.shape[-1]))
+        
+    suffix_str =  suffix_str = suffix
+    name_pb_full_model = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
+    if not(os.path.isfile(os.path.join(path_lucid_model,name_pb_full_model))):
+        name_pb_full_model = convert_finetuned_modelToFrozenGraph(model_name,
+                                   constrNet=constrNet,
+                                   path=path_lucid_model,suffix=suffix)
+        
+    pca = PCA(n_components=None,copy=True,whiten=False)
+    pca.fit(feature_block_reshaped)
+    print('Eigen values 10 first value',pca.singular_values_[0:10])
+    print('Explained ratio 10 first',pca.explained_variance_ratio_[0:10])
+    eigen_vectors = pca.components_
+    print('pca_comp',eigen_vectors.shape)
+    first_vector = eigen_vectors[0,:]
+              
+    
+    
+    path_output_lucid_im = os.path.join(output_path,'PCAlucid_classCond')
+
+    pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True) 
+    
+    if constrNet=='VGG':
+        input_name_lucid ='block1_conv1_input'
+    elif constrNet=='InceptionV1':
+        input_name_lucid ='input_1'
+    for comp_number in range(num_components_draw):
+        weights = eigen_vectors[:,comp_number]
+        #weights = weights[0:1]
+        #print('weights',weights)
+        #time.sleep(.300)
+
+        prexif_name = '_PCA'+str(comp_number)
+        if not(classe is None):
+           prexif_name += '_'+classe 
+        index_features_withinLayer_all = np.arange(0,features_size)
+        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                         layer_to_print=layer,weights=weights,\
+                         index_features_withinLayer=index_features_withinLayer_all,\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+       
+        minus_weights = -weights
+        prexif_name_negDir =prexif_name+ '_NegDir' # Negative direction
+        index_features_withinLayer_all = np.arange(0,features_size)
+        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                         layer_to_print=layer,weights=minus_weights,\
+                         index_features_withinLayer=index_features_withinLayer_all,\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name_negDir,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        
+        prexif_name_pos = prexif_name + '_PosContrib'
+        where_pos = np.where(weights>0.)[0]
+        weights_pos = list(weights[where_pos])
+        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                         layer_to_print=layer,weights=weights_pos,\
+                         index_features_withinLayer=where_pos,\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name_pos,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+#            
+        prexif_name_neg = prexif_name + '_NegContrib'
+        where_neg = np.where(weights<0.)[0]
+        weights_neg = list(-weights[where_neg])
+        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                         layer_to_print=layer,weights=weights_neg,\
+                         index_features_withinLayer=where_neg,\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name_neg,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+#            
+        where_max = np.argmax(weights)
+        prexif_name_max = prexif_name+  '_Max'+str(where_max)
+        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                         layer_to_print=layer,weights=[1.],\
+                         index_features_withinLayer=[where_max],\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+#            
+        where_min = np.argmin(weights)
+        prexif_name_max = prexif_name+  '_Min'+str(where_min)
+        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                         layer_to_print=layer,weights=[1.],\
+                         index_features_withinLayer=[where_min],\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+
+## Tentative de faire avec LBFGS mais cela n'a pas fonctionner
+#    number_iter = 10
+#    lr = 1.0
+#    for i in range(number_iter):
+#      gradient,loss_value = iterate(variable)
+#      print(i,loss_value)
+#      print('bound grad',np.max(gradient),np.min(gradient),gradient.shape)
+#      variable += lr*gradient
+#      print('boudn var',np.max(variable),np.min(variable),variable.shape)
+#      
+##      
+#    max_x_value= 1
+##    variable = max_x_value*np.random.random(variable_shape) # il faudrait peut etre 
+##
+##    number_iter = 30000
+##    loss_value = 0.
+##    itera = 0
+##    while (loss_value <0.9 and itera <number_iter):
+##        gradient,loss_value = iterate(variable)
+##        variable += lr*gradient
+#        
+#    # Tentative avec LBFGSde scipy : ne marche pas
+#    import scipy
+#    x0 = max_x_value*np.random.random(variable_shape)
+#    x0 = max_x_value*np.random.random([1,14,14,528])
+#    x0 = max_x_value*np.random.random([1*14*14*528])
+#
+#
+#    x_f,f,d =scipy.optimize.fmin_l_bfgs_b(symbolic_minus_loss, x0, fprime=grad_symbolic_minus_loss) # If fprime==None, then func returns the function value and the gradient (f, g = func(x, *args)), )
+#
+#
+#    x_f,f,d =scipy.optimize.fmin_l_bfgs_b(symbolic_minus_loss_c_and_gradient, x0, fprime=None) # If fprime==None, then func returns the function value and the gradient (f, g = func(x, *args)), )
+    #res = scipy.optimize.minimize(symbolic_minus_loss, x0, method='L-BFGS-B')
+#    input_block = part_model.inputs[0]
+#    x_tf_var = tf.Variable(max_x_value*np.random.random(variable_shape))
+#    loss_output = symbolic_minus_loss(x_tf_var)
+#    optimizer = tf.contrib.opt.ScipyOptimizerInterface(loss_output,method='L-BFGS-B')
+#    trainable_variables = tf.trainable_variables()
+#    sess = tf.Session()
+#    sess.run(tf.global_variables_initializer())    
+#    
+#    optimizer.minimize(sess)
+    
+    # Avec une optimisation a la TF : ne marche pas non plus
+#    opt = tf.keras.optimizers.Adam(learning_rate=0.02, beta_1=0.99, epsilon=1e-1)
+#    
+#    @tf.function()
+#    def train_step(input_var):
+#      with tf.GradientTape() as tape:
+#        loss = symbolic_loss_c(input_var)
+#    
+#      grad = tape.gradient(loss, input_var)
+#      opt.apply_gradients([(grad, input_var)])
+#      #image.assign(clip_0_1(image))
+#
+#    x_tf_var = tf.Variable(max_x_value*np.random.random(variable_shape))
+#
+#    epochs = 10
+#    steps_per_epoch = 100
+#    
+#    step = 0
+#    for n in range(epochs):
+#      for m in range(steps_per_epoch):
+#        step += 1
+#        train_step(x_tf_var)
+#        print(".", end='')
+    
+
 
 def layers_unique(liste):
     new_liste= []
@@ -1252,30 +1530,9 @@ def layers_unique(liste):
         
     return(new_liste)
     
-def convert_Part_finetuned_modelToFrozenGraph(model,model_name,new_input_layer_name,
-                                              constrNet='InceptionV1',path='',
-                                              suffix=''):
-    
-#    tf.keras.backend.clear_session()
-#    tf.reset_default_graph()
-#    K.set_learning_phase(0)
-    
-#    if constrNet=='VGG':
-#        input_name_lucid ='block1_conv1_input'
-#        raise(NotImplementedError)
-#    elif constrNet=='InceptionV1':
-#        input_name_lucid ='input_1'
-#        #trainable_layers_name = get_trainable_layers_name()
-#    elif constrNet=='InceptionV1_slim':
-#        input_name_lucid ='input_1'
-#        #trainable_layers_name = trainable_layers()
-#        raise(NotImplementedError)
-#    elif constrNet=='ResNet50':
-#        input_name_lucid ='input_1'
-#        raise(NotImplementedError)
-#    else:
-#        raise(NotImplementedError)
-
+def get_truncated_keras_model(model,model_name,new_input_layer_name,
+                              constrNet='InceptionV1',batch_size=None,
+                              reshape=True):
     layer = model.get_layer(new_input_layer_name)
     layer_output = layer.output
     dim_shape = layer_output.shape.dims
@@ -1283,16 +1540,23 @@ def convert_Part_finetuned_modelToFrozenGraph(model,model_name,new_input_layer_n
     for dim in dim_shape:
         new_input_shape += [dim.value]
     new_input_shape.pop(0) #remove the batch size dim
-    new_input_shape_with_batch = [None] + new_input_shape
-    new_input = Input(shape=new_input_shape,name='new_input_1') 
-    print(new_input)
+    new_input_shape_with_batch = [batch_size] + new_input_shape
+    if reshape:
+        assert(not(batch_size is None))
+        first_new_input = Input(shape=new_input_shape[0]*new_input_shape[1]*new_input_shape[2],name='new_input_1')
+        new_input = tf.keras.layers.Reshape(new_input_shape)(first_new_input)
+    else:
+        new_input = Input(shape=new_input_shape,name='new_input_1') 
+        first_new_input = new_input
     # Auxiliary dictionary to describe the network graph
     network_dict = {'input_layers_of': {}, 'new_output_tensor_of': {}}
     
     # Set the input layers of each layer
+    list_layer_name = []
     for layer in model.layers:
         for node in layer.outbound_nodes:
             layer_name = node.outbound_layer.name
+            list_layer_name += [layer_name]
             if layer_name not in network_dict['input_layers_of']:
                 network_dict['input_layers_of'].update(
                         {layer_name: [layer.name]})
@@ -1303,42 +1567,35 @@ def convert_Part_finetuned_modelToFrozenGraph(model,model_name,new_input_layer_n
     network_dict['new_output_tensor_of'].update(
             {model.layers[0].name: model.input})
 
+    assert(new_input_layer_name in list_layer_name)
+
     # Iterate over all layers after the input
-    firstTime_here = True
     new_input_layer_passed = False
     for layer in model.layers[1:]:
-        #print(layer.name)
-        # Determine input tensors
-        if new_input_layer_passed and not(firstTime_here):
-            layer_input = [network_dict['new_output_tensor_of'][layer_aux] 
-                for layer_aux in network_dict['input_layers_of'][layer.name]]
             
         if new_input_layer_passed:
-                
-            if isinstance(layer, Concatenate) and firstTime_here: # We will skip it !
-                continue
             
-            if firstTime_here:
-                firstTime_here = False
-            else:
-                #layer_input = layer_input[0,...]
-                if len(layer_input) >1:
-                    layer_input = layers_unique(layer_input)
-                if len(layer_input) == 1:
-                    layer_input = layer_input[0]
-                    if len(layer_input.shape)==5:
-                        layer_input = layer_input[0,...]
+            layer_input = [network_dict['new_output_tensor_of'][layer_aux] 
+                for layer_aux in network_dict['input_layers_of'][layer.name]]
+
+            if len(layer_input) >1:
+                layer_input = layers_unique(layer_input)
+            if len(layer_input) == 1:
+                layer_input = layer_input[0]
+                if len(layer_input.shape)==5:
+                    layer_input = layer_input[0,...]
             
             x = layer(layer_input)
-            #print(x,layer_input)
             network_dict['new_output_tensor_of'].update({layer.name: x})
             
         if layer.name == new_input_layer_name:
             
             layer_input = new_input
             new_input_layer_passed = True
+            network_dict['new_output_tensor_of'].update({new_input_layer_name: layer_input})
             
-    net_finetuned_truncated = Model(inputs=new_input,outputs=x)
+            
+    net_finetuned_truncated = Model(inputs=first_new_input,outputs=x)
     
         
     include_optimizer = False
@@ -1364,6 +1621,37 @@ def convert_Part_finetuned_modelToFrozenGraph(model,model_name,new_input_layer_n
         os.remove(model_path)
     #print(net_finetuned_truncated.summary())
 #    del model
+    return(net_finetuned_truncated)
+    
+def convert_Part_finetuned_modelToFrozenGraph(model,model_name,new_input_layer_name,
+                                              constrNet='InceptionV1',path='',
+                                              suffix=''):
+    
+#    tf.keras.backend.clear_session()
+#    tf.reset_default_graph()
+#    K.set_learning_phase(0)
+    
+#    if constrNet=='VGG':
+#        input_name_lucid ='block1_conv1_input'
+#        raise(NotImplementedError)
+#    elif constrNet=='InceptionV1':
+#        input_name_lucid ='input_1'
+#        #trainable_layers_name = get_trainable_layers_name()
+#    elif constrNet=='InceptionV1_slim':
+#        input_name_lucid ='input_1'
+#        #trainable_layers_name = trainable_layers()
+#        raise(NotImplementedError)
+#    elif constrNet=='ResNet50':
+#        input_name_lucid ='input_1'
+#        raise(NotImplementedError)
+#    else:
+#        raise(NotImplementedError)
+
+    net_finetuned_truncated= get_truncated_keras_model(model=model,
+                                                       model_name=model_name,
+                                                       new_input_layer_name=new_input_layer_name,
+                                                       constrNet=constrNet)
+    
     
     if path=='':
         os.makedirs('./model', exist_ok=True)
@@ -1520,16 +1808,16 @@ if __name__ == '__main__':
 #                                   layer='mixed4c_pre_relu')
     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                                classe = None,\
-                                   layer='mixed4d')
+                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                                classe ='Northern_Renaissance',\
-                                   layer='mixed4d')
+                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                                classe ='Abstract_Art',\
-                                   layer='mixed4d')
+                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                                classe ='Ukiyo-e',\
-                                layer='mixed4d')
+                                layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
     
     print_stats_matrices(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                          list_classes=[None,'Northern_Renaissance','Abstract_Art','Ukiyo-e'],
