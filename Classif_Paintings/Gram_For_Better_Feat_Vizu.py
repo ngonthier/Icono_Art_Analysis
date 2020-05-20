@@ -713,22 +713,45 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
         else:
             name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
             
-            
-
+#        print('mean_spatial_means',mean_spatial_means.shape)
+#        
+#        prexif_name_spm = '_SPM'
+#        if not(classe is None):
+#           prexif_name_spm += '_'+classe 
+#        index_features_withinLayer_all = np.arange(0,features_size)
+#        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+#                         layer_to_print=layer,weights=mean_spatial_means,\
+#                         index_features_withinLayer=index_features_withinLayer_all,\
+#                         path_output=path_output_lucid_im,prexif_name=prexif_name_spm,\
+#                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        
         for comp_number in range(num_components_draw):
             weights = eigen_vectors[:,comp_number]
             prexif_name = '_PCA'+str(comp_number)
             if not(classe is None):
                prexif_name += '_'+classe 
+            print(prexif_name)
             index_features_withinLayer_all = np.arange(0,features_size)
             lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
                              layer_to_print=layer,weights=weights,\
                              index_features_withinLayer=index_features_withinLayer_all,\
                              path_output=path_output_lucid_im,prexif_name=prexif_name,\
                              input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+            
+#            prexif_name_spmPlusPCA0 = '_SPM_plus_PCA'+str(comp_number)
+#            if not(classe is None):
+#               prexif_name_spmPlusPCA0 += '_'+classe 
+#            weights_spm_pca = weights+mean_spatial_means
+#            index_features_withinLayer_all = np.arange(0,features_size)
+#            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+#                             layer_to_print=layer,weights=weights_spm_pca,\
+#                             index_features_withinLayer=index_features_withinLayer_all,\
+#                             path_output=path_output_lucid_im,prexif_name=prexif_name_spmPlusPCA0,\
+#                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
            
             minus_weights = -weights
             prexif_name_negDir =prexif_name+ '_NegDir' # Negative direction
+            print(prexif_name_negDir)
             index_features_withinLayer_all = np.arange(0,features_size)
             lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
                              layer_to_print=layer,weights=minus_weights,\
@@ -739,23 +762,28 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
             prexif_name_pos = prexif_name + '_PosContrib'
             where_pos = np.where(weights>0.)[0]
             weights_pos = list(weights[where_pos])
-            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-                             layer_to_print=layer,weights=weights_pos,\
-                             index_features_withinLayer=where_pos,\
-                             path_output=path_output_lucid_im,prexif_name=prexif_name_pos,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-#            
+            if len(where_pos)>0:
+                print(prexif_name_pos)
+                lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+                                 layer_to_print=layer,weights=weights_pos,\
+                                 index_features_withinLayer=where_pos,\
+                                 path_output=path_output_lucid_im,prexif_name=prexif_name_pos,\
+                                 input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+    #            
             prexif_name_neg = prexif_name + '_NegContrib'
             where_neg = np.where(weights<0.)[0]
             weights_neg = list(-weights[where_neg])
-            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-                             layer_to_print=layer,weights=weights_neg,\
-                             index_features_withinLayer=where_neg,\
-                             path_output=path_output_lucid_im,prexif_name=prexif_name_neg,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+            if len(weights_neg)>0:
+                print(prexif_name_neg)
+                lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+                                 layer_to_print=layer,weights=weights_neg,\
+                                 index_features_withinLayer=where_neg,\
+                                 path_output=path_output_lucid_im,prexif_name=prexif_name_neg,\
+                                 input_name=input_name_lucid,Net=constrNet,sizeIm=256)
 #            
             where_max = np.argmax(weights)
             prexif_name_max = prexif_name+  '_Max'+str(where_max)
+            print(prexif_name_max)
             lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
                              layer_to_print=layer,weights=[1.],\
                              index_features_withinLayer=[where_max],\
@@ -763,11 +791,12 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
                              input_name=input_name_lucid,Net=constrNet,sizeIm=256)
 #            
             where_min = np.argmin(weights)
-            prexif_name_max = prexif_name+  '_Min'+str(where_min)
+            prexif_name_min = prexif_name+  '_Min'+str(where_min)
+            print(prexif_name_min)
             lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
                              layer_to_print=layer,weights=[1.],\
                              index_features_withinLayer=[where_min],\
-                             path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
+                             path_output=path_output_lucid_im,prexif_name=prexif_name_min,\
                              input_name=input_name_lucid,Net=constrNet,sizeIm=256)
             
             # Faire que les positives après
@@ -1253,7 +1282,13 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
         Step 3 : generer l'image qui maximise la premiere composante de cette 
         decomposition
         
-    Cela ne fonctionne pas du tout !!!
+    Il faudrait peut etre faire un clustering avec connectivity = True
+    
+    Pour trouver les régions de l'images les differents objects ou morceaux d'objects
+    
+    https://scikit-learn.org/stable/modules/clustering.html
+    
+    Ou bien retirer la base, faire quelque chose quoi
         
     """
     
@@ -1295,8 +1330,8 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
         output_path = os.path.join('CompModifModel',constrNet,model_name)
     else:
         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
-    path_output_lucid_im = os.path.join(output_path,'PCAlucid')
-
+    path_output_lucid_im = os.path.join(output_path,'PCAlucid_classCond')
+    pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True) 
 
     #matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
     
@@ -1309,8 +1344,46 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
     #print('#### ',model_name)
     output_path_with_model = os.path.join(output_path,model_name+suffix)
     pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
-    
+    K.set_learning_phase(0)
     net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+    
+    # We will compute the max and min value of the given layer on the whole train set
+    print('We will compute the bounds')
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+    path_data,Not_on_NicolasPC = get_database(dataset)
+    df_train = df_label[df_label['set']=='train']
+    if not(classe is None):
+       df_train = df_train[df_train[classe]==1.0]
+    #print(df_train.head(5))
+    maxmin_model = Activation_for_model.get_Model_that_output_StatsOnActivation_forGivenLayers(model=tf.keras.models.clone_model(net_finetuned),
+                                                                                         list_layers=[layer],stats_on_layer='max&min')
+    maxmin_model.trainable = False
+    cropCenter = True
+    #print(maxmin_model.summary())
+    maxmin_act = predictionFT_net(maxmin_model,df_train,x_col=item_name,y_col=classes,path_im=path_to_img,
+                     Net=constrNet,cropCenter=cropCenter)
+    max_act, min_act =  maxmin_act
+
+    max_per_channel = np.max(max_act,axis=0)
+    min_per_channel = np.min(min_act,axis=0)
+
+#    list_outputs_name,max_act = Activation_for_model.compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='max',
+#                                 suffix='',cropCenter = True,FTmodel=True)
+#    list_outputs_name,min_act = Activation_for_model.compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='min',
+#                                 suffix='',cropCenter = True,FTmodel=True)
+#    for layer_name_inlist,activations_l in zip(list_outputs_name,max_act):
+#        if layer_name_inlist==layer:
+#            
+#    for layer_name_inlist,activations_l in zip(list_outputs_name,min_act):
+#        if layer_name_inlist==layer:
+#            min_per_channel = np.min(activations_l,axis=-1)
+#            
+#    print('min and max med of max_per_channel',np.min(max_per_channel),np.max(max_per_channel),np.median(max_per_channel))
+#    print('max_per_channel',max_per_channel.shape)
+#    print('min and max med of min_per_channel',np.min(min_per_channel),np.max(min_per_channel),np.median(min_per_channel))
+#    print(' min_per_channel',min_per_channel.shape)
+#    
+    
     
     layer_concerned = net_finetuned.get_layer(layer)
     
@@ -1325,19 +1398,17 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
                                            reshape=False)  
     part_model.trainable = False
 
-    
-    
     loss_c = part_model.output[0][index_class]
     grad_symbolic = K.gradients(loss_c, part_model.inputs[0])[0]
-    grad_symbolic_minus_loss = K.gradients(-loss_c, part_model.inputs[0])[0]
+#    grad_symbolic_minus_loss = K.gradients(-loss_c, part_model.inputs[0])[0]
     #grad_symbolic = K.gradients(loss_c, part_model.get_layer('new_input_1').input)[0]
-    symbolic_loss_c_plus_gradient = K.function(part_model.inputs[0], [loss_c,grad_symbolic])
-    symbolic_minus_loss_c_and_gradient = K.function(part_model.inputs[0], [-loss_c,grad_symbolic_minus_loss])
-    #symbolic_loss_c_plus_gradient = K.function([part_model.get_layer('new_input_1').input], [loss_c,grad_symbolic])
-    symbolic_loss_c = K.function(part_model.inputs[0], loss_c)
-    symbolic_minus_loss = K.function(part_model.inputs[0], -loss_c)
-    iterate_only_grad = K.function([part_model.input], [grad_symbolic])
-    iterate = K.function([part_model.input], [grad_symbolic,loss_c])
+#    symbolic_loss_c_plus_gradient = K.function(part_model.inputs[0], [loss_c,grad_symbolic])
+#    symbolic_minus_loss_c_and_gradient = K.function(part_model.inputs[0], [-loss_c,grad_symbolic_minus_loss])
+#    #symbolic_loss_c_plus_gradient = K.function([part_model.get_layer('new_input_1').input], [loss_c,grad_symbolic])
+#    symbolic_loss_c = K.function(part_model.inputs[0], loss_c)
+#    symbolic_minus_loss = K.function(part_model.inputs[0], -loss_c)
+#    iterate_only_grad = K.function([part_model.input], [grad_symbolic])
+#    iterate = K.function([part_model.input], [grad_symbolic,loss_c])
     
     layer_output = layer_concerned.output
     dim_shape = layer_output.shape.dims
@@ -1345,26 +1416,62 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
     for dim in dim_shape:
         new_input_shape += [dim.value]
     new_input_shape.pop(0) #remove the batch size dim
-    variable_shape = [1] + new_input_shape
+    number_of_blocks = 50
+    variable_shape = [number_of_blocks] + new_input_shape
     part_model.build(variable_shape)
-    max_x_value= 1
-    variable = max_x_value*np.random.random(variable_shape) # il faudrait peut etre 
+    max_x_value= np.max(max_per_channel)
+    min_x_value= np.min(min_per_channel)
+    variable = max_x_value*np.random.random(variable_shape) +  min_x_value
+    # np.random.random(variable_shape) entre 0  et 1 normalement 
 
     grads = normalize(grad_symbolic)
     # this function returns the loss and grads given the input picture
     iterate = K.function(part_model.inputs[0], [loss_c, grads])
-    epochs = 200
-    step = 1.
+    print('Start computing the mid-block !')
+    epochs = 10000
+    step = 0.5
     for _ in range(epochs):
         loss_value, grads_value = iterate(variable)
         variable += grads_value * step
+        variable = np.clip(variable,a_min=min_x_value,a_max=max_x_value)
+    # Avec cela on va a une loss de l ordre de 0.75
     
     print('Final Loss : ',loss_value)
-    print('Bounds of the block',np.max(variable),np.min(variable))
-    
+    print('Bounds of the block + std',np.max(variable),np.min(variable),np.std(variable))
+    print('variable.shape',variable.shape)
+ 
+#    opt = tf.keras.optimizers.SGD(learning_rate=0.1)
+#    # Compute the gradients for a list of variables.
+#    with tf.GradientTape() as tape:
+#      loss_c = part_model.output[0][index_class]
+#    vars = part_model.inputs[0]
+#    grads = tape.gradient(loss_c, vars)
+#    
+#    # Process the gradients, for example cap them, etc.
+#    # capped_grads = [MyCapper(g) for g in grads]
+#    processed_grads = [process_gradient(g) for g in grads]
+#    
+#    # Ask the optimizer to apply the processed gradients.
+#    opt.apply_gradients(zip(processed_grads, var_list))
+
     features_size = new_input_shape[-1]
-    feature_block_reshaped = variable.reshape((-1,variable.shape[-1]))
+    h_time_w_size = new_input_shape[0]*new_input_shape[1]
+    if not(number_of_blocks==1):
+        feature_block_reshaped = variable.reshape((number_of_blocks,-1,variable.shape[-1]))
+        gram_matrix = np.matmul(np.transpose(feature_block_reshaped,[0,2,1]),feature_block_reshaped)/h_time_w_size
+        gram_matrix = np.mean(gram_matrix,axis=0)
+    else:
+        feature_block_reshaped = variable.reshape((-1,variable.shape[-1]))
+        gram_matrix = np.matmul(np.transpose(feature_block_reshaped,[1,0]),feature_block_reshaped)/h_time_w_size
         
+    # We will compute the Gram matrices of this features block
+
+    
+    name = 'GramMatrixCond_'+str(classe)
+    path = path_output_lucid_im
+    title = 'GramMatrixCond '+str(classe)
+    print_rect_matrix(gram_matrix,name,path,title=title)
+    
     suffix_str =  suffix_str = suffix
     name_pb_full_model = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
     if not(os.path.isfile(os.path.join(path_lucid_model,name_pb_full_model))):
@@ -1372,19 +1479,17 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
                                    constrNet=constrNet,
                                    path=path_lucid_model,suffix=suffix)
         
-    pca = PCA(n_components=None,copy=True,whiten=False)
-    pca.fit(feature_block_reshaped)
-    print('Eigen values 10 first value',pca.singular_values_[0:10])
-    print('Explained ratio 10 first',pca.explained_variance_ratio_[0:10])
-    eigen_vectors = pca.components_
-    print('pca_comp',eigen_vectors.shape)
-    first_vector = eigen_vectors[0,:]
-              
+#    pca = PCA(n_components=None,copy=True,whiten=False)
+#    print('feature_block_reshaped.shape',feature_block_reshaped.shape)
+#    pca.fit(feature_block_reshaped)
+#    print('Eigen values 10 first value',pca.singular_values_[0:10])
+#    print('Explained ratio 10 first',pca.explained_variance_ratio_[0:10])
+#    eigen_vectorsPCA = pca.components_
+    #print('pca_comp',eigen_vectors.shape)
     
-    
-    path_output_lucid_im = os.path.join(output_path,'PCAlucid_classCond')
-
-    pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True) 
+    eigen_values, eigen_vectors = LA.eig(gram_matrix)
+    print('Eigen values 10 first value',eigen_values[0:10])
+    eigen_vectors = np.real(eigen_vectors) 
     
     if constrNet=='VGG':
         input_name_lucid ='block1_conv1_input'
@@ -1396,9 +1501,13 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
         #print('weights',weights)
         #time.sleep(.300)
 
-        prexif_name = '_PCA'+str(comp_number)
+        if not(number_of_blocks==1):
+            prexif_name = 'MeanGramOn'+str(number_of_blocks)+'_PCA'+str(comp_number)
+        else:
+            prexif_name = '_PCA'+str(comp_number)
         if not(classe is None):
            prexif_name += '_'+classe 
+        print(prexif_name)
         index_features_withinLayer_all = np.arange(0,features_size)
         lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
                          layer_to_print=layer,weights=weights,\
@@ -1408,6 +1517,7 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
        
         minus_weights = -weights
         prexif_name_negDir =prexif_name+ '_NegDir' # Negative direction
+        print(prexif_name_negDir)
         index_features_withinLayer_all = np.arange(0,features_size)
         lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
                          layer_to_print=layer,weights=minus_weights,\
@@ -1417,37 +1527,43 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
         
         prexif_name_pos = prexif_name + '_PosContrib'
         where_pos = np.where(weights>0.)[0]
-        weights_pos = list(weights[where_pos])
-        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+        if len(where_pos)>0:
+            weights_pos = list(weights[where_pos])
+            print(prexif_name_pos)
+            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
                          layer_to_print=layer,weights=weights_pos,\
                          index_features_withinLayer=where_pos,\
                          path_output=path_output_lucid_im,prexif_name=prexif_name_pos,\
                          input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+            
+            where_max = np.argmax(weights)
+            prexif_name_max = prexif_name+  '_Max'+str(where_max)
+            print(prexif_name_max)
+            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                             layer_to_print=layer,weights=[1.],\
+                             index_features_withinLayer=[where_max],\
+                             path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
+                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
 #            
         prexif_name_neg = prexif_name + '_NegContrib'
         where_neg = np.where(weights<0.)[0]
         weights_neg = list(-weights[where_neg])
-        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
-                         layer_to_print=layer,weights=weights_neg,\
-                         index_features_withinLayer=where_neg,\
-                         path_output=path_output_lucid_im,prexif_name=prexif_name_neg,\
-                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-#            
-        where_max = np.argmax(weights)
-        prexif_name_max = prexif_name+  '_Max'+str(where_max)
-        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
-                         layer_to_print=layer,weights=[1.],\
-                         index_features_withinLayer=[where_max],\
-                         path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
-                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-#            
-        where_min = np.argmin(weights)
-        prexif_name_max = prexif_name+  '_Min'+str(where_min)
-        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
-                         layer_to_print=layer,weights=[1.],\
-                         index_features_withinLayer=[where_min],\
-                         path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
-                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        if len(weights_neg)>0:
+            print(prexif_name_neg)
+            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                             layer_to_print=layer,weights=weights_neg,\
+                             index_features_withinLayer=where_neg,\
+                             path_output=path_output_lucid_im,prexif_name=prexif_name_neg,\
+                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+
+            where_min = np.argmin(weights)
+            prexif_name_max = prexif_name+  '_Min'+str(where_min)
+            print(prexif_name_max)
+            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                             layer_to_print=layer,weights=[1.],\
+                             index_features_withinLayer=[where_min],\
+                             path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
+                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
 
 ## Tentative de faire avec LBFGS mais cela n'a pas fonctionner
 #    number_iter = 10
@@ -1827,6 +1943,12 @@ if __name__ == '__main__':
                          list_classes=[None,'Northern_Renaissance','Abstract_Art','Ukiyo-e'],
                          layer='mixed4d',
                          source_dataset='RASTA')
+    
+    produce_latex_textV2(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                       layer_tab=['mixed4d'],classe_tab = [None,'Northern_Renaissance','Abstract_Art','Ukiyo-e'],
+                       folder_im_latex='im',
+                       num_components_draw = 3,
+                       KindOfMeanReduciton='global')
     
     
     

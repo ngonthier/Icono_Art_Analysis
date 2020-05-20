@@ -2649,6 +2649,7 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
                                              crop_size=224)
     else:
         interpolation='nearest'
+        
     if 'VGG' in Net:
         preprocessing_function = tf.keras.applications.vgg19.preprocess_input
         target_size = (224,224)

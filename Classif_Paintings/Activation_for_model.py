@@ -62,6 +62,12 @@ def get_Model_that_output_StatsOnActivation_forGivenLayers(model,
                 stats_each_feature = tf.keras.backend.mean(tf.keras.activations.relu(layer_output), axis=[1,2], keepdims=False)
             elif stats_on_layer=='max':
                 stats_each_feature = tf.keras.backend.max(layer_output, axis=[1,2], keepdims=False)
+            elif stats_on_layer=='min':
+                stats_each_feature = tf.keras.backend.min(layer_output, axis=[1,2], keepdims=False)
+            elif stats_on_layer=='max&min':
+                maxl = tf.keras.backend.max(layer_output, axis=[1,2], keepdims=False)
+                minl = tf.keras.backend.min(layer_output, axis=[1,2], keepdims=False)
+                stats_each_feature = [maxl,minl]
             elif stats_on_layer== 'cov_instance_mean':
                 stats_each_feature = Stats_Fcts.covariance_mean_matrix_only(layer_output)[0]
             elif stats_on_layer=='cov_global_mean':
@@ -96,6 +102,8 @@ def get_Model_that_output_StatsOnActivation(model,stats_on_layer='mean'):
                 stats_each_feature = tf.keras.backend.mean(tf.keras.activations.relu(layer_output), axis=[1,2], keepdims=False)
             elif stats_on_layer=='max':
                 stats_each_feature = tf.keras.backend.max(layer_output, axis=[1,2], keepdims=False)
+            elif stats_on_layer=='min':
+                stats_each_feature = tf.keras.backend.min(layer_output, axis=[1,2], keepdims=False)
             else:
                 raise(ValueError(stats_on_layer+' is unknown'))
             list_outputs += [stats_each_feature]
@@ -141,7 +149,7 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     #print(model.summary())
     activations = predictionFT_net(model,df_train,x_col=item_name,y_col=classes,path_im=path_to_img,
                      Net=constrNet,cropCenter=cropCenter)
-    print('activations len and shape',len(activations),activations[0].shape)
+    print('activations len and shape of first element',len(activations),activations[0].shape)
     
     folder_name = model_name+suffix
     
@@ -161,6 +169,8 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
         save_file = os.path.join(output_path,'meanAfterRelu_activations_per_img.pkl')
     elif stats_on_layer=='max':
         save_file = os.path.join(output_path,'max_activations_per_img.pkl')
+    elif stats_on_layer=='min':
+        save_file = os.path.join(output_path,'min_activations_per_img.pkl')
     else:
         raise(ValueError(stats_on_layer+' is unknown'))
     with open(save_file, 'wb') as handle:
