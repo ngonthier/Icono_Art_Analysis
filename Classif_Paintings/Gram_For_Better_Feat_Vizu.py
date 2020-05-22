@@ -31,6 +31,7 @@ from sklearn.decomposition import PCA
 from sklearn.decomposition import FastICA
 from sklearn.feature_extraction.image import grid_to_graph
 from sklearn.cluster import AgglomerativeClustering
+from sklearn.preprocessing import StandardScaler
 
 from tensorflow.python.keras import backend as K
 import tensorflow as tf
@@ -643,7 +644,13 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
                                layer='mixed4d_pre_relu',\
                                plot_FeatVizu=False,\
                                source_dataset=None,
-                               num_components_draw = 10):
+                               num_components_draw = 10,
+                               strictMinimum=False,cossim=False,
+                               clustering='PCA'):
+    """
+    @param : clustering PCA or IPCA or none and we will do all the feature one by one
+    """
+    
     
     constrNet = 'InceptionV1'
     cropCenter = True
@@ -690,24 +697,6 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
     print('plot_FeatVizu',plot_FeatVizu,'for ',classe)
     if plot_FeatVizu:
     
-        eigen_values, eigen_vectors = LA.eig(mean_cov_matrix)
-        
-        pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True) 
-        plt.figure()
-        plt.scatter(np.arange(0,len(eigen_values)),eigen_values,s=4)
-        plt.ylabel('Eigen Value')
-        plt.savefig(os.path.join(path_output_lucid_im,'EigenValues_'+layer+'_'+classe_str+'.png'),\
-                    dpi=300)
-        plt.close()
-        
-        print('Eigen values 10 first value',eigen_values[0:10])
-        #print('First eigen vector :',eigen_vectors[:,0])
-        print('Max imag part first vector :',np.max(np.imag(eigen_vectors[:,0])))
-        eigen_vectors = np.real(eigen_vectors) 
-#        if KindOfMeanReduciton=='global':
-#            eigen_vectors = eigen_vectors + np.reshape(mean_spatial_means,(1,features_size))
-#    
-        
         if not(model_name=='pretrained'):
             name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
             if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
@@ -720,93 +709,111 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
         
         else:
             name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
-            
-#        print('mean_spatial_means',mean_spatial_means.shape)
-#        
-#        prexif_name_spm = '_SPM'
-#        if not(classe is None):
-#           prexif_name_spm += '_'+classe 
-#        index_features_withinLayer_all = np.arange(0,features_size)
-#        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-#                         layer_to_print=layer,weights=mean_spatial_means,\
-#                         index_features_withinLayer=index_features_withinLayer_all,\
-#                         path_output=path_output_lucid_im,prexif_name=prexif_name_spm,\
-#                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-        
-        for comp_number in range(num_components_draw):
-            weights = eigen_vectors[:,comp_number]
-            prexif_name = '_PCA'+str(comp_number)
-            if not(classe is None):
-               prexif_name += '_'+classe 
-            print(prexif_name)
-            index_features_withinLayer_all = np.arange(0,features_size)
-            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-                             layer_to_print=layer,weights=weights,\
-                             index_features_withinLayer=index_features_withinLayer_all,\
-                             path_output=path_output_lucid_im,prexif_name=prexif_name,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-            
-#            prexif_name_spmPlusPCA0 = '_SPM_plus_PCA'+str(comp_number)
-#            if not(classe is None):
-#               prexif_name_spmPlusPCA0 += '_'+classe 
-#            weights_spm_pca = weights+mean_spatial_means
-#            index_features_withinLayer_all = np.arange(0,features_size)
-#            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-#                             layer_to_print=layer,weights=weights_spm_pca,\
-#                             index_features_withinLayer=index_features_withinLayer_all,\
-#                             path_output=path_output_lucid_im,prexif_name=prexif_name_spmPlusPCA0,\
-#                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
            
-            minus_weights = -weights
-            prexif_name_negDir =prexif_name+ '_NegDir' # Negative direction
-            print(prexif_name_negDir)
-            index_features_withinLayer_all = np.arange(0,features_size)
-            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-                             layer_to_print=layer,weights=minus_weights,\
-                             index_features_withinLayer=index_features_withinLayer_all,\
-                             path_output=path_output_lucid_im,prexif_name=prexif_name_negDir,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        
+        if clustering is None:
+            for comp_number in range(features_size):
+                weights = np.zeros(shape=(features_size,))
+                weights[comp_number] = 1.
+                prexif_name = '_Feat'+str(comp_number)
+                if not(classe is None):
+                   prexif_name += '_'+classe 
+                #print(prexif_name)
+                do_lucidVizu_forPCA_all_case(path_lucid_model,
+                                            name_pb,
+                                             prexif_name,features_size,
+                                             layer,weights,path_output_lucid_im,
+                                             input_name_lucid,constrNet,
+                                             strictMinimum=True,cossim=cossim)
+        elif clustering=='random':
+            for comp_number in range(num_components_draw):
+                weights = np.random.random(shape=(features_size,))
+                prexif_name = '_Random'+str(comp_number)
+                #print(prexif_name)
+                do_lucidVizu_forPCA_all_case(path_lucid_model,
+                                            name_pb,
+                                             prexif_name,features_size,
+                                             layer,weights,path_output_lucid_im,
+                                             input_name_lucid,constrNet,
+                                             strictMinimum=True,cossim=cossim)
             
-            prexif_name_pos = prexif_name + '_PosContrib'
-            where_pos = np.where(weights>0.)[0]
-            weights_pos = list(weights[where_pos])
-            if len(where_pos)>0:
-                print(prexif_name_pos)
-                lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-                                 layer_to_print=layer,weights=weights_pos,\
-                                 index_features_withinLayer=where_pos,\
-                                 path_output=path_output_lucid_im,prexif_name=prexif_name_pos,\
-                                 input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-    #            
-            prexif_name_neg = prexif_name + '_NegContrib'
-            where_neg = np.where(weights<0.)[0]
-            weights_neg = list(-weights[where_neg])
-            if len(weights_neg)>0:
-                print(prexif_name_neg)
-                lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-                                 layer_to_print=layer,weights=weights_neg,\
-                                 index_features_withinLayer=where_neg,\
-                                 path_output=path_output_lucid_im,prexif_name=prexif_name_neg,\
-                                 input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-#            
-            where_max = np.argmax(weights)
-            prexif_name_max = prexif_name+  '_Max'+str(where_max)
-            print(prexif_name_max)
-            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-                             layer_to_print=layer,weights=[1.],\
-                             index_features_withinLayer=[where_max],\
-                             path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-#            
-            where_min = np.argmin(weights)
-            prexif_name_min = prexif_name+  '_Min'+str(where_min)
-            print(prexif_name_min)
-            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
-                             layer_to_print=layer,weights=[1.],\
-                             index_features_withinLayer=[where_min],\
-                             path_output=path_output_lucid_im,prexif_name=prexif_name_min,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        elif clustering=='PCA':
+            eigen_values, eigen_vectors = LA.eig(mean_cov_matrix)
             
+            pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True) 
+            plt.figure()
+            plt.scatter(np.arange(0,len(eigen_values)),eigen_values,s=4)
+            plt.ylabel('Eigen Value')
+            plt.savefig(os.path.join(path_output_lucid_im,'EigenValues_'+layer+'_'+classe_str+'.png'),\
+                        dpi=300)
+            plt.close()
+            
+            print('Eigen values 10 first value',eigen_values[0:10])
+            #print('First eigen vector :',eigen_vectors[:,0])
+            print('Max imag part first vector :',np.max(np.imag(eigen_vectors[:,0])))
+            eigen_vectors = np.real(eigen_vectors) 
+    #        if KindOfMeanReduciton=='global':
+    #            eigen_vectors = eigen_vectors + np.reshape(mean_spatial_means,(1,features_size))
+    #        prexif_name_spm = '_SPM'
+    #        if not(classe is None):
+    #           prexif_name_spm += '_'+classe 
+    #        index_features_withinLayer_all = np.arange(0,features_size)
+    #        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb),
+    #                         layer_to_print=layer,weights=mean_spatial_means,\
+    #                         index_features_withinLayer=index_features_withinLayer_all,\
+    #                         path_output=path_output_lucid_im,prexif_name=prexif_name_spm,\
+    #                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+            
+            for comp_number in range(num_components_draw):
+                weights = eigen_vectors[:,comp_number]
+                prexif_name = '_PCA'+str(comp_number)
+                if not(classe is None):
+                   prexif_name += '_'+classe 
+                print(prexif_name)
+                do_lucidVizu_forPCA_all_case(path_lucid_model,
+                                            name_pb,
+                                             prexif_name,features_size,
+                                             layer,weights,path_output_lucid_im,
+                                             input_name_lucid,constrNet,
+                                             strictMinimum,cossim)
+                
+        elif clustering=='PCAsubset':
+            # In this case we only keep the top value of the gram matrice 
+            # Then whithen it and then do the diagonalisation
+            
+            list_mean_cov_matrix_trui = list(mean_cov_matrix[np.triu_indices(features_size)])
+            deciles = np.percentile(list_mean_cov_matrix_trui, 10, axis=0)
+            where_mean_cov_matrix_big = np.where(mean_cov_matrix>=deciles[0])
+            mask = np.zeros_like(mean_cov_matrix)
+            mask[where_mean_cov_matrix_big] = 1
+            masked_cov = mean_cov_matrix*mask
+            
+            tmp_cov = masked_cov.copy()
+            for i in range(features_size):
+                if np.sum(tmp_cov[:,i])==0:
+                    masked_cov = np.delete(masked_cov,i,0)
+                    masked_cov = np.delete(masked_cov,i,1)
+                    # On supprime ligne et colum
+                else:
+                    # On normalise ligne et colonne par la variance
+                    masked_cov[:,i] /= masked_cov[i,i]
+                    masked_cov[i,:] /= masked_cov[i,i]
+                    masked_cov[i,i] = 1.
+            
+            eigen_values, eigen_vectors = LA.eig(masked_cov)
+            eigen_vectors = np.real(eigen_vectors) 
+            for comp_number in range(num_components_draw):
+                weights = eigen_vectors[:,comp_number]
+                prexif_name = '_subsetPCA'+str(comp_number)
+                if not(classe is None):
+                   prexif_name += '_'+classe 
+                print(prexif_name)
+                do_lucidVizu_forPCA_all_case(path_lucid_model,
+                                            name_pb,
+                                             prexif_name,features_size,
+                                             layer,weights,path_output_lucid_im,
+                                             input_name_lucid,constrNet,
+                                             strictMinimum,cossim)
             # Faire que les positives après
             
     #        lucid_utils.print_images(model_path=name_pb,list_layer_index_to_print,path_output='',prexif_name='',\
@@ -1280,15 +1287,16 @@ def normalize(x):
 def do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                                  prexif_name,features_size,
                                  layer,weights,path_output_lucid_im,
-                                 input_name_lucid,constrNet,sizeIm=256,
-                                 strictMinimum=False):
+                                 input_name_lucid,constrNet,
+                                 strictMinimum=False,cossim=False,
+                                 sizeIm=256):
     print(prexif_name)
     index_features_withinLayer_all = np.arange(0,features_size)
     lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
                      layer_to_print=layer,weights=weights,\
                      index_features_withinLayer=index_features_withinLayer_all,\
                      path_output=path_output_lucid_im,prexif_name=prexif_name,\
-                     input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+                     input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm,cossim=cossim)
    
     minus_weights = -weights
     prexif_name_negDir =prexif_name+ '_NegDir' # Negative direction
@@ -1298,7 +1306,7 @@ def do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                      layer_to_print=layer,weights=minus_weights,\
                      index_features_withinLayer=index_features_withinLayer_all,\
                      path_output=path_output_lucid_im,prexif_name=prexif_name_negDir,\
-                     input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+                     input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm,cossim=cossim)
     
     if not(strictMinimum):
         prexif_name_pos = prexif_name + '_PosContrib'
@@ -1310,7 +1318,7 @@ def do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                          layer_to_print=layer,weights=weights_pos,\
                          index_features_withinLayer=where_pos,\
                          path_output=path_output_lucid_im,prexif_name=prexif_name_pos,\
-                         input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm,cossim=cossim)
             
             where_max = np.argmax(weights)
             prexif_name_max = prexif_name+  '_Max'+str(where_max)
@@ -1319,7 +1327,7 @@ def do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                              layer_to_print=layer,weights=[1.],\
                              index_features_withinLayer=[where_max],\
                              path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+                             input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm,cossim=cossim)
     #            
         prexif_name_neg = prexif_name + '_NegContrib'
         where_neg = np.where(weights<0.)[0]
@@ -1330,7 +1338,7 @@ def do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                              layer_to_print=layer,weights=weights_neg,\
                              index_features_withinLayer=where_neg,\
                              path_output=path_output_lucid_im,prexif_name=prexif_name_neg,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+                             input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm,cossim=cossim)
     
             where_min = np.argmin(weights)
             prexif_name_max = prexif_name+  '_Min'+str(where_min)
@@ -1339,14 +1347,22 @@ def do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                              layer_to_print=layer,weights=[1.],\
                              index_features_withinLayer=[where_min],\
                              path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+                             input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm,cossim=cossim)
 
-        
+def do_whitening(full_activations):
+    correl = np.matmul(full_activations.T, full_activations) / len(full_activations)
+    correl = correl.astype("float32")
+    S = np.linalg.inv(correl)
+    S = S.astype("float32")
+    return S  
+      
 def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                                     constrNet = 'InceptionV1',
                                     classe='Northern_Renaissance',layer='mixed4d',
                                     num_components_draw = 3,clustering = 'WHC',
-                                    number_of_blocks = 1,strictMinimum=True):
+                                    number_of_blocks = 1,strictMinimum=True,
+                                    whiten=False,cossim=False,
+                                    n_clusters = 5):
     """
     L idee de cette fonction est la suivante en deux étapes :
         Step 1 : creer le block au milieu du reseau qui maximise de maniere robuste
@@ -1369,6 +1385,9 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
     clustering = 'ICA' # ICA decomposition indeed of Eigenvalues ones (PCA like)
     'IPCA' : PCA and then ICA
     WHC : AgglomerativeClustering with connectivity
+    
+    @param : whiten if True whiten the activation before using it
+    @param : cossim if True use a cosine similarity based loss
         
     """
     
@@ -1548,6 +1567,8 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
         input_name_lucid ='block1_conv1_input'
     elif constrNet=='InceptionV1':
         input_name_lucid ='input_1'
+    else:
+        raise(NotImplementedError)
         
     features_size = new_input_shape[-1]
     h_time_w_size = new_input_shape[0]*new_input_shape[1]
@@ -1555,6 +1576,18 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
     w = new_input_shape[1]
     
     print('clustering',clustering)
+    str_param = ''
+    if whiten:
+        var_tmp = variable.reshape((-1,variable.shape[-1]))
+        scaler = StandardScaler()
+        var_whiten = scaler.fit_transform(var_tmp)
+#        var_whiten = do_whitening(var_tmp)
+        print(var_whiten.shape)
+        variable = var_whiten.reshape(variable.shape)
+        str_param += 'Whiten_'
+    if cossim:
+        str_param +='cossim_'
+    
     
     if clustering is None:
 
@@ -1590,20 +1623,20 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
             #time.sleep(.300)
     
             if not(number_of_blocks==1):
-                prexif_name = 'MeanGramOn'+str(number_of_blocks)+'_PCA'+str(comp_number)
+                prexif_name =str_param+ 'MeanGramOn'+str(number_of_blocks)+'_PCA'+str(comp_number)
             else:
-                prexif_name = '_PCA'+str(comp_number)
+                prexif_name =str_param+ '_PCA'+str(comp_number)
             if not(classe is None):
                prexif_name += '_'+classe 
             do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                                  prexif_name,features_size,
                                  layer,weights,path_output_lucid_im,
-                                 input_name_lucid,constrNet,strictMinimum)
+                                 input_name_lucid,constrNet,strictMinimum,cossim)
             
     elif clustering=='KMeans':
         
         feature_block_reshaped = variable.reshape((-1,features_size))
-        n_clusters = 5
+
         str_kmeans = 'C'+str(n_clusters)+'Means'
         
         kmeans = KMeans(n_clusters=n_clusters, random_state=0)
@@ -1614,11 +1647,11 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
         labels_unique = np.unique(labels)
         n_clusters_ = len(labels_unique)
         
-        print("number of estimated clusters : %d" % n_clusters_)
+        print("number of clusters : %d" % n_clusters_)
         
         for i,center in enumerate(cluster_centers):
             #print(center.shape)
-            prexif_name = ''
+            prexif_name = str_param
             prexif_name += str_kmeans +'center'+str(i)
             if not(number_of_blocks==1):
                 prexif_name += 'NumSample'+str(number_of_blocks)
@@ -1627,9 +1660,8 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
             do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                                  prexif_name,features_size,
                                  layer,center,path_output_lucid_im,
-                                 input_name_lucid,constrNet,strictMinimum)
+                                 input_name_lucid,constrNet,strictMinimum,cossim)
             
-        num_components_draw = 1
         for c in labels_unique:
             position_label_c = np.where(labels==c)[0]
             feature_block_cluster_c = feature_block_reshaped[position_label_c,:]
@@ -1639,14 +1671,14 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
             eigen_vectors = np.real(eigen_vectors) 
             for comp_number in range(num_components_draw):
                 weights = eigen_vectors[:,comp_number]
-                prexif_name = str_kmeans+'cluster'+str(c)
+                prexif_name =str_param+ str_kmeans+'cluster'+str(c)
                 prexif_name += '_PCA'+str(comp_number)
                 if not(classe is None):
                    prexif_name += '_'+classe 
                 do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                                      prexif_name,features_size,
                                      layer,weights,path_output_lucid_im,
-                                     input_name_lucid,constrNet,strictMinimum)
+                                     input_name_lucid,constrNet,strictMinimum,cossim)
         
             
     elif clustering=='MeanShift':
@@ -1664,7 +1696,7 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
         
         for i,center in enumerate(cluster_centers):
             print(center.shape)
-            prexif_name = ''
+            prexif_name = str_param
             prexif_name += 'MScenter'+str(i)
             if not(number_of_blocks==1):
                 prexif_name += 'NumSample'+str(number_of_blocks)
@@ -1673,9 +1705,8 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
             do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                                  prexif_name,features_size,
                                  layer,center,path_output_lucid_im,
-                                 input_name_lucid,constrNet,strictMinimum)
+                                 input_name_lucid,constrNet,strictMinimum,cossim)
             
-        num_components_draw = 1
         for c in labels_unique:
             position_label_c = np.where(labels==c)[0]
             feature_block_cluster_c = feature_block_reshaped[position_label_c,:]
@@ -1685,14 +1716,14 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
             eigen_vectors = np.real(eigen_vectors) 
             for comp_number in range(num_components_draw):
                 weights = eigen_vectors[:,comp_number]
-                prexif_name = 'MScluster'+str(c)
+                prexif_name =str_param+ 'MScluster'+str(c)
                 prexif_name += '_PCA'+str(comp_number)
                 if not(classe is None):
                    prexif_name += '_'+classe 
                 do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                                      prexif_name,features_size,
                                      layer,weights,path_output_lucid_im,
-                                     input_name_lucid,constrNet,strictMinimum)
+                                     input_name_lucid,constrNet,strictMinimum,cossim)
                 
     elif clustering=='ICA':
         
@@ -1707,15 +1738,15 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
             #time.sleep(.300)
     
             if not(number_of_blocks==1):
-                prexif_name = 'MeanGramOn'+str(number_of_blocks)+'_ICA'+str(comp_number)
+                prexif_name = str_param+'MeanGramOn'+str(number_of_blocks)+'_ICA'+str(comp_number)
             else:
-                prexif_name = '_ICA'+str(comp_number)
+                prexif_name = str_param+'_ICA'+str(comp_number)
             if not(classe is None):
                prexif_name += '_'+classe 
             do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                                  prexif_name,features_size,
                                  layer,weights,path_output_lucid_im,
-                                 input_name_lucid,constrNet,strictMinimum)
+                                 input_name_lucid,constrNet,strictMinimum,cossim)
     elif clustering=='IPCA':
         # https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-13-24
         feature_block_reshaped = variable.reshape((-1,features_size))
@@ -1736,22 +1767,22 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
             #time.sleep(.300)
     
             if not(number_of_blocks==1):
-                prexif_name = 'MeanGramOn'+str(number_of_blocks)+'_IPCA'+str(comp_number)
+                prexif_name =str_param+ 'MeanGramOn'+str(number_of_blocks)+'_IPCA'+str(comp_number)
             else:
-                prexif_name = '_IPCA'+str(comp_number)
+                prexif_name = str_param+'_IPCA'+str(comp_number)
             if not(classe is None):
                prexif_name += '_'+classe 
             do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                                  prexif_name,features_size,
                                  layer,weights,path_output_lucid_im,
-                                 input_name_lucid,constrNet,strictMinimum)
+                                 input_name_lucid,constrNet,strictMinimum,cossim)
     elif clustering=='WHC':
         
         # Define the structure A of the data. 
         # Pixels connected to their neighbors.
         assert(number_of_blocks==1)
-        n_clusters = 5
-        connectivity = grid_to_graph(*variable.shape)
+        
+        connectivity = grid_to_graph(n_x=h, n_y=w, n_z=1)
         feature_block_reshaped = variable.reshape((-1,features_size))
         ward = AgglomerativeClustering(n_clusters=n_clusters, linkage='ward',
                                connectivity=connectivity)
@@ -1762,9 +1793,8 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
         labels_unique = np.unique(labels)
         n_clusters_ = len(labels_unique)
         
-        print("number of estimated clusters : %d" % n_clusters_)
-            
-        num_components_draw = 1
+        print("number of clusters : %d" % n_clusters_)
+
         for c in labels_unique:
             position_label_c = np.where(labels==c)[0]
             feature_block_cluster_c = feature_block_reshaped[position_label_c,:]
@@ -1774,14 +1804,15 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
             eigen_vectors = np.real(eigen_vectors) 
             for comp_number in range(num_components_draw):
                 weights = eigen_vectors[:,comp_number]
-                prexif_name = 'WHCcluster'+str(c)
+                prexif_name = str_param+ 'WHCcluster'+str(c)
                 prexif_name += '_PCA'+str(comp_number)
                 if not(classe is None):
                    prexif_name += '_'+classe 
                 do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                                      prexif_name,features_size,
                                      layer,weights,path_output_lucid_im,
-                                     input_name_lucid,constrNet,strictMinimum)
+                                     input_name_lucid,constrNet,
+                                     strictMinimum,cossim)
         
 
 ## Tentative de faire avec LBFGS mais cela n'a pas fonctionner
@@ -2107,67 +2138,136 @@ if __name__ == '__main__':
 #                       folder_im_latex='im')
     
 
-    PCAbased_FeaVizu_deepmodel(model_name = 'pretrained',\
-                                   layer='mixed4d',classe='nudity',
-                                   source_dataset='IconArt_v1',plot_FeatVizu=True)
-    
-    print_stats_matrices(model_name = 'pretrained',
-                         list_classes=[None,'Mary','ruins','nudity'],layer='mixed4d',
-                         source_dataset='IconArt_v1')
-    
-    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = None,\
-                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
-    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
-                                   layer='mixed4d',classe='Mary',plot_FeatVizu=True,num_components_draw=3)
-    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
-                                   layer='mixed4d',classe='ruins',plot_FeatVizu=True,num_components_draw=3)
-    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
-                                   layer='mixed4d',classe='nudity',plot_FeatVizu=True,num_components_draw=3)
-    
-    produce_latex_textV2(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                       layer_tab=['mixed4d'],classe_tab = [None,'Mary','ruins','nudity'],
-                       folder_im_latex='im',
-                       num_components_draw = 3,
-                       KindOfMeanReduciton='global')
-    
-    print_stats_matrices(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                         list_classes=[None,'Mary','ruins','nudity'],layer='mixed4d')
-    print_stats_matrices(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
-                         list_classes=[None,'Mary','ruins','nudity'],layer='mixed4d')
-    
+#    PCAbased_FeaVizu_deepmodel(model_name = 'pretrained',\
+#                                   layer='mixed4d',classe='nudity',
+#                                   source_dataset='IconArt_v1',plot_FeatVizu=True)
+#    
+#    print_stats_matrices(model_name = 'pretrained',
+#                         list_classes=[None,'Mary','ruins','nudity'],layer='mixed4d',
+#                         source_dataset='IconArt_v1')
+#    
+#    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = None,\
+#                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
+#    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
+#                                   layer='mixed4d',classe='Mary',plot_FeatVizu=True,num_components_draw=3)
+#    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
+#                                   layer='mixed4d',classe='ruins',plot_FeatVizu=True,num_components_draw=3)
+#    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
+#                                   layer='mixed4d',classe='nudity',plot_FeatVizu=True,num_components_draw=3)
+#    
+#    produce_latex_textV2(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                       layer_tab=['mixed4d'],classe_tab = [None,'Mary','ruins','nudity'],
+#                       folder_im_latex='im',
+#                       num_components_draw = 3,
+#                       KindOfMeanReduciton='global')
+#    
+#    print_stats_matrices(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                         list_classes=[None,'Mary','ruins','nudity'],layer='mixed4d')
+#    print_stats_matrices(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200_LastEpoch',
+#                         list_classes=[None,'Mary','ruins','nudity'],layer='mixed4d')
+#    
 #    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = None,\
 #                                   layer='mixed4c_pre_relu')
 #    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = 'Mary',\
 #                                   layer='mixed4d_pre_relu')
 #    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',classe = 'Mary',\
 #                                   layer='mixed4c_pre_relu')
+#    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                               classe = None,\
+#                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
+#    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                               classe ='Northern_Renaissance',\
+#                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
+#    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                               classe ='Abstract_Art',\
+#                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
+#    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                               classe ='Ukiyo-e',\
+#                                layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
+#    
+#    print_stats_matrices(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                         list_classes=[None,'Northern_Renaissance','Abstract_Art','Ukiyo-e'],
+#                         layer='mixed4d',
+#                         source_dataset='RASTA')
+#    print_stats_matrices(model_name = 'pretrained',
+#                         list_classes=[None,'Northern_Renaissance','Abstract_Art','Ukiyo-e'],
+#                         layer='mixed4d',
+#                         source_dataset='RASTA')
+#    
+#    produce_latex_textV2(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                       layer_tab=['mixed4d'],classe_tab = [None,'Northern_Renaissance','Abstract_Art','Ukiyo-e'],
+#                       folder_im_latex='im',
+#                       num_components_draw = 3,
+#                       KindOfMeanReduciton='global')
+   
+    ## Calcul pour le Week-end 
+    
+    # Toutes les features visualisation pour la couche donnée pour IconArt et RASTA
+    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                               classe = None,\
+                               layer='mixed4d',
+                               clustering=None)
     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                                classe = None,\
-                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
-    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                               classe ='Northern_Renaissance',\
-                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
-    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                               classe ='Abstract_Art',\
-                                   layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
-    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                               classe ='Ukiyo-e',\
-                                layer='mixed4d',plot_FeatVizu=True,num_components_draw=3)
+                               layer='mixed4d',
+                               clustering=None)
     
-    print_stats_matrices(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                         list_classes=[None,'Northern_Renaissance','Abstract_Art','Ukiyo-e'],
-                         layer='mixed4d',
-                         source_dataset='RASTA')
-    print_stats_matrices(model_name = 'pretrained',
-                         list_classes=[None,'Northern_Renaissance','Abstract_Art','Ukiyo-e'],
-                         layer='mixed4d',
-                         source_dataset='RASTA')
+    # 10 aléatoires
+    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                               classe = None,\
+                               layer='mixed4d',
+                               clustering='random')
+    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                               classe = None,\
+                               layer='mixed4d',
+                               clustering='random')
     
-    produce_latex_textV2(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                       layer_tab=['mixed4d'],classe_tab = [None,'Northern_Renaissance','Abstract_Art','Ukiyo-e'],
-                       folder_im_latex='im',
-                       num_components_draw = 3,
-                       KindOfMeanReduciton='global')
+   #  Faire les 10 premieres components pour chacun des deux datasets et pour quelques classes
+    
+    for classe in [None,'Mary','ruins','nudity','angel']:
+        PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                               classe = classe,\
+                               layer='mixed4d',
+                               clustering='PCA')
+    for classe in [None,'Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art','Post-Impressionism','Realism']:
+        PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                               classe = classe,\
+                               layer='mixed4d',
+                               clustering='PCA')
+        
+        
+        
+        
+        
+    # PCA subset non teste 
+#    for classe in [None,'Mary','ruins','nudity','angel']:
+#        PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                               classe = classe,\
+#                               layer='mixed4d',
+#                               clustering='PCAsubset')
+#    for classe in [None,'Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art','Post-Impressionism','Realism']:
+#        PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                               classe = classe,\
+#                               layer='mixed4d',
+#                               clustering='PCAsubset')
+    
+#    Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                                    constrNet = 'InceptionV1',
+#                                    classe='Northern_Renaissance',layer='mixed4d',
+#                                    num_components_draw = 3,clustering = 'WHC',
+#                                    number_of_blocks = 1,strictMinimum=True,
+#                                    whiten=False,cossim=False)
+    for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e']:
+        for cossim in [False,True]:
+            for clustering in ['Kmeans','PCA','IPCA','MeanShift']:
+                for whiten in [False,True]:
+                 
+                    Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                                        constrNet = 'InceptionV1',
+                                        classe='Northern_Renaissance',layer='mixed4d',
+                                        num_components_draw =5,clustering = clustering,
+                                        number_of_blocks = 20,strictMinimum=True,
+                                        whiten=whiten,cossim=cossim)
     
     
     

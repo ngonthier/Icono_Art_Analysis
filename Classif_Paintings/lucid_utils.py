@@ -715,12 +715,33 @@ def lbfgs_min(model, objective_f, param_f=None, optimizer=None,
 #          show(np.hstack(vis))
     
         return images
+
+@objectives.wrap_objective
+def direction_neuron_cossim_S(layer_name, vec, batch=None, x=None, y=None, cossim_pow=1, S=None):
+    def inner(T):
+        layer = T(layer_name)
+        shape = tf.shape(layer)
+        x_ = shape[1] // 2 if x is None else x
+        y_ = shape[2] // 2 if y is None else y
+        if batch is None:
+          raise RuntimeError("requires batch")
+
+        acts = layer[batch, x_, y_]
+        vec_ = vec
+        if S is not None: vec_ = tf.matmul(vec_[None], S)[0]
+        mag = tf.sqrt(tf.reduce_sum(acts**2))
+        dot = tf.reduce_mean(acts * vec_)
+        cossim = dot/(1e-4 + mag)
+        cossim = tf.maximum(0.1, cossim)
+        return dot * cossim ** cossim_pow
+    return inner  
     
+
 def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLayer,\
                      path_output='',prexif_name='',\
                      input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
                      DECORRELATE=True,ROBUSTNESS=True,\
-                     inverseAndSave=True):
+                     inverseAndSave=True,cossim=False):
 #    ,printOnlyRGB=True
     
     if not(os.path.isfile(os.path.join(model_path))):
@@ -785,13 +806,19 @@ def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLaye
     # input = couple of Two arguments : first one name of the layer, 
     # second one number of the features must be an integer
     
-    total_obj = None
-    for i,weight_i in zip(index_features_withinLayer,weights):
-        
-        if total_obj is None:
-            total_obj = weight_i*C((obj_str,i))
-        else: 
-            total_obj += weight_i*C((obj_str,i))
+    if(cossim is True):
+        obj_list = ([
+                direction_neuron_cossim_S(layer, v, batch=n, S=S, cossim_pow=4) for n,v in enumerate(directions)
+                ])
+        total_obj = objectives.Objective.sum(obj_list)
+    else:
+        total_obj = None
+        for i,weight_i in zip(index_features_withinLayer,weights):
+            
+            if total_obj is None:
+                total_obj = weight_i*C((obj_str,i))
+            else: 
+                total_obj += weight_i*C((obj_str,i))
 
     output_im = render.render_vis(lucid_net,total_obj ,
                                   transforms=transforms,
