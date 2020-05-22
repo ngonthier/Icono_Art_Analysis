@@ -23,9 +23,15 @@ import matplotlib.pyplot as plt
 import tempfile
 import json
 import h5py
+from sklearn.cluster import KMeans,MeanShift
+import scipy 
 
 from tensorflow.python.keras.models import load_model
 from sklearn.decomposition import PCA
+from sklearn.decomposition import FastICA
+from sklearn.feature_extraction.image import grid_to_graph
+from sklearn.cluster import AgglomerativeClustering
+
 from tensorflow.python.keras import backend as K
 import tensorflow as tf
 from tensorflow.python.keras import Model
@@ -44,6 +50,8 @@ import Activation_for_model
 from StatsConstr_ClassifwithTL import predictionFT_net
 
 from inceptionV1_keras_utils import get_dico_layers_type
+
+
 
 def plot_PCAlike_featureVizu_basedOnGramMatrix(model_name = 'RASTA_small01_modif',classe = None,\
                                    layer='mixed4d_pre_relu'):
@@ -1269,11 +1277,76 @@ def normalize(x):
     """
     return x / (K.sqrt(K.mean(K.square(x))) + K.epsilon())
 
+def do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
+                                 prexif_name,features_size,
+                                 layer,weights,path_output_lucid_im,
+                                 input_name_lucid,constrNet,sizeIm=256,
+                                 strictMinimum=False):
+    print(prexif_name)
+    index_features_withinLayer_all = np.arange(0,features_size)
+    lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                     layer_to_print=layer,weights=weights,\
+                     index_features_withinLayer=index_features_withinLayer_all,\
+                     path_output=path_output_lucid_im,prexif_name=prexif_name,\
+                     input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+   
+    minus_weights = -weights
+    prexif_name_negDir =prexif_name+ '_NegDir' # Negative direction
+    print(prexif_name_negDir)
+    index_features_withinLayer_all = np.arange(0,features_size)
+    lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                     layer_to_print=layer,weights=minus_weights,\
+                     index_features_withinLayer=index_features_withinLayer_all,\
+                     path_output=path_output_lucid_im,prexif_name=prexif_name_negDir,\
+                     input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+    
+    if not(strictMinimum):
+        prexif_name_pos = prexif_name + '_PosContrib'
+        where_pos = np.where(weights>0.)[0]
+        if len(where_pos)>0:
+            weights_pos = list(weights[where_pos])
+            print(prexif_name_pos)
+            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                         layer_to_print=layer,weights=weights_pos,\
+                         index_features_withinLayer=where_pos,\
+                         path_output=path_output_lucid_im,prexif_name=prexif_name_pos,\
+                         input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+            
+            where_max = np.argmax(weights)
+            prexif_name_max = prexif_name+  '_Max'+str(where_max)
+            print(prexif_name_max)
+            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                             layer_to_print=layer,weights=[1.],\
+                             index_features_withinLayer=[where_max],\
+                             path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
+                             input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+    #            
+        prexif_name_neg = prexif_name + '_NegContrib'
+        where_neg = np.where(weights<0.)[0]
+        weights_neg = list(-weights[where_neg])
+        if len(weights_neg)>0:
+            print(prexif_name_neg)
+            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                             layer_to_print=layer,weights=weights_neg,\
+                             index_features_withinLayer=where_neg,\
+                             path_output=path_output_lucid_im,prexif_name=prexif_name_neg,\
+                             input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+    
+            where_min = np.argmin(weights)
+            prexif_name_max = prexif_name+  '_Min'+str(where_min)
+            print(prexif_name_max)
+            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
+                             layer_to_print=layer,weights=[1.],\
+                             index_features_withinLayer=[where_min],\
+                             path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
+                             input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm)
+
         
 def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                                     constrNet = 'InceptionV1',
                                     classe='Northern_Renaissance',layer='mixed4d',
-                                    num_components_draw = 3):
+                                    num_components_draw = 3,clustering = 'WHC',
+                                    number_of_blocks = 1,strictMinimum=True):
     """
     L idee de cette fonction est la suivante en deux étapes :
         Step 1 : creer le block au milieu du reseau qui maximise de maniere robuste
@@ -1285,10 +1358,17 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
     Il faudrait peut etre faire un clustering avec connectivity = True
     
     Pour trouver les régions de l'images les differents objects ou morceaux d'objects
-    
+
     https://scikit-learn.org/stable/modules/clustering.html
     
     Ou bien retirer la base, faire quelque chose quoi
+    
+    @param :     clustering = None # Diagonalisation on the Gram matrices
+    clustering = 'MeanShift' # MeanShift clustering and then plot the center and the principal component of the cluster
+    clustering = 'KMeans' # KMeans clustering and then plot the center and the principal component of the cluster
+    clustering = 'ICA' # ICA decomposition indeed of Eigenvalues ones (PCA like)
+    'IPCA' : PCA and then ICA
+    WHC : AgglomerativeClustering with connectivity
         
     """
     
@@ -1416,7 +1496,8 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
     for dim in dim_shape:
         new_input_shape += [dim.value]
     new_input_shape.pop(0) #remove the batch size dim
-    number_of_blocks = 50
+    #number_of_blocks = 50
+    
     variable_shape = [number_of_blocks] + new_input_shape
     part_model.build(variable_shape)
     max_x_value= np.max(max_per_channel)
@@ -1454,24 +1535,8 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
 #    # Ask the optimizer to apply the processed gradients.
 #    opt.apply_gradients(zip(processed_grads, var_list))
 
-    features_size = new_input_shape[-1]
-    h_time_w_size = new_input_shape[0]*new_input_shape[1]
-    if not(number_of_blocks==1):
-        feature_block_reshaped = variable.reshape((number_of_blocks,-1,variable.shape[-1]))
-        gram_matrix = np.matmul(np.transpose(feature_block_reshaped,[0,2,1]),feature_block_reshaped)/h_time_w_size
-        gram_matrix = np.mean(gram_matrix,axis=0)
-    else:
-        feature_block_reshaped = variable.reshape((-1,variable.shape[-1]))
-        gram_matrix = np.matmul(np.transpose(feature_block_reshaped,[1,0]),feature_block_reshaped)/h_time_w_size
-        
-    # We will compute the Gram matrices of this features block
 
-    
-    name = 'GramMatrixCond_'+str(classe)
-    path = path_output_lucid_im
-    title = 'GramMatrixCond '+str(classe)
-    print_rect_matrix(gram_matrix,name,path,title=title)
-    
+
     suffix_str =  suffix_str = suffix
     name_pb_full_model = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
     if not(os.path.isfile(os.path.join(path_lucid_model,name_pb_full_model))):
@@ -1479,91 +1544,245 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
                                    constrNet=constrNet,
                                    path=path_lucid_model,suffix=suffix)
         
-#    pca = PCA(n_components=None,copy=True,whiten=False)
-#    print('feature_block_reshaped.shape',feature_block_reshaped.shape)
-#    pca.fit(feature_block_reshaped)
-#    print('Eigen values 10 first value',pca.singular_values_[0:10])
-#    print('Explained ratio 10 first',pca.explained_variance_ratio_[0:10])
-#    eigen_vectorsPCA = pca.components_
-    #print('pca_comp',eigen_vectors.shape)
-    
-    eigen_values, eigen_vectors = LA.eig(gram_matrix)
-    print('Eigen values 10 first value',eigen_values[0:10])
-    eigen_vectors = np.real(eigen_vectors) 
-    
     if constrNet=='VGG':
         input_name_lucid ='block1_conv1_input'
     elif constrNet=='InceptionV1':
         input_name_lucid ='input_1'
-    for comp_number in range(num_components_draw):
-        weights = eigen_vectors[:,comp_number]
-        #weights = weights[0:1]
-        #print('weights',weights)
-        #time.sleep(.300)
+        
+    features_size = new_input_shape[-1]
+    h_time_w_size = new_input_shape[0]*new_input_shape[1]
+    h = new_input_shape[0]
+    w = new_input_shape[1]
+    
+    print('clustering',clustering)
+    
+    if clustering is None:
 
         if not(number_of_blocks==1):
-            prexif_name = 'MeanGramOn'+str(number_of_blocks)+'_PCA'+str(comp_number)
+            feature_block_reshaped = variable.reshape((number_of_blocks,-1,variable.shape[-1]))
+            gram_matrix = np.matmul(np.transpose(feature_block_reshaped,[0,2,1]),feature_block_reshaped)/h_time_w_size
+            gram_matrix = np.mean(gram_matrix,axis=0)
         else:
-            prexif_name = '_PCA'+str(comp_number)
-        if not(classe is None):
-           prexif_name += '_'+classe 
-        print(prexif_name)
-        index_features_withinLayer_all = np.arange(0,features_size)
-        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
-                         layer_to_print=layer,weights=weights,\
-                         index_features_withinLayer=index_features_withinLayer_all,\
-                         path_output=path_output_lucid_im,prexif_name=prexif_name,\
-                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-       
-        minus_weights = -weights
-        prexif_name_negDir =prexif_name+ '_NegDir' # Negative direction
-        print(prexif_name_negDir)
-        index_features_withinLayer_all = np.arange(0,features_size)
-        lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
-                         layer_to_print=layer,weights=minus_weights,\
-                         index_features_withinLayer=index_features_withinLayer_all,\
-                         path_output=path_output_lucid_im,prexif_name=prexif_name_negDir,\
-                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-        
-        prexif_name_pos = prexif_name + '_PosContrib'
-        where_pos = np.where(weights>0.)[0]
-        if len(where_pos)>0:
-            weights_pos = list(weights[where_pos])
-            print(prexif_name_pos)
-            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
-                         layer_to_print=layer,weights=weights_pos,\
-                         index_features_withinLayer=where_pos,\
-                         path_output=path_output_lucid_im,prexif_name=prexif_name_pos,\
-                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+            feature_block_reshaped = variable.reshape((-1,variable.shape[-1]))
+            gram_matrix = np.matmul(np.transpose(feature_block_reshaped,[1,0]),feature_block_reshaped)/h_time_w_size
             
-            where_max = np.argmax(weights)
-            prexif_name_max = prexif_name+  '_Max'+str(where_max)
-            print(prexif_name_max)
-            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
-                             layer_to_print=layer,weights=[1.],\
-                             index_features_withinLayer=[where_max],\
-                             path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
-#            
-        prexif_name_neg = prexif_name + '_NegContrib'
-        where_neg = np.where(weights<0.)[0]
-        weights_neg = list(-weights[where_neg])
-        if len(weights_neg)>0:
-            print(prexif_name_neg)
-            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
-                             layer_to_print=layer,weights=weights_neg,\
-                             index_features_withinLayer=where_neg,\
-                             path_output=path_output_lucid_im,prexif_name=prexif_name_neg,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        # We will compute the Gram matrices of this features block
+        name = 'GramMatrixCond_'+str(classe)
+        path = path_output_lucid_im
+        title = 'GramMatrixCond '+str(classe)
+        print_rect_matrix(gram_matrix,name,path,title=title)   
+    #    pca = PCA(n_components=None,copy=True,whiten=False)
+    #    print('feature_block_reshaped.shape',feature_block_reshaped.shape)
+    #    pca.fit(feature_block_reshaped)
+    #    print('Eigen values 10 first value',pca.singular_values_[0:10])
+    #    print('Explained ratio 10 first',pca.explained_variance_ratio_[0:10])
+    #    eigen_vectorsPCA = pca.components_
+        #print('pca_comp',eigen_vectors.shape)
+        
+        eigen_values, eigen_vectors = LA.eig(gram_matrix)
+        print('Eigen values 10 first value',eigen_values[0:10])
+        eigen_vectors = np.real(eigen_vectors) 
+        
+        for comp_number in range(num_components_draw):
+            weights = eigen_vectors[:,comp_number]
+            #weights = weights[0:1]
+            #print('weights',weights)
+            #time.sleep(.300)
+    
+            if not(number_of_blocks==1):
+                prexif_name = 'MeanGramOn'+str(number_of_blocks)+'_PCA'+str(comp_number)
+            else:
+                prexif_name = '_PCA'+str(comp_number)
+            if not(classe is None):
+               prexif_name += '_'+classe 
+            do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
+                                 prexif_name,features_size,
+                                 layer,weights,path_output_lucid_im,
+                                 input_name_lucid,constrNet,strictMinimum)
+            
+    elif clustering=='KMeans':
+        
+        feature_block_reshaped = variable.reshape((-1,features_size))
+        n_clusters = 5
+        str_kmeans = 'C'+str(n_clusters)+'Means'
+        
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0)
+        kmeans.fit(feature_block_reshaped)
+        labels = kmeans.labels_
+        cluster_centers = kmeans.cluster_centers_
+        
+        labels_unique = np.unique(labels)
+        n_clusters_ = len(labels_unique)
+        
+        print("number of estimated clusters : %d" % n_clusters_)
+        
+        for i,center in enumerate(cluster_centers):
+            #print(center.shape)
+            prexif_name = ''
+            prexif_name += str_kmeans +'center'+str(i)
+            if not(number_of_blocks==1):
+                prexif_name += 'NumSample'+str(number_of_blocks)
+            if not(classe is None):
+               prexif_name += '_'+classe 
+            do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
+                                 prexif_name,features_size,
+                                 layer,center,path_output_lucid_im,
+                                 input_name_lucid,constrNet,strictMinimum)
+            
+        num_components_draw = 1
+        for c in labels_unique:
+            position_label_c = np.where(labels==c)[0]
+            feature_block_cluster_c = feature_block_reshaped[position_label_c,:]
+            gram_matrix = np.matmul(np.transpose(feature_block_cluster_c,[1,0]),feature_block_cluster_c)/h_time_w_size
+            eigen_values, eigen_vectors = LA.eig(gram_matrix)
+            print('Eigen values 1 first value',eigen_values[0:1])
+            eigen_vectors = np.real(eigen_vectors) 
+            for comp_number in range(num_components_draw):
+                weights = eigen_vectors[:,comp_number]
+                prexif_name = str_kmeans+'cluster'+str(c)
+                prexif_name += '_PCA'+str(comp_number)
+                if not(classe is None):
+                   prexif_name += '_'+classe 
+                do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
+                                     prexif_name,features_size,
+                                     layer,weights,path_output_lucid_im,
+                                     input_name_lucid,constrNet,strictMinimum)
+        
+            
+    elif clustering=='MeanShift':
+        # Meme avec le mean shift on jette l'information spatiale !
+        feature_block_reshaped = variable.reshape((-1,features_size))
+        ms = MeanShift()
+        ms.fit(feature_block_reshaped)
+        labels = ms.labels_
+        cluster_centers = ms.cluster_centers_
+        
+        labels_unique = np.unique(labels)
+        n_clusters_ = len(labels_unique)
+        
+        print("number of estimated clusters : %d" % n_clusters_)
+        
+        for i,center in enumerate(cluster_centers):
+            print(center.shape)
+            prexif_name = ''
+            prexif_name += 'MScenter'+str(i)
+            if not(number_of_blocks==1):
+                prexif_name += 'NumSample'+str(number_of_blocks)
+            if not(classe is None):
+               prexif_name += '_'+classe 
+            do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
+                                 prexif_name,features_size,
+                                 layer,center,path_output_lucid_im,
+                                 input_name_lucid,constrNet,strictMinimum)
+            
+        num_components_draw = 1
+        for c in labels_unique:
+            position_label_c = np.where(labels==c)[0]
+            feature_block_cluster_c = feature_block_reshaped[position_label_c,:]
+            gram_matrix = np.matmul(np.transpose(feature_block_cluster_c,[1,0]),feature_block_cluster_c)/h_time_w_size
+            eigen_values, eigen_vectors = LA.eig(gram_matrix)
+            print('Eigen values 1 first value',eigen_values[0:1])
+            eigen_vectors = np.real(eigen_vectors) 
+            for comp_number in range(num_components_draw):
+                weights = eigen_vectors[:,comp_number]
+                prexif_name = 'MScluster'+str(c)
+                prexif_name += '_PCA'+str(comp_number)
+                if not(classe is None):
+                   prexif_name += '_'+classe 
+                do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
+                                     prexif_name,features_size,
+                                     layer,weights,path_output_lucid_im,
+                                     input_name_lucid,constrNet,strictMinimum)
+                
+    elif clustering=='ICA':
+        
+        feature_block_reshaped = variable.reshape((-1,features_size))
+        ica = FastICA(random_state=0)
+        S_ica_ = ica.fit(feature_block_reshaped)
+        components_vectors = S_ica_.components_
+        for comp_number in range(num_components_draw):
+            weights = components_vectors[comp_number,:]
+            #weights = weights[0:1]
+            #print('weights',weights)
+            #time.sleep(.300)
+    
+            if not(number_of_blocks==1):
+                prexif_name = 'MeanGramOn'+str(number_of_blocks)+'_ICA'+str(comp_number)
+            else:
+                prexif_name = '_ICA'+str(comp_number)
+            if not(classe is None):
+               prexif_name += '_'+classe 
+            do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
+                                 prexif_name,features_size,
+                                 layer,weights,path_output_lucid_im,
+                                 input_name_lucid,constrNet,strictMinimum)
+    elif clustering=='IPCA':
+        # https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-13-24
+        feature_block_reshaped = variable.reshape((-1,features_size))
+        pca = PCA(n_components=None,copy=True,whiten=False)
+        pca.fit(feature_block_reshaped)
+        eigen_vectorsPCA = pca.components_
+        ica = FastICA(random_state=0)
+        S_ica_ = ica.fit(eigen_vectorsPCA)
+        components_vectors = S_ica_.components_
+        
+        kurtosis = scipy.stats.kurtosis(components_vectors, axis=1)
+        decreasing_order = np.argsort(kurtosis)[::-1]
+        
+        for comp_number,index_com_vectors in enumerate(decreasing_order):
+            weights = components_vectors[index_com_vectors,:]
+            #weights = weights[0:1]
+            #print('weights',weights)
+            #time.sleep(.300)
+    
+            if not(number_of_blocks==1):
+                prexif_name = 'MeanGramOn'+str(number_of_blocks)+'_IPCA'+str(comp_number)
+            else:
+                prexif_name = '_IPCA'+str(comp_number)
+            if not(classe is None):
+               prexif_name += '_'+classe 
+            do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
+                                 prexif_name,features_size,
+                                 layer,weights,path_output_lucid_im,
+                                 input_name_lucid,constrNet,strictMinimum)
+    elif clustering=='WHC':
+        
+        # Define the structure A of the data. 
+        # Pixels connected to their neighbors.
+        assert(number_of_blocks==1)
+        n_clusters = 5
+        connectivity = grid_to_graph(*variable.shape)
+        feature_block_reshaped = variable.reshape((-1,features_size))
+        ward = AgglomerativeClustering(n_clusters=n_clusters, linkage='ward',
+                               connectivity=connectivity)
+        ward.fit(feature_block_reshaped)
 
-            where_min = np.argmin(weights)
-            prexif_name_max = prexif_name+  '_Min'+str(where_min)
-            print(prexif_name_max)
-            lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
-                             layer_to_print=layer,weights=[1.],\
-                             index_features_withinLayer=[where_min],\
-                             path_output=path_output_lucid_im,prexif_name=prexif_name_max,\
-                             input_name=input_name_lucid,Net=constrNet,sizeIm=256)
+        labels = ward.labels_
+        
+        labels_unique = np.unique(labels)
+        n_clusters_ = len(labels_unique)
+        
+        print("number of estimated clusters : %d" % n_clusters_)
+            
+        num_components_draw = 1
+        for c in labels_unique:
+            position_label_c = np.where(labels==c)[0]
+            feature_block_cluster_c = feature_block_reshaped[position_label_c,:]
+            gram_matrix = np.matmul(np.transpose(feature_block_cluster_c,[1,0]),feature_block_cluster_c)/h_time_w_size
+            eigen_values, eigen_vectors = LA.eig(gram_matrix)
+            print('Eigen values 1 first value',eigen_values[0:1])
+            eigen_vectors = np.real(eigen_vectors) 
+            for comp_number in range(num_components_draw):
+                weights = eigen_vectors[:,comp_number]
+                prexif_name = 'WHCcluster'+str(c)
+                prexif_name += '_PCA'+str(comp_number)
+                if not(classe is None):
+                   prexif_name += '_'+classe 
+                do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
+                                     prexif_name,features_size,
+                                     layer,weights,path_output_lucid_im,
+                                     input_name_lucid,constrNet,strictMinimum)
+        
 
 ## Tentative de faire avec LBFGS mais cela n'a pas fonctionner
 #    number_iter = 10
