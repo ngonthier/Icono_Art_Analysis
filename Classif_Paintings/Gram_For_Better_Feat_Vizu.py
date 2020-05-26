@@ -31,6 +31,7 @@ from sklearn.decomposition import PCA
 from sklearn.decomposition import FastICA
 from sklearn.feature_extraction.image import grid_to_graph
 from sklearn.cluster import AgglomerativeClustering
+from sklearn.cluster import SpectralCoclustering,SpectralBiclustering
 from sklearn.preprocessing import StandardScaler
 
 from tensorflow.python.keras import backend as K
@@ -51,6 +52,9 @@ import Activation_for_model
 from StatsConstr_ClassifwithTL import predictionFT_net
 
 from inceptionV1_keras_utils import get_dico_layers_type
+
+from Stats_Fcts import get_Model_cov_mean_features,get_Model_gram_mean_features,get_Model_cov_mean_features_global_mean
+from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
 
 
 
@@ -369,6 +373,136 @@ def PCAbased_FeaVizu_deepmodel_meanGlobal(model_name = 'RASTA_small01_modif',
         mean_cov_matrix = np.load(path_data_cov_matrix)
         std_cov_matrix = np.load(path_data_std_cov_matrix)
  
+def compute_global_clustering_cov_matrices_onBigSet(    
+                                    constrNet = 'InceptionV1',
+                                    cropCenter = True,
+                                    set_ = 'train',
+                                    model_name = 'RASTA_small01_modif',
+                                    classe = None,\
+                                    layer='mixed4d_pre_relu',
+                                    KindOfMeanReduciton = 'global',
+                                    verbose=False,
+                                    source_dataset=None,
+                                    clustering=''):
+    """
+    For a given layer and a given dataset given class
+    """
+    if model_name=='pretrained':
+        assert(not(source_dataset is None))
+    else:
+        if 'RASTA' in model_name:
+            source_dataset = 'RASTA'
+        elif 'IconArt_v1' in model_name:
+            source_dataset = 'IconArt_v1'
+    number_im_considered = None
+    style_layers = [layer]
+    whatToload = 'all'
+    
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
+    if KindOfMeanReduciton=='instance':
+        str_stats = 'cov'
+    if KindOfMeanReduciton=='global':
+        str_stats = 'covGlobalMean'
+    elif KindOfMeanReduciton=='' or KindOfMeanReduciton is None:
+        str_stats = 'gram'
+    else:
+        raise(NotImplementedError)
+
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    if classe is None:
+        path_data_mean_matrix = os.path.join(output_path,style_layers[0]+'_mean_matrix.npy')
+        path_data_cov_matrix = os.path.join(output_path,style_layers[0]+'_mean_'+str_stats+'_matrix.npy')
+        path_data_std_cov_matrix = os.path.join(output_path,style_layers[0]+'_std_'+str_stats+'_matrix.npy')
+    else:
+        path_data_mean_matrix = os.path.join(output_path,style_layers[0]+'_'+str(classe)+'_mean_matrix.npy')
+        path_data_cov_matrix = os.path.join(output_path,style_layers[0]+'_'+str(classe)+'_mean_cov_matrix.npy')
+        path_data_std_cov_matrix = os.path.join(output_path,style_layers[0]+'_'+str(classe)+'_std_cov_matrix.npy')
+
+    K.set_learning_phase(0)
+
+    if not (os.path.isfile(path_data_cov_matrix) and os.path.isfile(path_data_std_cov_matrix) and os.path.isfile(path_data_mean_matrix)):
+        
+        if model_name=='pretrained':
+            fine_tuned_model = Activation_for_model.get_Network(constrNet)
+        else:
+            fine_tuned_model, _ = get_fine_tuned_model(model_name,constrNet=constrNet,suffix='',get_Metrics=False)
+
+        item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+        path_data,Not_on_NicolasPC = get_database(source_dataset)
+        df_train = df_label[df_label['set']=='train']
+
+        if KindOfMeanReduciton=='global':
+            mean_model = Activation_for_model.get_Model_that_output_StatsOnActivation_forGivenLayers(fine_tuned_model,list_layers=style_layers,
+                                                                                                    stats_on_layer='mean')
+            list_spatial_means = predictionFT_net(mean_model,df_train,x_col=item_name,y_col=classes,path_im=path_to_img,
+                                                  Net=constrNet,cropCenter=cropCenter)
+            print('spatial_means len and shape',len(list_spatial_means),list_spatial_means[0].shape)
+            list_mean_spatial_means = []
+            dict_global_means = {}
+            array_spatial_means = np.array(np.vstack(list_spatial_means))
+            mean_spatial_means = np.mean(array_spatial_means,axis=0)
+            print('mean_spatial_means',mean_spatial_means.shape)
+            dict_global_means[layer] = mean_spatial_means
+#            array_spatial_means
+#            
+#            
+#            for layername,spatial_means in zip(style_layers,list_spatial_means):
+#                mean_spatial_means = np.mean(np.array(list_spatial_means),axis=0)
+#                print('mean_spatial_means',mean_spatial_means.shape)
+#                list_mean_spatial_means += [mean_spatial_means]
+#                dict_global_means[layername] = mean_spatial_means
+
+        dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                       whatToload,saveformat='h5',set=set_,getBeforeReLU=False,\
+                       Net=constrNet,style_layers_imposed=[],\
+                       list_mean_and_std_source=[],list_mean_and_std_target=[],\
+                       cropCenter=cropCenter,BV=True,sizeIm=224,model_alreadyLoaded=fine_tuned_model,\
+                       name_model=model_name,\
+                       randomCropValid=False,classe=classe,\
+                       KindOfMeanReduciton=KindOfMeanReduciton,\
+                       dict_global_means=dict_global_means)
+        # Dans le cas de RASTA ce fichier fait plus de 60Go
+        
+        
+        stats_layer = dict_stats[layer]
+        print('len(stats_layer)',len(stats_layer))
+        del dict_stats
+        number_img = len(stats_layer)
+        [cov,mean] = stats_layer[0]
+        features_size,_ = cov.shape
+
+        mean_cov_matrix = np.zeros((features_size,features_size),dtype=np.float64)
+        mean_squared_value_cov_matrix = np.zeros((features_size,features_size),dtype=np.float64)
+        
+        size_data = int(((features_size+1)*features_size)//2)
+        X_data = np.empty(shape=(number_img,size_data))
+        
+        for i in range(number_img):
+            [cov,mean] = stats_layer[i]
+            triu_matrices = cov[np.triu_indices(features_size)]
+            X_data[i,:] = triu_matrices
+        
+        n_clusters = 3
+        ### Ici on veut un clustering 
+        
+        #scoclustering = SpectralCoclustering(n_clusters=n_clusters, random_state=0)
+        scoclustering = SpectralBiclustering(n_clusters=n_clusters, random_state=0)
+        scoclustering.fit(X_data)
+        row_labels_= scoclustering.row_labels_
+        column_labels_ = scoclustering.column_labels_
+        
+        for l_i in range(n_clusters):
+            image_clustered_together = X_data[np.where(row_labels_==l_i)]
+            
+            
+            #for r_i in range(n_clusters):
+                
+        
+        
+
 def compute_global_mean_cov_matrices_onBigSet(    
                                     constrNet = 'InceptionV1',
                                     cropCenter = True,
@@ -637,22 +771,164 @@ def print_stats_matrices(model_name = 'RASTA_small01_modif',
     print_values(list_labels=list_classes,list_arrays=list_cov,path=path_output_lucid_im,name=name,
                  title=title)
     
-
-    
-def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
+def Clust_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
                                classe = None,\
-                               layer='mixed4d_pre_relu',\
-                               plot_FeatVizu=False,\
+                               layer='mixed4d',\
+                               plot_FeatVizu=True,\
                                source_dataset=None,
                                num_components_draw = 10,
                                strictMinimum=False,cossim=False,
                                clustering='PCA'):
     """
+    Clustering on one image !
+    """
+    constrNet = 'InceptionV1'
+    cropCenter = True
+    set_ = 'train'
+    KindOfMeanReduciton='global'
+    KindOfMeanReduciton=None
+    
+    if 'IconArt_v1' in model_name:
+        dataset = 'IconArt_v1'
+    elif 'RASTA'  in model_name:
+        dataset = 'RASTA'
+    else:
+        raise(ValueError('The dataset is unknown'))
+    
+    if model_name=='pretrained':
+        fine_tuned_model = Activation_for_model.get_Network(constrNet)
+    else:
+        fine_tuned_model, _ = get_fine_tuned_model(model_name,constrNet=constrNet,suffix='',get_Metrics=False)
+
+    model_alreadyLoaded = fine_tuned_model
+
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+    path_data,Not_on_NicolasPC = get_database(dataset)
+    df_train = df_label[df_label['set']=='train']
+    
+    style_layers = [layer]
+    if KindOfMeanReduciton=='global':
+        mean_model = Activation_for_model.get_Model_that_output_StatsOnActivation_forGivenLayers(fine_tuned_model,list_layers=style_layers,
+                                                                                                stats_on_layer='mean')
+        list_spatial_means = predictionFT_net(mean_model,df_train,x_col=item_name,y_col=classes,path_im=path_to_img,
+                                              Net=constrNet,cropCenter=cropCenter)
+    if KindOfMeanReduciton=='instance':
+        net_get_cov = get_Model_cov_mean_features(style_layers,model_alreadyLoaded)
+    elif KindOfMeanReduciton is None or  KindOfMeanReduciton=='':
+        net_get_cov = get_Model_gram_mean_features(style_layers,model_alreadyLoaded)
+    elif KindOfMeanReduciton=='global':
+        net_get_cov = get_Model_cov_mean_features_global_mean(style_layers,model_alreadyLoaded,
+                                                   dict_global_means)
+    else:
+        raise(ValueError(KindOfMeanReduciton))
+        
+    randomCropValid = False
+    Net = constrNet 
+    sizeIm = 224
+    # Select one image only
+    if not(classe is None):
+        df_train = df_train[df_label[classe]==1]
+    list_imgs = df_train[item_name].values 
+    
+    number_im_considered = 10
+    
+    for i in range(number_im_considered):
+        img_name = list_imgs[i] + '.jpg'
+        image_path = os.path.join(path_to_img,img_name)
+        print(image_path)
+        
+    #    for i,image_path in enumerate(list_imgs):
+    #        if number_im_considered is None or i < number_im_considered:
+    #            if i%itera==0: print(i,image_path)
+        head, tail = os.path.split(image_path)
+        short_name = '.'.join(tail.split('.')[0:-1])
+    #    if not(set is None or set==''):
+    #        if not(short_name in images_in_set):
+    #            # The image is not in the set considered
+    #            continue
+        # Get the covairances matrixes and the means
+        try:
+            #vgg_cov_mean = sess.run(get_gram_mean_features(vgg_inter,image_path))
+            # Erreur : 
+            #FileNotFoundError: [Errno 2] No such file or directory: 'data/RASTA_LAMSADE/wikipaintings_full/wikipaintings_train/Northern_Renaissance/hans-holbein-the-younger_henry-viii-handing-over-a-charter-to-thomas-vicary-commemorating-the-joining-of-the-barbers-and-1541.jpg'
+            try:
+                if cropCenter:
+                    image_array= load_and_crop_img(path=image_path,Net=Net,target_size=sizeIm,
+                                            crop_size=sizeIm,interpolation='lanczos:center')
+                    # For VGG or ResNet with classification head size == 224
+                elif randomCropValid:
+                    image_array= load_and_crop_img(path=image_path,Net=Net,target_size=256,
+                                            crop_size=sizeIm,interpolation='lanczos:center')
+                else:
+                    image_array = load_resize_and_process_img(image_path,Net=Net,max_dim=sizeIm)
+            except FileNotFoundError as error:
+                # A workaround because name too long for windows system file !
+                if 'hans-holbein-the-younger_henry-viii-handing-over-a-charter-to-thomas-vicary-commemorating-the-joining-of-the-barbers-and-1541' in image_path:
+                    image_path = image_path.replace('hans-holbein-the-younger_henry-viii-handing-over-a-charter-to-thomas-vicary-commemorating-the-joining-of-the-barbers-and-1541','hans-holbein-henry-viii-handing')
+                    if cropCenter:
+                        image_array= load_and_crop_img(path=image_path,Net=Net,target_size=sizeIm,
+                                                crop_size=sizeIm,interpolation='lanczos:center')
+                        # For VGG or ResNet with classification head size == 224
+                    elif randomCropValid:
+                        image_array= load_and_crop_img(path=image_path,Net=Net,target_size=256,
+                                                crop_size=sizeIm,interpolation='lanczos:center')
+                    else:
+                        image_array = load_resize_and_process_img(image_path,Net=Net,max_dim=sizeIm)
+                else:
+                    raise(error)
+            net_cov_mean = net_get_cov.predict(image_array, batch_size=1)
+        except IndexError as e:
+            print(e)
+            print(i,image_path)
+            raise(e)
+    
+    
+        cov,mean = net_cov_mean
+        cov = cov[0,:,:]
+        
+        plt.figure()
+        plt.imshow(cov)
+        plt.title('Cov Matrices of '+short_name)
+    plt.show()
+    input('enter to close')
+    plt.close('all')
+    
+#    n_clusters = 9
+#    ### Ici on veut un clustering 
+#    
+#    scoclustering = SpectralCoclustering(n_clusters=n_clusters, random_state=0)
+#    # To cluster row and columns at the same time : https://scikit-learn.org/stable/auto_examples/bicluster/plot_spectral_coclustering.html#sphx-glr-auto-examples-bicluster-plot-spectral-coclustering-py
+#    scoclustering.fit(cov)
+#    row_labels_= scoclustering.row_labels_
+#    column_labels_ = scoclustering.column_labels_
+#    
+#    indices = []
+#    for i,mx in enumerate(cov):
+#        if np.sum(mx, axis=1) == 0:
+#            indices.append(i)
+#    
+#    mask = np.ones(mtx.shape[0], dtype=bool)
+#    mask[indices] = False
+#    mtx = mtx[mask] 
+    
+#    for l_i in range(n_clusters):
+#        cluster_cov_i = cov[]
+#        image_clustered_together = cov[np.where(row_labels_==l_i)]
+
+    
+def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
+                               classe = None,\
+                               layer='mixed4d_pre_relu',\
+                               plot_FeatVizu=True,\
+                               source_dataset=None,
+                               num_components_draw = 10,
+                               strictMinimum=False,cossim=False,
+                               clustering='PCA',
+                               constrNet = 'InceptionV1'):
+    """
     @param : clustering PCA or IPCA or none and we will do all the feature one by one
     """
     
-    
-    constrNet = 'InceptionV1'
     cropCenter = True
     set_ = 'train'
     KindOfMeanReduciton='global'
@@ -661,10 +937,10 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
                                               cropCenter=cropCenter,\
                                               set_=set_,\
                                               model_name = model_name,\
-                                               classe = classe,\
-                                               layer=layer,\
-                                               KindOfMeanReduciton=KindOfMeanReduciton,\
-                                               source_dataset=source_dataset)
+                                           classe = classe,\
+                                           layer=layer,\
+                                           KindOfMeanReduciton=KindOfMeanReduciton,\
+                                           source_dataset=source_dataset)
     
     features_size,_ = mean_cov_matrix.shape
     
@@ -682,13 +958,17 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
     else:
         raise(NotImplementedError)
         
-
+    pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True)
+    
     path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
     
-    if not(classe is None):
-        classe_str = classe
-    else:
+    if clustering is None or clustering=='random':
         classe_str = ''
+    else:
+        if not(classe is None):
+            classe_str = classe
+        else:
+            classe_str = ''
     suffix = ''
     suffix_str = suffix
     # Compute the eigen values 
@@ -705,6 +985,8 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
             if constrNet=='VGG':
                 input_name_lucid ='block1_conv1_input'
             elif constrNet=='InceptionV1':
+                input_name_lucid ='input_1'
+            elif constrNet=='InceptionV1_slim':
                 input_name_lucid ='input_1'
         
         else:
@@ -727,7 +1009,7 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
                                              strictMinimum=True,cossim=cossim)
         elif clustering=='random':
             for comp_number in range(num_components_draw):
-                weights = np.random.random(shape=(features_size,))
+                weights = np.random.random((features_size,))
                 prexif_name = '_Random'+str(comp_number)
                 #print(prexif_name)
                 do_lucidVizu_forPCA_all_case(path_lucid_model,
@@ -775,45 +1057,86 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
                                              prexif_name,features_size,
                                              layer,weights,path_output_lucid_im,
                                              input_name_lucid,constrNet,
-                                             strictMinimum,cossim)
+                                             strictMinimum=strictMinimum,cossim=cossim)
                 
         elif clustering=='PCAsubset':
             # In this case we only keep the top value of the gram matrice 
             # Then whithen it and then do the diagonalisation
             
-            list_mean_cov_matrix_trui = list(mean_cov_matrix[np.triu_indices(features_size)])
-            deciles = np.percentile(list_mean_cov_matrix_trui, 10, axis=0)
-            where_mean_cov_matrix_big = np.where(mean_cov_matrix>=deciles[0])
+            list_mean_cov_matrix_trui = list(np.abs(mean_cov_matrix[np.triu_indices(features_size)]))
+            print(list_mean_cov_matrix_trui)
+            decile = np.percentile(list_mean_cov_matrix_trui, 99) # last decile
+            print(decile)
+            where_mean_cov_matrix_big = np.where(np.abs(mean_cov_matrix)>=decile)
             mask = np.zeros_like(mean_cov_matrix)
             mask[where_mean_cov_matrix_big] = 1
             masked_cov = mean_cov_matrix*mask
             
             tmp_cov = masked_cov.copy()
-            for i in range(features_size):
+            feature_no_supprimer = []
+            for ii in range(features_size):
+                i = features_size-1-ii
+                
                 if np.sum(tmp_cov[:,i])==0:
                     masked_cov = np.delete(masked_cov,i,0)
                     masked_cov = np.delete(masked_cov,i,1)
                     # On supprime ligne et colum
                 else:
                     # On normalise ligne et colonne par la variance
-                    masked_cov[:,i] /= masked_cov[i,i]
-                    masked_cov[i,:] /= masked_cov[i,i]
-                    masked_cov[i,i] = 1.
-            
+#                    var_ii = masked_cov[i,i]
+#                    masked_cov[:,i] /= var_ii
+#                    masked_cov[i,:] /= var_ii
+#                    masked_cov[i,i] = 1.
+                    feature_no_supprimer += [ii]
+              
+#            n_clusters = 9
+#            scoclustering = SpectralCoclustering(n_clusters=n_clusters, random_state=0)
+#            # To cluster row and columns at the same time : https://scikit-learn.org/stable/auto_examples/bicluster/plot_spectral_coclustering.html#sphx-glr-auto-examples-bicluster-plot-spectral-coclustering-py
+#            scoclustering.fit(cov)
+#            row_labels_= scoclustering.row_labels_
+#            column_labels_ = scoclustering.column_labels_
+#            
+#            for i in range(n_clusters):
+#                sub_cov = 
+                    
+            print('masked_cov.shape',masked_cov.shape)
+            limited_features_size = masked_cov.shape[0]
             eigen_values, eigen_vectors = LA.eig(masked_cov)
             eigen_vectors = np.real(eigen_vectors) 
+            # Here each column is an eigen vectors
+            
+#            ica = FastICA(random_state=0)
+#            S_ica_ = ica.fit(np.transpose(eigen_vectors,[1,0]))
+#            components_vectors = S_ica_.components_
+#            # Here each line is an components
+#            
+#            kurtosis = scipy.stats.kurtosis(components_vectors, axis=0)
+#            decreasing_order = np.argsort(kurtosis)[::-1]
+#            eigen_vectors_order = components_vectors[decreasing_order,:]
+#            eigen_vectors =np.transpose(eigen_vectors_order,[1,0])
+            
+            # Reprojection dans une matrice de taille features_size * features_size
+            eigen_vectors_all = np.zeros((features_size,features_size))
+            for j in range(limited_features_size):
+                local_eigen_vector = eigen_vectors[:,j]
+                eigen_vectors_all[feature_no_supprimer,j] = local_eigen_vector
+                # On replace le vecteur propre de petite taille dans le grand
+            
             for comp_number in range(num_components_draw):
-                weights = eigen_vectors[:,comp_number]
+                weights = eigen_vectors_all[:,comp_number]
                 prexif_name = '_subsetPCA'+str(comp_number)
                 if not(classe is None):
                    prexif_name += '_'+classe 
-                print(prexif_name)
+
                 do_lucidVizu_forPCA_all_case(path_lucid_model,
                                             name_pb,
                                              prexif_name,features_size,
                                              layer,weights,path_output_lucid_im,
                                              input_name_lucid,constrNet,
-                                             strictMinimum,cossim)
+                                             strictMinimum=strictMinimum,cossim=cossim)
+                
+        else:
+            raise(ValueError(clustering))
             # Faire que les positives après
             
     #        lucid_utils.print_images(model_path=name_pb,list_layer_index_to_print,path_output='',prexif_name='',\
@@ -1309,6 +1632,7 @@ def do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                      input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm,cossim=cossim)
     
     if not(strictMinimum):
+        print('strictMinimum',strictMinimum)
         prexif_name_pos = prexif_name + '_PosContrib'
         where_pos = np.where(weights>0.)[0]
         if len(where_pos)>0:
@@ -1757,25 +2081,27 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
         S_ica_ = ica.fit(eigen_vectorsPCA)
         components_vectors = S_ica_.components_
         
-        kurtosis = scipy.stats.kurtosis(components_vectors, axis=1)
+        kurtosis = scipy.stats.kurtosis(components_vectors, axis=0)
+        # Axis 0 because each line is a independant component here
         decreasing_order = np.argsort(kurtosis)[::-1]
         
         for comp_number,index_com_vectors in enumerate(decreasing_order):
-            weights = components_vectors[index_com_vectors,:]
-            #weights = weights[0:1]
-            #print('weights',weights)
-            #time.sleep(.300)
-    
-            if not(number_of_blocks==1):
-                prexif_name =str_param+ 'MeanGramOn'+str(number_of_blocks)+'_IPCA'+str(comp_number)
-            else:
-                prexif_name = str_param+'_IPCA'+str(comp_number)
-            if not(classe is None):
-               prexif_name += '_'+classe 
-            do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
-                                 prexif_name,features_size,
-                                 layer,weights,path_output_lucid_im,
-                                 input_name_lucid,constrNet,strictMinimum,cossim)
+            if comp_number < num_components_draw:
+                weights = components_vectors[index_com_vectors,:]
+                #weights = weights[0:1]
+                #print('weights',weights)
+                #time.sleep(.300)
+        
+                if not(number_of_blocks==1):
+                    prexif_name =str_param+ 'MeanGramOn'+str(number_of_blocks)+'_IPCA'+str(comp_number)
+                else:
+                    prexif_name = str_param+'_IPCA'+str(comp_number)
+                if not(classe is None):
+                   prexif_name += '_'+classe 
+                do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
+                                     prexif_name,features_size,
+                                     layer,weights,path_output_lucid_im,
+                                     input_name_lucid,constrNet,strictMinimum,cossim)
     elif clustering=='WHC':
         
         # Define the structure A of the data. 
@@ -2203,37 +2529,44 @@ if __name__ == '__main__':
     ## Calcul pour le Week-end 
     
     # Toutes les features visualisation pour la couche donnée pour IconArt et RASTA
-    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                               classe = None,\
-                               layer='mixed4d',
-                               clustering=None)
-    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                               classe = None,\
-                               layer='mixed4d',
-                               clustering=None)
-    
-    # 10 aléatoires
-    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                               classe = None,\
-                               layer='mixed4d',
-                               clustering='random')
-    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                               classe = None,\
-                               layer='mixed4d',
-                               clustering='random')
-    
-   #  Faire les 10 premieres components pour chacun des deux datasets et pour quelques classes
-    
-    for classe in [None,'Mary','ruins','nudity','angel']:
-        PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                               classe = None,\
+#                               layer='mixed4d',
+#                               clustering=None)
+# A faire tourner plus tard 
+#    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                               classe = 'Northern_Renaissance',\
+#                               layer='mixed4d',
+#                               clustering=None)
+#    
+#    # 10 aléatoires
+##    PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+##                               classe = None,\
+##                               layer='mixed4d',
+##                               clustering='random')
+#    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                               classe = 'Northern_Renaissance',\
+#                               layer='mixed4d',
+#                               clustering='random')
+#    
+#   #  Faire les 10 premieres components pour chacun des deux datasets et pour quelques classes
+#    
+##    for classe in [None,'Mary','ruins','nudity','angel']:
+##        PCAbased_FeaVizu_deepmodel(model_name = 'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+##                               classe = classe,\
+##                               layer='mixed4d',
+##                               clustering='PCA')
+#    for classe in [None,'Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art','Post-Impressionism','Realism']:
+#        PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                               classe = classe,\
+#                               layer='mixed4d',
+#                               clustering='PCA')
+    for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art','Post-Impressionism','Realism','Impressionism','Magic_Realism']:
+        PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
                                classe = classe,\
-                               layer='mixed4d',
-                               clustering='PCA')
-    for classe in [None,'Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art','Post-Impressionism','Realism']:
-        PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                               classe = classe,\
-                               layer='mixed4d',
-                               clustering='PCA')
+                               layer='Mixed_4e_Concatenated',
+                               clustering='PCA',
+                               constrNet='InceptionV1_slim')
         
         
         
@@ -2257,17 +2590,23 @@ if __name__ == '__main__':
 #                                    num_components_draw = 3,clustering = 'WHC',
 #                                    number_of_blocks = 1,strictMinimum=True,
 #                                    whiten=False,cossim=False)
-    for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e']:
-        for cossim in [False,True]:
-            for clustering in ['Kmeans','PCA','IPCA','MeanShift']:
-                for whiten in [False,True]:
-                 
-                    Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                                        constrNet = 'InceptionV1',
-                                        classe='Northern_Renaissance',layer='mixed4d',
-                                        num_components_draw =5,clustering = clustering,
-                                        number_of_blocks = 20,strictMinimum=True,
-                                        whiten=whiten,cossim=cossim)
+#    for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e']:
+#        for cossim in [False,True]:
+#            for clustering in ['Kmeans','PCA','IPCA','MeanShift']:
+#                for whiten in [False,True]:
+#                 
+#                    Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                                        constrNet = 'InceptionV1',
+#                                        classe='Northern_Renaissance',layer='mixed4d',
+#                                        num_components_draw =5,clustering = clustering,
+#                                        number_of_blocks = 20,strictMinimum=True,
+#                                        whiten=whiten,cossim=cossim)
+    
+#    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                               classe = 'Northern_Renaissance',\
+#                               layer='mixed4d',
+#                               clustering='PCAsubset',
+#                               num_components_draw=3,strictMinimum=True)
     
     
     

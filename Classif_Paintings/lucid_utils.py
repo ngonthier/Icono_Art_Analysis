@@ -518,6 +518,7 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
             kind_layer = type_layer
             name_base = layer  + kind_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
         elif Net=='InceptionV1_slim':
+            # TODO faire le dico ici
             obj = layer  + '/Conv2D:'+str(i)
             name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
             
@@ -751,6 +752,8 @@ def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLaye
         lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
     elif Net=='InceptionV1':
         lucid_net = Lucid_InceptionV1(model_path=model_path,input_name=input_name)
+    elif Net=='InceptionV1_slim':
+        lucid_net = Lucid_Inception_v1_slim(model_path=model_path,input_name=input_name)
     elif Net=='ResNet':
         lucid_net = Lucid_ResNet(model_path=model_path,input_name=input_name)
     else:
@@ -775,6 +778,12 @@ def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLaye
 #                if not(obj_str in nodes_tab):
 #                    print(nodes_tab)
 #                    raise(KeyError(obj_str +' not in the graph'))
+    elif Net=='InceptionV1_slim':
+        # TODO faire le dico ici
+        type_layer = 'concat'
+        obj_str = layer_to_print  + '/'+type_layer # It could also be BiasAdd or concat
+        kind_layer = type_layer
+
     else:
         raise(NotImplementedError)
         
@@ -798,6 +807,8 @@ def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLaye
     if Net=='VGG':
         name_base = layer_to_print  + kind_layer+'_'+prexif_name+ext+'.png'
     elif Net=='InceptionV1':
+        name_base = layer_to_print  + kind_layer+'_'+prexif_name+ext+'.png'
+    elif Net=='InceptionV1_slim':
         name_base = layer_to_print  + kind_layer+'_'+prexif_name+ext+'.png'
     else:
         raise(NotImplementedError)
