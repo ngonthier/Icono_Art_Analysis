@@ -507,21 +507,11 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     output_im_list = []
     for layer_index_to_print in list_layer_index_to_print:
         layer, i = layer_index_to_print
-        
-        if Net=='VGG':
-            obj = layer  + '/Relu:'+str(i)
-            name_base = layer  + 'Relu_'+str(i)+'_'+prexif_name+ext+'.png'
-        elif Net=='InceptionV1':
-            dico = get_dico_layers_type()
-            type_layer = dico[layer]
-            obj = layer  + '/'+type_layer+':'+str(i) # It could also be BiasAdd or concat
-            kind_layer = type_layer
-            name_base = layer  + kind_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
-        elif Net=='InceptionV1_slim':
-            # TODO faire le dico ici
-            obj = layer  + '/Conv2D:'+str(i)
-            name_base = layer  + 'Conv2D_'+str(i)+'_'+prexif_name+ext+'.png'
-            
+    
+        obj_str, type_layer= get_obj_and_kind_layer(layer,Net)
+        obj = obj_str+':'+str(i)
+        name_base = layer  + type_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
+              
         output_im = render.render_vis(lucid_net,obj ,
                                       transforms=transforms,
                                       thresholds=[2048],
@@ -736,31 +726,8 @@ def direction_neuron_cossim_S(layer_name, vec, batch=None, x=None, y=None, cossi
         cossim = tf.maximum(0.1, cossim)
         return dot * cossim ** cossim_pow
     return inner  
-    
-
-def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLayer,\
-                     path_output='',prexif_name='',\
-                     input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
-                     DECORRELATE=True,ROBUSTNESS=True,\
-                     inverseAndSave=True,cossim=False):
-#    ,printOnlyRGB=True
-    
-    if not(os.path.isfile(os.path.join(model_path))):
-        raise(ValueError(model_path + ' does not exist !'))
-         
-    if Net=='VGG':
-        lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
-    elif Net=='InceptionV1':
-        lucid_net = Lucid_InceptionV1(model_path=model_path,input_name=input_name)
-    elif Net=='InceptionV1_slim':
-        lucid_net = Lucid_Inception_v1_slim(model_path=model_path,input_name=input_name)
-    elif Net=='ResNet':
-        lucid_net = Lucid_ResNet(model_path=model_path,input_name=input_name)
-    else:
-        raise(ValueError(Net+ 'is unkonwn'))
-    lucid_net.load_graphdef()
-    #nodes_tab = [n.name for n in tf.compat.v1.get_default_graph().as_graph_def().node]
-    
+ 
+def get_obj_and_kind_layer(layer_to_print,Net):
     if Net=='VGG':
         obj_str = layer_to_print  + '/Relu'
         kind_layer = 'Relu'
@@ -779,13 +746,53 @@ def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLaye
 #                    print(nodes_tab)
 #                    raise(KeyError(obj_str +' not in the graph'))
     elif Net=='InceptionV1_slim':
-        # TODO faire le dico ici
-        type_layer = 'concat'
+        if '_Concatenated' in layer_to_print:
+            type_layer = 'concat'
+        elif '_conv' in layer_to_print:
+            type_layer = 'Conv2D'
+        elif '_act' in layer_to_print:
+            type_layer = 'Max' # Activation we hope it is a max
+        elif '_bn' in layer_to_print:
+            type_layer = 'BatchNormalization' # I never try that
+        elif 'MaxPool' in layer_to_print:
+            type_layer = 'Max' # I never try that
+        else:
+            raise(ValueError(layer_to_print))
+            
         obj_str = layer_to_print  + '/'+type_layer # It could also be BiasAdd or concat
         kind_layer = type_layer
 
     else:
-        raise(NotImplementedError)
+        raise(NotImplementedError)    
+        
+    return(obj_str,kind_layer)
+
+
+def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLayer,\
+                     path_output='',prexif_name='',\
+                     input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
+                     DECORRELATE=True,ROBUSTNESS=True,\
+                     inverseAndSave=True,cossim=False,dot_vector = False,
+                     num_features=None):
+#    ,printOnlyRGB=True
+    
+    if not(os.path.isfile(os.path.join(model_path))):
+        raise(ValueError(model_path + ' does not exist !'))
+         
+    if Net=='VGG':
+        lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
+    elif Net=='InceptionV1':
+        lucid_net = Lucid_InceptionV1(model_path=model_path,input_name=input_name)
+    elif Net=='InceptionV1_slim':
+        lucid_net = Lucid_Inception_v1_slim(model_path=model_path,input_name=input_name)
+    elif Net=='ResNet':
+        lucid_net = Lucid_ResNet(model_path=model_path,input_name=input_name)
+    else:
+        raise(ValueError(Net+ 'is unkonwn'))
+    lucid_net.load_graphdef()
+    #nodes_tab = [n.name for n in tf.compat.v1.get_default_graph().as_graph_def().node]
+    
+    obj_str, kind_layer= get_obj_and_kind_layer(layer_to_print,Net)
         
     param_f = lambda: param.image(sizeIm, fft=DECORRELATE, decorrelate=DECORRELATE)
     
@@ -813,16 +820,36 @@ def print_PCA_images(model_path,layer_to_print,weights,index_features_withinLaye
     else:
         raise(NotImplementedError)
             
-    C = lambda layer_i: objectives.channel(*layer_i)
+    
     # input = couple of Two arguments : first one name of the layer, 
     # second one number of the features must be an integer
     
     if(cossim is True):
+        raise(NotImplementedError)
+        # Pas fini ici il faut le S 
+        # cette fonction objectif est le produit entre le produit scalaire de v et des couches ainsi que 
+        # multiplier par le cosinus a une certaine valeur
         obj_list = ([
                 direction_neuron_cossim_S(layer, v, batch=n, S=S, cossim_pow=4) for n,v in enumerate(directions)
                 ])
         total_obj = objectives.Objective.sum(obj_list)
+    elif dot_vector:
+        assert(not(num_features is None))
+        def inner(T): 
+            layer = T(obj_str)
+            #print('num_features',num_features)
+            if len(weights)==num_features:
+                total_obj = tf.reduce_mean(layer * weights)
+            else:
+                weights_total = np.zeros((num_features,))
+                weights_total[index_features_withinLayer] = weights
+                total_obj = tf.reduce_mean(layer * weights_total)
+
+            return(total_obj)
+            
+        total_obj = inner
     else:
+        C = lambda layer_i: objectives.channel(*layer_i)
         total_obj = None
         for i,weight_i in zip(index_features_withinLayer,weights):
             

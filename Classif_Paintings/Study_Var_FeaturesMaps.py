@@ -40,6 +40,8 @@ from keras_resnet_utils import getResNetLayersNumeral,getResNetLayersNumeral_bit
 from inceptionV1_keras_utils import getInceptionV1LayersNumeral_bitsVersion,getInceptionV1LayersNumeral
 from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
 from OnlineHistogram import NumericHistogram
+
+from inception_v1 import getInceptionV1_slim_LayersNumeral_bitsVersion,getInceptionV1_slim_LayersNumeral
 ### To copy only the image from the dataset
 #dataset='watercolor'
 #item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
@@ -878,7 +880,12 @@ def get_dict_stats(source_dataset,number_im_considered,style_layers,\
             str_layers = getResNetLayersNumeral_bitsVersion(style_layers,num_layers=50)
         else:
             str_layers = getResNetLayersNumeral(style_layers,num_layers=50)
-    elif 'InceptionV1' in Net:
+    elif 'InceptionV1_slim' == Net:
+        if BV:
+            str_layers = getInceptionV1_slim_LayersNumeral_bitsVersion(style_layers)
+        else:
+            str_layers = getInceptionV1_slim_LayersNumeral(style_layers)
+    elif 'InceptionV1' in  Net:
         if BV:
             str_layers = getInceptionV1LayersNumeral_bitsVersion(style_layers)
         else:

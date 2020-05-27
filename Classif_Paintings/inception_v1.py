@@ -510,7 +510,38 @@ def trainable_layers():
              'Mixed_5c_Branch_2_b_3x3_bn',
              'Mixed_5c_Branch_3_b_1x1_bn']
     return(liste)
+    
+def get_list_layers():
+    liste = ['input_1', 'Conv2d_1a_7x7_conv', 'Conv2d_1a_7x7_bn', 'Conv2d_1a_7x7_act', 'MaxPool_2a_3x3', 'Conv2d_2b_1x1_conv', 'Conv2d_2b_1x1_bn', 'Conv2d_2b_1x1_act', 'Conv2d_2c_3x3_conv', 'Conv2d_2c_3x3_bn', 'Conv2d_2c_3x3_act', 'MaxPool_3a_3x3', 'Mixed_3b_Branch_1_a_1x1_conv', 'Mixed_3b_Branch_2_a_1x1_conv', 'Mixed_3b_Branch_1_a_1x1_bn', 'Mixed_3b_Branch_2_a_1x1_bn', 'Mixed_3b_Branch_1_a_1x1_act', 'Mixed_3b_Branch_2_a_1x1_act', 'Mixed_3b_Branch_3_a_max', 'Mixed_3b_Branch_0_a_1x1_conv', 'Mixed_3b_Branch_1_b_3x3_conv', 'Mixed_3b_Branch_2_b_3x3_conv', 'Mixed_3b_Branch_3_b_1x1_conv', 'Mixed_3b_Branch_0_a_1x1_bn', 'Mixed_3b_Branch_1_b_3x3_bn', 'Mixed_3b_Branch_2_b_3x3_bn', 'Mixed_3b_Branch_3_b_1x1_bn', 'Mixed_3b_Branch_0_a_1x1_act', 'Mixed_3b_Branch_1_b_3x3_act', 'Mixed_3b_Branch_2_b_3x3_act', 'Mixed_3b_Branch_3_b_1x1_act', 'Mixed_3b_Concatenated', 'Mixed_3c_Branch_1_a_1x1_conv', 'Mixed_3c_Branch_2_a_1x1_conv', 'Mixed_3c_Branch_1_a_1x1_bn', 'Mixed_3c_Branch_2_a_1x1_bn', 'Mixed_3c_Branch_1_a_1x1_act', 'Mixed_3c_Branch_2_a_1x1_act', 'Mixed_3c_Branch_3_a_max', 'Mixed_3c_Branch_0_a_1x1_conv', 'Mixed_3c_Branch_1_b_3x3_conv', 'Mixed_3c_Branch_2_b_3x3_conv', 'Mixed_3c_Branch_3_b_1x1_conv', 'Mixed_3c_Branch_0_a_1x1_bn', 'Mixed_3c_Branch_1_b_3x3_bn', 'Mixed_3c_Branch_2_b_3x3_bn', 'Mixed_3c_Branch_3_b_1x1_bn', 'Mixed_3c_Branch_0_a_1x1_act', 'Mixed_3c_Branch_1_b_3x3_act', 'Mixed_3c_Branch_2_b_3x3_act', 'Mixed_3c_Branch_3_b_1x1_act', 'Mixed_3c_Concatenated', 'MaxPool_4a_3x3', 'Mixed_4b_Branch_1_a_1x1_conv', 'Mixed_4b_Branch_2_a_1x1_conv', 'Mixed_4b_Branch_1_a_1x1_bn', 'Mixed_4b_Branch_2_a_1x1_bn', 'Mixed_4b_Branch_1_a_1x1_act', 'Mixed_4b_Branch_2_a_1x1_act', 'Mixed_4b_Branch_3_a_max', 'Mixed_4b_Branch_0_a_1x1_conv', 'Mixed_4b_Branch_1_b_3x3_conv', 'Mixed_4b_Branch_2_b_3x3_conv', 'Mixed_4b_Branch_3_b_1x1_conv', 'Mixed_4b_Branch_0_a_1x1_bn', 'Mixed_4b_Branch_1_b_3x3_bn', 'Mixed_4b_Branch_2_b_3x3_bn', 'Mixed_4b_Branch_3_b_1x1_bn', 'Mixed_4b_Branch_0_a_1x1_act', 'Mixed_4b_Branch_1_b_3x3_act', 'Mixed_4b_Branch_2_b_3x3_act', 'Mixed_4b_Branch_3_b_1x1_act', 'Mixed_4b_Concatenated', 'Mixed_4c_Branch_1_a_1x1_conv', 'Mixed_4c_Branch_2_a_1x1_conv', 'Mixed_4c_Branch_1_a_1x1_bn', 'Mixed_4c_Branch_2_a_1x1_bn', 'Mixed_4c_Branch_1_a_1x1_act', 'Mixed_4c_Branch_2_a_1x1_act', 'Mixed_4c_Branch_3_a_max', 'Mixed_4c_Branch_0_a_1x1_conv', 'Mixed_4c_Branch_1_b_3x3_conv', 'Mixed_4c_Branch_2_b_3x3_conv', 'Mixed_4c_Branch_3_b_1x1_conv', 'Mixed_4c_Branch_0_a_1x1_bn', 'Mixed_4c_Branch_1_b_3x3_bn', 'Mixed_4c_Branch_2_b_3x3_bn', 'Mixed_4c_Branch_3_b_1x1_bn', 'Mixed_4c_Branch_0_a_1x1_act', 'Mixed_4c_Branch_1_b_3x3_act', 'Mixed_4c_Branch_2_b_3x3_act', 'Mixed_4c_Branch_3_b_1x1_act', 'Mixed_4c_Concatenated', 'Mixed_4d_Branch_1_a_1x1_conv', 'Mixed_4d_Branch_2_a_1x1_conv', 'Mixed_4d_Branch_1_a_1x1_bn', 'Mixed_4d_Branch_2_a_1x1_bn', 'Mixed_4d_Branch_1_a_1x1_act', 'Mixed_4d_Branch_2_a_1x1_act', 'Mixed_4d_Branch_3_a_max', 'Mixed_4d_Branch_0_a_1x1_conv', 'Mixed_4d_Branch_1_b_3x3_conv', 'Mixed_4d_Branch_2_b_3x3_conv', 'Mixed_4d_Branch_3_b_1x1_conv', 'Mixed_4d_Branch_0_a_1x1_bn', 'Mixed_4d_Branch_1_b_3x3_bn', 'Mixed_4d_Branch_2_b_3x3_bn', 'Mixed_4d_Branch_3_b_1x1_bn', 'Mixed_4d_Branch_0_a_1x1_act', 'Mixed_4d_Branch_1_b_3x3_act', 'Mixed_4d_Branch_2_b_3x3_act', 'Mixed_4d_Branch_3_b_1x1_act', 'Mixed_4d_Concatenated', 'Mixed_4e_Branch_1_a_1x1_conv', 'Mixed_4e_Branch_2_a_1x1_conv', 'Mixed_4e_Branch_1_a_1x1_bn', 'Mixed_4e_Branch_2_a_1x1_bn', 'Mixed_4e_Branch_1_a_1x1_act', 'Mixed_4e_Branch_2_a_1x1_act', 'Mixed_4e_Branch_3_a_max', 'Mixed_4e_Branch_0_a_1x1_conv', 'Mixed_4e_Branch_1_b_3x3_conv', 'Mixed_4e_Branch_2_b_3x3_conv', 'Mixed_4e_Branch_3_b_1x1_conv', 'Mixed_4e_Branch_0_a_1x1_bn', 'Mixed_4e_Branch_1_b_3x3_bn', 'Mixed_4e_Branch_2_b_3x3_bn', 'Mixed_4e_Branch_3_b_1x1_bn', 'Mixed_4e_Branch_0_a_1x1_act', 'Mixed_4e_Branch_1_b_3x3_act', 'Mixed_4e_Branch_2_b_3x3_act', 'Mixed_4e_Branch_3_b_1x1_act', 'Mixed_4e_Concatenated', 'Mixed_4f_Branch_1_a_1x1_conv', 'Mixed_4f_Branch_2_a_1x1_conv', 'Mixed_4f_Branch_1_a_1x1_bn', 'Mixed_4f_Branch_2_a_1x1_bn', 'Mixed_4f_Branch_1_a_1x1_act', 'Mixed_4f_Branch_2_a_1x1_act', 'Mixed_4f_Branch_3_a_max', 'Mixed_4f_Branch_0_a_1x1_conv', 'Mixed_4f_Branch_1_b_3x3_conv', 'Mixed_4f_Branch_2_b_3x3_conv', 'Mixed_4f_Branch_3_b_1x1_conv', 'Mixed_4f_Branch_0_a_1x1_bn', 'Mixed_4f_Branch_1_b_3x3_bn', 'Mixed_4f_Branch_2_b_3x3_bn', 'Mixed_4f_Branch_3_b_1x1_bn', 'Mixed_4f_Branch_0_a_1x1_act', 'Mixed_4f_Branch_1_b_3x3_act', 'Mixed_4f_Branch_2_b_3x3_act', 'Mixed_4f_Branch_3_b_1x1_act', 'Mixed_4f_Concatenated', 'MaxPool_5a_2x2', 'Mixed_5b_Branch_1_a_1x1_conv', 'Mixed_5b_Branch_2_a_1x1_conv', 'Mixed_5b_Branch_1_a_1x1_bn', 'Mixed_5b_Branch_2_a_1x1_bn', 'Mixed_5b_Branch_1_a_1x1_act', 'Mixed_5b_Branch_2_a_1x1_act', 'Mixed_5b_Branch_3_a_max', 'Mixed_5b_Branch_0_a_1x1_conv', 'Mixed_5b_Branch_1_b_3x3_conv', 'Mixed_5b_Branch_2_b_3x3_conv', 'Mixed_5b_Branch_3_b_1x1_conv', 'Mixed_5b_Branch_0_a_1x1_bn', 'Mixed_5b_Branch_1_b_3x3_bn', 'Mixed_5b_Branch_2_b_3x3_bn', 'Mixed_5b_Branch_3_b_1x1_bn', 'Mixed_5b_Branch_0_a_1x1_act', 'Mixed_5b_Branch_1_b_3x3_act', 'Mixed_5b_Branch_2_b_3x3_act', 'Mixed_5b_Branch_3_b_1x1_act', 'Mixed_5b_Concatenated', 'Mixed_5c_Branch_1_a_1x1_conv', 'Mixed_5c_Branch_2_a_1x1_conv', 'Mixed_5c_Branch_1_a_1x1_bn', 'Mixed_5c_Branch_2_a_1x1_bn', 'Mixed_5c_Branch_1_a_1x1_act', 'Mixed_5c_Branch_2_a_1x1_act', 'Mixed_5c_Branch_3_a_max', 'Mixed_5c_Branch_0_a_1x1_conv', 'Mixed_5c_Branch_1_b_3x3_conv', 'Mixed_5c_Branch_2_b_3x3_conv', 'Mixed_5c_Branch_3_b_1x1_conv', 'Mixed_5c_Branch_0_a_1x1_bn', 'Mixed_5c_Branch_1_b_3x3_bn', 'Mixed_5c_Branch_2_b_3x3_bn', 'Mixed_5c_Branch_3_b_1x1_bn', 'Mixed_5c_Branch_0_a_1x1_act', 'Mixed_5c_Branch_1_b_3x3_act', 'Mixed_5c_Branch_2_b_3x3_act', 'Mixed_5c_Branch_3_b_1x1_act', 'Mixed_5c_Concatenated', 'average_pooling2d', 'dropout', 'Logits', 'Logits_flat', 'Predictions']
+    return(liste)
+    
+def getInceptionV1_slim_LayersNumeral(style_layers):
 
+    keras_inceptionv1_layers = get_list_layers()
+    string = ''
+    for elt in style_layers:
+        try:
+            string+= str(keras_inceptionv1_layers.index(elt))+'_'
+        except ValueError as e:
+            print(e)
+    return(string)
+    
+def getInceptionV1_slim_LayersNumeral_bitsVersion(style_layers):
+    """
+    Return a shorter version for the layer index : maybe not the best way to do because
+    if only bn_conv1 layer, we have a very big number because it is 001000000000000000000 full of 0 converted to base 10
+    """
+    keras_inceptionv1_layers = get_list_layers()
+
+    list_bool = [False]*len(keras_inceptionv1_layers)
+    for elt in style_layers:
+        try:
+            list_bool[keras_inceptionv1_layers.index(elt)] = True
+        except ValueError as e:
+            print(e)
+    string = 'BV'+ str(int(''.join(['1' if i else '0' for i in list_bool]), 2)) # Convert the boolean version of index list to int
+    return(string)
+    
 if __name__ == '__main__':
     model = InceptionV1_slim(include_top=True, weights='imagenet')
 
