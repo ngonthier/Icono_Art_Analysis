@@ -2635,7 +2635,9 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
     """
     This function predict on tht provide test set for a fine-tuned network
     """
-    df_test.loc[:,x_col] = df_test[x_col].apply(lambda x : x + '.jpg')
+    df_test_local = df_test.copy()
+    
+    df_test_local.loc[:,x_col] = df_test_local[x_col].apply(lambda x : x + '.jpg')
     
     if cropCenter:
         interpolation='lanczos:center'
@@ -2676,7 +2678,7 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
     batch_size = 16
         
     datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)    
-    test_generator=datagen.flow_from_dataframe(dataframe=df_test, directory=path_im,\
+    test_generator=datagen.flow_from_dataframe(dataframe=df_test_local, directory=path_im,\
                                                 x_col=x_col,\
                                                 class_mode=None,shuffle=False,\
                                                 target_size=target_size, batch_size=batch_size,\

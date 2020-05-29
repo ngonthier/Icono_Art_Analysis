@@ -33,6 +33,8 @@ from sklearn.feature_extraction.image import grid_to_graph
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.cluster import SpectralCoclustering,SpectralBiclustering
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import confusion_matrix,multilabel_confusion_matrix
+from sklearn.metrics import average_precision_score
 
 from tensorflow.python.keras import backend as K
 import tensorflow as tf
@@ -943,6 +945,235 @@ def Clust_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_Sma
 #        cluster_cov_i = cov[]
 #        image_clustered_together = cov[np.where(row_labels_==l_i)]
 
+
+def plot_confusion_matrix(conf_arr,classes,title=''):
+
+    new_conf_arr = []
+    for row in conf_arr:
+        new_conf_arr.append(row / sum(row))
+
+    plt.matshow(new_conf_arr)
+    plt.yticks(range(25), classes)
+    plt.xticks(range(25), classes, rotation=90)
+    plt.colorbar()
+    plt.title(title, y=-0.01) # To put it at the bottom
+    plt.show()
+
+def get_confusion_matrices_for_list_models(list_model_name=['RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200','RASTA_small01_modif'],
+                                           list_constrNet=['InceptionV1']):
+    model_name = list_model_name[0]
+    if 'IconArt_v1' in model_name:
+        dataset = 'IconArt_v1'
+    elif 'RASTA' in model_name:
+        dataset = 'RASTA'
+    else:
+        raise(ValueError('The dataset is unknown'))
+        
+    cropCenter = True
+
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+    path_data,Not_on_NicolasPC = get_database(dataset)
+    
+    if len(list_constrNet)==1:
+        list_constrNet = [list_constrNet[0]]*len(list_model_name)
+
+    
+    df_val = df_label[df_label['set']==str_val]
+    df_test = df_label[df_label['set']=='test']
+    
+    list_pred = []
+    list_precision = []
+    list_top1_acc = []
+    list_ap = []
+    
+    mean_pred = None
+    bagging_method = 'mean'
+    bagging_method = 'val_weighted_top1_acc'
+    bagging_method = 'val_weighted_ap'
+    
+    for model_name,constrNet in zip(list_model_name,list_constrNet):
+    
+        print(model_name)
+        fine_tuned_model, _ = get_fine_tuned_model(model_name,constrNet=constrNet,suffix='',get_Metrics=False)
+        labels = df_test[classes].values
+        val_labels = df_val[classes].values
+        
+        labels_multiclass = []
+        for i in range(len(labels)):
+            gt_label_i = labels[i,:]
+            where = np.where(gt_label_i==1)[0][0]
+            labels_multiclass += [classes[where]]
+            
+        #labels_multiclass = np.where(labels==1)
+        val_pred = predictionFT_net(fine_tuned_model,df_val,x_col=item_name,y_col=classes,path_im=path_to_img,
+                                              Net=constrNet,cropCenter=cropCenter)
+        if bagging_method=='val_weighted_top1_acc':
+            raise(NotImplementedError)
+            top_1_acc_val = tf.keras.metrics.top_k_categorical_accuracy(val_labels,val_pred,k=1).eval()
+            list_top1_acc += [top_1_acc_val]  
+        if bagging_method=='val_weighted_ap':
+            ap_list = []
+            for j in range(num_classes):
+                ap_j = average_precision_score(val_labels[:,j],val_pred[:,j],average=None)
+                ap_list += [ap_j]
+            list_ap += [np.array(ap_list)]  
+
+        test_pred = predictionFT_net(fine_tuned_model,df_test.copy(),x_col=item_name,y_col=classes,path_im=path_to_img,
+                                     Net=constrNet,cropCenter=cropCenter)
+        curr_session = tf.get_default_session()
+        # close current session
+        if curr_session is not None:
+            curr_session.close()
+        # reset graph
+        K.clear_session()
+        # create new session
+        s = tf.InteractiveSession()
+        K.set_session(s)
+        
+        if bagging_method=='mean':
+            if mean_pred is None:
+                mean_pred = test_pred
+            else:
+                mean_pred += test_pred
+
+        list_pred += [test_pred]
+        
+    pred = np.zeros_like(list_pred[0])
+        
+    if bagging_method=='mean':
+        pred = mean_pred/len(model_name)
+    elif bagging_method=='val_weighted_top1_acc':
+        for j in range(num_classes):
+            list_j = []
+            weights = []
+            for pred_classif_i,top_1_acc_val in zip(list_pred,list_top1_acc):
+                print('top_1_acc_val',top_1_acc_val.shape)
+                test_pred_j = pred_classif_i[:,j]
+                list_j += [test_pred_j]
+                weights += [top_1_acc_val[j]]
+            test_pred_j_all = np.vstack(test_pred_j)
+            print(test_pred_j_all.shape)
+            print(len(weights))
+            test_pred_j_voting = np.average(test_pred_j_all, axis=1,
+                   weights=weights)
+            pred[:,j]  = test_pred_j_voting
+    elif bagging_method=='val_weighted_ap':
+        for j in range(num_classes):
+            list_j = []
+            weights = []
+            for pred_classif_i,ap in zip(list_pred,list_ap):
+                test_pred_j = pred_classif_i[:,j]
+                list_j += [test_pred_j]
+                weights += [ap[j]]
+            test_pred_j_all = np.vstack(list_j)
+            test_pred_j_voting = np.average(test_pred_j_all, axis=0,
+                   weights=weights)
+            pred[:,j]  = test_pred_j_voting
+    print(pred.shape)
+    # Ici on pourrai
+    preds_top_class = []
+    for i in range(len(pred)): 
+        index = np.argsort(pred[i,:])[::-1][0]
+        preds_top_class += [classes[index]]
+   
+#    conf_arr = confusion_matrix(labels, preds)
+   
+    top_k_accs = []
+    top_k = [1,3,5]
+    for k in top_k:
+        top_k_acc = np.mean(tf.keras.metrics.top_k_categorical_accuracy(labels,pred,k=k).eval())
+        top_k_accs += [top_k_acc]
+        print('Top {0} accuracy : {1:.2f} %'.format(k,top_k_acc*100))
+        
+    conf_arr = confusion_matrix(labels_multiclass, preds_top_class)
+    plot_confusion_matrix(conf_arr,classes,title='')
+    
+    ## Results
+    # Avec mean bagging ['RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200','RASTA_small01_modif']
+#    Top 1 accuracy : 56.81 %
+#    Top 3 accuracy : 82.75 %
+#    Top 5 accuracy : 91.11 %
+    
+    # Avec mean ['RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200','RASTA_small01_modif','RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200','RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
+#    Top 1 accuracy : 55.94 %
+#    Top 3 accuracy : 82.60 %
+#    Top 5 accuracy : 91.03 %
+    # val_weighted_top1_acc
+#    get_confusion_matrices_for_list_models(list_model_name=['RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200','RASTA_small01_modif'],
+#                                           list_constrNet=['InceptionV1'])
+# Avec ap weigthed bagging ['RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200','RASTA_small01_modif']
+#Top 1 accuracy : 56.88 %
+#Top 3 accuracy : 82.81 %
+#Top 5 accuracy : 91.29 %
+# Avec ap weighted bagging ['RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200','RASTA_small01_modif','RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200','RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
+#Top 1 accuracy : 56.44 %
+#Top 3 accuracy : 82.73 %
+#Top 5 accuracy : 91.33 %
+    
+    
+    
+    
+def get_confusion_matrices_for_given_model(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                                           constrNet='InceptionV1'):
+    if 'IconArt_v1' in model_name:
+        dataset = 'IconArt_v1'
+    elif 'RASTA'  in model_name:
+        dataset = 'RASTA'
+    else:
+        raise(ValueError('The dataset is unknown'))
+        
+    cropCenter = True
+
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+    path_data,Not_on_NicolasPC = get_database(dataset)
+    
+    fine_tuned_model, _ = get_fine_tuned_model(model_name,constrNet=constrNet,suffix='',get_Metrics=False)
+    df_test = df_label[df_label['set']=='test']
+    labels = df_test[classes].values
+    
+    labels_multiclass = []
+    for i in range(len(labels)):
+        gt_label_i = labels[i,:]
+        where = np.where(gt_label_i==1)[0][0]
+        labels_multiclass += [classes[where]]
+        
+    #labels_multiclass = np.where(labels==1)
+    pred = predictionFT_net(fine_tuned_model,df_test,x_col=item_name,y_col=classes,path_im=path_to_img,
+                                          Net=constrNet,cropCenter=cropCenter)
+    
+    preds_top_class = []
+    for i in range(len(pred)): 
+        index = np.argsort(pred[i,:])[::-1][0]
+        preds_top_class += [classes[index]]
+   
+#    conf_arr = confusion_matrix(labels, preds)
+    top_k_accs = []
+    top_k = [1,3,5]
+    for k in top_k:
+        top_k_acc = np.mean(tf.keras.metrics.top_k_categorical_accuracy(labels,pred,k=k).eval())
+        top_k_accs += [top_k_acc]
+        print('Top {0} accuracy : {1:.2f} %'.format(k,top_k_acc*100))
+        
+    conf_arr = confusion_matrix(labels_multiclass, preds_top_class)
+    #print('conf_arr.shape',conf_arr.shape)
+    plot_confusion_matrix(conf_arr,classes,title='') #model_name+' '+constrNet
+## RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200
+#    Top 1 accuracy : 49.05 %
+#    Top 3 accuracy : 77.19 %
+#    Top 5 accuracy : 87.71 %
+## RASTA_small01_modif
+#Top 1 accuracy : 55.18 %
+#Top 3 accuracy : 82.25 %
+#Top 5 accuracy : 91.06 %
+## RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200
+#Top 1 accuracy : 47.21 %
+#Top 3 accuracy : 76.03 %
+#Top 5 accuracy : 86.87 %
+# RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200
+#Top 1 accuracy : 47.19 %
+#Top 3 accuracy : 76.23 %
+#Top 5 accuracy : 86.38 %    
+
 def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
                                layer='mixed4d',\
                                source_dataset=None,
@@ -971,6 +1202,16 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
     KindOfMeanReduciton='global'
     
     df_train = df_label[df_label['set']=='train']
+
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
+    
+    path_output_lucid_im = os.path.join(output_path,'AllFeatures')
+        
+    pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True)
+    
 
     name_dico = 'DicoOrderLayer_'+layer
     if not(stats_on_layer=='mean'):
@@ -1030,15 +1271,6 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
             #print('mean_spatial_means',mean_spatial_means.shape)
             features_size  = len(mean_spatial_means)
             num_features = features_size
-            if platform.system()=='Windows': 
-                output_path = os.path.join('CompModifModel',constrNet,model_name)
-            else:
-                output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
-            
-            path_output_lucid_im = os.path.join(output_path,'AllFeatures')
-                
-            pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True)
-            
             
             if clustering is None or clustering=='random' or clustering=='equal':
                 classe_str = ''
@@ -1091,11 +1323,26 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
         with open(path_dico, 'rb') as handle:
             dico_most_response_feat = pickle.load(handle)
             
+            
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
+    
+    path_output_composition = os.path.join(output_path,'AllFeatures','TopK')
+        
+    pathlib.Path(path_output_composition).mkdir(parents=True, exist_ok=True)
+            
     # Maintenant on va faire des prints avec les images et les différentes classes
     for classe in classes:
         argsort_mean_spatial = dico_most_response_feat[classe]
-        
+
+        fig, axes = plt.subplots(1, num_components_draw)
+        plt.rcParams["figure.figsize"] = [num_components_draw,2]
+        fig.suptitle(classe)
+
         for comp_number in range(num_components_draw):
+            ax = axes[comp_number]
             index_feature = argsort_mean_spatial[comp_number]
             prexif_name = '_Feat'+str(index_feature)
             
@@ -1112,6 +1359,22 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
               ext+= '_noRob'
             name_base = layer  + kind_layer+'_'+prexif_name+ext+'_toRGB.png'
             name_output = os.path.join(path_output_lucid_im,name_base)
+            
+            img = plt.imread(name_output)
+            
+            ax.imshow(img)
+            ax.set(title=str(index_feature))
+            ax.tick_params(axis='both', which='both', length=0)
+            plt.setp(ax.get_xticklabels(), visible=False)
+            plt.setp(ax.get_yticklabels(), visible=False)
+            
+        name_fig = classe +'_Top'+str(num_components_draw)+'_Features.png'
+        path_fig = os.path.join(path_output_composition,name_fig)
+        plt.savefig(path_fig,dpi=600)
+        plt.close()
+            
+            
+            
 
     
 def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
