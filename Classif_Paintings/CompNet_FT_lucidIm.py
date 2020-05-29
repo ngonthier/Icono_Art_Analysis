@@ -567,7 +567,7 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                 
                 net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
                 
-                if 'VGG' in model_name or 'ResNet' in model_name:
+                if 'VGG' in constrNet or 'ResNet' in constrNet:
                     print('Desole cela na pas encore ete code pour VGG et ResNet (le fait d avoir une partie du reseau freeze il va falloir le faire plus tard !')
                     break
                 
