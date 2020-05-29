@@ -59,6 +59,7 @@ from Stats_Fcts import get_Model_cov_mean_features,get_Model_gram_mean_features,
 from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
 
 import pickle
+import matplotlib
 
 def plot_PCAlike_featureVizu_basedOnGramMatrix(model_name = 'RASTA_small01_modif',classe = None,\
                                    layer='mixed4d_pre_relu'):
@@ -1174,6 +1175,24 @@ def get_confusion_matrices_for_given_model(model_name='RASTA_big001_modif_adam_u
 #Top 3 accuracy : 76.23 %
 #Top 5 accuracy : 86.38 %    
 
+def topK_features_per_class_list_of_model():
+    matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
+    model_name_list = ['RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                       'RASTA_small01_modif',
+                       'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                       'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                       'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200'
+                       ]
+    
+    for model_name in model_name_list:
+        for stats_on_layer in ['mean','max']:
+            vizu_topK_feature_per_class(model_name =model_name,\
+                                       layer='mixed4d',\
+                                       source_dataset=None,
+                                       num_components_draw = 10,
+                                       stats_on_layer=stats_on_layer)
+
+
 def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
                                layer='mixed4d',\
                                source_dataset=None,
@@ -1336,9 +1355,9 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
     # Maintenant on va faire des prints avec les images et les différentes classes
     for classe in classes:
         argsort_mean_spatial = dico_most_response_feat[classe]
-
-        fig, axes = plt.subplots(1, num_components_draw)
+       
         plt.rcParams["figure.figsize"] = [num_components_draw,2]
+        fig, axes = plt.subplots(1, num_components_draw)
         fig.suptitle(classe)
 
         for comp_number in range(num_components_draw):
@@ -1368,7 +1387,10 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
             plt.setp(ax.get_xticklabels(), visible=False)
             plt.setp(ax.get_yticklabels(), visible=False)
             
+        
         name_fig = classe +'_Top'+str(num_components_draw)+'_Features.png'
+        if not(stats_on_layer=='max'):
+            name_fig = str(1)+ 'max' + name_fig 
         path_fig = os.path.join(path_output_composition,name_fig)
         plt.savefig(path_fig,dpi=600)
         plt.close()
