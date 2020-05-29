@@ -388,7 +388,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                    NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
                    suffix='',dataAug=False,randomCrop=False,\
-                   SaveInit=False,loss=None):
+                   SaveInit=False,loss=None,clipnorm=False):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
     It will return the metrics or the model itself depending on the input parameters
@@ -469,6 +469,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : randomCrop : take a random crop of size 224*224 in an image in size 256*256 it is hard coded in the fct it should be change
     @param : SaveInit : we will save the initialisation of the model
     @param : loss : if none or '' we will define one otherwise it will be the one you propose
+    @param : clipnorm we will clip the gradient 
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -521,6 +522,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         print('You can not have LinearSVC and finetuning ie FT option at the same time')
         print('With FT option you have to use MLP final classifier')
         raise(NotImplementedError)
+        
+
         
         
     assert(not(returnStatistics and returnFeatures)) # Need to choose between both
@@ -663,8 +666,12 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         
     if constrNet=='ResNet50_ROWD_CUMUL' and computeGlobalVariance:
         name_base += '_computeGlobalVariance'
-        
+    if clipnorm:
+        if not(final_clf=='LinearSVC'):
+            name_base += '_clipnorm'+str(clipnorm)
+    
     name_base += '_' + kind_method   
+    
     
     if not(suffix is None or suffix==''):
        name_base += '_Run'+suffix 
@@ -1112,17 +1119,17 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                         builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                           nesterov=nesterov,decay=decay,verbose=verbose,\
-                                          final_activation=final_activation,metrics=metrics,loss=loss)
+                                          final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
                     if final_clf=='MLP3':
                         builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,num_layers=3,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                           nesterov=nesterov,decay=decay,verbose=verbose,\
-                                          final_activation=final_activation,metrics=metrics,loss=loss)
+                                          final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
                     elif final_clf=='MLP1':
                         builder_model = partial(Perceptron_model,num_of_classes=num_classes,optimizer=optimizer,\
                                                 regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                                 nesterov=nesterov,decay=decay,verbose=verbose,\
-                                                final_activation=final_activation,metrics=metrics,loss=loss)
+                                                final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
                     print('Dans ce cas la on ne sauvegarde pas l initialisation desole ')
                     model = TrainMLPwithGridSearch(builder_model,Xtrainval,ytrainval,batch_size,epochs)
                     
@@ -1132,17 +1139,17 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                         model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                           nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose,\
-                                          final_activation=final_activation,metrics=metrics,loss=loss)
+                                          final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
                     if final_clf=='MLP3':
                         model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,num_layers=3,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                           nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose,\
-                                          final_activation=final_activation,metrics=metrics,loss=loss)
+                                          final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
                     elif final_clf=='MLP1':
                         model = Perceptron_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
                                                 regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                                 nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose,\
-                                                final_activation=final_activation,metrics=metrics,loss=loss)
+                                                final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
                     
                     # TODO save also the last epoch model
                     if return_best_model:
@@ -1239,7 +1246,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     dbn_affine,m_per_group,kind_method,\
                                     batch_size_RF,momentum,\
                                     epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                    final_activation,metrics,loss,deepSupervision)
+                                    final_activation,metrics,loss,deepSupervision,clipnorm=clipnorm)
                         
                         if SaveInit:
                             saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
@@ -1276,7 +1283,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                 final_activation,metrics,loss,deepSupervision,dataAug=dataAug,\
                                 return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path,\
                                 history_path=history_path,randomCrop=randomCrop,\
-                                init_model_path=init_model_path)
+                                init_model_path=init_model_path,clipnorm=clipnorm)
                 else: # 'VGGsuffleInStatsSameLabel' case
                     if BaysianOptimFT:
                         raise(NotImplementedError('BaysianOptimFT is not implemented with VGGsuffleInStatsSameLabel model'))
@@ -1291,7 +1298,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     dbn_affine,m_per_group,kind_method,\
                                     batch_size_RF,momentum,\
                                     epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                    final_activation,metrics,loss,deepSupervision)
+                                    final_activation,metrics,loss,deepSupervision,clipnorm=clipnorm)
         
                     if SaveInit:
                         saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
@@ -1445,7 +1452,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                             dbn_affine,m_per_group,kind_method,\
                             batch_size_RF,momentum,\
                             epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                            final_activation,metrics,loss,deepSupervision):
+                            final_activation,metrics,loss,deepSupervision,clipnorm):
     
     # We fineTune a VGG
     if constrNet=='VGG':
@@ -1456,7 +1463,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    final_clf=final_clf,final_layer=features,verbose=verbose,
                                    regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam
                                    ,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,
-                                   final_activation=final_activation,metrics=metrics,loss=loss)
+                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
         
     elif constrNet=='VGGAdaIn': # Only the Normalisation BN  layer are trainable
         model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
@@ -1465,7 +1472,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                   regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
                   SGDmomentum=SGDmomentum,decay=decay,
-                  final_activation=final_activation,metrics=metrics,loss=loss)
+                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
       
     elif constrNet=='VGGBaseNormCoherentAdaIn':
         print('VGGBaseNormCoherentAdaIn for FT : cela ne fonctionne pas et je ne sais pas pourquoi')
@@ -1500,7 +1507,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
               regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
               SGDmomentum=SGDmomentum,decay=decay,\
               list_mean_and_std_source=list_mean_and_std_source,list_mean_and_std_target=list_mean_and_std_target,
-              final_activation=final_activation,metrics=metrics,loss=loss)
+              final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
     
     elif constrNet=='VGGFRN': # Only the FRN layer are trainable
         model = vgg_FRN(style_layers,num_of_classes=num_classes,weights=weights,\
@@ -1509,7 +1516,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                   regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
                   SGDmomentum=SGDmomentum,decay=decay,
-                  final_activation=final_activation,metrics=metrics,loss=loss)
+                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
         
     elif constrNet=='VGGAdaDBN': # Only the DBN decorrelated layer are trainable
         model = vgg_adaDBN(style_layers,num_of_classes=num_classes,\
@@ -1519,7 +1526,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   regulOnNewLayerParam=regulOnNewLayerParam,\
                   dbn_affine=dbn_affine,m_per_group=m_per_group,dropout=dropout,nesterov=nesterov,\
                   SGDmomentum=SGDmomentum,decay=decay,
-                  final_activation=final_activation,metrics=metrics,loss=loss)
+                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
     
     elif constrNet=='VGGsuffleInStats':
         model = vgg_suffleInStats(style_layers,num_of_classes=num_classes,\
@@ -1530,7 +1537,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                   kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
                   freezingType=freezingType,p=p,\
-                  final_activation=final_activation,metrics=metrics,loss=loss)
+                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
             
     elif constrNet=='VGGsuffleInStatsSameLabel':
         model = vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=num_classes,\
@@ -1541,7 +1548,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                   kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
                   freezingType=freezingType,p=p,\
-                  final_activation=final_activation,metrics=metrics,loss=loss)
+                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
     
     elif constrNet=='ResNet50':
         getBeforeReLU = False
@@ -1551,7 +1558,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    freezingType=freezingType,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                                    dropout=dropout,nesterov=nesterov,\
                                    SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
-                                   final_activation=final_activation,metrics=metrics,loss=loss)
+                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
             
     elif constrNet=='ResNet50AdaIn':
         getBeforeReLU = False
@@ -1560,7 +1567,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
                                    regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                                    dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
-                                   final_activation=final_activation,metrics=metrics,loss=loss)
+                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
             
     elif constrNet=='ResNet50suffleInStats':
         getBeforeReLU = False
@@ -1571,7 +1578,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
                                    final_activation=final_activation,metrics=metrics,loss=loss,
                                    kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
-                                   freezingType=freezingType,p=p)
+                                   freezingType=freezingType,p=p,clipnorm=clipnorm)
     
     elif constrNet=='ResNet50suffleInStats':
         getBeforeReLU = False
@@ -1582,7 +1589,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
                                    kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
                                    freezingType=freezingType,p=p,\
-                                   final_activation=final_activation,metrics=metrics,loss=loss)
+                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
         
     elif constrNet=='ResNet50_ROWD_CUMUL':
         # Refinement the batch normalisation : normalisation statistics
@@ -1610,7 +1617,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                      final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,
                      dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet,\
-                     final_activation=final_activation,metrics=metrics,loss=loss)
+                     final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
             
     elif constrNet=='ResNet50_ROWD_CUMUL_AdaIn':
         # Refinement the batch normalisation : normalisation statistics
@@ -1638,7 +1645,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                      final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                      dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      AdaIn_mode=True,style_layers=style_layers,\
-                     final_activation=final_activation,metrics=metrics,loss=loss)
+                     final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
             
     elif constrNet=='ResNet50_BNRF':
         
@@ -1674,7 +1681,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                      final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                      dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet,\
-                     final_activation=final_activation,metrics=metrics,loss=loss)
+                     final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
             ## Non tester !!!
     
     elif constrNet=='InceptionV1':
@@ -1684,7 +1691,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                              regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                              dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,
                              final_activation=final_activation,metrics=metrics,
-                             loss=loss,deepSupervision=deepSupervision)
+                             loss=loss,deepSupervision=deepSupervision,clipnorm=clipnorm)
     elif constrNet=='InceptionV1_slim':
         model = InceptionV1_baseline_model(num_of_classes=num_classes,\
                              pretrainingModif=pretrainingModif,verbose=verbose,weights=weights,\
@@ -1692,7 +1699,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                              regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                              dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,
                              final_activation=final_activation,metrics=metrics,
-                             loss=loss,deepSupervision=deepSupervision,slim=True)
+                             loss=loss,deepSupervision=deepSupervision,slim=True,clipnorm=clipnorm)
         
     else:
         print(constrNet,'is unkwon in the context of TL')
@@ -1762,7 +1769,7 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                         df_label,\
                         item_name,classes,path_to_img,\
                         str_val,epochs,batch_size,final_activation,metrics,loss,\
-                        deepSupervision,dataAug,history_path,randomCrop):
+                        deepSupervision,dataAug,history_path,randomCrop,clipnorm):
         
     curr_session = tf.get_default_session()
     # close current session
@@ -1794,7 +1801,7 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                                 dbn_affine,m_per_group,kind_method,\
                                 batch_size_RF,momentum,\
                                 epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                final_activation,metrics,loss,deepSupervision)
+                                final_activation,metrics,loss,deepSupervision,clipnorm)
                 
     history_path = add_end_name_history_file(history_path,batch_size,epochs,regulOnNewLayer,\
                               regulOnNewLayerParam,dropout,optimizer,nesterov,\
@@ -1832,7 +1839,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         str_val,epochs,batch_size,AP_file_base,\
                         final_activation,metrics,loss,deepSupervision,dataAug,\
                         return_best_model,last_epochs_model_path,history_path,randomCrop,\
-                        init_model_path):
+                        init_model_path,clipnorm):
     """
     Fine Tuned a deep model with bayesian optimization of the hyper-parameters, the one concerned are :
         - log10_learning_rate
@@ -1863,7 +1870,8 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         str_val=str_val,epochs=epochs,batch_size=batch_size,cropCenter=cropCenter,\
                         final_activation=final_activation,metrics=metrics,loss=loss,\
                         deepSupervision=deepSupervision,dataAug=dataAug,\
-                        history_path=history_path,randomCrop=randomCrop)
+                        history_path=history_path,randomCrop=randomCrop,\
+                        clipnorm=clipnorm)
     
     hyperoptimizer = BayesianOptimization(
         f=function_to_miximaze,
@@ -1923,7 +1931,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                                 batch_size_RF,momentum,\
                                 epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                                 final_activation=final_activation,metrics=metrics,\
-                                loss=loss,deepSupervision=deepSupervision)
+                                loss=loss,deepSupervision=deepSupervision,clipnorm=clipnorm)
     NoValidationSetUsed = False
     RandomValdiationSet = True 
                

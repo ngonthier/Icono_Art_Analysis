@@ -60,7 +60,7 @@ def top_5_categorical_accuracy(y_true, y_pred):
 def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers=2,\
               regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,\
               nesterov=False,SGDmomentum=0.9,decay=0.0,final_activation='sigmoid',metrics='accuracy',\
-              loss='binary_crossentropy'):
+              loss='binary_crossentropy',clipnorm=False):
   """ Return a MLP model ready to fit
   @param : dropout if None : not dropout otherwise must be a value between 0 and 1
   For the multi-label case : use the binary_crossentropy loss 
@@ -74,14 +74,7 @@ def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers
   
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
     
-  if optimizer=='SGD':
-      opt = SGD(learning_rate=lr,nesterov=nesterov,momentum=SGDmomentum,decay=decay)
-  elif optimizer=='adam':
-      opt= Adam(learning_rate=lr,decay=decay)
-  elif optimizer=='RMSprop':
-      opt= RMSprop(learning_rate=lr,decay=decay,momentum=SGDmomentum)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
 
   model =  tf.keras.Sequential()
   if num_layers==2:
@@ -103,7 +96,7 @@ def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers
 def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
                      regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,\
                      nesterov=False,SGDmomentum=0.9,decay=0.0,final_activation='sigmoid',metrics='accuracy',
-                     loss='binary_crossentropy'):
+                     loss='binary_crossentropy',clipnorm=False):
     
   if metrics=='accuracy':
       metrics = [metrics]
@@ -112,14 +105,8 @@ def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
     
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
 
-  if optimizer=='SGD':
-      opt = SGD(learning_rate=lr,momentum=SGDmomentum,decay=decay,nesterov=nesterov)
-  elif optimizer=='adam': 
-      opt = Adam(learning_rate=lr,decay=decay)
-  elif optimizer=='RMSprop':
-      opt= RMSprop(learning_rate=lr,decay=decay,momentum=SGDmomentum)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
+  
   model =  tf.keras.Sequential()
   if not(dropout is None): model.add(Dropout(dropout))
   model.add(Dense(num_of_classes, activation=final_activation, kernel_regularizer=regularizers))
@@ -203,7 +190,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
                        final_layer='block5_pool',regulOnNewLayer=None,regulOnNewLayerParam=[],\
                        dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
                        final_activation='sigmoid',metrics='accuracy',
-                       loss='binary_crossentropy'): 
+                       loss='binary_crossentropy',clipnorm=False): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   @param : regulOnNewLayer used on kernel_regularizer 
@@ -247,16 +234,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
       lr = opt_option[-1]
   else:
       lr = 0.01
-  if optimizer=='SGD': 
-      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
-  elif optimizer=='adam': 
-      opt = partial(Adam,decay=decay)
-  elif optimizer=='RMSprop':
-      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
-  else:
-      opt = optimizer
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
 
   ilayer = 0
   for layer in pre_model.layers:
@@ -319,7 +297,7 @@ def vgg_FRN(style_layers,num_of_classes=10,\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy'):
+              loss='binary_crossentropy',clipnorm=False):
   """
   VGG with an  Filter  Response  Normalization  with  Thresh-olded Activation layer 
   are the only learnable parameters
@@ -347,14 +325,7 @@ def vgg_FRN(style_layers,num_of_classes=10,\
       lr = opt_option[-1]
   else:
       lr = 0.01
-  if optimizer=='SGD': 
-      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
-  elif optimizer=='adam': 
-      opt = partial(Adam,decay=decay)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
-  else:
-      opt = optimizer
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
   
   otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
   if not(transformOnFinalLayer in otherOutputPorposed):
@@ -411,7 +382,7 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
               list_mean_and_std_source=None,list_mean_and_std_target=None,
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy'):
+              loss='binary_crossentropy',clipnorm=False):
   """
   VGG with an Instance normalisation learn only those are the only learnable parameters
   with the last x dense layer 
@@ -441,16 +412,7 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
       lr = opt_option[-1]
   else:
       lr = 0.01
-  if optimizer=='SGD': 
-      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
-  elif optimizer=='adam': 
-      opt = partial(Adam,decay=decay)
-  elif optimizer=='RMSprop':
-      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
-  else:
-      opt = optimizer
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
   
   otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
   if not(transformOnFinalLayer in otherOutputPorposed):
@@ -516,7 +478,7 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
               dbn_affine=True,m_per_group=16,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy'):
+              loss='binary_crossentropy',clipnorm=False):
   """
   VGG with some decorrelated  learn only those are the only learnable parameters
   with a 2 dense layer MLP or one layer MLP according to the final_clf parameters
@@ -544,16 +506,7 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
       lr = opt_option[-1]
   else:
       lr = 0.01
-  if optimizer=='SGD': 
-      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
-  elif optimizer=='adam': 
-      opt = partial(Adam,decay=decay)
-  elif optimizer=='RMSprop':
-      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
-  else:
-      opt = optimizer
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
   
   otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
   if not(transformOnFinalLayer in otherOutputPorposed):
@@ -608,7 +561,7 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle',
               pretrainingModif=True,freezingType='FromTop',p=0.5,\
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy'):
+              loss='binary_crossentropy',clipnorm=False):
   """
   VGG with a shuffling the mean and standard deviation of the features maps between
   instance
@@ -659,16 +612,7 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
   else:
       lr = 0.01
       
-  if optimizer=='SGD': 
-      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
-  elif optimizer=='adam': 
-      opt = partial(Adam,decay=decay)
-  elif optimizer=='RMSprop':
-      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
-  else:
-      opt = optimizer
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
   
   otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
   if not(transformOnFinalLayer in otherOutputPorposed):
@@ -785,7 +729,7 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle',
               pretrainingModif=True,freezingType='FromTop',p=0.5,\
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy'):
+              loss='binary_crossentropy',clipnorm=False):
   """
   VGG with a shuffling the mean and standard deviation of the features maps between
   instance but between example with the same label
@@ -830,16 +774,7 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
   else:
       lr = 0.01
       
-  if optimizer=='SGD': 
-      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
-  elif optimizer=='adam': 
-      opt = partial(Adam,decay=decay)
-  elif optimizer=='RMSprop':
-      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
-  else:
-      opt = optimizer
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
   
   otherOutputPorposed = ['GlobalMaxPooling2D','',None,'GlobalAveragePooling2D']
   if not(transformOnFinalLayer in otherOutputPorposed):
@@ -1006,7 +941,7 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
                              regulOnNewLayer=None,regulOnNewLayerParam=[],\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
-                             loss='binary_crossentropy'): 
+                             loss='binary_crossentropy',clipnorm=False): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
@@ -1045,16 +980,7 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
       lr = opt_option[-1]
   else:
       lr = 0.01
-  if optimizer=='SGD': 
-      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
-  elif optimizer=='adam': 
-      opt = partial(Adam,decay=decay)
-  elif optimizer=='RMSprop':
-      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
-  else:
-      opt =  optimizer
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
       
   ilayer = 0
   for layer in pre_model.layers:
@@ -1163,7 +1089,8 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
                              final_clf='MLP2',regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0
                              ,final_activation='sigmoid',metrics='accuracy',
                              loss='binary_crossentropy',kind_of_shuffling='shuffle',
-                             pretrainingModif=True,freezingType='FromTop',p=0.5): 
+                             pretrainingModif=True,freezingType='FromTop',p=0.5,
+                             clipnorm=False): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   We only allow to shuffle the statistics after the layer in the style_layers list
@@ -1218,16 +1145,7 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
       lr = opt_option[-1]
   else:
       lr = 0.01
-  if optimizer=='SGD': 
-      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
-  elif optimizer=='adam': 
-      opt = partial(Adam,decay=decay)
-  elif optimizer=='RMSprop':
-      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
-  else:
-      opt =  optimizer
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
       
   ilayer = 0
   i = 0
@@ -1335,7 +1253,7 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
                              regulOnNewLayer=None,regulOnNewLayerParam=[],\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0
                              ,final_activation='sigmoid',metrics='accuracy',
-                             loss='binary_crossentropy'): 
+                             loss='binary_crossentropy',clipnorm=False): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   We only allow to train the layer in the style_layers listt
@@ -1370,16 +1288,7 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
       lr = opt_option[-1]
   else:
       lr = 0.01
-  if optimizer=='SGD': 
-      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
-  elif optimizer=='adam': 
-      opt = partial(Adam,decay=decay)
-  elif optimizer=='RMSprop':
-      opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
-  else:
-      opt = optimizer
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
 
   for layer in pre_model.layers:
       if layer.name in style_layers:
@@ -1484,7 +1393,7 @@ def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=
                              verbose=False,AdaIn_mode=False,style_layers=[],pretrainingModif=True,\
                              freezingType='FromTop',net_model='ResNet50',
                              final_activation='sigmoid',metrics='accuracy',
-                             loss='binary_crossentropy'):
+                             loss='binary_crossentropy',clipnorm=False):
     """
     This function makes the model trainable and add it a head (MLP at 1 2 or 3 layers) only for ResNet
     @param AdaIn_mode : if True means that only batch normalisation are trainable
@@ -1507,16 +1416,7 @@ def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=
         lr = opt_option[-1]
     else:
         lr = 0.01
-    if optimizer=='SGD': 
-        opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
-    elif optimizer=='adam': 
-        opt = partial(Adam,decay=decay)
-    elif optimizer=='RMSprop':
-        opt= partial(RMSprop,learning_rate=lr,decay=decay,momentum=SGDmomentum)
-    elif optimizer=='Adadelta':
-        opt= partial(Adadelta,decay=decay)
-    else:
-        opt = optimizer
+    opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
         
     if AdaIn_mode:
       for layer in pre_model.layers:
@@ -2267,6 +2167,24 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
       
   return(model)
 
+
+def get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm):
+    """
+    clipnorm we clip the gradient norm
+    """
+    if optimizer=='SGD': 
+        opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay,clipnorm=clipnorm)# SGD
+    elif optimizer=='adam': 
+        opt = partial(Adam,decay=decay,clipnorm=clipnorm)
+    elif optimizer=='RMSprop':
+        opt= partial(RMSprop,decay=decay,momentum=SGDmomentum,clipnorm=clipnorm)
+    elif optimizer=='Adadelta':
+        opt= partial(Adadelta,decay=decay,clipnorm=clipnorm)
+    else:
+        opt = optimizer
+      
+    return(opt)
+
 def InceptionV1_baseline_model(num_of_classes=10,\
                              pretrainingModif=True,verbose=True,weights='imagenet',\
                              optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',\
@@ -2274,7 +2192,7 @@ def InceptionV1_baseline_model(num_of_classes=10,\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
                              loss='binary_crossentropy',deepSupervision=False,\
-                             slim=False): 
+                             slim=False,clipnorm=False): 
   """
   Return a trainable keras model of InceptionV1 with new classification head
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
@@ -2326,16 +2244,8 @@ def InceptionV1_baseline_model(num_of_classes=10,\
       lr = opt_option[-1]
   else:
       lr = 0.01
-  if optimizer=='SGD': 
-      opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
-  elif optimizer=='adam': 
-      opt = partial(Adam,decay=decay)
-  elif optimizer=='RMSprop':
-      opt= partial(RMSprop,decay=decay,momentum=SGDmomentum)
-  elif optimizer=='Adadelta':
-      opt= partial(Adadelta,decay=decay)
-  else:
-      opt =  optimizer
+
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
       
   # TODO : ici il se passe quelque chose de bizarre avec les couches qui sont
   # freeze ou pas, il semblerait que les ce soit juste les couches act qui soit 
