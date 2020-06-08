@@ -45,6 +45,10 @@ import gc
 import tempfile
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 from tensorflow.python.keras.models import load_model
+
+from tensorflow.keras.optimizers.schedules import LearningRateSchedule
+from tensorflow.keras.callbacks import LearningRateScheduler
+
 from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion,\
     fit_generator_ForRefineParameters,fit_generator_ForRefineParameters_v2
 import keras_preprocessing as kp
@@ -388,7 +392,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                    NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
                    suffix='',dataAug=False,randomCrop=False,\
-                   SaveInit=False,loss=None,clipnorm=False):
+                   SaveInit=False,loss=None,clipnorm=False,LR_scheduling_kind=None):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
     It will return the metrics or the model itself depending on the input parameters
@@ -470,6 +474,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : SaveInit : we will save the initialisation of the model
     @param : loss : if none or '' we will define one otherwise it will be the one you propose
     @param : clipnorm we will clip the gradient 
+    @param : LR_scheduling_kind if not None we will use this kind of schedeling 
+            (for the moment only googlenet possible)
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -605,6 +611,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
             assert(dataAug in ['SmallDataAug','MediumDataAug'])
             name_base+= '_'+str(dataAug)
             
+        if LR_scheduling_kind is None:
+            LR_scheduling = LR_scheduling_kind
+        else:
+            LR_scheduling = LR_scheduling_kind,opt_option[-1]
+            if LR_scheduling_kind=='googlenet':
+                name_base+= '_LRSchedG'
+            else:
+                raise(NotImplementedError(LR_scheduling_kind))
             
     if constrNet=='ResNet50_BNRF': # BN Refinement
         name_base += '_m'+str(momentum)+'_bsRF'+str(batch_size_RF)+'_ep'+str(epochs_RF)
@@ -1261,7 +1275,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 RandomValdiationSet=RandomValdiationSet,\
                                                 deepSupervision=deepSupervision,dataAug=dataAug,\
                                                 last_epochs_model_path=last_epochs_model_path,\
-                                                history_path=local_history_path,randomCrop=randomCrop)
+                                                history_path=local_history_path,randomCrop=randomCrop,\
+                                                LR_scheduling=LR_scheduling)
                             
                     else: # Baysian optimization of the model
                         
@@ -1283,7 +1298,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                 final_activation,metrics,loss,deepSupervision,dataAug=dataAug,\
                                 return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path,\
                                 history_path=history_path,randomCrop=randomCrop,\
-                                init_model_path=init_model_path,clipnorm=clipnorm)
+                                init_model_path=init_model_path,clipnorm=clipnorm,\
+                                LR_scheduling=LR_scheduling)
                 else: # 'VGGsuffleInStatsSameLabel' case
                     if BaysianOptimFT:
                         raise(NotImplementedError('BaysianOptimFT is not implemented with VGGsuffleInStatsSameLabel model'))
@@ -1311,8 +1327,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                             NoValidationSetUsed=NoValidationSetUsed,\
                                             RandomValdiationSet=RandomValdiationSet,dataAug=dataAug,\
                                             return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path,\
-                                            history_path=local_history_path,randomCrop=randomCrop)
-                    
+                                            history_path=local_history_path,randomCrop=randomCrop,\
+                                            LR_scheduling=LR_scheduling)
+
                 # Need to add in load_model custom_objects !!! 
                 # tf.keras.models.save_model(
                 #     model, model_path, overwrite=True, include_optimizer=include_optimizer, save_format='h5')
@@ -1769,7 +1786,8 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                         df_label,\
                         item_name,classes,path_to_img,\
                         str_val,epochs,batch_size,final_activation,metrics,loss,\
-                        deepSupervision,dataAug,history_path,randomCrop,clipnorm):
+                        deepSupervision,dataAug,history_path,randomCrop,clipnorm,\
+                        LR_scheduling):
         
     curr_session = tf.get_default_session()
     # close current session
@@ -1815,7 +1833,7 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                             Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
                             NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet,\
                             returnWhat='val_loss',dataAug=dataAug,history_path=history_path,\
-                            randomCrop=randomCrop)
+                            randomCrop=randomCrop,LR_scheduling=LR_scheduling)
         
     # To clean GPU memory
     K.clear_session()
@@ -1839,7 +1857,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         str_val,epochs,batch_size,AP_file_base,\
                         final_activation,metrics,loss,deepSupervision,dataAug,\
                         return_best_model,last_epochs_model_path,history_path,randomCrop,\
-                        init_model_path,clipnorm):
+                        init_model_path,clipnorm,LR_scheduling):
     """
     Fine Tuned a deep model with bayesian optimization of the hyper-parameters, the one concerned are :
         - log10_learning_rate
@@ -1871,7 +1889,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         final_activation=final_activation,metrics=metrics,loss=loss,\
                         deepSupervision=deepSupervision,dataAug=dataAug,\
                         history_path=history_path,randomCrop=randomCrop,\
-                        clipnorm=clipnorm)
+                        clipnorm=clipnorm,LR_scheduling=LR_scheduling)
     
     hyperoptimizer = BayesianOptimization(
         f=function_to_miximaze,
@@ -1952,7 +1970,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                             NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet,return_best_model=return_best_model,\
                             returnWhat=None,deepSupervision=deepSupervision,dataAug=dataAug,\
                             last_epochs_model_path=last_epochs_model_path,history_path=local_history_path,\
-                            randomCrop=randomCrop) # Only this element will have its history saved with the BaysianOptimFT based name
+                            randomCrop=randomCrop,LR_scheduling=LR_scheduling) # Only this element will have its history saved with the BaysianOptimFT based name
     return(model)
     
 
@@ -2104,7 +2122,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
                   RandomValdiationSet=False,returnWhat=None,deepSupervision=False,\
                   dataAug=False,last_epochs_model_path=None,
-                  history_path=None,randomCrop=False):
+                  history_path=None,randomCrop=False,LR_scheduling=None):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -2158,6 +2176,8 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
     else:
         print(Net,'is unknwon')
         raise(NotImplementedError)
+        
+    
        
     if type(dataAug)==bool:
         if dataAug:
@@ -2258,6 +2278,16 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor=monitor, mode=mode,
                                    save_weights_only=True)
         callbacks += [mcp_save]
+        
+    if not(LR_scheduling is None):
+        kinf_scheduling, lr = LR_scheduling
+        if kinf_scheduling=='googlenet':
+            LR_schedule = StepDecay(initAlpha=lr)
+            LR_scheduler = LearningRateScheduler(LR_schedule)
+            callbacks += [LR_scheduler]
+        else:
+            raise(NotImplementedError(LR_scheduling))
+    
 
     if platform.system()=='Windows':
         print('For the moment with tensorflow 1.15 the multiprocessing on Windows don t work')
@@ -2313,6 +2343,24 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         metric = - metric
         return(metric)
 
+class StepDecay(LearningRateSchedule):
+    
+	def __init__(self, initAlpha=0.01, factor=0.96, dropEvery=8):
+        # fixed learning rate schedule (decreasing the learning
+        # rate by 4% every 8 epochs). as in GoogleNet
+		# store the base initial learning rate, drop factor, and
+		# epochs to drop every
+		self.initAlpha = initAlpha
+		self.factor = factor
+		self.dropEvery = dropEvery
+	def __call__(self, epoch):
+		# compute the learning rate for the current epoch
+		exp = np.floor((1 + epoch) / self.dropEvery)
+		alpha = self.initAlpha * (self.factor ** exp)
+		# return the learning rate
+		return float(alpha)
+
+
 def generator_with_im_and_label_as_output(generator, dataframe, directory, x_col, y_col,target_size,\
                      batch_size,shuffle,interpolation,class_mode):
     """
@@ -2335,7 +2383,7 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
                   RandomValdiationSet=False,returnWhat=None,dataAug=False,last_epochs_model_path=None,\
-                  history_path=None,randomCrop=False):
+                  history_path=None,randomCrop=False,LR_scheduling=None):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -2443,7 +2491,15 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
         mcp_save = ModelCheckpoint(tmp_model_path, save_best_only=True, monitor=monitor, mode=mode,
                                    save_weights_only=True)
         callbacks += [mcp_save]
-        
+    
+    if not(LR_scheduling is None):
+        kinf_scheduling, lr = LR_scheduling
+        if kinf_scheduling=='googlenet':
+            LR_schedule = StepDecay(initAlpha=lr)
+            LR_scheduler = LearningRateScheduler(LR_schedule)
+            callbacks += [LR_scheduler]
+        else:
+            raise(NotImplementedError(LR_scheduling)) 
     
     if platform.system()=='Windows':
         print('For the moment with tensorflow 1.15 the multiprocessing on Windows don t work')
@@ -4563,6 +4619,14 @@ def test_RandForUnfreezed():
                     epochs=2,cropCenter=True,verbose=True,deepSupervision=False,
                     SaveInit=True,
                     weights='RandForUnfreezed') 
+    
+def test_InceptionV1_LR_scheduling_kind():
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.001],return_best_model=True,
+                epochs=1,cropCenter=True,verbose=True,deepSupervision=True,SaveInit=False,
+                weights=None,LR_scheduling_kind='googlenet') 
     
 def test_InceptionV1_SAVE_INIT():
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\

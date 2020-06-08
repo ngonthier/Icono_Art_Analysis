@@ -69,6 +69,7 @@ possible_Sup = ['','_deepSupervision']
 possible_Aug = ['','_dataAug','_SmallDataAug','_MediumDataAug']
 possible_epochs = ['','_ep120','_ep200','_ep1']
 possible_clipnorm = ['','_cn1']
+possible_LRSched = ['','_LRschedG'] # For LR scheduler
 possible_lastEpochs = ['','_LastEpoch']
 
 list_finetuned_models_name = []
@@ -84,7 +85,8 @@ for dataset in possible_datasets:
                                     for ep in possible_epochs:
                                         for le in possible_lastEpochs:
                                             for c in possible_clipnorm:
-                                                list_finetuned_models_name +=[dataset+'_'+lr+opt+f+loss+init+crop+sup+aug+ep+c+le]
+                                                for ls in possible_LRSched:
+                                                    list_finetuned_models_name +=[dataset+'_'+lr+opt+f+loss+init+crop+sup+aug+ep+c+ls+le]
                         
 #list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
 #                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
@@ -132,9 +134,9 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
     
     opt_option_small=[0.1,0.001]
     opt_option_small01=[0.1,0.01]
-    opt_option_big=[0.001]
+    opt_option_big=[0.001] # 10**-3
     opt_option_big01=[0.01]
-    opt_option_big001=[0.0001]
+    opt_option_big001=[0.0001] # 10**-4 
     
     if not(model_name in list_finetuned_models_name):
         raise(NotImplementedError(model_name+' is unknown.'))
@@ -193,6 +195,13 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         epochs=1 # For testing
     else:
         epochs=20
+        
+        
+    if 'LRschedG' in model_name:
+        LR_scheduling_kind='googlenet'
+        decay = 0.0
+    else:
+        LR_scheduling_kind=None
         
     if 'unfreeze' in model_name:
         model_name_split = model_name.split('_')
@@ -274,7 +283,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
                            SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model,\
                            pretrainingModif=pretrainingModif,suffix=suffix,deepSupervision=deepSupervision,\
                            dataAug=dataAug,randomCrop=randomCrop,SaveInit=SaveInit,\
-                           loss=loss,clipnorm=clipnorm)
+                           loss=loss,clipnorm=clipnorm,LR_scheduling_kind=LR_scheduling_kind)
     # If returnStatistics with RandInit 
     # output = net_finetuned, init_net
     # If returnStatistics without RandInit
@@ -1086,5 +1095,13 @@ if __name__ == '__main__':
     list_model_name_4 = ['RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200'
                         ]
     Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
+    
+    # Il pour essayer de faire un entrainement depuis zero avec un Inception V1
+    liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
+                                 'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                                 'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
+                                 ]
+    Comparaison_of_FineTunedModel(liste_possible_fromScatch,constrNet='InceptionV1') 
+    
     
         
