@@ -831,7 +831,7 @@ class tf_MI_max():
     def ProjConsWithMean_Hyperplan_loss(self,W,b,X_):
         """
         this function return the sum of the norm between the projection of the 
-        centroids of each bags of the batches on each of the Hyperplanes 
+        centroids of each bags of the batches (computed by the mean) on each of the Hyperplanes 
         W=tf.Variable(tf.random_normal([self.paral_number_W*self.num_classes,self.num_features], stddev=1.)
         
         You have to maximize this function to force hyperplanes to be far away 
