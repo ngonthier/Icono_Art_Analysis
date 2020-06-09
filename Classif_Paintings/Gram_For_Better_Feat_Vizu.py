@@ -29,6 +29,7 @@ import scipy
 from tensorflow.python.keras.models import load_model
 from sklearn.decomposition import PCA
 from sklearn.decomposition import FastICA
+from sklearn.decomposition import NMF
 from sklearn.feature_extraction.image import grid_to_graph
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.cluster import SpectralCoclustering,SpectralBiclustering
@@ -1949,7 +1950,7 @@ def produce_latex_textV2(model_name = 'RASTA_small01_modif',
 
     file.close()
         
-def Generate_Im_class_conditionated_oldOne(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+def _old_Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                                     constrNet = 'InceptionV1',
                                     classe='Northern_Renaissance',layer='mixed4d_pre_relu'):
     """
@@ -2147,7 +2148,7 @@ def do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                                  input_name_lucid,constrNet,
                                  strictMinimum=False,cossim=False,
                                  sizeIm=256,dot_vector=False,
-                                 num_features=None):
+                                 num_features=None,onlyPos=False):
     print(prexif_name)
     index_features_withinLayer_all = np.arange(0,features_size)
     lucid_utils.print_PCA_images(model_path=os.path.join(path_lucid_model,name_pb_full_model),
@@ -2157,6 +2158,9 @@ def do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
                      input_name=input_name_lucid,Net=constrNet,sizeIm=sizeIm,
                      cossim=cossim,dot_vector=dot_vector,num_features=num_features)
    
+    if onlyPos: # Print only the positive image
+        return(0)
+    
     minus_weights = -weights
     prexif_name_negDir =prexif_name+ '_NegDir' # Negative direction
     print(prexif_name_negDir)
@@ -2250,6 +2254,7 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
     clustering = 'ICA' # ICA decomposition indeed of Eigenvalues ones (PCA like)
     'IPCA' : PCA and then ICA
     WHC : AgglomerativeClustering with connectivity
+    NMF : Non maximum factorization : a tester
     
     @param : whiten if True whiten the activation before using it
     @param : cossim if True use a cosine similarity based loss
@@ -2401,6 +2406,9 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
         variable = np.clip(variable,a_min=min_x_value,a_max=max_x_value)
     # Avec cela on va a une loss de l ordre de 0.75
     
+    # TODO : il faudrait faire un truc du genre Integrated Gradient avec une baseline a zero
+    # Voir un truc du genre smooth gradient
+    
     print('Final Loss : ',loss_value)
     print('Bounds of the block + std',np.max(variable),np.min(variable),np.std(variable))
     print('variable.shape',variable.shape)
@@ -2544,7 +2552,29 @@ def Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze
                                      prexif_name,features_size,
                                      layer,weights,path_output_lucid_im,
                                      input_name_lucid,constrNet,strictMinimum,cossim)
+    elif clustering=='NMF':
+        variable = np.clip(variable,a_min=0.,a_max=np.inf)
+        feature_block_reshaped = variable.reshape((-1,features_size))
+
+        str_nmf = 'NMF'+str(n_clusters)
         
+        nmf = NMF(n_components=n_clusters, init='random', random_state=0)
+        W = nmf.fit(feature_block_reshaped)
+        H = nmf.components_
+        print('Non Negative Matrix Factorization done.')
+        for i,center in enumerate(H):
+            #print(center.shape)
+            prexif_name = str_param
+            prexif_name += str_nmf +'_center'+str(i)
+            if not(number_of_blocks==1):
+                prexif_name += '_NumSample'+str(number_of_blocks)
+            if not(classe is None):
+               prexif_name += '_'+classe 
+            do_lucidVizu_forPCA_all_case(path_lucid_model,name_pb_full_model,
+                                 prexif_name,features_size,
+                                 layer,center,path_output_lucid_im,
+                                 input_name_lucid,constrNet,strictMinimum,cossim,
+                                 onlyPos=strictMinimum)
             
     elif clustering=='MeanShift':
         # Meme avec le mean shift on jette l'information spatiale !
@@ -3158,10 +3188,16 @@ if __name__ == '__main__':
 #                 
 #                    Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
 #                                        constrNet = 'InceptionV1',
-#                                        classe='Northern_Renaissance',layer='mixed4d',
+#                                        classe=classe,layer='mixed4d',
 #                                        num_components_draw =5,clustering = clustering,
 #                                        number_of_blocks = 20,strictMinimum=True,
 #                                        whiten=whiten,cossim=cossim)
+    Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                        constrNet = 'InceptionV1',
+                        classe='Northern_Renaissance',layer='mixed4d',
+                        num_components_draw =5,clustering = 'NMF',
+                        number_of_blocks = 2,strictMinimum=True,
+                        whiten=False,cossim=False)
     
 #    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
 #                               classe = 'Northern_Renaissance',\

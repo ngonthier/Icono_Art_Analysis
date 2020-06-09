@@ -1234,7 +1234,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 dbn_affine,m_per_group,kind_method,\
                                                 batch_size_RF,momentum,\
                                                 epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                                final_activation,metrics,loss,deepSupervision)
+                                                final_activation,metrics,loss,deepSupervision,clipnorm)
                             # Return the trained model + the initialisation 
                             return(model,init_model)
                         else:
@@ -1362,7 +1362,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 dbn_affine,m_per_group,kind_method,\
                                                 batch_size_RF,momentum,\
                                                 epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                                final_activation,metrics,loss,deepSupervision)
+                                                final_activation,metrics,loss,deepSupervision,clipnorm)
                             return(model,init_model)
                             
                         else:
@@ -1735,7 +1735,7 @@ def load_init_model_with_ImageNetWeights(init_model_path,constrNet,target_datase
                             dbn_affine,m_per_group,kind_method,\
                             batch_size_RF,momentum,\
                             epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                            final_activation,metrics,loss,deepSupervision):
+                            final_activation,metrics,loss,deepSupervision,clipnorm):
     weights = 'imagenet'
     model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                             transformOnFinalLayer,weights,
@@ -1748,7 +1748,7 @@ def load_init_model_with_ImageNetWeights(init_model_path,constrNet,target_datase
                             dbn_affine,m_per_group,kind_method,\
                             batch_size_RF,momentum,\
                             epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                            final_activation,metrics,loss,deepSupervision)
+                            final_activation,metrics,loss,deepSupervision,clipnorm)
     
     layers = model.layers
     assert('MLP' in final_clf)
