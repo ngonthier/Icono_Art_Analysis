@@ -3198,6 +3198,12 @@ if __name__ == '__main__':
                         num_components_draw =5,clustering = 'NMF',
                         number_of_blocks = 2,strictMinimum=True,
                         whiten=False,cossim=False)
+    Generate_Im_class_conditionated(model_name='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                        constrNet = 'InceptionV1',
+                        classe='Abstract_Art',layer='mixed4d',
+                        num_components_draw =5,clustering = 'NMF',
+                        number_of_blocks = 2,strictMinimum=True,
+                        whiten=False,cossim=False)
     
 #    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
 #                               classe = 'Northern_Renaissance',\

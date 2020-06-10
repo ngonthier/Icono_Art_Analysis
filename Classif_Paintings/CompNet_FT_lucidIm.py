@@ -540,7 +540,7 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
         trainable_layers_name = trainable_layers()
     elif constrNet=='ResNet50':
         input_name_lucid ='input_1'
-        raise(NotImplementedError('Not implemented yet with ResNet for print_images'))
+        #raise(NotImplementedError('Not implemented yet with ResNet for print_images'))
     else:
         raise(NotImplementedError(constrNet + ' is not implemented sorry.'))
     
@@ -1078,14 +1078,21 @@ if __name__ == '__main__':
         # a été entraine mais pas encore de visualisaton de feature 
         
         
-    # Suite aux recherches sur le fine tuning et le training de model
-    liste_possible_better = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200_cn1',
-                             'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200',
-                             'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200_cn1'
-                             'RASTA_big001_modif_adam_unfreeze50_randomCrop_ep200_cn1',
-                             'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_cn1'
-                             ]    
-    Comparaison_of_FineTunedModel(liste_possible_better,constrNet='InceptionV1') 
+    # Suite aux recherches sur le fine tuning et le training de model : cela a ete il faudra analyser les resultats
+#    liste_possible_better = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200_cn1',
+#                             'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200',
+#                             'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200_cn1'
+#                             'RASTA_big001_modif_adam_unfreeze50_randomCrop_ep200_cn1',
+#                             'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_cn1'
+#                             ]    
+#    Comparaison_of_FineTunedModel(liste_possible_better,constrNet='InceptionV1') 
+    
+    # Il pour essayer de faire un entrainement depuis zero avec un Inception V1
+    liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
+                                 'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                                 'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
+                                 ]
+    Comparaison_of_FineTunedModel(liste_possible_fromScatch,constrNet='InceptionV1') 
     
     # Cela a faire : 
     list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
@@ -1096,12 +1103,7 @@ if __name__ == '__main__':
                         ]
     Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
     
-    # Il pour essayer de faire un entrainement depuis zero avec un Inception V1
-    liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
-                                 'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                                 'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
-                                 ]
-    Comparaison_of_FineTunedModel(liste_possible_fromScatch,constrNet='InceptionV1') 
+
     
     
         
