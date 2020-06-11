@@ -107,6 +107,19 @@ def PascalVOC_sanity_check():
 #### Score use
 #	Faire avec score multiply et score additive pour les 6 datasets !
             
+def CVmode_MIMAX():
+    database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
+    for database in database_tab:
+        # MI_max
+        scenario_tab = [25]
+        try: 
+#            Number 23 : multiplication Tanh and score
+#            Number 24 : Addition Tanh and score
+            VariationStudyPart1(database,scenario_tab,num_rep = 10)
+            VariationStudyPart2(database,scenario_tab,num_rep = 10)
+        except Exception as e:
+             print(e)
+             pass 
 def Other_way_to_use_score_MIMAX():
     database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
     for database in database_tab:
@@ -148,6 +161,7 @@ def Other_way_to_use_score_MaxOfMax():
 
 if __name__ == '__main__':                                       
     
+    CVmode_MIMAX()
     Other_way_to_use_score_MIMAX()
     Other_way_to_use_score_MaxOfMax()
     
