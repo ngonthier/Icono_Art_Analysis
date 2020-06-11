@@ -1402,11 +1402,11 @@ class tf_MI_max():
                 if self.verbose: print('score seuil')
                 Prod=tf.multiply(Prod,tf.divide(tf.add(tf.sign(tf.add(scores_,-self.seuil)),1.),2.))
             elif self.obj_score_add_tanh:
-                if self.verbose: print('Linear product between score and tanh')
+                if self.verbose: print('Linear combinaison between score and tanh')
                 Prod=self.lambdas*tf.tanh(Prod)+(1-self.lambdas)*scores_*tf.sign(Prod)
             elif self.obj_score_mul_tanh:
                 if self.verbose: print('Multiplication of score and tanh')
-                Prod= tf.multiply(scores_,tf.tanh(Prod))
+                Prod= tf.multiply(tf.add(scores_,self.epsilon),tf.tanh(Prod))
             
             # Different max version 
             if self.Max_version=='max' or self.Max_version=='' or self.Max_version is None: 

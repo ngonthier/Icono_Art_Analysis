@@ -4,6 +4,7 @@
 Created on Wed Feb 27 13:12:57 2019
 
 This script will run our code 100 times only for the MIMAX model for the moment
+But also the other methods 
 
 @author: gonthier
 """
@@ -398,7 +399,12 @@ def Study_eval_perf_onSplit_of_IconArt(computeMode=True):
 def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
                                         MaxOfMax=True,MaxMMeanOfMax=False,
-                                        max_iters_all_base=3000):
+                                        max_iters_all_base=3000,
+                                        demonet = 'res152_COCO',
+                                        scores_tab=[True],
+                                        loss_tab=[''],
+                                        obj_score_mul_tanh = False,
+                                        obj_score_add_tanh=False):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
     """
@@ -408,7 +414,7 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
     loss_type = ''
     seuil = 0
     C_Searching = False
-    demonet = 'res152_COCO'
+    
     layer = 'fc7'
     number_restarts = 11
     CV_Mode = ''
@@ -416,11 +422,11 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
     proportionToKeep = [0.25,1.0]
     loss_type = ''
     WR = True
-    with_scores = True
+    
     seuillage_by_score=False
-    obj_score_add_tanh=False
+    
     lambdas = 0.5
-    obj_score_mul_tanh = False
+    
     PCAuse = False
     Max_version = None
     k_per_bag = 300
@@ -428,8 +434,8 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
     path_data_output = path_data +'VarStudy/'
     ReDo = True
     
-    for with_scores in [False,True]:
-        for loss_type in ['','hinge']:
+    for with_scores in scores_tab:
+        for loss_type in loss_tab:
             name_dict = path_data_output 
             if not(demonet== 'res152_COCO'):
                 name_dict += demonet +'_'
@@ -511,7 +517,8 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
 def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
                                         max_iters_all_base=3000,scores_tab = [True],
-                                        loss_tab = [''],number_restarts=11):
+                                        loss_tab = [''],number_restarts=11,
+                                        demonet = 'res152_COCO'):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
     """
@@ -521,7 +528,7 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
     loss_type = ''
     seuil = 0
     C_Searching = False
-    demonet = 'res152_COCO'
+    
     layer = 'fc7'
     CV_Mode = ''
     AggregW = None
@@ -772,7 +779,7 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
                                         Optimizer='GradientDescent',
                                         max_iters_all_base = 300,num_features_hidden=256,
                                         number_restarts = 11,scores_tab = [True],
-                                        loss_tab = ['']):
+                                        loss_tab = [''],demonet = 'res152_COCO'):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
     """
@@ -782,7 +789,7 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
     loss_type = ''
     seuil = 0
     C_Searching = False
-    demonet = 'res152_COCO'
+    
     layer = 'fc7'
     
     CV_Mode = ''
@@ -1179,6 +1186,8 @@ def get_params_fromi_scenario(i_scenario):
     Number 3 : hinge loss with score
     Number 5 : MIMAX without score
     Number 22 : hinge loss without score
+    Number 23 : multiplication Tanh and score
+    Number 24 : Addition Tanh and score
     """
     listAggregW = [None]
     PCAuse = False
@@ -1460,6 +1469,30 @@ def get_params_fromi_scenario(i_scenario):
         with_scores = False
         seuillage_by_score=False
         obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False   
+    elif i_scenario==23:
+        loss_type=''
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = [1.0]
+        WR = True
+        with_scores = False
+        seuillage_by_score=False
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = True   
+    elif i_scenario==24:
+        loss_type=''
+        C_Searching = False
+        CV_Mode = ''
+        AggregW = None
+        proportionToKeep = [1.0]
+        WR = True
+        with_scores = False
+        seuillage_by_score=False
+        obj_score_add_tanh=True
         lambdas = 0.5
         obj_score_mul_tanh = False   
             

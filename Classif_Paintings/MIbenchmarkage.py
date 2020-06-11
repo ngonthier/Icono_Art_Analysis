@@ -42,6 +42,7 @@ from trouver_classes_parmi_K_mi import tf_mi_model
 from TL_MIL import get_tensor_by_nameDescendant
 import pickle
 
+import matplotlib
 
 list_of_ClassicalMI = ['miSVM','SIL','SISVM','LinearSISVM','MIbyOneClassSVM',\
                        'SIXGBoost','MISVM','SIDLearlyStop','miDLearlyStop',\
@@ -882,6 +883,9 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,
     """
     This fucntion will plot the plan in 2D
     """
+    
+    matplotlib.use('agg')
+    
     nRep= 1
     nFolds = 1
     fold= 0
@@ -1010,7 +1014,18 @@ def plot_Hyperplan(method,numMetric,bags,labels_bags_c,labels_instance_c,
         if not(CV_Mode=='') or not(CV_Mode is None):
             add_to_name += '_' + CV_Mode
 
-    titlestr = 'Classification for ' +method+' AUC: {0:.2f}, UAR: {1:.2f}, F1 : {2:.2f}'.format(mPerf[2],mPerf[1],mPerf[0])
+    if method=='MIMAXaddLayer':
+        method_str = 'MI-max-HL'
+    elif method=='MIMAX':
+        method_str = 'MI-max'
+    elif method=='IA_mi_model':
+        method_str ='mi-perceptron' 
+    elif method=='MaxOfMax':
+        method_str ='Polyhedral MI-max' 
+    else:
+        method_str = method
+
+    titlestr = method_str+' AUC: {0:.2f}, UAR: {1:.2f}, F1 : {2:.2f}'.format(mPerf[2],mPerf[1],mPerf[0])
     if method in list_of_MIMAXbasedAlgo:
         try:
             bestloss_length = len(bestloss)
@@ -1664,7 +1679,8 @@ def trainMIMAX(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
         return(export_dir)
 
 def trainIA_mi_model(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
-               num_features,mini_batch_size,opts_MIMAX=None,verbose=False,get_bestloss=False):
+               num_features,mini_batch_size,opts_MIMAX=None,verbose=False,get_bestloss=False,
+               max_iters=300):
     """
     This function train a tidy mi_model,with IA = instance label assignation
     """
@@ -1678,7 +1694,7 @@ def trainIA_mi_model(bags_train, labels_bags_c_train,data_path_train,size_bigges
     else:
         C,C_Searching,CV_Mode,restarts,LR = 1.0,False,None,11,0.01
     classifierIA_mi = tf_mi_model(LR=LR,C=C,restarts=restarts,num_rois=size_biggest_bag,
-                       max_iters=300,verbose=verbose,mini_batch_size=mini_batch_size,
+                       max_iters=max_iters,verbose=verbose,mini_batch_size=mini_batch_size,
                        num_features=num_features,debug=False,num_classes=1,CV_Mode=CV_Mode,
                        is_betweenMinus1and1=True)
 
@@ -1698,7 +1714,7 @@ def trainIA_mi_model(bags_train, labels_bags_c_train,data_path_train,size_bigges
         return(export_dir)
 
 def trainMIMAXaddLayer(bags_train, labels_bags_c_train,data_path_train,size_biggest_bag,
-               num_features,mini_batch_size,opts_MIMAX=None,get_bestloss=False):
+               num_features,mini_batch_size,opts_MIMAX=None,get_bestloss=False,max_iters=300):
     """
     This function train a tidy MIMAX model with one layer more
     """
@@ -1715,7 +1731,7 @@ def trainMIMAXaddLayer(bags_train, labels_bags_c_train,data_path_train,size_bigg
     classifierMI_max = tf_MI_max(LR=LR,restarts=restarts,is_betweenMinus1and1=True, \
                                  num_rois=size_biggest_bag,num_classes=1, \
                                  num_features=num_features,mini_batch_size=mini_batch_size, \
-                                 verbose=False,C=C,CV_Mode=CV_Mode,max_iters=300,
+                                 verbose=False,C=C,CV_Mode=CV_Mode,max_iters=max_iters,
                                  AddOneLayer=True,Optimizer='lbfgs')
 
     export_dir = classifierMI_max.fit_MI_max_tfrecords(data_path=data_path_train, \
