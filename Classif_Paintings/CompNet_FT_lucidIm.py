@@ -57,8 +57,8 @@ import platform
 
 possible_datasets = ['IconArt_v1','RMN','RASTA']
 possible_lr = ['big0001_modif','small001_modif','big001_modif','small01_modif','big01_modif']
-possible_opt = ['','_adam','_Adadelta']
-possible_freeze= ['','_unfreeze50','_unfreeze84','_unfreeze44']
+possible_opt = ['','_adam','_Adadelta','_RMSprop']
+possible_freeze=  ['','_unfreeze50','_unfreeze84','_unfreeze44','_unfreeze20','_unfreeze8']
 # _unfreeze50 for InceptionV1 to train starting at mixed4a_3x3_bottleneck_pre_relu
 # but _unfreeze84 for InceptionV1_slim to train at 
 #  Mixed_4b_Branch_1_a_1x1_conv : because the name of the layer are not the same !
@@ -161,6 +161,10 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
         decay=0.0
     elif 'Adadelta' in model_name:
         optimizer='Adadelta'
+        SGDmomentum=0.0
+        decay=0.0
+    elif 'RMSprop' in model_name:
+        optimizer='RMSprop'
         SGDmomentum=0.0
         decay=0.0
     else:
@@ -586,7 +590,7 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                         trainable_l = layer.trainable
                         name_l = layer.name
                         #print(name_l,trainable_l)
-                        if trainable_l and name_l in trainable_layers_name:
+                        if trainable_l and (name_l in trainable_layers_name):
                             layer_considered_for_print_im += [name_l]
 
                 if not('RandInit' in model_name):
@@ -1087,16 +1091,30 @@ if __name__ == '__main__':
 #                             ]    
 #    Comparaison_of_FineTunedModel(liste_possible_better,constrNet='InceptionV1') 
     
+       # Suite aux recherches sur le fine tuning et le training de model : cela a ete il faudra analyser les resultats
+#    liste_possible_better = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200_cn1',
+#                             'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200',
+#                             'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200_cn1'
+#                             'RASTA_big001_modif_adam_unfreeze50_randomCrop_ep200_cn1',
+#                             'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_cn1'
+#                             ]    
+#    Comparaison_of_FineTunedModel(liste_possible_better,constrNet='InceptionV1') 
+    
     # Il pour essayer de faire un entrainement depuis zero avec un Inception V1
-    liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
-                                 'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                                 'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
-                                 ]
-    Comparaison_of_FineTunedModel(liste_possible_fromScatch,constrNet='InceptionV1') 
+    # liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
+    #                              'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+    #                              'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
+    #                              ]
+    # Comparaison_of_FineTunedModel(liste_possible_fromScatch,constrNet='InceptionV1') 
     
     # Cela a faire : 
-    list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
-                         'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200'
+    #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
+    list_model_name_5 = [
+                         'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
+                         'RASTA_big001_modif_RMSprop_unfreeze20_SmallDataAug_ep200',
+                         'RASTA_big001_modif_RMSprop_unfreeze20_randomCrop_ep200',
+                         'RASTA_big001_modif_RMSprop_unfreeze50_SmallDataAug_ep200',
+                         'RASTA_big001_modif_RMSprop_unfreeze50_randomCrop_ep200'
                         ]
     Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
     list_model_name_4 = ['RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200'
