@@ -1188,6 +1188,7 @@ def get_params_fromi_scenario(i_scenario):
     Number 22 : hinge loss without score
     Number 23 : multiplication Tanh and score
     Number 24 : Addition Tanh and score
+    Number 25 : CV mode with score !
     """
     listAggregW = [None]
     PCAuse = False
@@ -1494,7 +1495,19 @@ def get_params_fromi_scenario(i_scenario):
         seuillage_by_score=False
         obj_score_add_tanh=True
         lambdas = 0.5
-        obj_score_mul_tanh = False   
+        obj_score_mul_tanh = False  
+    elif i_scenario==25:
+        C_Searching = True
+        CV_Mode = 'CV'
+        AggregW = None
+        proportionToKeep = [1.0]
+        loss_type = ''
+        WR = True
+        with_scores = True
+        seuillage_by_score=False   
+        obj_score_add_tanh=False
+        lambdas = 0.5
+        obj_score_mul_tanh = False
             
     output = listAggregW,C_Searching,CV_Mode,AggregW,proportionToKeep,loss_type,\
     WR,with_scores,seuillage_by_score,obj_score_add_tanh,lambdas,obj_score_mul_tanh,\

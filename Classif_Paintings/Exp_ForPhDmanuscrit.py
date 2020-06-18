@@ -134,6 +134,21 @@ def Other_way_to_use_score_MIMAX():
              print(e)
              pass 
          
+def TwoThousandsboxes_MIMAX():
+    database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
+    for database in database_tab:
+        # MI_max score
+        scenario_tab = [0]
+        try: 
+
+            VariationStudyPart1(database,scenario_tab,num_rep = 10,
+                                k_per_bag=2000)
+            VariationStudyPart2(database,scenario_tab,num_rep = 10,
+                                k_per_bag=2000)
+        except Exception as e:
+             print(e)
+             pass 
+         
 def Other_way_to_use_score_MaxOfMax():
     database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
         
@@ -161,6 +176,7 @@ def Other_way_to_use_score_MaxOfMax():
 
 if __name__ == '__main__':                                       
     
+    TwoThousandsboxes_MIMAX()
     CVmode_MIMAX()
     Other_way_to_use_score_MIMAX()
     Other_way_to_use_score_MaxOfMax()
