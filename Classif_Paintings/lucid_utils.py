@@ -463,6 +463,10 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
                  input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
                  DECORRELATE = True,ROBUSTNESS  = True,just_return_output=False,
                  dico=None,image_shape=None,inverseAndSave=True):
+    """
+    This fct will run the feature visualisation for the layer and feature in the
+    list_layer_index_to_print list 
+    """
     #,printOnlyRGB=True
     
     if not(os.path.isfile(os.path.join(model_path))):
@@ -474,9 +478,8 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         lucid_net = Lucid_InceptionV1(model_path=model_path,input_name=input_name)
     elif Net=='InceptionV1_slim':
         lucid_net = Lucid_Inception_v1_slim(model_path=model_path,input_name=input_name)
-    elif Net=='ResNet':
+    elif 'ResNet' in Net:
         lucid_net = Lucid_ResNet(model_path=model_path,input_name=input_name)
-        raise(NotImplementedError(Net))
     else:
         raise(ValueError(Net+ 'is unkonwn'))
     lucid_net.load_graphdef()
@@ -729,8 +732,28 @@ def direction_neuron_cossim_S(layer_name, vec, batch=None, x=None, y=None, cossi
  
 def get_obj_and_kind_layer(layer_to_print,Net):
     if Net=='VGG':
-        obj_str = layer_to_print  + '/Relu'
-        kind_layer = 'Relu'
+        if '_conv' in layer_to_print:
+            type_layer = 'Relu' # Cas les couches convolutionnels sont avec relu en fait
+        elif 'fc' in  layer_to_print:
+            type_layer = 'Relu'
+        elif 'predictions' in  layer_to_print:
+            type_layer = 'Softmax'
+        else:
+            raise(ValueError(layer_to_print+' for '+Net))
+        obj_str = layer_to_print  + '/' + type_layer
+        kind_layer = type_layer
+    elif 'ResNet' in Net:
+        if '_conv' in layer_to_print:
+            type_layer = 'Conv2D'
+        elif '_relu' in layer_to_print:
+            type_layer = 'Activation' # Activation we hope it is a max
+        elif '_bn' in layer_to_print:
+            type_layer = 'BatchNormalization' # I never try that
+        else:
+            raise(ValueError(layer_to_print+' for '+Net))
+        obj_str = layer_to_print  + '/' + type_layer
+        kind_layer = type_layer
+        
     elif Net=='InceptionV1':
         dico = get_dico_layers_type()
         type_layer = dico[layer_to_print]
@@ -757,7 +780,7 @@ def get_obj_and_kind_layer(layer_to_print,Net):
         elif 'MaxPool' in layer_to_print:
             type_layer = 'Max' # I never try that
         else:
-            raise(ValueError(layer_to_print))
+            raise(ValueError(layer_to_print+' for '+Net))
             
         obj_str = layer_to_print  + '/'+type_layer # It could also be BiasAdd or concat
         kind_layer = type_layer

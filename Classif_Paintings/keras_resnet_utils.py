@@ -195,6 +195,68 @@ def getResNet50layersName():
      'fc1000']
     return(liste)
     
+#def getResNet50_trainable_vizualizable_layers_name():
+#    liste = [
+#     'conv1',
+#     'res2a_branch2a',
+#     'res2a_branch2b',
+#     'res2a_branch2c',
+#     'res2a_branch1',
+#     'res2b_branch2a',
+#     'res2b_branch2b',
+#     'res2b_branch2c',
+#     'res2c_branch2a',
+#     'res2c_branch2b',
+#     'res2c_branch2c',
+#     'res3a_branch2a',
+#     'res3a_branch2b',
+#     'res3a_branch2c',
+#     'res3a_branch1',
+#     'res3b_branch2a',
+#     'res3b_branch2b',
+#     'res3b_branch2c',
+#     'res3c_branch2a',
+#     'res3c_branch2b',
+#     'res3c_branch2c',
+#     'res3d_branch2a',
+#     'res3d_branch2b',
+#     'res3d_branch2c',
+#     'res4a_branch2a',
+#     'res4a_branch2b',
+#     'res4a_branch2c',
+#     'res4a_branch1',
+#     'res4b_branch2a',
+#     'res4b_branch2b',
+#     'res4b_branch2c',
+#     'res4c_branch2a',
+#     'res4c_branch2b',
+#     'res4c_branch2c',
+#     'res4d_branch2a',
+#     'res4d_branch2b',
+#     'res4d_branch2c',
+#     'res4e_branch2a',
+#     'res4e_branch2b',
+#     'res4e_branch2c',
+#     'res4f_branch2a',
+#     'res4f_branch2b',
+#     'res4f_branch2c',
+#     'res5a_branch2a',
+#     'res5a_branch2b',
+#     'res5a_branch2c',
+#     'res5a_branch1',
+#     'res5b_branch2a',
+#     'res5b_branch2b',
+#     'res5b_branch2c',
+#     'res5c_branch2a',
+#     'res5c_branch2b',
+#     'res5c_branch2c'
+#     ]
+#    return(liste)
+    
+def getResNet50_trainable_vizualizable_layers_name():
+    liste = ['conv1_conv', 'conv2_block1_1_conv', 'conv2_block1_2_conv', 'conv2_block1_0_conv', 'conv2_block1_3_conv', 'conv2_block2_1_conv', 'conv2_block2_2_conv', 'conv2_block2_3_conv', 'conv2_block3_1_conv', 'conv2_block3_2_conv', 'conv2_block3_3_conv', 'conv3_block1_1_conv', 'conv3_block1_2_conv', 'conv3_block1_0_conv', 'conv3_block1_3_conv', 'conv3_block2_1_conv', 'conv3_block2_2_conv', 'conv3_block2_3_conv', 'conv3_block3_1_conv', 'conv3_block3_2_conv', 'conv3_block3_3_conv', 'conv3_block4_1_conv', 'conv3_block4_2_conv', 'conv3_block4_3_conv', 'conv4_block1_1_conv', 'conv4_block1_2_conv', 'conv4_block1_0_conv', 'conv4_block1_3_conv', 'conv4_block2_1_conv', 'conv4_block2_2_conv', 'conv4_block2_3_conv', 'conv4_block3_1_conv', 'conv4_block3_2_conv', 'conv4_block3_3_conv', 'conv4_block4_1_conv', 'conv4_block4_2_conv', 'conv4_block4_3_conv', 'conv4_block5_1_conv', 'conv4_block5_2_conv', 'conv4_block5_3_conv', 'conv4_block6_1_conv', 'conv4_block6_2_conv', 'conv4_block6_3_conv', 'conv5_block1_1_conv', 'conv5_block1_2_conv', 'conv5_block1_0_conv', 'conv5_block1_3_conv', 'conv5_block2_1_conv', 'conv5_block2_2_conv', 'conv5_block2_3_conv', 'conv5_block3_1_conv', 'conv5_block3_2_conv', 'conv5_block3_3_conv']
+    return(liste)
+    
 def getBNlayersResNet50():
     """ Il y en a 53
     """

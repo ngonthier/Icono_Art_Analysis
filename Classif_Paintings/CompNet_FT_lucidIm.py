@@ -36,6 +36,8 @@ from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
 from StatsConstr_ClassifwithTL import learn_and_eval
 from googlenet import inception_v1_oldTF as Inception_V1
 from inceptionV1_keras_utils import get_trainable_layers_name
+from keras_resnet_utils import getResNet50_trainable_vizualizable_layers_name
+from keras_vgg_utils import getVGG_trainable_vizualizable_layers_name
 
 from inception_v1 import InceptionV1_slim,trainable_layers
 
@@ -536,6 +538,7 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
     
     if constrNet=='VGG':
         input_name_lucid ='block1_conv1_input'
+        trainable_layers_name = getVGG_trainable_vizualizable_layers_name()
     elif constrNet=='InceptionV1':
         input_name_lucid ='input_1'
         trainable_layers_name = get_trainable_layers_name()
@@ -543,6 +546,7 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
         input_name_lucid ='input_1'
         trainable_layers_name = trainable_layers()
     elif constrNet=='ResNet50':
+        trainable_layers_name = getResNet50_trainable_vizualizable_layers_name()
         input_name_lucid ='input_1'
         #raise(NotImplementedError('Not implemented yet with ResNet for print_images'))
     else:
@@ -580,10 +584,6 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                 
                 net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
                 
-                if 'VGG' in constrNet or 'ResNet' in constrNet:
-                    print('Desole cela na pas encore ete code pour VGG et ResNet (le fait d avoir une partie du reseau freeze il va falloir le faire plus tard !')
-                    break
-                
                 if 'unfreeze' in model_name:
                     layer_considered_for_print_im = []
                     for layer in net_finetuned.layers:
@@ -618,8 +618,8 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                     
                     #print('list_layer_index_to_print',list_layer_index_to_print)
                     dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
-                    
-                    lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                    if not(constrNet=='InceptionV1_slim'):
+                        lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
                              ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
                     
                     print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
@@ -749,7 +749,17 @@ def print_RASTA_performance():
                         'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200',
                         'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                         'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
-                        'RASTA_big001_modif_Adadelta_unfreeze50_cosineloss_MediumDataAug_ep200',
+                        'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200_cn1',
+                        #'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200', # NotImplemented
+                        #'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200_cn1'
+                        'RASTA_big001_modif_adam_unfreeze50_randomCrop_ep200_cn1',
+                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_cn1',
+                        'RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
+                        'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                        'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                         'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                         'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200'
                         ]
     print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=list_models_name,
@@ -786,6 +796,7 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                                         suffix_tab=[''],latexOutput=False):
     """
     This function will return and print the metrics / compute them if needed
+    for the different dataset 
     """    
     
     # Semble diverger dans le cas de InceptionV1  :'RASTA_big01_modif',
@@ -808,7 +819,16 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                         'RMN_small01_modif_LastEpoch',
                         'RMN_small001_modif','RMN_big001_modif_LastEpoch',
                         'RMN_small001_modif_deepSupervision_LastEpoch',
-                        'RASTA_big001_modif_RandInit_ep120']
+                        'RASTA_big001_modif_RandInit_ep120',
+                        'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200_cn1',
+                        'RASTA_big001_modif_adam_unfreeze50_randomCrop_ep200_cn1',
+                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_cn1',
+                        'RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
+                        'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                        'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                         'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                         'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200']
         
     # Pour 'RASTA_big001_modif_RandInit_ep120']    
     #    Top-1 accuracy : 42.91%
@@ -1034,16 +1054,17 @@ if __name__ == '__main__':
 #                        ]
      
 #    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep1']
-#    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
-#                             'IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
-#                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
-#                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch',
-#                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
-#                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
-#                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
-#                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch']
-#    
-#    Comparaison_of_FineTunedModel(list_models_name_slim,constrNet='InceptionV1_slim')    
+    # Juste pour faire les cas du reseau de départ de ImageNet
+    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+                             'IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
+                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
+                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch',
+                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
+                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
+                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch']
+    
+    Comparaison_of_FineTunedModel(list_models_name_slim,constrNet='InceptionV1_slim')    
 
 #    list_model_name_1 = ['IconArt_v1_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
 #                             'IconArt_v1_big001_modif_adam_unfreeze50_SmallDataAug_ep200_LastEpoch',
@@ -1080,16 +1101,6 @@ if __name__ == '__main__':
         
         # 'RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200',
         # a été entraine mais pas encore de visualisaton de feature 
-        
-        
-    # Suite aux recherches sur le fine tuning et le training de model : cela a ete il faudra analyser les resultats
-#    liste_possible_better = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200_cn1',
-#                             'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200',
-#                             'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200_cn1'
-#                             'RASTA_big001_modif_adam_unfreeze50_randomCrop_ep200_cn1',
-#                             'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_cn1'
-#                             ]    
-#    Comparaison_of_FineTunedModel(liste_possible_better,constrNet='InceptionV1') 
     
        # Suite aux recherches sur le fine tuning et le training de model : cela a ete il faudra analyser les resultats
 #    liste_possible_better = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200_cn1',
@@ -1101,6 +1112,7 @@ if __name__ == '__main__':
 #    Comparaison_of_FineTunedModel(liste_possible_better,constrNet='InceptionV1') 
     
     # Il pour essayer de faire un entrainement depuis zero avec un Inception V1
+    # Ces 3 modeles la n'ont rien donne du tout du tout : performance proche de 0
     # liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
     #                              'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
     #                              'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
@@ -1109,7 +1121,7 @@ if __name__ == '__main__':
     
     # Cela a faire : 
     #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
-    list_model_name_5 = [
+    list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze20_SmallDataAug_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze20_randomCrop_ep200',
@@ -1117,9 +1129,24 @@ if __name__ == '__main__':
                          'RASTA_big001_modif_RMSprop_unfreeze50_randomCrop_ep200'
                         ]
     Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
-    list_model_name_4 = ['RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200'
+    list_model_name_4 = ['RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200',
+                         'RASTA_big0001_modif_adam_unfreeze8_SmallDataAug_ep200',
+                         'RASTA_big001_modif_RMSprop_unfreeze8_SmallDataAug_ep200',
+                         'RASTA_big0001_modif_RMSprop_unfreeze8_SmallDataAug_ep200',
                         ]
     Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
+#    
+    # Test pour voir si la visualisation est possible pour les autres modeles : ResNet, VGG  Ok  
+    # With unfreeze and without
+#    list_model_name_5 = [
+#                     'IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep1'
+#                    ]
+#    Comparaison_of_FineTunedModel(list_model_name_5,constrNet='InceptionV1_slim') 
+#    list_model_name_4 = ['RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200'
+#                        ]
+#    Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
+    
+    
     
 
     
