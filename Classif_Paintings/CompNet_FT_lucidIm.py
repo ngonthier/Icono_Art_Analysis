@@ -431,6 +431,7 @@ def get_weights_and_name_layers(keras_net):
 
 def print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path='',\
                                     constrNet='InceptionV1'):
+       
     if constrNet=='VGG':
         # For the original pretrained imagenet VGG
         model_path = os.path.join('model','tf_vgg19.pb')
@@ -601,9 +602,10 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                     save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
                     with open(save_file, 'wb') as handle:
                         pickle.dump(dict_layers_relative_diff, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    
-                    name_pb = convert_finetuned_modelToFrozenGraph(model_name,
-                                   constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+                    if not(constrNet=='InceptionV1_slim'): # Alors il semble y a voir un soucis ici avec le chargement du pb et ensuite celui de modele de base sur 
+                        # Imagenet, je ne sais pas si le bug va rester ou pas
+                        name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                                       constrNet=constrNet,path=path_lucid_model,suffix=suffix)
                     list_layer_index_to_print_base_model = []
                     list_layer_index_to_print = []
                     #print(layer_considered_for_print_im)

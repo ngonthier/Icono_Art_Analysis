@@ -195,17 +195,19 @@ def create_pb_model_of_pretrained(Net):
 def test_render_Inception_v1_slim():
     
     K.set_learning_phase(0)
-    with K.get_session().as_default():
-        model = InceptionV1_slim(include_top=True, weights='imagenet')
-        os.makedirs('./model', exist_ok=True)
-        
-        #model.save('./model/inception_v1_keras_model.h5')
-        frozen_graph = freeze_session(K.get_session(),
-                                  output_names=[out.op.name for out in model.outputs],
-                                  clear_devices=True)
-        # Save the pb model 
-        tf.io.write_graph(frozen_graph,logdir= "model",name= "tf_inception_v1_slim.pb", as_text=False)
-        
+    model_path = 'model/tf_inception_v1_slim.pb'
+    if not(os.path.exists(model_path)):
+        with K.get_session().as_default():
+            model = InceptionV1_slim(include_top=True, weights='imagenet')
+            os.makedirs('./model', exist_ok=True)
+            
+            #model.save('./model/inception_v1_keras_model.h5')
+            frozen_graph = freeze_session(K.get_session(),
+                                      output_names=[out.op.name for out in model.outputs],
+                                      clear_devices=True)
+            # Save the pb model 
+            tf.io.write_graph(frozen_graph,logdir= "model",name= "tf_inception_v1_slim.pb", as_text=False)
+            
     with tf.Graph().as_default() as graph, tf.Session() as sess:
         
         # f = gfile.FastGFile("/model/tf_inception_v1.pb", 'rb')
@@ -484,8 +486,9 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         raise(ValueError(Net+ 'is unkonwn'))
     lucid_net.load_graphdef()
     nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
+    print(nodes_tab)
     assert(input_name in nodes_tab)
-    #print(nodes_tab)
+    
     
     # `fft` parameter controls spatial decorrelation
     # `decorrelate` parameter controls channel decorrelation
