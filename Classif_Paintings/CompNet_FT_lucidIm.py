@@ -745,8 +745,8 @@ def print_RASTA_performance():
                         'RASTA_small01_modif_deepSupervision_ep120',
                         'RASTA_big001_modif_dataAug',
                         'RASTA_big001_modif_RandInit_ep120',
-                        'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',
                         'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200',
+                        'RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',
                         'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                         'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                         'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200_cn1',
@@ -856,7 +856,7 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                 #pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
                 
                 metrics = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix,
-                                               get_Metrics=True)
+                                               get_Metrics=True,verbose=not(latexOutput))
                 
                 if not(latexOutput):
                     if not('RASTA' in model_name):
