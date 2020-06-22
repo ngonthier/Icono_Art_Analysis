@@ -430,7 +430,7 @@ def get_weights_and_name_layers(keras_net):
     return(list_weights,list_name_layers)
 
 def _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path='',\
-                                    constrNet='InceptionV1'):
+                                    constrNet='InceptionV1',input_name='input_1'):
     try:
         if constrNet=='VGG':
             # For the original pretrained imagenet VGG
@@ -438,30 +438,31 @@ def _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output
             if not(os.path.exists(model_path)):
                 lucid_utils.create_pb_model_of_pretrained(constrNet)
             lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                          ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
+                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet)
         elif constrNet=='InceptionV1':
             model_path = os.path.join('model','tf_inception_v1.pb')
             if not(os.path.exists(model_path)):
                 lucid_utils.create_pb_model_of_pretrained(constrNet)
             # For the original pretrained imagenet InceptionV1 from Lucid to keras to Lucid
             lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                          ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
+                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet)
         elif constrNet=='InceptionV1_slim':
             model_path = os.path.join('model','tf_inception_v1_slim.pb')
             if not(os.path.exists(model_path)):
                 lucid_utils.create_pb_model_of_pretrained(constrNet)
             # For the original pretrained imagenet InceptionV1 from slim convert to keras
             lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                          ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
+                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet)
         elif constrNet=='ResNet50':
             model_path = os.path.join('model','tf_resnet50.pb')
             if not(os.path.exists(model_path)):
                 lucid_utils.create_pb_model_of_pretrained(constrNet)
             # ResNet 50 from Keras
             lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                          ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
+                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet)
         else:
             raise(NotImplementedError(constrNet+' is unknown here.'))
+        return(False,model_path,None)
     except ValueError as e:
         return(True,model_path,e)
     
@@ -473,9 +474,14 @@ def print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_
                                                        constrNet)
      if error:
         os.remove(path)
-        error2,path,e2 = _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,
+        for i in range(1,4):
+            input_name = 'input_'+str(i)
+            error2,path,e2 = _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,
                                                    output_path,\
-                                                       constrNet)      
+                                                       constrNet,input_name=input_name) 
+            if not(error2):
+                return(0)
+            
         if error2:
             print('When after removing the pb file, we still have a problem')
             raise(e2)
@@ -602,6 +608,10 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                 
                 net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
                 
+                if constrNet=='ResNet50' or constrNet=='VGG':
+                    print('cela ne marche pas pour VGG et ResNet pour l instant')
+                    break
+                
                 if 'unfreeze' in model_name:
                     layer_considered_for_print_im = []
                     for layer in net_finetuned.layers:
@@ -619,7 +629,7 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                     save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
                     with open(save_file, 'wb') as handle:
                         pickle.dump(dict_layers_relative_diff, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    if not(constrNet=='InceptionV1_slim'): # Alors il semble y a voir un soucis ici avec le chargement du pb et ensuite celui de modele de base sur 
+                    if not(model_name=='RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200'): # Alors il semble y a voir un soucis ici avec le chargement du pb et ensuite celui de modele de base sur 
                         # Imagenet, je ne sais pas si le bug va rester ou pas
                         name_pb = convert_finetuned_modelToFrozenGraph(model_name,
                                        constrNet=constrNet,path=path_lucid_model,suffix=suffix)
@@ -637,7 +647,7 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                     
                     #print('list_layer_index_to_print',list_layer_index_to_print)
                     dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
-                    if not(constrNet=='InceptionV1_slim'):
+                    if not(model_name=='RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200'):
                         lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
                              ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
                     
@@ -1140,9 +1150,8 @@ if __name__ == '__main__':
     
     # Cela a faire : 
     #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
-    list_model_name_5 = [
+    list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
-                         'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze20_SmallDataAug_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze20_randomCrop_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze50_SmallDataAug_ep200',
