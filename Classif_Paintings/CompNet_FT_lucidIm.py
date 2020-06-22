@@ -429,40 +429,57 @@ def get_weights_and_name_layers(keras_net):
             list_name_layers += [layer_name]
     return(list_weights,list_name_layers)
 
+def _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path='',\
+                                    constrNet='InceptionV1'):
+    try:
+        if constrNet=='VGG':
+            # For the original pretrained imagenet VGG
+            model_path = os.path.join('model','tf_vgg19.pb')
+            if not(os.path.exists(model_path)):
+                lucid_utils.create_pb_model_of_pretrained(constrNet)
+            lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
+                          ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
+        elif constrNet=='InceptionV1':
+            model_path = os.path.join('model','tf_inception_v1.pb')
+            if not(os.path.exists(model_path)):
+                lucid_utils.create_pb_model_of_pretrained(constrNet)
+            # For the original pretrained imagenet InceptionV1 from Lucid to keras to Lucid
+            lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
+                          ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
+        elif constrNet=='InceptionV1_slim':
+            model_path = os.path.join('model','tf_inception_v1_slim.pb')
+            if not(os.path.exists(model_path)):
+                lucid_utils.create_pb_model_of_pretrained(constrNet)
+            # For the original pretrained imagenet InceptionV1 from slim convert to keras
+            lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
+                          ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
+        elif constrNet=='ResNet50':
+            model_path = os.path.join('model','tf_resnet50.pb')
+            if not(os.path.exists(model_path)):
+                lucid_utils.create_pb_model_of_pretrained(constrNet)
+            # ResNet 50 from Keras
+            lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
+                          ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
+        else:
+            raise(NotImplementedError(constrNet+' is unknown here.'))
+    except ValueError as e:
+        return(True,model_path,e)
+    
 def print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path='',\
                                     constrNet='InceptionV1'):
        
-    if constrNet=='VGG':
-        # For the original pretrained imagenet VGG
-        model_path = os.path.join('model','tf_vgg19.pb')
-        if not(os.path.exists(model_path)):
-            lucid_utils.create_pb_model_of_pretrained(constrNet)
-        lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                      ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
-    elif constrNet=='InceptionV1':
-        model_path = os.path.join('model','tf_inception_v1.pb')
-        if not(os.path.exists(model_path)):
-            lucid_utils.create_pb_model_of_pretrained(constrNet)
-        # For the original pretrained imagenet InceptionV1 from Lucid to keras to Lucid
-        lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                      ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
-    elif constrNet=='InceptionV1_slim':
-        model_path = os.path.join('model','tf_inception_v1_slim.pb')
-        if not(os.path.exists(model_path)):
-            lucid_utils.create_pb_model_of_pretrained(constrNet)
-        # For the original pretrained imagenet InceptionV1 from slim convert to keras
-        lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                      ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
-    elif constrNet=='ResNet50':
-        model_path = os.path.join('model','tf_resnet50.pb')
-        if not(os.path.exists(model_path)):
-            lucid_utils.create_pb_model_of_pretrained(constrNet)
-        # ResNet 50 from Keras
-        lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                      ,path_output=output_path,prexif_name='Imagnet',input_name='input_1',Net=constrNet)
-    else:
-        raise(NotImplementedError(constrNet+' is unknown here.'))
-        
+     error,path,e = _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,
+                                                   output_path,\
+                                                       constrNet)
+     if error:
+        os.remove(path)
+        error2,path,e2 = _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,
+                                                   output_path,\
+                                                       constrNet)      
+        if error2:
+            print('When after removing the pb file, we still have a problem')
+            raise(e2)
+
 def get_path_pbmodel_pretrainedModel(constrNet='InceptionV1'):
     if constrNet=='VGG':
         # For the original pretrained imagenet VGG
@@ -1057,16 +1074,16 @@ if __name__ == '__main__':
      
 #    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep1']
     # Juste pour faire les cas du reseau de départ de ImageNet
-    list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
-                             'IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
-                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
-                             'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch',
-                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
-                             'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
-                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
-                             'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch']
+    # list_models_name_slim = ['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+    #                          'IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
+    #                          'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
+    #                          'IconArt_v1_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch',
+    #                          'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+    #                          'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200_LastEpoch',
+    #                          'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200',
+    #                          'RASTA_big001_modif_Adadelta_unfreeze84_cosineloss_MediumDataAug_ep200_LastEpoch']
     
-    Comparaison_of_FineTunedModel(list_models_name_slim,constrNet='InceptionV1_slim')    
+    # Comparaison_of_FineTunedModel(list_models_name_slim,constrNet='InceptionV1_slim')    
 
 #    list_model_name_1 = ['IconArt_v1_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
 #                             'IconArt_v1_big001_modif_adam_unfreeze50_SmallDataAug_ep200_LastEpoch',
@@ -1123,8 +1140,9 @@ if __name__ == '__main__':
     
     # Cela a faire : 
     #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
-    list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+    list_model_name_5 = [
                          'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
+                         'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze20_SmallDataAug_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze20_randomCrop_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze50_SmallDataAug_ep200',
