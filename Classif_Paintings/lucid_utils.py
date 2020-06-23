@@ -284,15 +284,15 @@ def test_render_Inception_v1():
         lucid_inception_v1 = Lucid_InceptionV1()
         lucid_inception_v1.load_graphdef()
         
-    obj = lambda couple_layer_id: autocorr(*couple_layer_id)
+    #obj = lambda couple_layer_id: autocorr(*couple_layer_id)
     
-    out = render.render_vis(lucid_inception_v1, obj('mixed4a_1x1_pre_relu/Conv2D',0),\
+    out = render.render_vis(lucid_inception_v1, 'mixed4a_1x1_pre_relu/Conv2D:0',\
                             relu_gradient_override=True,use_fixed_seed=True)
     plt.figure()
     plt.imshow(out[0][0])
     
     
-    out = render.render_vis(lucid_inception_v1, obj('mixed4b_pre_relu/concat',452),\
+    out = render.render_vis(lucid_inception_v1, 'mixed4b_pre_relu/concat:452',\
                             relu_gradient_override=True,use_fixed_seed=True)
     plt.figure()
     plt.imshow(out[0][0])
@@ -309,7 +309,7 @@ def test_render_Inception_v1():
         transform.random_rotate(range(-ROTATE, ROTATE+1))
     ]
     
-    imgs = render.render_vis(lucid_inception_v1,obj('mixed4b_pre_relu/concat',452), 
+    imgs = render.render_vis(lucid_inception_v1,'mixed4b_pre_relu/concat:452', 
                              transforms=transforms,
                              param_f=lambda: param.image(64), 
                              thresholds=[2048], verbose=False,
@@ -741,6 +741,17 @@ def get_obj_and_kind_layer(layer_to_print,Net):
             type_layer = 'Relu'
         elif 'predictions' in  layer_to_print:
             type_layer = 'Softmax'
+        else:
+            raise(ValueError(layer_to_print+' for '+Net))
+        obj_str = layer_to_print  + '/' + type_layer
+        kind_layer = type_layer
+    elif 'LResNet' in Net: # For Lecoutre resnet version
+        if 'res' in layer_to_print:
+            type_layer = 'Conv2D'
+        elif 'activation' in layer_to_print:
+            type_layer = 'Activation' # Activation we hope it is a max
+        elif 'bn' in layer_to_print:
+            type_layer = 'BatchNormalization' # I never try that
         else:
             raise(ValueError(layer_to_print+' for '+Net))
         obj_str = layer_to_print  + '/' + type_layer
