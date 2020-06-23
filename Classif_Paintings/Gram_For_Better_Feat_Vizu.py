@@ -57,6 +57,7 @@ from StatsConstr_ClassifwithTL import predictionFT_net
 from inceptionV1_keras_utils import get_dico_layers_type
 
 from Stats_Fcts import get_Model_cov_mean_features,get_Model_gram_mean_features,get_Model_cov_mean_features_global_mean
+from Stats_Fcts import load_resize_and_process_img
 from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerator
 
 import pickle
@@ -2835,7 +2836,7 @@ def get_truncated_keras_model(model,model_name,new_input_layer_name,
     # Iterate over all layers after the input
     new_input_layer_passed = False
     for layer in model.layers[1:]:
-        print('==',layer.name,new_input_layer_passed,network_dict['input_layers_of'])
+        #print('==',layer.name,new_input_layer_passed,network_dict['input_layers_of'])
         if new_input_layer_passed:
             
             layer_input = [network_dict['new_output_tensor_of'][layer_aux] 
@@ -3225,20 +3226,59 @@ if __name__ == '__main__':
 #                        num_components_draw =5,clustering = 'NMF',
 #                        number_of_blocks = 2,strictMinimum=True,
 #                        whiten=False,cossim=False)
-    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
-                               classe = 'Northern_Renaissance',\
-                               layer='Mixed_4e_Concatenated',
-                               clustering='PCAsubset',
-                               num_components_draw=2,
-                               strictMinimum=False,
-                               constrNet='InceptionV1_slim')
+    # PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+    #                            classe = 'Northern_Renaissance',\
+    #                            layer='Mixed_4e_Concatenated',
+    #                            clustering='PCAsubset',
+    #                            num_components_draw=2,
+    #                            strictMinimum=False,
+    #                            constrNet='InceptionV1_slim')
     
+    # for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art',
+    #                'Post-Impressionism','Realism']:
+    #     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',
+    #                           classe = classe,\
+    #                           layer='mixed4d',
+    #                           clustering='PCA',
+    #                           num_components_draw=3)
     
-#    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-#                               classe = 'Northern_Renaissance',\
-#                               layer='mixed4d',
-#                               clustering='PCAsubset',
-#                               num_components_draw=3,strictMinimum=True)
+    for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e']:
+        for cossim in [False]:
+            #for clustering in ['NMF','Kmeans','PCA','IPCA','WHC']:
+            for clustering in ['WHC']:
+                for whiten in [False]:
+                    if clustering=='WHC':
+                        number_of_blocks = 1
+                    else:
+                        number_of_blocks = 20
+                    Generate_Im_class_conditionated(model_name='RASTA_small01_modif',
+                                        constrNet = 'InceptionV1',
+                                        classe=classe,layer='mixed4d',
+                                        num_components_draw =3,clustering = clustering,
+                                        number_of_blocks = number_of_blocks,strictMinimum=True,
+                                        whiten=whiten,cossim=cossim)
+    
+    # for classe in ['Abstract_Art','Ukiyo-e']:
+    #     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+    #                               classe = classe,\
+    #                               layer='mixed4d',
+    #                               clustering='PCA',
+    #                               num_components_draw=3,strictMinimum=False)
+    #     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
+    #                               classe = classe,\
+    #                               layer='mixed4d',
+    #                               clustering='PCA',
+    #                               num_components_draw=3,strictMinimum=False)
+            
+    # for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e']:
+    #     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+    #                           classe = classe,\
+    #                           layer='mixed4d',
+    #                           clustering='equalHotElement')
+    #     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
+    #                           classe = classe,\
+    #                           layer='mixed4d',
+    #                           clustering='equalHotElement')
     
     
     
