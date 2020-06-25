@@ -1179,12 +1179,15 @@ def get_confusion_matrices_for_given_model(model_name='RASTA_big001_modif_adam_u
 
 def topK_features_per_class_list_of_model():
     matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
-    model_name_list = ['RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
-                       'RASTA_small01_modif',
-                       'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                       'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+#    model_name_list = ['RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                       'RASTA_small01_modif',
+#                       'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+#                       'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+#                       'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200'
+#                       ]
+    model_name_list = [
                        'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200'
-                       ]
+                       ] # a faire plus tard
     
     for model_name in model_name_list:
         for stats_on_layer in ['mean','max']:

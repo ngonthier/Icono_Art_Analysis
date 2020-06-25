@@ -1,0 +1,14 @@
+tensorflow
+Keras
+numpy
+Pillow
+protobuf
+pydot
+PyYAML
+scipy
+six
+Theano
+progressbar2
+h5py
+sklearn
+keras-vis

@@ -132,7 +132,8 @@ def get_random_net(constrNet='VGG'):
         randomNet = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=None)
     return(randomNet)
 
-def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False):
+def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
+                         verbose=True):
     
     opt_option_small=[0.1,0.001]
     opt_option_small01=[0.1,0.01]
@@ -289,7 +290,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False)
                            SGDmomentum=SGDmomentum,decay=decay,return_best_model=return_best_model,\
                            pretrainingModif=pretrainingModif,suffix=suffix,deepSupervision=deepSupervision,\
                            dataAug=dataAug,randomCrop=randomCrop,SaveInit=SaveInit,\
-                           loss=loss,clipnorm=clipnorm,LR_scheduling_kind=LR_scheduling_kind)
+                           loss=loss,clipnorm=clipnorm,LR_scheduling_kind=LR_scheduling_kind,\
+                           verbose=verbose)
     # If returnStatistics with RandInit 
     # output = net_finetuned, init_net
     # If returnStatistics without RandInit
@@ -765,11 +767,6 @@ def print_RASTA_performance():
                         'RASTA_big001_modif',
                         'RASTA_small001_modif_deepSupervision',
                         'RASTA_big001_modif_deepSupervision',
-                        'RASTA_small01_modif',
-                        'RASTA_small001_modif',
-                        'RASTA_big001_modif',
-                        'RASTA_small001_modif_deepSupervision',
-                        'RASTA_big001_modif_deepSupervision',
                         'RASTA_small01_modif_dataAug_ep120',
                         'RASTA_small01_modif_deepSupervision_ep120',
                         'RASTA_big001_modif_dataAug',
@@ -788,17 +785,22 @@ def print_RASTA_performance():
                         'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                         'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                          'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                         'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200'
+                         'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                         'RASTA_big001_modif_Adadelta_unfreeze50_MediumDataAug_ep200'
                         ]
     print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=list_models_name,
                                         suffix_tab=[''],latexOutput=True)
     
-    list_models_name=['RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
-                      'RASTA_big001_modif_Adadelta_unfreeze84_MediumDataAug_ep200']
-    print_performance_FineTuned_network(constrNet='InceptionV1_slim',
-                                        list_models_name=list_models_name,
-                                        suffix_tab=[''],latexOutput=True)
+#    list_models_name=['RASTA_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
+#                      'RASTA_big001_modif_Adadelta_unfreeze84_MediumDataAug_ep200']
+#    print_performance_FineTuned_network(constrNet='InceptionV1_slim',
+#                                        list_models_name=list_models_name,
+#                                        suffix_tab=[''],latexOutput=True)
+#    list_models_name=['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
+#    print_performance_FineTuned_network(constrNet='ResNet50',
+#                                        list_models_name=list_models_name,
+#                                        suffix_tab=[''],latexOutput=True)
 def print_IconArtv1_performance():
 
     list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200',
@@ -808,8 +810,12 @@ def print_IconArtv1_performance():
                         'IconArt_v1_big001_modif_adam_SmallDataAug_ep200',
                         'IconArt_v1_big001_modif_adam_MediumDataAug_ep200',
                         'IconArt_v1_big001_modif_adam_randomCrop_ep200',
-                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200'
+                        'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
+                         'IconArt_v1_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                         'IconArt_v1_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                         'IconArt_v1_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
                         ]
+
     print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=list_models_name,
                                         suffix_tab=[''],latexOutput=True)
