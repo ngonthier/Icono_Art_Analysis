@@ -1149,8 +1149,15 @@ if __name__ == '__main__':
     # Comparaison_of_FineTunedModel(liste_possible_fromScatch,constrNet='InceptionV1') 
     
     # Cela a faire : 
+    
+    list_model_name_I = ['RASTA_small01_modif_ep200',
+                         'RASTA_small001_modif_ep200']
+    Comparaison_of_FineTunedModel(list_model_name_I,constrNet='InceptionV1') 
+    
     #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
-    list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+    list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_ep200',
+                         'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                         'RASTA_big001_modif_adam_unfreeze20_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze20_SmallDataAug_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze20_randomCrop_ep200',
@@ -1159,7 +1166,9 @@ if __name__ == '__main__':
                         ]
     Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
     list_model_name_4 = ['RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200',
+                         'RASTA_big0001_modif_adam_unfreeze8_ep200',
                          'RASTA_big0001_modif_adam_unfreeze8_SmallDataAug_ep200',
+                         'RASTA_big0001_modif_adam_unfreeze8_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze8_SmallDataAug_ep200',
                          'RASTA_big0001_modif_RMSprop_unfreeze8_SmallDataAug_ep200',
                         ]
