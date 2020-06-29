@@ -9,6 +9,16 @@ Pour le moment, on calcule les covariances après sous-traction de la moyenne sp
 d'une image donnée et non pas après soustraction de la moyenne globale sur tout le 
 dataset
 
+Remarques tu peux parfois avoir l'erreur suivante : 
+UnknownError: 2 root error(s) found.(0) Unknown: Failed to get convolution algorithm. This is probably because cuDNN failed to initialize, so try looking to see if a warning log message was printed above.
+    
+Il te faudra alors peut etre vider le cache qui se trouve a l'endroit suivant : 
+    AppData Roaming NVIDIA ComputeCache
+
+https://stackoverflow.com/questions/53698035/failed-to-get-convolution-algorithm-this-is-probably-because-cudnn-failed-to-in
+
+
+
 @author: gonthier
 """
 
@@ -62,6 +72,8 @@ from preprocess_crop import load_and_crop_img,load_and_crop_img_forImageGenerato
 
 import pickle
 import matplotlib
+
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
 def plot_PCAlike_featureVizu_basedOnGramMatrix(model_name = 'RASTA_small01_modif',classe = None,\
                                    layer='mixed4d_pre_relu'):
@@ -1196,6 +1208,33 @@ def topK_features_per_class_list_of_model():
                                        source_dataset=None,
                                        num_components_draw = 10,
                                        stats_on_layer=stats_on_layer)
+            
+def topK_features_per_class_list_of_modelpretrained():
+    matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
+#    model_name_list = ['RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+#                       'RASTA_small01_modif',
+#                       'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+#                       'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+#                       'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200'
+#                       ]
+    model_name_list = [
+                       'pretrained',
+                       'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                       'RASTA_small01_modif',
+                       'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                       'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                       'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200'
+                       ] # a faire plus tard
+    
+    for model_name in model_name_list:
+        for stats_on_layer in ['mean','max']:
+            for selection_feature in [None,'TopOnlyForClass']:
+                vizu_topK_feature_per_class(model_name =model_name,\
+                                           layer='mixed4d',\
+                                           source_dataset='RASTA',
+                                           num_components_draw = 10,
+                                           stats_on_layer=stats_on_layer,
+                                           selection_feature=selection_feature)
 
 
 def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
@@ -1205,7 +1244,16 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
                                cossim=False,
                                constrNet = 'InceptionV1',
                                dot_vector=True,
-                               stats_on_layer='mean'):
+                               stats_on_layer='mean',
+                               selection_feature=None):
+    """
+    Le but de cette fonction est d'afficher les k features avec la plus forte 
+    réponses 
+    
+    @param : If selection_feature is None we do nothing
+        if selection_feature=='TopOnlyForClass' Top For this class and not for the other model'
+    """
+    
     
     if 'IconArt_v1' in model_name:
         dataset = 'IconArt_v1'
@@ -1240,6 +1288,8 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
     name_dico = 'DicoOrderLayer_'+layer
     if not(stats_on_layer=='mean'):
         name_dico +='_'+stats_on_layer
+    if selection_feature=='TopOnlyForClass':
+       name_dico +='_TopOnlyForClass'
     name_dico += '.pkl'
     path_dico = os.path.join(path_output_lucid_im,name_dico)
     
@@ -1250,15 +1300,16 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
 
         if model_name=='pretrained':
            fine_tuned_model = Activation_for_model.get_Network(constrNet)
+           path_lucid_model = os.path.join('')
         else:
            fine_tuned_model, _ = get_fine_tuned_model(model_name,constrNet=constrNet,suffix='',get_Metrics=False)
-    
+           path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
+        suffix = ''
         style_layers = [layer]
         
         mean_model = Activation_for_model.get_Model_that_output_StatsOnActivation_forGivenLayers(fine_tuned_model,list_layers=style_layers,stats_on_layer=stats_on_layer)
         
-        path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
-        suffix = ''
+        
         suffix_str = suffix                                                                     
         if not(model_name=='pretrained'):
             name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
@@ -1274,13 +1325,19 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
         
         else:
             name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
-                   
-        
+
         dico_most_response_feat = {}
-        
+
         # Loop on the classe
         for classe in classes:
             print('=== For ',classe,'===')
+            
+            if selection_feature=='TopOnlyForClass':
+                df_train_not_c = df_train[df_train[classe]!=1.]
+                list_spatial_means_notc = predictionFT_net(mean_model,df_train_not_c,x_col=item_name,y_col=classes,path_im=path_to_img,
+                                                  Net=constrNet,cropCenter=cropCenter)
+                array_spatial_means_notc = np.array(np.vstack(list_spatial_means_notc))
+            
             df_train_c = df_train[df_train[classe]==1.]
             list_spatial_means = predictionFT_net(mean_model,df_train_c,x_col=item_name,y_col=classes,path_im=path_to_img,
                                                   Net=constrNet,cropCenter=cropCenter)
@@ -1288,8 +1345,12 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
             array_spatial_means = np.array(np.vstack(list_spatial_means))
             if stats_on_layer=='mean':
                 mean_spatial_means = np.mean(array_spatial_means,axis=0)
-            elif stats_on_layer=='max':
+                if selection_feature=='TopOnlyForClass':
+                    mean_spatial_means_notc = np.mean(array_spatial_means_notc,axis=0)
+            elif stats_on_layer=='max': # In this case we take the max of the mean
                 mean_spatial_means = np.max(array_spatial_means,axis=0)
+                if selection_feature=='TopOnlyForClass':
+                    mean_spatial_means_notc = np.mean(array_spatial_means_notc,axis=0)
             else:
                 raise(ValueError(stats_on_layer))
             #print('mean_spatial_means',mean_spatial_means.shape)
@@ -1303,7 +1364,10 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
                     classe_str = classe
                 else:
                     classe_str = ''
-    
+                    
+            if selection_feature=='TopOnlyForClass':
+               mean_spatial_means = mean_spatial_means - mean_spatial_means_notc
+
             argsort_mean_spatial = np.argsort(mean_spatial_means)[::-1]
         
             dico_most_response_feat[classe] = argsort_mean_spatial
@@ -1353,8 +1417,10 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
     else:
         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
     
-    path_output_composition = os.path.join(output_path,'AllFeatures','TopK')
-        
+    if selection_feature is None:
+        path_output_composition = os.path.join(output_path,'AllFeatures','TopK')
+    elif selection_feature=='TopOnlyForClass':
+        path_output_composition = os.path.join(output_path,'AllFeatures','TopOnlyForClass')
     pathlib.Path(path_output_composition).mkdir(parents=True, exist_ok=True)
             
     # Maintenant on va faire des prints avec les images et les différentes classes
@@ -1392,10 +1458,15 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
             plt.setp(ax.get_xticklabels(), visible=False)
             plt.setp(ax.get_yticklabels(), visible=False)
             
-        
-        name_fig = classe +'_Top'+str(num_components_draw)+'_Features.png'
+        if selection_feature=='TopOnlyForClass':
+            name_fig = classe +'_TopClassMinusNotClass'+str(num_components_draw)+'_Features.png'
+        else:
+            name_fig = classe +'_Top'+str(num_components_draw)+'_Features.png'
+            
         if not(stats_on_layer=='max'):
             name_fig = str(1)+ 'max' + name_fig 
+        if selection_feature=='TopOnlyForClass':
+            name_fig = str(0) + name_fig 
         path_fig = os.path.join(path_output_composition,name_fig)
         plt.savefig(path_fig,dpi=600)
         plt.close()
@@ -3244,6 +3315,13 @@ if __name__ == '__main__':
     #                           layer='mixed4d',
     #                           clustering='PCA',
     #                           num_components_draw=3)
+    
+    produce_latex_textV2(model_name = 'RASTA_small01_modif',
+                       layer_tab=['mixed4d_pre_relu'],classe_tab = ['Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art',
+                                 'Post-Impressionism','Realism'],
+                               folder_im_latex='im',
+                               num_components_draw = 3,
+                               KindOfMeanReduciton='global')
     
     for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e']:
         for cossim in [False]:
