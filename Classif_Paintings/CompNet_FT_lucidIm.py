@@ -1156,8 +1156,9 @@ if __name__ == '__main__':
     
     # Cela a faire : 
     
-    list_model_name_I = ['RASTA_small01_modif_ep200',
-                         'RASTA_small001_modif_ep200']
+    # list_model_name_I = ['RASTA_small01_modif_ep200',
+    #                      'RASTA_small001_modif_ep200']
+    list_model_name_I = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200']
     Comparaison_of_FineTunedModel(list_model_name_I,constrNet='InceptionV1') 
     
     #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
