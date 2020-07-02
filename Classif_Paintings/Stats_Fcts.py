@@ -74,7 +74,8 @@ def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers
   
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
     
-  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
+  partial_opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
+  opt = partial_opt(learning_rate=lr)
 
   model =  tf.keras.Sequential()
   if num_layers==2:
@@ -105,7 +106,8 @@ def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
     
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
 
-  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
+  partial_opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
+  opt = partial_opt(learning_rate=lr)
   
   model =  tf.keras.Sequential()
   if not(dropout is None): model.add(Dropout(dropout))
