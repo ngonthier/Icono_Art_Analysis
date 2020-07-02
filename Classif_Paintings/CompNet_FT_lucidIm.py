@@ -610,9 +610,9 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                 
                 net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
                 
-                if constrNet=='ResNet50' or constrNet=='VGG':
-                    print('cela ne marche pas pour VGG et ResNet pour l instant')
-                    break
+                # if constrNet=='ResNet50' or constrNet=='VGG':
+                #     print('cela ne marche pas pour VGG et ResNet pour l instant')
+                #     break
                 
                 if 'unfreeze' in model_name:
                     layer_considered_for_print_im = []
@@ -631,10 +631,8 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                     save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
                     with open(save_file, 'wb') as handle:
                         pickle.dump(dict_layers_relative_diff, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    if not(model_name=='RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200'): # Alors il semble y a voir un soucis ici avec le chargement du pb et ensuite celui de modele de base sur 
-                        # Imagenet, je ne sais pas si le bug va rester ou pas
-                        name_pb = convert_finetuned_modelToFrozenGraph(model_name,
-                                       constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+                    name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                                   constrNet=constrNet,path=path_lucid_model,suffix=suffix)
                     list_layer_index_to_print_base_model = []
                     list_layer_index_to_print = []
                     #print(layer_considered_for_print_im)
@@ -647,11 +645,10 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                              list_layer_index_to_print += [[key,topk]]
                              list_layer_index_to_print_base_model += [[key,topk]]
                     
-                    #print('list_layer_index_to_print',list_layer_index_to_print)
                     dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
-                    if not(model_name=='RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200'):
-                        lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                             ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
+                    
+                    lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                         ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
                     
                     print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
                                          constrNet=constrNet)
@@ -1158,8 +1155,8 @@ if __name__ == '__main__':
     
     # list_model_name_I = ['RASTA_small01_modif_ep200',
     #                      'RASTA_small001_modif_ep200']
-    list_model_name_I = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200']
-    Comparaison_of_FineTunedModel(list_model_name_I,constrNet='InceptionV1') 
+    # list_model_name_I = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200']
+    # Comparaison_of_FineTunedModel(list_model_name_I,constrNet='InceptionV1') 
     
     #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
     list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_ep200',

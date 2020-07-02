@@ -426,6 +426,8 @@ def test_render_ResNet50():
     plt.figure()
     plt.imshow(imgs[0][0])
 
+    input('wait')
+    plt.close()
 
 
 def feature_block(channels,w, h=None, batch=None, sd=None, fft=True):
