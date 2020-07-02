@@ -1228,7 +1228,7 @@ def topK_features_per_class_list_of_modelpretrained():
     
     for model_name in model_name_list:
         for stats_on_layer in ['mean','max']:
-            for selection_feature in [None,'TopOnlyForClass']:
+            for selection_feature in [None,'ClassMinusGlobalMean']:
                 vizu_topK_feature_per_class(model_name =model_name,\
                                            layer='mixed4d',\
                                            source_dataset='RASTA',
@@ -1252,6 +1252,7 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
     
     @param : If selection_feature is None we do nothing
         if selection_feature=='TopOnlyForClass' Top For this class and not for the other model'
+        if selection_feature=='ClassMinusGlobalMean'
     """
     
     
@@ -1290,6 +1291,8 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
         name_dico +='_'+stats_on_layer
     if selection_feature=='TopOnlyForClass':
        name_dico +='_TopOnlyForClass'
+    if selection_feature=='ClassMinusGlobalMean':
+       name_dico +='_ClassMinusGlobalMean'
     name_dico += '.pkl'
     path_dico = os.path.join(path_output_lucid_im,name_dico)
     
@@ -1328,6 +1331,12 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
 
         dico_most_response_feat = {}
 
+        if selection_feature=='ClassMinusGlobalMean':
+            list_spatial_means_all = predictionFT_net(mean_model,df_train,x_col=item_name,y_col=classes,path_im=path_to_img,
+                                                  Net=constrNet,cropCenter=cropCenter)
+            array_spatial_means_all = np.array(np.vstack(list_spatial_means_all))
+            
+
         # Loop on the classe
         for classe in classes:
             print('=== For ',classe,'===')
@@ -1347,10 +1356,16 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
                 mean_spatial_means = np.mean(array_spatial_means,axis=0)
                 if selection_feature=='TopOnlyForClass':
                     mean_spatial_means_notc = np.mean(array_spatial_means_notc,axis=0)
+                elif selection_feature=='ClassMinusGlobalMean':
+                    mean_spatial_means_all = np.mean(array_spatial_means_all,axis=0)
+
             elif stats_on_layer=='max': # In this case we take the max of the mean
                 mean_spatial_means = np.max(array_spatial_means,axis=0)
                 if selection_feature=='TopOnlyForClass':
-                    mean_spatial_means_notc = np.mean(array_spatial_means_notc,axis=0)
+                    mean_spatial_means_notc = np.max(array_spatial_means_notc,axis=0)
+                elif selection_feature=='ClassMinusGlobalMean':
+                    mean_spatial_means_all = np.max(array_spatial_means_all,axis=0)
+
             else:
                 raise(ValueError(stats_on_layer))
             #print('mean_spatial_means',mean_spatial_means.shape)
@@ -1367,6 +1382,8 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
                     
             if selection_feature=='TopOnlyForClass':
                mean_spatial_means = mean_spatial_means - mean_spatial_means_notc
+            elif selection_feature=='ClassMinusGlobalMean':
+               mean_spatial_means = mean_spatial_means - mean_spatial_means_all
 
             argsort_mean_spatial = np.argsort(mean_spatial_means)[::-1]
         
@@ -1421,6 +1438,8 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
         path_output_composition = os.path.join(output_path,'AllFeatures','TopK')
     elif selection_feature=='TopOnlyForClass':
         path_output_composition = os.path.join(output_path,'AllFeatures','TopOnlyForClass')
+    elif selection_feature=='ClassMinusGlobalMean':
+        path_output_composition = os.path.join(output_path,'AllFeatures','ClassMinusGlobalMean')
     pathlib.Path(path_output_composition).mkdir(parents=True, exist_ok=True)
             
     # Maintenant on va faire des prints avec les images et les différentes classes
@@ -1459,14 +1478,15 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
             plt.setp(ax.get_yticklabels(), visible=False)
             
         if selection_feature=='TopOnlyForClass':
-            name_fig = classe +'_TopClassMinusNotClass'+str(num_components_draw)+'_Features.png'
+            name_fig = classe +'ClassMinusGlobalMean'+str(num_components_draw)+'_Features.png'
+        elif selection_feature=='TopOnlyForClass':
+            name_fig = classe +'_ClassMinusGlobalMean'+str(num_components_draw)+'_Features.png'
         else:
             name_fig = classe +'_Top'+str(num_components_draw)+'_Features.png'
             
         if not(stats_on_layer=='max'):
             name_fig = str(1)+ 'max' + name_fig 
-        if selection_feature=='TopOnlyForClass':
-            name_fig = str(0) + name_fig 
+ 
         path_fig = os.path.join(path_output_composition,name_fig)
         plt.savefig(path_fig,dpi=600)
         plt.close()
