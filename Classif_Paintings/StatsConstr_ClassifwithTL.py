@@ -451,7 +451,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : epochs_RF : number of epochs for the refinement of the batch statistics
     @param : cropCenter if True we only consider the central crop of the image as in Crowley 2016
     @param : BV : if true use the compress value for the layer index
-    @param : dropout : if None no dropout otherwise on the new layer
+    @param : dropout : if None no dropout otherwise on the new layer : it can be a list of element in the case of the deepSupervision for InceptionV1
     @param : nesterov : nesterov approximation for MLP
     @param : SGDmomentum : SGD momentum in the gradient descent
     @param : decay : learning rate decay for MLP model

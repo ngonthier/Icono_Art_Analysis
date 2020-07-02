@@ -72,6 +72,9 @@ possible_Aug = ['','_dataAug','_SmallDataAug','_MediumDataAug']
 possible_epochs = ['','_ep120','_ep200','_ep1']
 possible_clipnorm = ['','_cn1']
 possible_LRSched = ['','_LRschedG'] # For LR scheduler
+possible_dropout = ['','_dropout04','_dropout070704'] # For LR scheduler
+# For the parameters based on : https://www.analyticsvidhya.com/blog/2018/10/understanding-inception-network-from-scratch/
+# Use the learning rate at 0.01 and the list dropout
 possible_lastEpochs = ['','_LastEpoch']
 
 list_finetuned_models_name = []
@@ -88,7 +91,8 @@ for dataset in possible_datasets:
                                         for le in possible_lastEpochs:
                                             for c in possible_clipnorm:
                                                 for ls in possible_LRSched:
-                                                    list_finetuned_models_name +=[dataset+'_'+lr+opt+f+loss+init+crop+sup+aug+ep+c+ls+le]
+                                                    for dp in possible_dropout:
+                                                        list_finetuned_models_name +=[dataset+'_'+lr+opt+f+loss+init+crop+sup+aug+ep+c+ls+dp+le]
                         
 #list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
 #                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
@@ -194,6 +198,13 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
     else:
         dataAug=False
         
+    if 'dropout04' in model_name:
+        dropout= 0.4
+    elif 'dropout070704' in model_name:
+        dropout= [0.7,0.7,0.4]
+    else:
+        dropout = None
+        
     if 'ep120' in model_name:
         epochs=120
     elif 'ep200' in model_name:
@@ -291,7 +302,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
                            pretrainingModif=pretrainingModif,suffix=suffix,deepSupervision=deepSupervision,\
                            dataAug=dataAug,randomCrop=randomCrop,SaveInit=SaveInit,\
                            loss=loss,clipnorm=clipnorm,LR_scheduling_kind=LR_scheduling_kind,\
-                           verbose=verbose)
+                           verbose=verbose,dropout=dropout)
     # If returnStatistics with RandInit 
     # output = net_finetuned, init_net
     # If returnStatistics without RandInit
@@ -1145,11 +1156,15 @@ if __name__ == '__main__':
     
     # Il pour essayer de faire un entrainement depuis zero avec un Inception V1
     # Ces 3 modeles la n'ont rien donne du tout du tout : performance proche de 0
-    # liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
-    #                              'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-    #                              'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
-    #                              ]
-    # Comparaison_of_FineTunedModel(liste_possible_fromScatch,constrNet='InceptionV1') 
+#     liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
+#                                  'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+#                                  'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
+#                                  ]
+     liste_possible_fromScatch = ['RASTA_big01_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
+                                  'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704',
+                                  'RASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
+                                  'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704']
+     Comparaison_of_FineTunedModel(liste_possible_fromScatch,constrNet='InceptionV1') 
     
     # Cela a faire : 
     
@@ -1159,7 +1174,8 @@ if __name__ == '__main__':
     # Comparaison_of_FineTunedModel(list_model_name_I,constrNet='InceptionV1') 
     
     #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
-    list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_ep200',
+
+     list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_ep200',
                          'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
@@ -1168,15 +1184,15 @@ if __name__ == '__main__':
                          'RASTA_big001_modif_RMSprop_unfreeze50_SmallDataAug_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze50_randomCrop_ep200'
                         ]
-    Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
-    list_model_name_4 = ['RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200',
+     Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
+     list_model_name_4 = ['RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200',
                          'RASTA_big0001_modif_adam_unfreeze8_ep200',
                          'RASTA_big0001_modif_adam_unfreeze8_SmallDataAug_ep200',
                          'RASTA_big0001_modif_adam_unfreeze8_ep200',
                          'RASTA_big001_modif_RMSprop_unfreeze8_SmallDataAug_ep200',
                          'RASTA_big0001_modif_RMSprop_unfreeze8_SmallDataAug_ep200',
                         ]
-    Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
+     Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
 #    
     # Test pour voir si la visualisation est possible pour les autres modeles : ResNet, VGG  Ok  
     # With unfreeze and without

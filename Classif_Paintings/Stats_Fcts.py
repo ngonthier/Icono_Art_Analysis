@@ -2085,7 +2085,8 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
     lr : default learning rate
     opt : optimizer
     regularizers : on the kernel
-    dropout : if integer value of the dropout on the new layers
+    dropout : if integer value of the dropout on the new layers : 
+        it can be a list of element in the case of the deepSupervision for InceptionV1
     final_activation :The default is 'sigmoid'.
     metrics : The default is 'accuracy'.
     loss :  The default is 'binary_crossentropy'.
@@ -2095,6 +2096,14 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
     model with new classification head
 
     """
+    
+  
+  if type(dropout)==list:
+      if not(deepSupervision):
+         print('you are using a list of dropout value for not deepSupervision case, we will only considered the last elements')
+         dropout = dropout[-1]
+      else:
+          assert(len(dropout)==3)
     
   if not(slim):
       if not(deepSupervision):
@@ -2113,6 +2122,11 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
   losses = {}
   lossWeights = {}
   for i,head in enumerate(list_heads): # list of heads
+      if not(dropout is None):
+          if deepSupervision:
+              dropout_i =dropout[i]
+          else:
+              dropout_i = dropout
       name_head = head.name
       name_head = name_head.split('/')[0]
       if not(slim):
@@ -2125,15 +2139,15 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
           new_layer = Dense(256, activation='relu',kernel_regularizer=regularizers)
           if lr_multiple:multipliers[new_layer.name] = None
           x = new_layer(x)
-          if not(dropout is None): x = Dropout(dropout)(x)
+          if not(dropout is None): x = Dropout(dropout_i)(x)
       if final_clf=='MLP3' :
           new_layer2 = Dense(128, activation='relu',kernel_regularizer=regularizers)
           if lr_multiple:multipliers[new_layer2.name] = None
           x = new_layer2(x)
-          if not(dropout is None): x = Dropout(dropout)(x)
+          if not(dropout is None): x = Dropout(dropout_i)(x)
       if final_clf=='MLP2' or final_clf=='MLP1' or final_clf=='MLP3':
           if final_clf=='MLP1':
-              if not(dropout is None): x = Dropout(dropout)(x)
+              if not(dropout is None): x = Dropout(dropout_i)(x)
           final_output_layer =  Dense(num_of_classes, activation=final_activation,\
                                       kernel_regularizer=regularizers,
                                       name=name_head_prediction)
