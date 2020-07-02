@@ -1175,7 +1175,8 @@ if __name__ == '__main__':
     
     #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
 
-     list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_ep200',
+     list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_ep200',] # done !
+     list_model_name_5 = [
                          'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
