@@ -392,7 +392,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                    NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
                    suffix='',dataAug=False,randomCrop=False,\
-                   SaveInit=False,loss=None,clipnorm=False,LR_scheduling_kind=None):
+                   SaveInit=False,loss=None,clipnorm=False,LR_scheduling_kind=None,\
+                   patience=5):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
     It will return the metrics or the model itself depending on the input parameters
@@ -475,7 +476,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : loss : if none or '' we will define one otherwise it will be the one you propose
     @param : clipnorm we will clip the gradient 
     @param : LR_scheduling_kind if not None we will use this kind of schedeling 
-            (for the moment only googlenet possible)
+            (for the moment only googlenet or ReduceLROnPlateau possible)
+    @param : patience : for the val_loss monitor with learning rate reduction
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -614,9 +616,13 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if LR_scheduling_kind is None:
             LR_scheduling = LR_scheduling_kind
         else:
-            LR_scheduling = LR_scheduling_kind,opt_option[-1]
+            
             if LR_scheduling_kind=='googlenet':
                 name_base+= '_LRSchedG'
+                LR_scheduling = LR_scheduling_kind,opt_option[-1]
+            elif LR_scheduling_kind=='ReduceLROnPlateau':
+                name_base+= '_RedLROnPlat'+str(patience)
+                LR_scheduling = LR_scheduling_kind,patience
             else:
                 raise(NotImplementedError(LR_scheduling_kind))
             
@@ -2280,11 +2286,30 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         callbacks += [mcp_save]
         
     if not(LR_scheduling is None):
-        kinf_scheduling, lr = LR_scheduling
+        kinf_scheduling, option = LR_scheduling
         if kinf_scheduling=='googlenet':
+            lr = option
             LR_schedule = StepDecay(initAlpha=lr)
             LR_scheduler = LearningRateScheduler(LR_schedule)
             callbacks += [LR_scheduler]
+        elif kinf_scheduling=='ReduceLROnPlateau':
+            patience = option
+            Lr_monitor = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
+                              patience=patience, min_lr=0.00001,verbose=1,
+                              min_delta=1e-4, mode='min',cooldown=1)
+            # factor = 0.2 will new_lr = lr * factor 
+#            This callback “monitors” a quantity and if no improvement is seen 
+#            for a ‘patience‘ number of epochs, the learning rate is reduced by 
+#            the “factor” specified. Improvement is specified by the “min_delta”
+#            argument. No improvement is considered if the change in the 
+#            monitored quantity is less than the min_delta specified. 
+#            This also has an option whether you want to start evaluating the 
+#            new LR instantly or give some time to the optimizer to crawl with 
+#            the new LR and then evaluate the monitored quantity. This is done 
+#            using the “cooldown” argument. You can also set the lower bound on 
+#            the LR using the “min_lr” argument. No matter how many epochs or 
+#            what reduction factor you use, the LR will never decrease beyond “min_lr“.
+            callbacks += [Lr_monitor]
         else:
             raise(NotImplementedError(LR_scheduling))
     
@@ -4627,6 +4652,12 @@ def test_InceptionV1_LR_scheduling_kind():
                 optimizer='SGD',opt_option=[0.001],return_best_model=True,
                 epochs=1,cropCenter=True,verbose=True,deepSupervision=True,SaveInit=False,
                 weights=None,LR_scheduling_kind='googlenet') 
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=True,\
+                optimizer='SGD',opt_option=[0.01],return_best_model=True,
+                epochs=10,cropCenter=True,verbose=True,deepSupervision=True,SaveInit=False,
+                weights=None,LR_scheduling_kind='ReduceLROnPlateau') 
     
 def test_InceptionV1_SAVE_INIT():
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\

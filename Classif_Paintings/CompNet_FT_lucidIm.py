@@ -71,7 +71,7 @@ possible_Sup = ['','_deepSupervision']
 possible_Aug = ['','_dataAug','_SmallDataAug','_MediumDataAug']
 possible_epochs = ['','_ep120','_ep200','_ep1']
 possible_clipnorm = ['','_cn1']
-possible_LRSched = ['','_LRschedG'] # For LR scheduler
+possible_LRSched = ['','_LRschedG','_RedLROnPlat'] # For LR scheduler
 possible_dropout = ['','_dropout04','_dropout070704'] # For LR scheduler
 # For the parameters based on : https://www.analyticsvidhya.com/blog/2018/10/understanding-inception-network-from-scratch/
 # Use the learning rate at 0.01 and the list dropout
@@ -217,6 +217,9 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
         
     if 'LRschedG' in model_name:
         LR_scheduling_kind='googlenet'
+        decay = 0.0
+    elif 'RedLROnPlat' in model_name:
+        LR_scheduling_kind='ReduceLROnPlateau'
         decay = 0.0
     else:
         LR_scheduling_kind=None
