@@ -244,6 +244,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
       lr = opt_option[-1]
   else:
       lr = 0.01
+      
   opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
 
   ilayer = 0
