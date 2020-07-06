@@ -50,8 +50,8 @@ class LearningRateMultiplier(Optimizer):
 
     def get_updates(self, loss, params): # Version de base  this version works for small network
              #ie it works for VGG19 but not for ResNet50
-         print('self._optimizer',self._optimizer)
-         print('self.updates ',self._optimizer.updates )
+         #print('self._optimizer',self._optimizer)
+         #print('self.updates ',self._optimizer.updates )
          mult_lr_params = {p: self._get_multiplier(p) for p in params
                            if self._get_multiplier(p)}
          base_lr_params = [p for p in params if self._get_multiplier(p) is None]
