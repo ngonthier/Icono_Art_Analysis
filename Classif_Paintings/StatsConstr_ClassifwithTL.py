@@ -394,7 +394,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                    NoValidationSetUsed=False,RandomValdiationSet=False,p=0.5,\
                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
                    suffix='',dataAug=False,randomCrop=False,\
-                   SaveInit=False,loss=None,clipnorm=False,LR_scheduling_kind=None,\
+                   SaveInit=False,loss=None,clipnorm=None,LR_scheduling_kind=None,\
                    patience=5,param_wildcat=None):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
@@ -482,7 +482,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : randomCrop : take a random crop of size 224*224 in an image in size 256*256 it is hard coded in the fct it should be change
     @param : SaveInit : we will save the initialisation of the model
     @param : loss : if none or '' we will define one otherwise it will be the one you propose
-    @param : clipnorm we will clip the gradient 
+    @param : clipnorm we will clip the gradient : default value must be None for not clip if == False it will clip by 0 
     @param : LR_scheduling_kind if not None we will use this kind of schedeling 
             (for the moment only googlenet or ReduceLROnPlateau possible)
     @param : patience : for the val_loss monitor with learning rate reduction
