@@ -26,6 +26,7 @@ from tensorflow.python.keras.layers import concatenate
 from tensorflow.python.keras.backend import expand_dims
 from tensorflow.python.keras.applications.imagenet_utils import decode_predictions
 from tensorflow.keras.optimizers import SGD,Adam,RMSprop,Adadelta
+from padam import Padam
 from tensorflow.python.ops import math_ops,array_ops
 from tensorflow import dtypes
 import pickle
@@ -2267,6 +2268,8 @@ def get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm):
             opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
         elif optimizer=='adam': 
             opt = partial(Adam,decay=decay)
+        elif optimizer=='Padam': 
+            opt = partial(Padam,decay=decay)
         elif optimizer=='RMSprop':
             opt= partial(RMSprop,decay=decay,momentum=SGDmomentum)
         elif optimizer=='Adadelta':
@@ -2278,6 +2281,8 @@ def get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm):
             opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay,clipnorm=clipnorm)# SGD
         elif optimizer=='adam': 
             opt = partial(Adam,decay=decay,clipnorm=clipnorm)
+        elif optimizer=='Padam': 
+            opt = partial(Padam,decay=decay,clipnorm=clipnorm)
         elif optimizer=='RMSprop':
             opt= partial(RMSprop,decay=decay,momentum=SGDmomentum,clipnorm=clipnorm)
         elif optimizer=='Adadelta':

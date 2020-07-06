@@ -74,6 +74,8 @@ class LearningRateMultiplier(Optimizer):
             return(self.get_updates_SGD(loss, params))
         elif self.kind_opt == 'Adam':
             return(self.get_updates_ADAM(loss, params))
+        elif self.kind_opt == 'Padam':
+            return(self.get_updates_Padam(loss, params))
         elif self.kind_opt == 'RMSprop':
             raise(NotImplementedError)
         else:
@@ -188,28 +190,60 @@ class LearningRateMultiplier(Optimizer):
           self.updates.append(state_ops.assign(p, new_p))
         return self.updates
 
-    def get_config_adam(self):
-        config = {
-            'optimizer': self._class,
-            'lr_multipliers': self._lr_multipliers
-        }
-        base_config = self._optimizer.get_config()
-        return dict(list(base_config.items()) + list(config.items()))
-    
+    def get_updates_Padam(self, loss, params):
+        grads = self.get_gradients(loss, params)
+        self.updates = [K.update_add(self.iterations, 1)]
 
-    def get_config_sgd(self):
+        base_lr = self._optimizer.lr
+        if self.initial_decay > 0:
+            base_lr *= (1. / (1. + self.decay * K.cast(self.iterations,
+                                                  K.dtype(self.decay))))
+
+        t = K.cast(self.iterations, K.floatx()) + 1
+        lr_t = base_lr * (K.sqrt(1. - K.pow(self.beta_2, t)) /
+                     (1. - K.pow(self.beta_1, t)))
+
+        ms = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
+        vs = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
+        if self.amsgrad:
+            vhats = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
+        else:
+            vhats = [K.zeros(1) for _ in params]
+        self.weights = [self.iterations] + ms + vs + vhats
+
+        for p, g, m, v, vhat in zip(params, grads, ms, vs, vhats):
+            if self._get_multiplier(p) is None:
+              multiplier= 1.0
+            else:
+              multiplier = self._get_multiplier(p)
+            m_t = (self.beta_1 * m) + (1. - self.beta_1) * g
+            v_t = (self.beta_2 * v) + (1. - self.beta_2) * K.square(g)
+            if self.amsgrad:
+                vhat_t = K.maximum(vhat, v_t)
+                denom = (K.sqrt(vhat_t) + self.epsilon)
+                self.updates.append(K.update(vhat, vhat_t))
+            else:
+                denom = (K.sqrt(v_t) + self.epsilon)
+
+            self.updates.append(K.update(m, m_t))
+            self.updates.append(K.update(v, v_t))
+
+            # Partial momentum adaption.
+            new_p = p - (lr_t*multiplier* (m_t / (denom ** (self.partial * 2))))
+
+            # Apply constraints.
+            if getattr(p, 'constraint', None) is not None:
+                new_p = p.constraint(new_p)
+
+            self.updates.append(K.update(p, new_p))
+        return self.updates    
+
+    def get_config(self):
         config = {'optimizer': self._class,
                   'lr_multipliers': self._lr_multipliers}
         base_config = self._optimizer.get_config()
         return dict(list(base_config.items()) + list(config.items()))
     
-    def get_config(self):
-        if self.kind_opt == 'SGD':
-            return(self.get_config_sgd())
-        elif self.kind_opt == 'Adam':
-            raise(self.get_config_adam())
-        else:
-            raise(NotImplementedError)
 
     def __getattr__(self, name):
         return getattr(self._optimizer, name)
