@@ -2214,7 +2214,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                                              Net=Net,target_size=big_size_im,
                                              crop_size=imSize)
     else:
-        interpolation='nearest'
+        interpolation='bilinear'
         
     if 'VGG' in Net:
         preprocessing_function = tf.keras.applications.vgg19.preprocess_input
@@ -2811,7 +2811,7 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
                                              Net=Net,target_size=im_big_im,
                                              crop_size=imSize)
     else:
-        interpolation='nearest'
+        interpolation='bilinear'
         
     if 'VGG' in Net:
         preprocessing_function = tf.keras.applications.vgg19.preprocess_input
