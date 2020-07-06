@@ -70,7 +70,7 @@ possible_crop = ['','_randomCrop']
 possible_Sup = ['','_deepSupervision']
 possible_Aug = ['','_dataAug','_SmallDataAug','_MediumDataAug']
 possible_epochs = ['','_ep120','_ep200','_ep1']
-possible_clipnorm = ['','_cn1']
+possible_clipnorm = ['','_cn1','_cn10']
 possible_LRSched = ['','_LRschedG','_RedLROnPlat'] # For LR scheduler
 possible_dropout = ['','_dropout04','_dropout070704'] # For LR scheduler
 # For the parameters based on : https://www.analyticsvidhya.com/blog/2018/10/understanding-inception-network-from-scratch/
@@ -255,7 +255,10 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
         raise(NotImplementedError)
 
     if 'cn' in model_name:
-        clipnorm = 1.0
+        if 'cn10' in model_name:
+            clipnorm = 10
+        elif 'cn1' in model_name:
+            clipnorm = 1.0
     else:
         clipnorm = False
 
@@ -1158,12 +1161,12 @@ if __name__ == '__main__':
 #    Comparaison_of_FineTunedModel(liste_possible_better,constrNet='InceptionV1') 
     
     # Il pour essayer de faire un entrainement depuis zero avec un Inception V1
-    # Ces 3 modeles la n'ont rien donne du tout du tout : performance proche de 0
-#     liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
-#                                  'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-#                                  'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
-#                                  ]
-     liste_possible_fromScatch = ['RASTA_big01_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
+    # On va devoir relancer ces modeles a cause du soucis de fine tuning avec le bug clipnorm
+#     liste_possible_fromScatch = []
+     liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
+                                  'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                                  'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                                  'RASTA_big01_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
                                   'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704',
                                   'RASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
                                   'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704']
@@ -1178,8 +1181,7 @@ if __name__ == '__main__':
     
     #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
 
-     list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_ep200',] # done !
-     list_model_name_5 = [
+     list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_ep200',
                          'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
