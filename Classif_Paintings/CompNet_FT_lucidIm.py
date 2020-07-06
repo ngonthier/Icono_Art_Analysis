@@ -139,7 +139,7 @@ def get_random_net(constrNet='VGG'):
 def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
                          verbose=True):
     
-    opt_option_small=[0.1,0.001]
+    opt_option_small=[0.1,0.001] # Car opt_option = multiplier_lrp, lr
     opt_option_small01=[0.1,0.01]
     opt_option_big=[0.001] # 10**-3
     opt_option_big01=[0.01]
