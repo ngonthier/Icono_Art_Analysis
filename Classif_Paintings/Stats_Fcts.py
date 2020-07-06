@@ -60,7 +60,7 @@ def top_5_categorical_accuracy(y_true, y_pred):
 def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers=2,\
               regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,\
               nesterov=False,SGDmomentum=0.9,decay=0.0,final_activation='sigmoid',metrics='accuracy',\
-              loss='binary_crossentropy',clipnorm=False):
+              loss='binary_crossentropy',clipnorm=None):
   """ Return a MLP model ready to fit
   @param : dropout if None : not dropout otherwise must be a value between 0 and 1
   For the multi-label case : use the binary_crossentropy loss 
@@ -96,7 +96,7 @@ def MLP_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,num_layers
 def Perceptron_model(num_of_classes=10,optimizer='SGD',lr=0.01,verbose=False,\
                      regulOnNewLayer=None,regulOnNewLayerParam=[],dropout=None,\
                      nesterov=False,SGDmomentum=0.9,decay=0.0,final_activation='sigmoid',metrics='accuracy',
-                     loss='binary_crossentropy',clipnorm=False):
+                     loss='binary_crossentropy',clipnorm=None):
     
   if metrics=='accuracy':
       metrics = [metrics]
@@ -190,7 +190,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
                        final_layer='block5_pool',regulOnNewLayer=None,regulOnNewLayerParam=[],\
                        dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
                        final_activation='sigmoid',metrics='accuracy',
-                       loss='binary_crossentropy',clipnorm=False): 
+                       loss='binary_crossentropy',clipnorm=None): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   @param : regulOnNewLayer used on kernel_regularizer 
@@ -297,7 +297,7 @@ def vgg_FRN(style_layers,num_of_classes=10,\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy',clipnorm=False):
+              loss='binary_crossentropy',clipnorm=None):
   """
   VGG with an  Filter  Response  Normalization  with  Thresh-olded Activation layer 
   are the only learnable parameters
@@ -382,7 +382,7 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
               list_mean_and_std_source=None,list_mean_and_std_target=None,
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy',clipnorm=False):
+              loss='binary_crossentropy',clipnorm=None):
   """
   VGG with an Instance normalisation learn only those are the only learnable parameters
   with the last x dense layer 
@@ -478,7 +478,7 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
               dbn_affine=True,m_per_group=16,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy',clipnorm=False):
+              loss='binary_crossentropy',clipnorm=None):
   """
   VGG with some decorrelated  learn only those are the only learnable parameters
   with a 2 dense layer MLP or one layer MLP according to the final_clf parameters
@@ -561,7 +561,7 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle',
               pretrainingModif=True,freezingType='FromTop',p=0.5,\
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy',clipnorm=False):
+              loss='binary_crossentropy',clipnorm=None):
   """
   VGG with a shuffling the mean and standard deviation of the features maps between
   instance
@@ -729,7 +729,7 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle',
               pretrainingModif=True,freezingType='FromTop',p=0.5,\
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy',clipnorm=False):
+              loss='binary_crossentropy',clipnorm=None):
   """
   VGG with a shuffling the mean and standard deviation of the features maps between
   instance but between example with the same label
@@ -941,7 +941,7 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
                              regulOnNewLayer=None,regulOnNewLayerParam=[],\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
-                             loss='binary_crossentropy',clipnorm=False): 
+                             loss='binary_crossentropy',clipnorm=None): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
@@ -1090,7 +1090,7 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
                              ,final_activation='sigmoid',metrics='accuracy',
                              loss='binary_crossentropy',kind_of_shuffling='shuffle',
                              pretrainingModif=True,freezingType='FromTop',p=0.5,
-                             clipnorm=False): 
+                             clipnorm=None): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   We only allow to shuffle the statistics after the layer in the style_layers list
@@ -1253,7 +1253,7 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
                              regulOnNewLayer=None,regulOnNewLayerParam=[],\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0
                              ,final_activation='sigmoid',metrics='accuracy',
-                             loss='binary_crossentropy',clipnorm=False): 
+                             loss='binary_crossentropy',clipnorm=None): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   We only allow to train the layer in the style_layers listt
@@ -1393,7 +1393,7 @@ def add_head_and_trainable(pre_model,num_of_classes,optimizer='adam',opt_option=
                              verbose=False,AdaIn_mode=False,style_layers=[],pretrainingModif=True,\
                              freezingType='FromTop',net_model='ResNet50',
                              final_activation='sigmoid',metrics='accuracy',
-                             loss='binary_crossentropy',clipnorm=False):
+                             loss='binary_crossentropy',clipnorm=None):
     """
     This function makes the model trainable and add it a head (MLP at 1 2 or 3 layers) only for ResNet
     @param AdaIn_mode : if True means that only batch normalisation are trainable
@@ -2170,18 +2170,32 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
 
 def get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm):
     """
-    clipnorm we clip the gradient norm
+    clipnorm we clip the gradient norm : if you don't what to use clipnorm set it to
+    False or None but you have to not pass it to the optimizer if you pass False
+    if will clip the gradient by crop interpreted as a zero !
     """
-    if optimizer=='SGD': 
-        opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay,clipnorm=clipnorm)# SGD
-    elif optimizer=='adam': 
-        opt = partial(Adam,decay=decay,clipnorm=clipnorm)
-    elif optimizer=='RMSprop':
-        opt= partial(RMSprop,decay=decay,momentum=SGDmomentum,clipnorm=clipnorm)
-    elif optimizer=='Adadelta':
-        opt= partial(Adadelta,decay=decay,clipnorm=clipnorm)
+    if clipnorm is None or not(clipnorm):
+        if optimizer=='SGD': 
+            opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay)# SGD
+        elif optimizer=='adam': 
+            opt = partial(Adam,decay=decay)
+        elif optimizer=='RMSprop':
+            opt= partial(RMSprop,decay=decay,momentum=SGDmomentum)
+        elif optimizer=='Adadelta':
+            opt= partial(Adadelta,decay=decay)
+        else:
+            opt = optimizer
     else:
-        opt = optimizer
+        if optimizer=='SGD': 
+            opt = partial(SGD,momentum=SGDmomentum, nesterov=nesterov,decay=decay,clipnorm=clipnorm)# SGD
+        elif optimizer=='adam': 
+            opt = partial(Adam,decay=decay,clipnorm=clipnorm)
+        elif optimizer=='RMSprop':
+            opt= partial(RMSprop,decay=decay,momentum=SGDmomentum,clipnorm=clipnorm)
+        elif optimizer=='Adadelta':
+            opt= partial(Adadelta,decay=decay,clipnorm=clipnorm)
+        else:
+            opt = optimizer
       
     return(opt)
 
@@ -2192,7 +2206,7 @@ def InceptionV1_baseline_model(num_of_classes=10,\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
                              loss='binary_crossentropy',deepSupervision=False,\
-                             slim=False,clipnorm=False): 
+                             slim=False,clipnorm=None): 
   """
   Return a trainable keras model of InceptionV1 with new classification head
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
