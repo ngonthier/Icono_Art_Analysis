@@ -12,7 +12,7 @@ https://github.com/stante/keras-contrib/blob/feature-lr-multiplier/keras_contrib
 
 from tensorflow.python.keras.optimizers import Optimizer
 #from tensorflow.python.keras.utils import get_custom_objects
-from keras.utils.generic_utils import get_custom_objects
+#from keras.utils.generic_utils import get_custom_objects
 import tensorflow as tf
 from tensorflow.python.framework import ops
 from tensorflow.python.keras import backend as K
@@ -71,7 +71,7 @@ class LearningRateMultiplier(Optimizer):
         if self.kind_opt == 'SGD':
             return(self.get_updates_SGD(loss, params))
         elif self.kind_opt == 'Adam':
-            raise(NotImplementedError)
+            return(self.get_updates_ADAM(loss, params))
         elif self.kind_opt == 'RMSprop':
             raise(NotImplementedError)
         else:
@@ -82,12 +82,13 @@ class LearningRateMultiplier(Optimizer):
         """
         This fonction is inspired by the get_updates function from tensorflow keras optimizer
         https://github.com/tensorflow/tensorflow/blob/a78fa541d83b1e5887be1f1f92d4a946623380ee/tensorflow/python/keras/optimizers.py
-        even if keras by tensorflow use the optimizer_v2 fonctions : https://github.com/tensorflow/tensorflow/blob/a78fa541d83b1e5887be1f1f92d4a946623380ee/tensorflow/python/keras/optimizer_v2/optimizer_v2.py 
+        even if keras by tensorflow use the optimizer_v2 fonctions :
+        https://github.com/tensorflow/tensorflow/blob/a78fa541d83b1e5887be1f1f92d4a946623380ee/tensorflow/python/keras/optimizer_v2/optimizer_v2.py 
         This only works for SGD optimizer !!
         
         TODO : write on for adam and an other for RMSprop
         """
-        
+
         mult_lr_params = {p: self._get_multiplier(p) for p in params
                            if self._get_multiplier(p)}
         
@@ -134,21 +135,88 @@ class LearningRateMultiplier(Optimizer):
 
         return self.updates
     
+    def get_updates_ADAM(self, loss, params):
+        grads = self.get_gradients(loss, params)
+        self.updates = []
+    
+        base_lr = self._optimizer.lr
+        if self._optimizer._initial_decay > 0:
+          base_lr = base_lr * (  # pylint: disable=g-no-augmented-assignment
+              1. /
+              (1. +
+               self._optimizer.decay * math_ops.cast(self._optimizer.iterations, K.dtype(self._optimizer.decay))))
+    
+        with ops.control_dependencies([state_ops.assign_add(self.iterations, 1)]):
+          t = math_ops.cast(self._optimizer.iterations, K.floatx())
+        base_lr_t = base_lr * (
+            K.sqrt(1. - math_ops.pow(self._optimizer.beta_2, t)) /
+            (1. - math_ops.pow(self._optimizer.beta_1, t)))
+    
+        ms = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
+        vs = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
+        if self.amsgrad:
+          vhats = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
+        else:
+          vhats = [K.zeros(1) for _ in params]
+        self.weights = [self._optimizer.iterations] + ms + vs + vhats
+    
+        for p, g, m, v, vhat in zip(params, grads, ms, vs, vhats):
+          if self._get_multiplier(p) is None:
+              multiplier= 1.0
+          else:
+              multiplier = self._get_multiplier(p)
+            
+          m_t = (self._optimizer.beta_1 * m) + (1. - self._optimizer.beta_1) * g
+          v_t = (self._optimizer.beta_2 * v) + (1. - self._optimizer.beta_2) * math_ops.square(g)
+          if self.amsgrad:
+            vhat_t = math_ops.maximum(vhat, v_t)
+            p_t = p - base_lr_t *multiplier* m_t / (K.sqrt(vhat_t) + self._optimizer.epsilon)
+            self.updates.append(state_ops.assign(vhat, vhat_t))
+          else:
+            p_t = p - base_lr_t *multiplier* m_t / (K.sqrt(v_t) + self._optimizer.epsilon)
+    
+          self.updates.append(state_ops.assign(m, m_t))
+          self.updates.append(state_ops.assign(v, v_t))
+          new_p = p_t
+    
+          # Apply constraints.
+          if getattr(p, 'constraint', None) is not None:
+            new_p = p.constraint(new_p)
+    
+          self.updates.append(state_ops.assign(p, new_p))
+        return self.updates
 
-    def get_config(self):
+    def get_config_adam(self):
+        config = {
+            'optimizer': self._class,
+            'lr_multipliers': self._lr_multipliers
+        }
+        base_config = self._optimizer.get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+    
+
+    def get_config_sgd(self):
         config = {'optimizer': self._class,
                   'lr_multipliers': self._lr_multipliers}
         base_config = self._optimizer.get_config()
         return dict(list(base_config.items()) + list(config.items()))
+    
+    def get_config(self):
+        if self.kind_opt == 'SGD':
+            return(self.get_config_sgd())
+        elif self.kind_opt == 'Adam':
+            raise(self.get_config_adam())
+        else:
+            raise(NotImplementedError)
 
     def __getattr__(self, name):
         return getattr(self._optimizer, name)
 
-    def __setattr__(self, name, value):
-        if name.startswith('_'):
-            super(LearningRateMultiplier, self).__setattr__(name, value)
-        else:
-            self._optimizer.__setattr__(name, value)
+#    def __setattr__(self, name, value):
+#        if name.startswith('_'):
+#            super(LearningRateMultiplier, self).__setattr__(name, value)
+#        else:
+#            self._optimizer.__setattr__(name, value)
 
 
-get_custom_objects().update({'LearningRateMultiplier': LearningRateMultiplier})
+#get_custom_objects().update({'LearningRateMultiplier': LearningRateMultiplier})

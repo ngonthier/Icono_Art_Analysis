@@ -38,6 +38,8 @@ from lr_multiplier import LearningRateMultiplier
 from common.layers import DecorrelatedBN
 from keras_resnet_utils import getBNlayersResNet50,getResNet50layersName
 
+from wildcat_keras.pooling import ClassWisePool,WildcatPool2d
+
 # Others libraries
 import numpy as np
 from PIL import Image
@@ -190,7 +192,7 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
                        final_layer='block5_pool',regulOnNewLayer=None,regulOnNewLayerParam=[],\
                        dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
                        final_activation='sigmoid',metrics='accuracy',
-                       loss='binary_crossentropy',clipnorm=False): 
+                       loss='binary_crossentropy',clipnorm=False,imSize=224): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   @param : regulOnNewLayer used on kernel_regularizer 
@@ -199,14 +201,20 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
   
   model =  tf.keras.Sequential()
+  if not(final_layer in  ['fc2','fc1','flatten']):
+      include_top = False
+  else:
+      include_top = True
+      assert(imSize==224)
+  
   if weights=='imagenet' or weights is None:
-          pre_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights,\
-                                                input_shape=(224, 224, 3))
+          pre_model = tf.keras.applications.vgg19.VGG19(include_top=include_top, weights=weights,\
+                                                input_shape=(imSize, imSize, 3))
   elif weights=='RandForUnfreezed':
-      pre_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights='imagenet',\
-                                            input_shape=(224, 224, 3))
-      random_model = tf.keras.applications.vgg19.VGG19(include_top=True, weights=None,\
-                                            input_shape=(224, 224, 3))
+      pre_model = tf.keras.applications.vgg19.VGG19(include_top=include_top, weights='imagenet',\
+                                            input_shape=(imSize, imSize, 3))
+      random_model = tf.keras.applications.vgg19.VGG19(include_top=include_top, weights=None,\
+                                            input_shape=(imSize, imSize, 3))
   
   # Need to shape that to be able to have different input size later ! 
   SomePartFreezed = False
@@ -297,7 +305,7 @@ def vgg_FRN(style_layers,num_of_classes=10,\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy',clipnorm=False):
+              loss='binary_crossentropy',clipnorm=False,imSize=224):
   """
   VGG with an  Filter  Response  Normalization  with  Thresh-olded Activation layer 
   are the only learnable parameters
@@ -306,7 +314,14 @@ def vgg_FRN(style_layers,num_of_classes=10,\
   Idea from https://arxiv.org/pdf/1911.09737v1.pdf
   """
   model = tf.keras.Sequential()
-  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
+  
+  if not(final_layer in  ['fc2','fc1','flatten']):
+      include_top = False
+  else:
+      include_top = True
+      assert(imSize==224)
+  
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=include_top, weights=weights,input_shape=(imSize, imSize, 3))
   vgg_layers = vgg.layers
   vgg.trainable = False
 
@@ -382,7 +397,7 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
               list_mean_and_std_source=None,list_mean_and_std_target=None,
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy',clipnorm=False):
+              loss='binary_crossentropy',clipnorm=False,imSize=224):
   """
   VGG with an Instance normalisation learn only those are the only learnable parameters
   with the last x dense layer 
@@ -395,7 +410,12 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
       ParamInitialision = True
   
   model = tf.keras.Sequential()
-  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
+  if not(final_layer in  ['fc2','fc1','flatten']):
+      include_top = False
+  else:
+      include_top = True
+      assert(imSize==224)
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=include_top, weights=weights,input_shape=(imSize, imSize, 3))
   vgg_layers = vgg.layers
   vgg.trainable = False
   i = 0
@@ -478,14 +498,19 @@ def vgg_adaDBN(style_layers,num_of_classes=10,\
               optimizer='adam',opt_option=[0.01],regulOnNewLayer=None,regulOnNewLayerParam=[],\
               dbn_affine=True,m_per_group=16,dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,\
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy',clipnorm=False):
+              loss='binary_crossentropy',clipnorm=False,imSize=224):
   """
   VGG with some decorrelated  learn only those are the only learnable parameters
   with a 2 dense layer MLP or one layer MLP according to the final_clf parameters
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
   model = tf.keras.Sequential()
-  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
+  if not(final_layer in  ['fc2','fc1','flatten']):
+      include_top = False
+  else:
+      include_top = True
+      assert(imSize==224)
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=include_top, weights=weights,input_shape=(imSize, imSize, 3))
   vgg_layers = vgg.layers
   vgg.trainable = False
   i = 0
@@ -561,7 +586,7 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle',
               pretrainingModif=True,freezingType='FromTop',p=0.5,\
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy',clipnorm=False):
+              loss='binary_crossentropy',clipnorm=False,imSize=224):
   """
   VGG with a shuffling the mean and standard deviation of the features maps between
   instance
@@ -570,7 +595,12 @@ def vgg_suffleInStats(style_layers,num_of_classes=10,\
   """
   # TODO : faire une multiplication par du bruit des statistics
   model = tf.keras.Sequential()
-  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
+  if not(final_layer in  ['fc2','fc1','flatten']):
+      include_top = False
+  else:
+      include_top = True
+      assert(imSize==224)
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=include_top, weights=weights,input_shape=(imSize, imSize, 3))
 
   i = 0
   
@@ -729,7 +759,7 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
               dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,kind_of_shuffling='shuffle',
               pretrainingModif=True,freezingType='FromTop',p=0.5,\
               final_activation='sigmoid',metrics='accuracy',
-              loss='binary_crossentropy',clipnorm=False):
+              loss='binary_crossentropy',clipnorm=False,imSize=224):
   """
   VGG with a shuffling the mean and standard deviation of the features maps between
   instance but between example with the same label
@@ -740,7 +770,12 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
   inputlabel = Input(shape=(num_of_classes,))
   imSize = 224
   inputImage = Input(shape=(imSize,imSize,3))
-  vgg = tf.keras.applications.vgg19.VGG19(include_top=True, weights=weights)
+  if not(final_layer in  ['fc2','fc1','flatten']):
+      include_top = False
+  else:
+      include_top = True
+      assert(imSize==224)
+  vgg = tf.keras.applications.vgg19.VGG19(include_top=include_top, weights=weights,input_shape=(imSize, imSize, 3))
 
   i = 0
   
@@ -878,9 +913,30 @@ def vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=10,\
 
 ### ResNet baseline
   
+def get_wildcat_head(x,num_of_classes,param_wildcat=None):
+    """
+    Add the wildcat head with default parameters for a size 224*224
+    """
+    if param_wildcat is None:
+        numberfilterPerClass = 4
+        kmax = 3
+        kmin = 3
+        alpha = 0.7
+    else:
+        numberfilterPerClass, kmax,kmin,alpha = param_wildcat
+    classifier_layer = tf.keras.layers.Conv2D(filters=num_of_classes*numberfilterPerClass,
+                                              kernel_size=1, strides=(1,1),
+                                              use_bias=True,name='wildcat_classif')
+    x = classifier_layer(x)
+    ClassWisePool_layer= ClassWisePool(num_maps=numberfilterPerClass)
+    x = ClassWisePool_layer(x)
+    WildcatPool2d_layer = WildcatPool2d(kmax=kmax, kmin=kmin, alpha=alpha)
+    predictions = WildcatPool2d_layer(x)
+    return(predictions)
+
 def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,regularizers,dropout,
                     final_activation='sigmoid',metrics='accuracy',
-                    loss='binary_crossentropy'):
+                    loss='binary_crossentropy',param_wildcat=None):
   """
     Add a functionnal head to a functionnal model    
   
@@ -922,11 +978,16 @@ def new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple
           if not(dropout is None): x = Dropout(dropout)(x)
       predictions = Dense(num_of_classes, activation=final_activation,kernel_regularizer=regularizers)(x)
 
+  if final_clf=='wildcat':
+      # Hyperparameters from the PhD manuscript of Durand page  98
+      predictions = get_wildcat_head(x,num_of_classes,param_wildcat)
+
   model = Model(inputs=pre_model.input, outputs=predictions)
   if lr_multiple:
       if final_clf=='MLP3': multipliers[model.layers[-3].name] = None
       if final_clf=='MLP3' or final_clf=='MLP2': multipliers[model.layers[-2].name] = None
       if final_clf=='MLP3' or final_clf=='MLP2' or final_clf=='MLP1': multipliers[model.layers[-1].name] = None
+      if final_clf=='wildcat': multipliers['wildcat_classif'] = None
       opt = LearningRateMultiplier(opt, lr_multipliers=multipliers, learning_rate=lr)
   else:
       opt = opt(learning_rate=lr)
@@ -941,7 +1002,8 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
                              regulOnNewLayer=None,regulOnNewLayerParam=[],\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
-                             loss='binary_crossentropy',clipnorm=False): 
+                             loss='binary_crossentropy',clipnorm=False,
+                             param_wildcat=None,imSize=224): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   """
@@ -952,12 +1014,12 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
   if res_num_layers==50:
       if weights=='imagenet' or weights is None:
           pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
-                                                          input_shape= (224, 224, 3))
+                                                          input_shape= (imSize, imSize, 3))
       elif weights=='RandForUnfreezed':
           pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights='imagenet',\
-                                                          input_shape= (224, 224, 3))
+                                                          input_shape= (imSize, imSize, 3))
           random_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=None,\
-                                                          input_shape= (224, 224, 3))
+                                                          input_shape= (imSize, imSize, 3))
           
       number_of_trainable_layers = 106
   else:
@@ -1023,11 +1085,14 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
      x = GlobalMaxPooling2D()(x)
   elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
       x = GlobalAveragePooling2D()(x)
-  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+  elif transformOnFinalLayer=='flatten' or transformOnFinalLayer is None or transformOnFinalLayer=='':
       x= Flatten()(x)
+  elif transformOnFinalLayer=='noflatten'  :
+      print('Nothing done to the output layer')
   
   model = new_head_ResNet(pre_model,x,final_clf,num_of_classes,multipliers,lr_multiple,lr,opt,regularizers,dropout,
-                          final_activation=final_activation,metrics=metrics,loss=loss)
+                          final_activation=final_activation,metrics=metrics,loss=loss,
+                          param_wildcat=param_wildcat)
  
   if verbose: print(model.summary())
   return model
@@ -1090,7 +1155,7 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
                              ,final_activation='sigmoid',metrics='accuracy',
                              loss='binary_crossentropy',kind_of_shuffling='shuffle',
                              pretrainingModif=True,freezingType='FromTop',p=0.5,
-                             clipnorm=False): 
+                             clipnorm=False,imSize=224): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   We only allow to shuffle the statistics after the layer in the style_layers list
@@ -1107,8 +1172,14 @@ def ResNet_suffleInStats(style_layers,final_layer='activation_48',num_of_classes
               print('You certainly provide VGG layers name.')
 
   if res_num_layers==50:
-      pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
-                                                          input_shape= (224, 224, 3))
+      if weights=='imagenet' or weights is None:
+          pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
+                                                          input_shape= (imSize, imSize, 3))
+      elif weights=='RandForUnfreezed':
+          pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights='imagenet',\
+                                                          input_shape= (imSize, imSize, 3))
+          random_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=None,\
+                                                          input_shape= (imSize, imSize, 3))
       number_of_trainable_layers = 106
   else:
       print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
@@ -1253,7 +1324,7 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
                              regulOnNewLayer=None,regulOnNewLayerParam=[],\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0
                              ,final_activation='sigmoid',metrics='accuracy',
-                             loss='binary_crossentropy',clipnorm=False): 
+                             loss='binary_crossentropy',clipnorm=False,imSize=224): 
   """
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
   We only allow to train the layer in the style_layers listt
@@ -1264,7 +1335,7 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
   
   if res_num_layers==50:
       pre_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=weights,\
-                                                          input_shape= (224, 224, 3))
+                                                          input_shape= (imSize, imSize, 3))
       number_of_trainable_layers = 106
   else:
       print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
@@ -1317,7 +1388,7 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
 def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_and_std_target,\
                                                          final_layer,\
                                    transformOnFinalLayer=None,res_num_layers=50,\
-                                   weights='imagenet',verbose=True):
+                                   weights='imagenet',verbose=True,imSize=224):
   """
   ResNet with an Instance normalisation : we impose the mean and std of reference 
   instance per instance
@@ -1335,7 +1406,7 @@ def ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(style_layers,list_mean_
       assert(len(style_layers)==len(list_mean_and_std_target))
   if res_num_layers==50:
       pre_model = tf.keras.applications.resnet50.ResNet50(include_top=True, weights=weights,\
-                                                          input_shape= (224, 224, 3))
+                                                          input_shape= (imSize, imSize, 3))
 #      number_of_trainable_layers = 106
   else:
       print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
@@ -2206,7 +2277,7 @@ def InceptionV1_baseline_model(num_of_classes=10,\
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
                              loss='binary_crossentropy',deepSupervision=False,\
-                             slim=False,clipnorm=False): 
+                             slim=False,clipnorm=False,imSize=224): 
   """
   Return a trainable keras model of InceptionV1 with new classification head
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
@@ -2218,23 +2289,23 @@ def InceptionV1_baseline_model(num_of_classes=10,\
       assert(not(deepSupervision))
       if weights=='imagenet' or weights is None:
           pre_model = InceptionV1_slim(include_top=False, weights=weights,\
-                          input_shape= (224, 224, 3),pooling='avg')
+                          input_shape= (imSize, imSize, 3),pooling='avg')
       elif weights=='RandForUnfreezed':
           pre_model = InceptionV1_slim(include_top=False, weights='imagenet',\
-                              input_shape= (224, 224, 3),pooling='avg')
+                              input_shape= (imSize, imSize, 3),pooling='avg')
           random_model = InceptionV1_slim(include_top=False, weights=None,\
-                              input_shape= (224, 224, 3),pooling='avg')   
+                              input_shape= (imSize, imSize, 3),pooling='avg')   
       number_of_trainable_layers = 114 # Total number of layers 199
       # TODO Chiffre faux qu il faudra modifier TODO
   else:
       if weights=='imagenet' or weights is None:
           pre_model = Inception_V1(include_top=False, weights=weights,\
-                              input_shape= (224, 224, 3))
+                              input_shape= (imSize, imSize, 3))
       elif weights=='RandForUnfreezed':
           pre_model = Inception_V1(include_top=False, weights='imagenet',\
-                              input_shape= (224, 224, 3))
+                              input_shape= (imSize, imSize, 3))
           random_model = Inception_V1(include_top=False, weights=None,\
-                              input_shape= (224, 224, 3))
+                              input_shape= (imSize, imSize, 3))
       if deepSupervision:
           number_of_trainable_layers = 65
       else:
@@ -4363,19 +4434,35 @@ def saveInitialisationOfModel_beforeFT(model,init_model_path,weights,final_clf,\
     else: # ImageNet case : we only save the head !
         layers = model.layers
         assert('MLP' in final_clf)
-        number_last_layers = int(final_clf.replace('MLP',''))
-        
-        if not(deepSupervision):
-            layers_for_saving= layers[-number_last_layers:]
-        else: # IE deepSupervision
-            layers_for_saving= layers[-3*number_last_layers:]
+        if 'MLP' in final_clf:
+            number_last_layers = int(final_clf.replace('MLP',''))
             
-        modelWeights = []
-        for layer in layers_for_saving:
-            layerWeights = []
-            for weight in layer.get_weights():
-                layerWeights.append(weight)
-            modelWeights.append(layerWeights)
+            if not(deepSupervision):
+                layers_for_saving= layers[-number_last_layers:]
+            else: # IE deepSupervision
+                layers_for_saving= layers[-3*number_last_layers:]
+                
+            modelWeights = []
+            for layer in layers_for_saving:
+                layerWeights = []
+                for weight in layer.get_weights():
+                    layerWeights.append(weight)
+                modelWeights.append(layerWeights)
+        elif 'wildcat' in final_clf:
+            number_last_layers = 1
+            raise(NotImplementedError)
+#            if not(deepSupervision):
+#                layers_for_saving= layers[-number_last_layers:]
+#            else: # IE deepSupervision
+#                layers_for_saving= layers[-3*number_last_layers:]
+#                
+#            modelWeights = []
+#            for layer in layers_for_saving:
+#                layerWeights = []
+#                for weight in layer.get_weights():
+#                    layerWeights.append(weight)
+#                modelWeights.append(layerWeights)
+            
         
         with open(init_model_path, 'wb') as handle:
             pickle.dump(modelWeights, handle, protocol=pickle.HIGHEST_PROTOCOL)

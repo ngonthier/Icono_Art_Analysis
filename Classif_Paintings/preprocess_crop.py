@@ -240,9 +240,7 @@ def load_and_crop_img_forImageGenerator(path,Net, grayscale=False, color_mode='r
         left_shift = random.randint(0, int((new_width - target_width)))
         down_shift = random.randint(0, int((new_height - target_height)))
         img = img.crop((left_shift, down_shift, target_width + left_shift, target_height + down_shift))
-    #img2= kp_image.img_to_array(img)
-    
-#    print('shape crop',img2.shape)
+
 #    print(img2)
 #    print('number of zero',len(np.where(img2.ravel() == 0)[0]))
 #        

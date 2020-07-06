@@ -68,6 +68,8 @@ from bayes_opt.event import Events
 
 from googlenet import LRN,PoolHelper
 
+from wildcat_keras.pooling import ClassWisePool,WildcatPool2d
+
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -393,7 +395,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
                    suffix='',dataAug=False,randomCrop=False,\
                    SaveInit=False,loss=None,clipnorm=False,LR_scheduling_kind=None,\
-                   patience=5):
+                   patience=5,param_wildcat=None):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
     It will return the metrics or the model itself depending on the input parameters
@@ -429,6 +431,11 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         InceptionV1_slim : ne fonctionne pas !
 
         TODO : VGGGram that modify the gram matrices
+    @param : transformOnFinalLayer can be :
+        GlobalMaxPooling2D for max pooling
+        GlobalAveragePooling2D for average pooling
+        '' or None or flatten for flatten 
+        noflatten for no modification
     @param : kind_method the type of methods we will use : TL or FT
     @param : if we use a set to compute the statistics
     @param : getBeforeReLU=False if True we will impose the statistics before the activation ReLU fct
@@ -437,7 +444,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : epochs number of epochs for the finetuning (FT case)
     @param : pretrainingModif : we modify the pretrained net for the case FT + VGG 
         it can be a boolean True of False or a 
-    @param : opt_option : learning rate different for the SGD
+    @param : opt_option : learning rate different for the SGD it can be a list in this case 
+                multiply_lrp, lr =  opt_option
     @param : freezingType : the way we unfreeze the pretained network : 'FromBottom','FromTop','Alter'
     @param : ReDo : we erase the output performance file
     @param : plotConv : plot the loss function in train and val
@@ -478,11 +486,17 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : LR_scheduling_kind if not None we will use this kind of schedeling 
             (for the moment only googlenet or ReduceLROnPlateau possible)
     @param : patience : for the val_loss monitor with learning rate reduction
+    @param : param_wildcat in the case of the wildcat param that are not None (ie default)
+        numberfilterPerClass, kmax,kmin,alpha = param_wildcat
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
     
     #tf.compat.v1.enable_eager_execution()
+    
+    if final_clf=='wildcat' and not(constrNet=='ResNet50'):
+        raise(NotImplementedError('wildcat head +'+constrNet+'Not implemented yet'))
+    
     assert(not(randomCrop and cropCenter))
     if randomCrop and kind_method=='TL' :
         raise(NotImplementedError)
@@ -540,9 +554,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     
     output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata',target_dataset)
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
-    if kind_method=='FT':
-        model_output_path = os.path.join(output_path,'model')
-        pathlib.Path(model_output_path).mkdir(parents=True, exist_ok=True) 
+    #if kind_method=='FT':
+    model_output_path = os.path.join(output_path,'model')
+    pathlib.Path(model_output_path).mkdir(parents=True, exist_ok=True) 
     
     if kind_method=='TL':
         if not(constrNet=='InceptionV1' or constrNet=='InceptionV1_slim'):
@@ -583,14 +597,22 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     
     if not(imSize==224):
         name_base +='imSize'+str(imSize)
+        if not(kind_method=='FT'):
+            raise(NotImplementedError(imSize +' not 224 not implemented yet'))
         
-    if len(opt_option)>1 and not(optimizer=='SGD'):
+    if len(opt_option)>1 and not(optimizer=='SGD' or optimizer=='adam'):
         print('The multiple learning rate for optimizer is only implemented for SGD for the moments')
         raise(NotImplementedError)        
         
     if kind_method=='FT':
         if not(optimizer=='adam'):
             name_base += '_'+optimizer
+        if not(final_clf=='MLP1'):
+            name_base +=  '_'+final_clf
+        if final_clf=='wildcat' and not(param_wildcat is None):
+            numberfilterPerClass, kmax,kmin,alpha = param_wildcat
+            name_base += '_M'+str(numberfilterPerClass)+'kp'+str(kmax)+'km'+str(kmin)+'a'+str(alpha)
+            
         name_base += loss_str
         if not(BaysianOptimFT):
             if len(opt_option)==2:
@@ -612,7 +634,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         else:
             assert(dataAug in ['SmallDataAug','MediumDataAug'])
             name_base+= '_'+str(dataAug)
-            
+
         if LR_scheduling_kind is None:
             LR_scheduling = LR_scheduling_kind
         else:
@@ -1054,6 +1076,16 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     else:
         init_model_path = None
     
+    custom_objects = {} # Custom object that can be need for getting for loading the model
+    
+    if final_clf=='wildcat':
+        custom_objects['ClassWisePool'] = ClassWisePool
+        custom_objects['WildcatPool2d'] = WildcatPool2d
+
+    if constrNet=='InceptionV1':
+        custom_objects['PoolHelper'] = PoolHelper
+        custom_objects['LRN'] = LRN
+    
     if ((not(os.path.isfile(APfilePath)) or ReDo) and not(onlyReturnResult)) or returnStatistics:
         
         if target_dataset=='Paintings':
@@ -1131,9 +1163,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 dico_pred = PredictOnTestSet(X_test,dico_clf,clf=final_clf)
                 metrics = evaluationScoreDict(y_test,dico_pred)
             elif final_clf in ['MLP2','MLP1','MLP3']:
-                
-                
-                
+
                 if gridSearch:
                     if final_clf=='MLP2':
                         builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,\
@@ -1211,23 +1241,18 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 print('We will load the trained model :')
                 print(model_path)
                 
-                if constrNet=='InceptionV1':
-                    model = load_model(model_path,compile=False, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
                 #elif: constrNet=='InceptionV1_s':
                 #    model = load_model(model_path,compile=False, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
-                else:
-                    model = load_model(model_path,compile=False)
+                
+                model = load_model(model_path,compile=False,custom_objects=custom_objects)
  
                 if returnStatistics :
                     if SaveInit:
                         if os.path.exists(init_model_path):
                             if weights is None or weights=='RandForUnfreezed': # Random Init
-                                if constrNet=='InceptionV1':
-                                    init_model = load_model(init_model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
-                                elif constrNet=='InceptionV1_slim':
+                                if constrNet=='InceptionV1_slim':
                                     raise(NotImplementedError)
-                                else:
-                                    init_model = load_model(init_model_path)
+                                init_model = load_model(init_model_path,custom_objects=custom_objects)
                             else: # ImageNet initialisation
                                 init_model = load_init_model_with_ImageNetWeights(init_model_path,constrNet,target_dataset,num_classes,pretrainingModif,
                                                 transformOnFinalLayer,weights,
@@ -1240,7 +1265,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 dbn_affine,m_per_group,kind_method,\
                                                 batch_size_RF,momentum,\
                                                 epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                                final_activation,metrics,loss,deepSupervision,clipnorm)
+                                                final_activation,metrics,loss,deepSupervision,clipnorm,\
+                                                imSize)
                             # Return the trained model + the initialisation 
                             return(model,init_model)
                         else:
@@ -1266,7 +1292,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     dbn_affine,m_per_group,kind_method,\
                                     batch_size_RF,momentum,\
                                     epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                    final_activation,metrics,loss,deepSupervision,clipnorm=clipnorm)
+                                    final_activation,metrics,loss,deepSupervision,clipnorm=clipnorm,
+                                    imSize=imSize)
                         
                         if SaveInit:
                             saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
@@ -1282,7 +1309,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 deepSupervision=deepSupervision,dataAug=dataAug,\
                                                 last_epochs_model_path=last_epochs_model_path,\
                                                 history_path=local_history_path,randomCrop=randomCrop,\
-                                                LR_scheduling=LR_scheduling)
+                                                LR_scheduling=LR_scheduling,\
+                                                imSize=imSize)
                             
                     else: # Baysian optimization of the model
                         
@@ -1305,7 +1333,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                 return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path,\
                                 history_path=history_path,randomCrop=randomCrop,\
                                 init_model_path=init_model_path,clipnorm=clipnorm,\
-                                LR_scheduling=LR_scheduling)
+                                LR_scheduling=LR_scheduling,imSize=imSize)
                 else: # 'VGGsuffleInStatsSameLabel' case
                     if BaysianOptimFT:
                         raise(NotImplementedError('BaysianOptimFT is not implemented with VGGsuffleInStatsSameLabel model'))
@@ -1320,7 +1348,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     dbn_affine,m_per_group,kind_method,\
                                     batch_size_RF,momentum,\
                                     epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                    final_activation,metrics,loss,deepSupervision,clipnorm=clipnorm)
+                                    final_activation,metrics,loss,deepSupervision,clipnorm=clipnorm,imSize=imSize)
         
                     if SaveInit:
                         saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
@@ -1334,28 +1362,24 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                             RandomValdiationSet=RandomValdiationSet,dataAug=dataAug,\
                                             return_best_model=return_best_model,last_epochs_model_path=last_epochs_model_path,\
                                             history_path=local_history_path,randomCrop=randomCrop,\
-                                            LR_scheduling=LR_scheduling)
+                                            LR_scheduling=LR_scheduling,imSize=imSize)
 
                 # Need to add in load_model custom_objects !!! 
                 # tf.keras.models.save_model(
                 #     model, model_path, overwrite=True, include_optimizer=include_optimizer, save_format='h5')
                 model.save(model_path,include_optimizer=include_optimizer)
-                utils_keras.fix_layer0(model_path, [None, 224, 224,3], 'float32') 
+                
+                #utils_keras.fix_layer0(model_path, [None, imSize, imSize,3], 'float32') 
+                
                 if returnStatistics: # We will load the model and return it
-                    if constrNet=='InceptionV1':
-                        model = load_model(model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
-                    else:
-                        model = load_model(model_path)
+                    model = load_model(model_path,compile=False,custom_objects=custom_objects)
                     
                     if SaveInit:
                         if os.path.exists(init_model_path):
                             if weights is None or weights=='RandForUnfreezed': # Random Init
-                                if constrNet=='InceptionV1':
-                                    init_model = load_model(init_model_path, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
-                                elif constrNet=='InceptionV1_slim':
+                                if constrNet=='InceptionV1_slim':
                                     raise(NotImplementedError)
-                                else:
-                                    init_model = load_model(init_model_path)
+                                init_model = load_model(init_model_path,custom_objects=custom_objects)
                             else: # ImageNet initialisation
                                 init_model = load_init_model_with_ImageNetWeights(init_model_path,constrNet,target_dataset,num_classes,pretrainingModif,
                                                 transformOnFinalLayer,weights,
@@ -1368,7 +1392,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                 dbn_affine,m_per_group,kind_method,\
                                                 batch_size_RF,momentum,\
                                                 epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                                final_activation,metrics,loss,deepSupervision,clipnorm)
+                                                final_activation,metrics,loss,deepSupervision,clipnorm,
+                                                imSize)
                             return(model,init_model)
                             
                         else:
@@ -1387,7 +1412,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 path_to_img = path_to_img_local
             predictions = predictionFT_net(model,df_test=df_label_test,x_col=item_name,\
                                            y_col=classes,path_im=path_to_img,Net=constrNet,\
-                                           cropCenter=cropCenter,randomCrop=randomCrop)
+                                           cropCenter=cropCenter,randomCrop=randomCrop,\
+                                           imSize=imSize)
             if constrNet=='InceptionV1' and deepSupervision: # As we have several outputs 
                 predictions = predictions[-1]
                 
@@ -1475,7 +1501,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                             dbn_affine,m_per_group,kind_method,\
                             batch_size_RF,momentum,\
                             epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                            final_activation,metrics,loss,deepSupervision,clipnorm):
+                            final_activation,metrics,loss,deepSupervision,clipnorm,
+                            imSize):
     
     # We fineTune a VGG
     if constrNet=='VGG':
@@ -1486,7 +1513,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    final_clf=final_clf,final_layer=features,verbose=verbose,
                                    regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam
                                    ,dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,
-                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,\
+                                   imSize=imSize)
         
     elif constrNet=='VGGAdaIn': # Only the Normalisation BN  layer are trainable
         model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
@@ -1495,7 +1523,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                   regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
                   SGDmomentum=SGDmomentum,decay=decay,
-                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,
+                  imSize=imSize)
       
     elif constrNet=='VGGBaseNormCoherentAdaIn':
         print('VGGBaseNormCoherentAdaIn for FT : cela ne fonctionne pas et je ne sais pas pourquoi')
@@ -1530,7 +1559,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
               regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
               SGDmomentum=SGDmomentum,decay=decay,\
               list_mean_and_std_source=list_mean_and_std_source,list_mean_and_std_target=list_mean_and_std_target,
-              final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+              final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,
+              imSize=imSize)
     
     elif constrNet=='VGGFRN': # Only the FRN layer are trainable
         model = vgg_FRN(style_layers,num_of_classes=num_classes,weights=weights,\
@@ -1539,7 +1569,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
                   regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,nesterov=nesterov,\
                   SGDmomentum=SGDmomentum,decay=decay,
-                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,
+                  imSize=imSize)
         
     elif constrNet=='VGGAdaDBN': # Only the DBN decorrelated layer are trainable
         model = vgg_adaDBN(style_layers,num_of_classes=num_classes,\
@@ -1549,7 +1580,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   regulOnNewLayerParam=regulOnNewLayerParam,\
                   dbn_affine=dbn_affine,m_per_group=m_per_group,dropout=dropout,nesterov=nesterov,\
                   SGDmomentum=SGDmomentum,decay=decay,
-                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,
+                  imSize=imSize)
     
     elif constrNet=='VGGsuffleInStats':
         model = vgg_suffleInStats(style_layers,num_of_classes=num_classes,\
@@ -1560,7 +1592,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                   kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
                   freezingType=freezingType,p=p,\
-                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,
+                  imSize=imSize)
             
     elif constrNet=='VGGsuffleInStatsSameLabel':
         model = vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=num_classes,\
@@ -1571,7 +1604,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                   kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
                   freezingType=freezingType,p=p,\
-                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                  final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,
+                  imSize=imSize)
     
     elif constrNet=='ResNet50':
         getBeforeReLU = False
@@ -1581,7 +1615,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    freezingType=freezingType,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                                    dropout=dropout,nesterov=nesterov,\
                                    SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
-                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,\
+                                   imSize=imSize)
             
     elif constrNet=='ResNet50AdaIn':
         getBeforeReLU = False
@@ -1590,7 +1625,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
                                    regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                                    dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
-                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,\
+                                   imSize=imSize)
             
     elif constrNet=='ResNet50suffleInStats':
         getBeforeReLU = False
@@ -1601,7 +1637,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
                                    final_activation=final_activation,metrics=metrics,loss=loss,
                                    kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
-                                   freezingType=freezingType,p=p,clipnorm=clipnorm)
+                                   freezingType=freezingType,p=p,clipnorm=clipnorm,
+                                   imSize=imSize)
     
     elif constrNet=='ResNet50suffleInStats':
         getBeforeReLU = False
@@ -1612,7 +1649,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
                                    kind_of_shuffling=kind_of_shuffling,pretrainingModif=pretrainingModif,\
                                    freezingType=freezingType,p=p,\
-                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                                   final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,\
+                                   imSize=imSize)
         
     elif constrNet=='ResNet50_ROWD_CUMUL':
         # Refinement the batch normalisation : normalisation statistics
@@ -1640,7 +1678,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                      final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,
                      dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet,\
-                     final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                     final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,\
+                     imSize=imSize)
             
     elif constrNet=='ResNet50_ROWD_CUMUL_AdaIn':
         # Refinement the batch normalisation : normalisation statistics
@@ -1668,7 +1707,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                      final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                      dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      AdaIn_mode=True,style_layers=style_layers,\
-                     final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                     final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,\
+                     imSize=imSize)
             
     elif constrNet=='ResNet50_BNRF':
         
@@ -1704,7 +1744,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                      final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                      dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet,\
-                     final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
+                     final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,\
+                     imSize=imSize)
             ## Non tester !!!
     
     elif constrNet=='InceptionV1':
@@ -1714,7 +1755,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                              regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                              dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,
                              final_activation=final_activation,metrics=metrics,
-                             loss=loss,deepSupervision=deepSupervision,clipnorm=clipnorm)
+                             loss=loss,deepSupervision=deepSupervision,clipnorm=clipnorm,\
+                             imSize=imSize)
     elif constrNet=='InceptionV1_slim':
         model = InceptionV1_baseline_model(num_of_classes=num_classes,\
                              pretrainingModif=pretrainingModif,verbose=verbose,weights=weights,\
@@ -1722,7 +1764,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                              regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                              dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,
                              final_activation=final_activation,metrics=metrics,
-                             loss=loss,deepSupervision=deepSupervision,slim=True,clipnorm=clipnorm)
+                             loss=loss,deepSupervision=deepSupervision,slim=True,clipnorm=clipnorm,\
+                             imSize=imSize)
         
     else:
         print(constrNet,'is unkwon in the context of TL')
@@ -1741,7 +1784,8 @@ def load_init_model_with_ImageNetWeights(init_model_path,constrNet,target_datase
                             dbn_affine,m_per_group,kind_method,\
                             batch_size_RF,momentum,\
                             epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                            final_activation,metrics,loss,deepSupervision,clipnorm):
+                            final_activation,metrics,loss,deepSupervision,clipnorm,
+                            imSize):
     weights = 'imagenet'
     model = get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                             transformOnFinalLayer,weights,
@@ -1754,7 +1798,8 @@ def load_init_model_with_ImageNetWeights(init_model_path,constrNet,target_datase
                             dbn_affine,m_per_group,kind_method,\
                             batch_size_RF,momentum,\
                             epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                            final_activation,metrics,loss,deepSupervision,clipnorm)
+                            final_activation,metrics,loss,deepSupervision,clipnorm,
+                            imSize)
     
     layers = model.layers
     assert('MLP' in final_clf)
@@ -1793,7 +1838,7 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                         item_name,classes,path_to_img,\
                         str_val,epochs,batch_size,final_activation,metrics,loss,\
                         deepSupervision,dataAug,history_path,randomCrop,clipnorm,\
-                        LR_scheduling):
+                        LR_scheduling,imSize):
         
     curr_session = tf.get_default_session()
     # close current session
@@ -1825,7 +1870,8 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                                 dbn_affine,m_per_group,kind_method,\
                                 batch_size_RF,momentum,\
                                 epochs_RF,output_path,kind_of_shuffling,useFloat32,\
-                                final_activation,metrics,loss,deepSupervision,clipnorm)
+                                final_activation,metrics,loss,deepSupervision,clipnorm,\
+                                imSize)
                 
     history_path = add_end_name_history_file(history_path,batch_size,epochs,regulOnNewLayer,\
                               regulOnNewLayerParam,dropout,optimizer,nesterov,\
@@ -1839,7 +1885,8 @@ def get_partial_model_def(log10_learning_rate,log10_multi_learning_rate,SGDmomen
                             Net=constrNet,plotConv=plotConv,batch_size=batch_size,cropCenter=cropCenter,\
                             NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet,\
                             returnWhat='val_loss',dataAug=dataAug,history_path=history_path,\
-                            randomCrop=randomCrop,LR_scheduling=LR_scheduling)
+                            randomCrop=randomCrop,LR_scheduling=LR_scheduling,\
+                            imSize=imSize)
         
     # To clean GPU memory
     K.clear_session()
@@ -1863,7 +1910,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         str_val,epochs,batch_size,AP_file_base,\
                         final_activation,metrics,loss,deepSupervision,dataAug,\
                         return_best_model,last_epochs_model_path,history_path,randomCrop,\
-                        init_model_path,clipnorm,LR_scheduling):
+                        init_model_path,clipnorm,LR_scheduling,imSize):
     """
     Fine Tuned a deep model with bayesian optimization of the hyper-parameters, the one concerned are :
         - log10_learning_rate
@@ -1895,7 +1942,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                         final_activation=final_activation,metrics=metrics,loss=loss,\
                         deepSupervision=deepSupervision,dataAug=dataAug,\
                         history_path=history_path,randomCrop=randomCrop,\
-                        clipnorm=clipnorm,LR_scheduling=LR_scheduling)
+                        clipnorm=clipnorm,LR_scheduling=LR_scheduling,imSize=imSize)
     
     hyperoptimizer = BayesianOptimization(
         f=function_to_miximaze,
@@ -1955,7 +2002,8 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                                 batch_size_RF,momentum,\
                                 epochs_RF,output_path,kind_of_shuffling,useFloat32,\
                                 final_activation=final_activation,metrics=metrics,\
-                                loss=loss,deepSupervision=deepSupervision,clipnorm=clipnorm)
+                                loss=loss,deepSupervision=deepSupervision,clipnorm=clipnorm,\
+                                imSize=imSize)
     NoValidationSetUsed = False
     RandomValdiationSet = True 
                
@@ -1976,7 +2024,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                             NoValidationSetUsed=NoValidationSetUsed,RandomValdiationSet=RandomValdiationSet,return_best_model=return_best_model,\
                             returnWhat=None,deepSupervision=deepSupervision,dataAug=dataAug,\
                             last_epochs_model_path=last_epochs_model_path,history_path=local_history_path,\
-                            randomCrop=randomCrop,LR_scheduling=LR_scheduling) # Only this element will have its history saved with the BaysianOptimFT based name
+                            randomCrop=randomCrop,LR_scheduling=LR_scheduling,imSize=imSize) # Only this element will have its history saved with the BaysianOptimFT based name
     return(model)
     
 
@@ -2128,7 +2176,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
                   RandomValdiationSet=False,returnWhat=None,deepSupervision=False,\
                   dataAug=False,last_epochs_model_path=None,
-                  history_path=None,randomCrop=False,LR_scheduling=None):
+                  history_path=None,randomCrop=False,LR_scheduling=None,imSize=224):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -2158,27 +2206,29 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         interpolation='lanczos:center'
         old_loading_img_fct = kp.image.iterator.load_img
         kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,
-                                             Net=Net)
+                                             Net=Net,crop_size=imSize) # the crop_size is the final size image
     elif randomCrop:
         interpolation='lanczos:random'
+        big_size_im = int(1.143*imSize)
         old_loading_img_fct = kp.image.iterator.load_img
         kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,
-                                             Net=Net,target_size=256,
-                                             crop_size=224)
+                                             Net=Net,target_size=big_size_im,
+                                             crop_size=imSize)
     else:
         interpolation='nearest'
+        
     if 'VGG' in Net:
         preprocessing_function = tf.keras.applications.vgg19.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     elif 'ResNet50' in Net:
         preprocessing_function = tf.keras.applications.resnet50.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     elif 'InceptionV1'==Net:
         preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     elif Net=='InceptionV1_slim':
         preprocessing_function = tf.keras.applications.inception_v3.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     else:
         print(Net,'is unknwon')
         raise(NotImplementedError)
@@ -2230,7 +2280,9 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
                                                              zoom_range=zoom_range,shear_range=shear_range)    
     # preprocessing_function will be implied on each input. The function will run after the image is 
     # load resized and augmented. That's why we need to modify the load_img fct
-    
+    #So in order to use .flow, you will have to pass resized images only otherwise 
+    # use a custom generator that resizes them on the fly.
+
     train_generator=datagen.flow_from_dataframe(dataframe=df_train, directory=path_im,\
                                                 x_col=x_col,y_col=y_col,\
                                                 class_mode="other", \
@@ -2339,7 +2391,7 @@ def FineTuneModel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epoch
         # First we save the last epoch model  if a name is provide
         if not(last_epochs_model_path is None):
             model.save(last_epochs_model_path,include_optimizer=False)
-            utils_keras.fix_layer0(last_epochs_model_path, [None, 224, 224,3], 'float32') 
+            utils_keras.fix_layer0(last_epochs_model_path, [None, imSize, imSize,3], 'float32') 
         # Then we load the best model on the monitored metric (val_loss)
         model.load_weights(tmp_model_path)
 
@@ -2408,7 +2460,7 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
                   return_best_model=False,cropCenter=False,NoValidationSetUsed=False,\
                   RandomValdiationSet=False,returnWhat=None,dataAug=False,last_epochs_model_path=None,\
-                  history_path=None,randomCrop=False,LR_scheduling=None):
+                  history_path=None,randomCrop=False,LR_scheduling=None,imSize=224):
     """
     To fine tune a deep model
     @param x_col : name of images
@@ -2435,27 +2487,28 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
     if cropCenter:
         interpolation='lanczos:center'
         old_loading_img_fct = kp.image.iterator.load_img
-        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
+        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net,crop_size=imSize)
     elif randomCrop:
         interpolation='lanczos:random'
         old_loading_img_fct = kp.image.iterator.load_img
+        big_im_size = int(1.143*imSize)
         kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,
-                                             Net=Net,target_size=256,
-                                             crop_size=224)
+                                             Net=Net,target_size=big_im_size,
+                                             crop_size=imSize)
     else:
         interpolation='nearest'
     if 'VGG' in Net:
         preprocessing_function = tf.keras.applications.vgg19.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     elif 'ResNet50' in Net:
         preprocessing_function = tf.keras.applications.resnet50.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     elif 'InceptionV1'==Net:
         preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     elif Net=='InceptionV1_slim':
         preprocessing_function = tf.keras.applications.inception_v3.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     else:
         print(Net,'is unknwon')
         raise(NotImplementedError)
@@ -2569,7 +2622,7 @@ def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_
     if return_best_model: # We need to load back the best model !
         if not(last_epochs_model_path is None):
             model.save(last_epochs_model_path,include_optimizer=False)
-            utils_keras.fix_layer0(last_epochs_model_path, [None, 224, 224,3], 'float32') 
+            utils_keras.fix_layer0(last_epochs_model_path, [None, imSize, imSize,3], 'float32') 
         model = load_model(tmp_model_path) 
     
     if plotConv:
@@ -2739,7 +2792,7 @@ def TrainMLPwithGridSearch(builder_model,X,Y,batch_size,epochs):
     return(model)
     
 def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=False,
-                     randomCrop=False):
+                     randomCrop=False,imSize=224):
     """
     This function predict on tht provide test set for a fine-tuned network
     """
@@ -2750,28 +2803,29 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
     if cropCenter:
         interpolation='lanczos:center'
         old_loading_img_fct = kp.image.iterator.load_img
-        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net)
+        kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,Net=Net,crop_size=imSize)
     elif randomCrop:
         interpolation='lanczos:center'
         old_loading_img_fct = kp.image.iterator.load_img
+        im_big_im = int(1.43*imSize)
         kp.image.iterator.load_img = partial(load_and_crop_img_forImageGenerator,
-                                             Net=Net,target_size=256,
-                                             crop_size=224)
+                                             Net=Net,target_size=im_big_im,
+                                             crop_size=imSize)
     else:
         interpolation='nearest'
         
     if 'VGG' in Net:
         preprocessing_function = tf.keras.applications.vgg19.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     elif 'ResNet50' in Net:
         preprocessing_function = tf.keras.applications.resnet50.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     elif 'InceptionV1'==Net:
         preprocessing_function = tf.keras.applications.imagenet_utils.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     elif Net=='InceptionV1_slim':
         preprocessing_function = tf.keras.applications.inception_v3.preprocess_input
-        target_size = (224,224)
+        target_size = (imSize,imSize)
     else:
         print(Net,'is unknwon')
         raise(NotImplementedError)
@@ -4501,6 +4555,23 @@ def Test_Apropos_DuRebond():
         print(i,np.mean(AP_per_class))
         tab_AP += [np.mean(AP_per_class)]
  
+def Joan_reproduction_results():
+
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='fc2',\
+                   constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,verbose=True,
+                   cropCenter=True,opt_option=[0.1,10**(-3)],epochs=5,return_best_model=False,
+                   optimizer='adam',pretrainingModif=7,transformOnFinalLayer='')
+    
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                   constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,verbose=True,
+                   cropCenter=True,opt_option=[0.1,10**(-3)],epochs=5,return_best_model=False,
+                   optimizer='adam',pretrainingModif=7,transformOnFinalLayer='GlobalAveragePooling2D')
+    
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                   constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,verbose=True,
+                   cropCenter=False,opt_option=[0.1,10**(-3)],epochs=5,return_best_model=False,
+                   optimizer='adam',pretrainingModif=7,transformOnFinalLayer='GlobalAveragePooling2D')
+    
 def Crowley_reproduction_results():
     
     target_dataset = 'Paintings'
