@@ -976,7 +976,14 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                elif regulOnNewLayer=='l1_l2':
                    AP_file += '_'+  str(regulOnNewLayerParam[0])+'_'+ str(regulOnNewLayerParam[1])
        if not(dropout is None):
-            AP_file += '_dropout'+str(dropout) 
+           if type(dropout)==list:
+               if not(deepSupervision and constrNet=='InceptionV1'):
+                   raise(NotImplementedError('You can not provide a list of dropout for a network not InceptionV1 without DeepSupervision'))
+               AP_file += '_dropout'
+               for d in dropout:
+                   AP_file += str(d) 
+           else:
+               AP_file += '_dropout'+str(dropout) 
        if optimizer=='SGD':
            if nesterov:
                AP_file += '_nes'
