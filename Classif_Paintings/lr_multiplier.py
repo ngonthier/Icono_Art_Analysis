@@ -194,9 +194,9 @@ class LearningRateMultiplier(Optimizer):
         grads = self.get_gradients(loss, params)
         self.updates = [K.update_add(self.iterations, 1)]
 
-        base_lr = self._optimizer.lr
+        base_lr = self._optimizer.learning_rate
         if self.initial_decay > 0:
-            base_lr *= (1. / (1. + self.decay * K.cast(self.iterations,
+            base_lr = base_lr *(1. / (1. + self.decay * K.cast(self.iterations,
                                                   K.dtype(self.decay))))
 
         t = K.cast(self.iterations, K.floatx()) + 1

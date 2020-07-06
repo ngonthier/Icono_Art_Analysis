@@ -45,6 +45,7 @@ learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',feature
     regulOnNewLayer=None,optimizer='Padam',opt_option=[0.1,0.1],\
     epochs=5,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,\
     suffix='testdebug',plotConv=True,verbose=True)
+# & 70.6 & 49.2 & 93.4 & 74.6 & 64.7 & 73.8 & 58.6 & 81.0 & 73.1 & 86.5 & 72.6 \\ 
     # Ne marche pas pour l'instant !!! 
 learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
     constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
