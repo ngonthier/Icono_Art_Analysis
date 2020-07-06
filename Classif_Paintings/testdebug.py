@@ -32,17 +32,24 @@ target_dataset = 'Paintings'
 #     suffix='testdebug',plotConv=True,verbose=True,clipnorm=10.)
 
 
-learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
-    constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
-    transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
-    regulOnNewLayer=None,optimizer='Padam',opt_option=[0.1],\
-    epochs=5,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,\
-    suffix='testdebug',plotConv=True,verbose=True)
+# learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+#     constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+#     transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+#     regulOnNewLayer=None,optimizer='Padam',opt_option=[0.1],\
+#     epochs=5,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,\
+#     suffix='testdebug',plotConv=True,verbose=True)
 
 learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
     constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
     transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
     regulOnNewLayer=None,optimizer='Padam',opt_option=[0.1,0.1],\
+    epochs=5,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,\
+    suffix='testdebug',plotConv=True,verbose=True)
+    # Ne marche pas pour l'instant !!! 
+learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+    constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+    transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+    regulOnNewLayer=None,optimizer='Padam',opt_option=[0.1,0.01],\
     epochs=5,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,\
     suffix='testdebug',plotConv=True,verbose=True)
 

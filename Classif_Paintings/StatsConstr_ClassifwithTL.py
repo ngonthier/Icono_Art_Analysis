@@ -599,7 +599,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if not(kind_method=='FT'):
             raise(NotImplementedError(imSize +' not 224 not implemented yet'))
         
-    if len(opt_option)>1 and not(optimizer=='SGD' or optimizer=='adam'):
+    if len(opt_option)>1 and not(optimizer in ['SGD','adam','Padam'] ):
         print('The multiple learning rate for optimizer is only implemented for SGD for the moments')
         raise(NotImplementedError)        
         
