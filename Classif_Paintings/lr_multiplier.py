@@ -48,24 +48,24 @@ class LearningRateMultiplier(Optimizer):
             if k in param.name:
                 return self._lr_multipliers[k]
 
-    # def get_updates(self, loss, params): # Version de base  this version works for small network
-            # ie it works for VGG19 but not for ResNet50
-    #     print('self._optimizer',self._optimizer)
-    #     print('self.updates ',self._optimizer.updates )
-    #     mult_lr_params = {p: self._get_multiplier(p) for p in params
-    #                       if self._get_multiplier(p)}
-    #     base_lr_params = [p for p in params if self._get_multiplier(p) is None]
+     def get_updates(self, loss, params): # Version de base  this version works for small network
+             ie it works for VGG19 but not for ResNet50
+         print('self._optimizer',self._optimizer)
+         print('self.updates ',self._optimizer.updates )
+         mult_lr_params = {p: self._get_multiplier(p) for p in params
+                           if self._get_multiplier(p)}
+         base_lr_params = [p for p in params if self._get_multiplier(p) is None]
 
-    #     updates = []
-    #     base_lr = self._optimizer.lr
-    #     for param, multiplier in mult_lr_params.items():
-    #         self._optimizer.lr.assign(tf.multiply(base_lr,multiplier))
-    #         updates.extend(self._optimizer.get_updates(loss, [param]))
+         updates = []
+         base_lr = self._optimizer.lr
+         for param, multiplier in mult_lr_params.items():
+             self._optimizer.lr.assign(tf.multiply(base_lr,multiplier))
+             updates.extend(self._optimizer.get_updates(loss, [param]))
 
-    #     self._optimizer.lr.assign(base_lr)
-    #     updates.extend(self._optimizer.get_updates(loss, base_lr_params))
-    #     print('updates diff lr',updates)
-    #     return updates
+         self._optimizer.lr.assign(base_lr)
+         updates.extend(self._optimizer.get_updates(loss, base_lr_params))
+         print('updates diff lr',updates)
+         return updates
     
 #    def get_updates(self, loss, params):
 #        if self.kind_opt == 'SGD':
