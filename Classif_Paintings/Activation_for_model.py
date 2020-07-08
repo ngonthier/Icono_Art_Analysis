@@ -414,3 +414,12 @@ if __name__ == '__main__':
     #mixed5b_pool_reduce_pre_relu [15, 16, 28, 87]  are negative for  100.0  % of the images of the training set of RASTA
     dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',constrNet='InceptionV1')
     
+    for num_feature in [60,14,106,50,56,46]:
+        plot_images_Pos_Images(dataset='RASTA',
+                               model_name='RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                               constrNet='InceptionV1',
+                                layer_name='mixed4d_pool_reduce_pre_relu',
+                                num_feature=num_feature,
+                                numberIm=81,
+                                stats_on_layer='meanAfterRelu')
+    
