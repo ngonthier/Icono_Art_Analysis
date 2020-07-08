@@ -1226,6 +1226,9 @@ def topK_features_per_class_list_of_modelpretrained():
                        'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200'
                        ] # a faire plus tard
     
+    # Tu n'as pas fini pour RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200 
+    # il faudra relancer cela 
+    
     for model_name in model_name_list:
         for stats_on_layer in ['mean','max']:
             for selection_feature in [None,'ClassMinusGlobalMean']:
@@ -1276,10 +1279,15 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
     
     df_train = df_label[df_label['set']=='train']
 
-    if platform.system()=='Windows': 
-        output_path = os.path.join('CompModifModel',constrNet,model_name)
+    
+    if model_name=='pretrained':
+        add_end_folder_name = '_'+dataset
     else:
-        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name)
+        add_end_folder_name = ''
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name+add_end_folder_name)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+add_end_folder_name)
     
     path_output_lucid_im = os.path.join(output_path,'AllFeatures')
         
@@ -1488,7 +1496,7 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
             name_fig = str(1)+ 'max' + name_fig 
  
         path_fig = os.path.join(path_output_composition,name_fig)
-        plt.savefig(path_fig,dpi=600)
+        plt.savefig(path_fig,dpi=600,bbox_inches='tight')
         plt.close()
             
             
