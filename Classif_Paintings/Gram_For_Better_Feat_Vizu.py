@@ -1229,15 +1229,16 @@ def topK_features_per_class_list_of_modelpretrained():
     # Tu n'as pas fini pour RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200 
     # il faudra relancer cela 
     
-    for model_name in model_name_list:
-        for stats_on_layer in ['mean','max']:
-            for selection_feature in [None,'ClassMinusGlobalMean']:
-                vizu_topK_feature_per_class(model_name =model_name,\
-                                           layer='mixed4d',\
-                                           source_dataset='RASTA',
-                                           num_components_draw = 10,
-                                           stats_on_layer=stats_on_layer,
-                                           selection_feature=selection_feature)
+    for layer in ['mixed4d','mixed5a']:
+        for model_name in model_name_list:
+            for stats_on_layer in ['mean','max']:
+                for selection_feature in [None,'ClassMinusGlobalMean']:
+                    vizu_topK_feature_per_class(model_name =model_name,\
+                                               layer=layer,\
+                                               source_dataset='RASTA',
+                                               num_components_draw = 10,
+                                               stats_on_layer=stats_on_layer,
+                                               selection_feature=selection_feature)
 
 
 def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
@@ -1343,6 +1344,7 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
             list_spatial_means_all = predictionFT_net(mean_model,df_train,x_col=item_name,y_col=classes,path_im=path_to_img,
                                                   Net=constrNet,cropCenter=cropCenter)
             array_spatial_means_all = np.array(np.vstack(list_spatial_means_all))
+            total_number_im = len(list_spatial_means_all)
             
 
         # Loop on the classe
@@ -1358,6 +1360,7 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
             df_train_c = df_train[df_train[classe]==1.]
             list_spatial_means = predictionFT_net(mean_model,df_train_c,x_col=item_name,y_col=classes,path_im=path_to_img,
                                                   Net=constrNet,cropCenter=cropCenter)
+            total_number_img_in_c = len(list_spatial_means)
     
             array_spatial_means = np.array(np.vstack(list_spatial_means))
             if stats_on_layer=='mean':
@@ -1391,7 +1394,8 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
             if selection_feature=='TopOnlyForClass':
                mean_spatial_means = mean_spatial_means - mean_spatial_means_notc
             elif selection_feature=='ClassMinusGlobalMean':
-               mean_spatial_means = mean_spatial_means - mean_spatial_means_all
+               lambda_c = (total_number_im) / (total_number_im - total_number_img_in_c)
+               mean_spatial_means = lambda_c * mean_spatial_means -lambda_c* mean_spatial_means_all
 
             argsort_mean_spatial = np.argsort(mean_spatial_means)[::-1]
         

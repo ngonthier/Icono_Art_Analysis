@@ -10,7 +10,7 @@ the whole image from a given training dataset for a given network
 
 import tensorflow as tf
 from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.layers import Conv2D
+from tensorflow.python.keras.layers import Conv2D,Activation,Concatenate
 from tensorflow.python.keras import Model
 
 import numpy as np
@@ -94,7 +94,7 @@ def get_Model_that_output_StatsOnActivation(model,stats_on_layer='mean'):
     list_outputs_name = []
     
     for layer in model.layers:
-        if  isinstance(layer, Conv2D) :
+        if  isinstance(layer, Conv2D) or isinstance(layer,Concatenate) or isinstance(layer,Activation):
             layer_output = layer.output
             if stats_on_layer=='mean':
                 stats_each_feature = tf.keras.backend.mean(layer_output, axis=[1,2], keepdims=False)
@@ -418,8 +418,8 @@ if __name__ == '__main__':
         plot_images_Pos_Images(dataset='RASTA',
                                model_name='RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                                constrNet='InceptionV1',
-                                layer_name='mixed4d_pool_reduce_pre_relu',
+                                layer_name='mixed4d',
                                 num_feature=num_feature,
                                 numberIm=81,
-                                stats_on_layer='meanAfterRelu')
+                                stats_on_layer='mean')
     
