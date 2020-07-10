@@ -273,7 +273,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
     
     if constrNet=='VGG':
         features = 'block5_pool'
-        final_clf = 'MLP2'
+        final_clf = 'MLP1'
         transformOnFinalLayer='GlobalAveragePooling2D' 
     elif constrNet=='InceptionV1':
         features = 'avgpool'
@@ -285,7 +285,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
         transformOnFinalLayer=None
     elif constrNet=='ResNet50':
         features = 'block5_pool'
-        final_clf = 'MLP2'
+        final_clf = 'MLP1'
         transformOnFinalLayer=None
     else:
         raise(ValueError(constrNet + ' is unknown in this function'))

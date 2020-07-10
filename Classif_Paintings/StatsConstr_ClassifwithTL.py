@@ -4636,20 +4636,21 @@ def Crowley_reproduction_results():
       
 def Paintings_comparaisonModel():
     target_dataset = 'Paintings'
-    ReDo = False        
+    ReDo = True        
         
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
-               constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
-               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
-               optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
-               epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True)
-
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True)
+# & 66.3 & 48.9 & 93.3 & 74.3 & 62.6 & 69.3 & 57.1 & 81.1 & 72.2 & 84.5 & 70.9 \\ 
         
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='activation_48',\
-               constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
-               transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
-               regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
-               epochs=20,return_best_model=True,SGDmomentum=0.99,dropout=0.2,verbose=True)
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
+                epochs=20,return_best_model=True,SGDmomentum=0.99,dropout=0.2,verbose=True)
+# & 44.8 & 27.5 & 87.0 & 63.0 & 43.3 & 58.4 & 34.8 & 70.8 & 65.7 & 77.6 & 57.3 \\ 
 
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',ReDo=ReDo,\
@@ -4657,7 +4658,7 @@ def Paintings_comparaisonModel():
                 optimizer='SGD',opt_option=[10**(-2)],return_best_model=True,
                 epochs=20,cropCenter=True,verbose=True,deepSupervision=False,SaveInit=False,
                 SGDmomentum=0.9) 
-
+# & 49.0 & 28.4 & 87.1 & 63.7 & 34.6 & 53.3 & 32.4 & 70.3 & 48.7 & 71.9 & 54.0 \\
         
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',ReDo=ReDo,\
@@ -4665,7 +4666,7 @@ def Paintings_comparaisonModel():
                 optimizer='SGD',opt_option=[10**(-2)],return_best_model=True,
                 epochs=20,cropCenter=True,verbose=True,deepSupervision=False,SaveInit=False,
                 SGDmomentum=0.99,regulOnNewLayer='l2',dropout=0.2) 
-  
+# & 5.9 & 8.2 & 49.2 & 17.2 & 6.4 & 23.9 & 9.8 & 14.1 & 9.7 & 3.9 & 14.8 \\   
         
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',ReDo=ReDo,\
@@ -4673,7 +4674,7 @@ def Paintings_comparaisonModel():
                 optimizer='SGD',opt_option=[10**(-2)],return_best_model=True,
                 epochs=20,cropCenter=True,verbose=True,deepSupervision=False,SaveInit=False,
                 LR_scheduling_kind='ReduceLROnPlateau',SGDmomentum=0.9) 
-       
+# & 54.1 & 30.9 & 89.5 & 65.2 & 46.0 & 61.7 & 40.1 & 74.8 & 63.2 & 75.3 & 60.1 \\      
         
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',ReDo=ReDo,\
@@ -4682,12 +4683,7 @@ def Paintings_comparaisonModel():
                 epochs=20,cropCenter=True,verbose=True,deepSupervision=False,SaveInit=False,
                 LR_scheduling_kind='ReduceLROnPlateau',SGDmomentum=0.99,
                 regulOnNewLayer='l2',dropout=0.2) 
-
-        
-    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',
-                   features='avgpool',\
-                       constrNet='InceptionV1',kind_method='TL',ReDo=ReDo,\
-                           verbose=True) 
+    # diverge complement
 
     
         
