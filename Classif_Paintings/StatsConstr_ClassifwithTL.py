@@ -4633,28 +4633,31 @@ def Crowley_reproduction_results():
                regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
                epochs=50,return_best_model=True,SGDmomentum=0.99,dropout=0.2)
     # & 73.1 & 46.9 & 92.8 & 76.4 & 65.1 & 73.4 & 56.8 & 80.2 & 71.1 & 88.6 & 72.4 \\
+      
+def Paintings_comparaisonModel():
+    target_dataset = 'Paintings'
+    ReDo = False        
         
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True)
-    # & 20 & 3.2 & 10.4 & 22.9 & 11.1 & 8.8 & 16.2 & 12.0 & 14.9 & 9.7 & 5.2 & 11.4 \\
+
         
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='activation_48',\
                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                regulOnNewLayer='l2',optimizer='SGD',opt_option=[10**(-2)],\
                epochs=20,return_best_model=True,SGDmomentum=0.99,dropout=0.2,verbose=True)
-    #ResNet50 GlobalAveragePooling2D ep :20 & 3.5 & 9.1 & 19.0 & 9.7 & 6.7 & 14.7 & 15.9 & 16.4 & 7.0 & 8.2 & 11.0 \\ 
-        
+
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',ReDo=ReDo,\
                 pretrainingModif=True,\
                 optimizer='SGD',opt_option=[10**(-2)],return_best_model=True,
                 epochs=20,cropCenter=True,verbose=True,deepSupervision=False,SaveInit=False,
                 SGDmomentum=0.9) 
-    # & 1.8 & 10.5 & 20.5 & 9.1 & 7.5 & 14.5 & 14.7 & 23.1 & 12.5 & 17.3 & 13.2 \\
+
         
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',ReDo=ReDo,\
@@ -4662,7 +4665,7 @@ def Crowley_reproduction_results():
                 optimizer='SGD',opt_option=[10**(-2)],return_best_model=True,
                 epochs=20,cropCenter=True,verbose=True,deepSupervision=False,SaveInit=False,
                 SGDmomentum=0.99,regulOnNewLayer='l2',dropout=0.2) 
-    # & 3.8 & 12.6 & 29.9 & 10.3 & 8.5 & 9.4 & 11.9 & 17.2 & 9.6 & 2.5 & 11.6 \\     
+  
         
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',ReDo=ReDo,\
@@ -4670,7 +4673,7 @@ def Crowley_reproduction_results():
                 optimizer='SGD',opt_option=[10**(-2)],return_best_model=True,
                 epochs=20,cropCenter=True,verbose=True,deepSupervision=False,SaveInit=False,
                 LR_scheduling_kind='ReduceLROnPlateau',SGDmomentum=0.9) 
-    # & 2.7 & 15.8 & 23.3 & 12.9 & 7.9 & 15.7 & 11.9 & 15.2 & 7.7 & 3.6 & 11.7 \\     
+       
         
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',ReDo=ReDo,\
@@ -4679,13 +4682,13 @@ def Crowley_reproduction_results():
                 epochs=20,cropCenter=True,verbose=True,deepSupervision=False,SaveInit=False,
                 LR_scheduling_kind='ReduceLROnPlateau',SGDmomentum=0.99,
                 regulOnNewLayer='l2',dropout=0.2) 
-    # & 5.5 & 11.7 & 31.2 & 10.2 & 9.3 & 16.7 & 12.1 & 14.1 & 11.4 & 2.7 & 12.5 \\ 
+
         
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',
                    features='avgpool',\
                        constrNet='InceptionV1',kind_method='TL',ReDo=ReDo,\
                            verbose=True) 
-    # & 5.5 & 11.7 & 31.2 & 10.2 & 9.3 & 16.7 & 12.1 & 14.1 & 11.4 & 2.7 & 12.5 \\ 
+
     
         
 def test_InceptionV1_onIconArt_and_RASTA():
@@ -6126,11 +6129,12 @@ if __name__ == '__main__':
     #testPerformanceVGGShuffle()
     
     #testPerformance_VGG_l2regul()
-    RASTAclassifTest()
+    # RASTAclassifTest()
     
-    test_BaysianOptimFT() # A refaire !
-    # PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
-    #                           onlyPlot=False,cropCenter=True,BV=True)
-    # #RunAllEvaluation_FineTuningResNet() # a regrouper
-    RunAllEvaluation_FineTuningVGG(onlyPlot=False)   # a regrouper
+    # test_BaysianOptimFT() # A refaire !
+    # # PlotSomePerformanceResNet_V2(metricploted='mAP',target_dataset = 'Paintings',
+    # #                           onlyPlot=False,cropCenter=True,BV=True)
+    # # #RunAllEvaluation_FineTuningResNet() # a regrouper
+    # RunAllEvaluation_FineTuningVGG(onlyPlot=False)   # a regrouper
+    Paintings_comparaisonModel()
     

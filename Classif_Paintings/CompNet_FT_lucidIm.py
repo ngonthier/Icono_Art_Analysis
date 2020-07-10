@@ -1163,9 +1163,10 @@ if __name__ == '__main__':
     # Il pour essayer de faire un entrainement depuis zero avec un Inception V1
     # On va devoir relancer ces modeles a cause du soucis de fine tuning avec le bug clipnorm
 #     liste_possible_fromScatch = []
-     liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
-                                  'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                                  'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+    # cela a ete fait 
+     # liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
+     #                              'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+     liste_possible_fromScatch = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                                   'RASTA_big01_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
                                   'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704',
                                   'RASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',

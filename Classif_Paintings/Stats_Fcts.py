@@ -2303,6 +2303,7 @@ def InceptionV1_baseline_model(num_of_classes=10,\
   """
   Return a trainable keras model of InceptionV1 with new classification head
   @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+      it can also be an other model already trained
   """
   # create model
   regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
