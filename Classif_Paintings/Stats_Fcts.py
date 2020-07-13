@@ -51,6 +51,12 @@ from functools import partial
 #import time
 #import functools
 
+import CompNet_FT_lucidIm
+
+from shortmodelname import get_list_shortcut_name_model
+
+list_finetuned_models_name = get_list_shortcut_name_model()
+
 ### Metrics function 
 def top_1_categorical_accuracy(y_true, y_pred):
     return tf.keras.metrics.top_k_categorical_accuracy(y_true, y_pred, k=1) 
@@ -2203,7 +2209,9 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
           else:
               dropout_i = dropout
       name_head = head.name
+      print(name_head)
       name_head = name_head.split('/')[0]
+      print(name_head,'name_head')
       if not(slim):
           name_head_prediction = name_head + '_prediction'
           x = Flatten()(head)
@@ -2296,6 +2304,7 @@ def InceptionV1_baseline_model(num_of_classes=10,\
                              pretrainingModif=True,verbose=True,weights='imagenet',\
                              optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',\
                              regulOnNewLayer=None,regulOnNewLayerParam=[],\
+                             final_layer='avgpool',
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
                              loss='binary_crossentropy',deepSupervision=False,\
@@ -2310,6 +2319,10 @@ def InceptionV1_baseline_model(num_of_classes=10,\
   
   if slim:
       assert(not(deepSupervision))
+      if final_layer=='avgpool': 
+          print("In  the case of the slim model the last layer is named global_pooling and not avgpool, we will change it automatically.")
+          print("Some problem may come from this final_layer parameter")
+          final_layer='global_pooling'
       if weights=='imagenet' or weights is None:
           pre_model = InceptionV1_slim(include_top=False, weights=weights,\
                           input_shape= (imSize, imSize, 3),pooling='avg')
@@ -2317,7 +2330,13 @@ def InceptionV1_baseline_model(num_of_classes=10,\
           pre_model = InceptionV1_slim(include_top=False, weights='imagenet',\
                               input_shape= (imSize, imSize, 3),pooling='avg')
           random_model = InceptionV1_slim(include_top=False, weights=None,\
-                              input_shape= (imSize, imSize, 3),pooling='avg')   
+                              input_shape= (imSize, imSize, 3),pooling='avg')  
+      elif weights in list_finetuned_models_name:
+          pre_model,_ = CompNet_FT_lucidIm.get_fine_tuned_model(weights,constrNet='InceptionV1',suffix='',
+                               get_Metrics=False,verbose=False) # it will returns the fine-tuned net and the initialization
+      else:
+          raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in list_finetuned_models_name'))
+             
       number_of_trainable_layers = 114 # Total number of layers 199
       # TODO Chiffre faux qu il faudra modifier TODO
   else:
@@ -2329,6 +2348,11 @@ def InceptionV1_baseline_model(num_of_classes=10,\
                               input_shape= (imSize, imSize, 3))
           random_model = Inception_V1(include_top=False, weights=None,\
                               input_shape= (imSize, imSize, 3))
+      elif weights in list_finetuned_models_name:
+          pre_model,_ = CompNet_FT_lucidIm.get_fine_tuned_model(weights,constrNet='InceptionV1',suffix='',
+                               get_Metrics=False,verbose=False) # it will returns the fine-tuned net and the initialization
+      else:
+          raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in list_finetuned_models_name'))
       if deepSupervision:
           number_of_trainable_layers = 65
       else:
@@ -2394,9 +2418,16 @@ def InceptionV1_baseline_model(num_of_classes=10,\
           random_weights = random_layer.get_weights()
           ft_layer = pre_model.get_layer(layer.name)
           ft_layer.set_weights(random_weights)
+    
+      if final_layer==layer.name:
+          x = [layer.output]
+          break
 
-  x = pre_model.output
-  
+  if deepSupervision:
+      outputs = pre_model.output
+      x = [outputs[0],outputs[1],x[0]]
+ 
+
   model = new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,\
                                lr_multiple,lr,opt,regularizers,dropout,
                                final_activation=final_activation,metrics=metrics,\

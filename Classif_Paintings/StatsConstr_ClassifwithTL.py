@@ -70,6 +70,8 @@ from googlenet import LRN,PoolHelper
 
 from wildcat_keras.pooling import ClassWisePool,WildcatPool2d
 
+from shortmodelname import get_list_shortcut_name_model
+
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -586,10 +588,20 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if kind_method=='TL' and constrNet in ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']:
             name_base += source_dataset +str(number_im_considered)
         name_base +=  '_' + num_layers
-    if kind_method=='FT' and (weights is None):
-        name_base += '_RandInit' # Random initialisation 
-    if kind_method=='FT' and (weights=='RandForUnfreezed'):
-        name_base += '_RandForUnfreezed' # Random initialisation 
+        
+    list_finetuned_models_name = get_list_shortcut_name_model()
+    if kind_method=='FT' :
+        if (weights=='imagenet'):
+            name_base += '' # Random initialisation 
+        elif (weights is None):
+            name_base += '_RandInit' # Random initialisation 
+        elif (weights=='RandForUnfreezed'):
+            name_base += '_RandForUnfreezed' # Random initialisation 
+        elif (weights in list_finetuned_models_name):
+            name_base += '_'+weights
+        else:
+            raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in list_finetuned_models_name'))
+            
     
     if deepSupervision and constrNet=='InceptionV1' and kind_method=='FT':
         name_base += '_deepSupervision'
@@ -1762,7 +1774,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                              dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,
                              final_activation=final_activation,metrics=metrics,
                              loss=loss,deepSupervision=deepSupervision,clipnorm=clipnorm,\
-                             imSize=imSize)
+                             imSize=imSize,final_layer=features)
     elif constrNet=='InceptionV1_slim':
         model = InceptionV1_baseline_model(num_of_classes=num_classes,\
                              pretrainingModif=pretrainingModif,verbose=verbose,weights=weights,\
@@ -1771,7 +1783,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                              dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,
                              final_activation=final_activation,metrics=metrics,
                              loss=loss,deepSupervision=deepSupervision,slim=True,clipnorm=clipnorm,\
-                             imSize=imSize)
+                             imSize=imSize,final_layer=features)
         
     else:
         print(constrNet,'is unkwon in the context of TL')
@@ -4642,7 +4654,8 @@ def Paintings_comparaisonModel():
                 constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
                 transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                 optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
-                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True)    
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True)   
+    # & 66.5 & 46.1 & 92.7 & 76.7 & 61.0 & 71.1 & 54.7 & 80.5 & 70.1 & 83.4 & 70.3 \\
     
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
                 constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
@@ -4691,7 +4704,34 @@ def Paintings_comparaisonModel():
                 regulOnNewLayer='l2',dropout=0.2) 
     # diverge complement
 
-    
+def test_fined_onOtherDatasetFirst():
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RMN_small01_modif')    
+    # & 65.6 & 44.3 & 90.7 & 68.3 & 59.6 & 67.3 & 43.3 & 79.5 & 71.6 & 80.8 & 67.1 \\
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200')    
+        
+    # TEst pour voir si tu n a pas tout cassé
+    # learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+    #             constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+    #             transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+    #             optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+    #             epochs=1,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+    #             weights='imagenet')    
+    # learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+    #             constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+    #             transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+    #             optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+    #             epochs=1,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+    #             weights='imagenet',deepSupervision=True)    
         
 def test_InceptionV1_onIconArt_and_RASTA():
     learn_and_eval('RMN',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\

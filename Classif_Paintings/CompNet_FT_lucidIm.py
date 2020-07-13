@@ -19,21 +19,22 @@ Les codes recensés ici peuvent etre utiles : https://github.com/tensorflow/luci
 import tensorflow as tf
 import os
 import matplotlib
-from tensorflow.keras.preprocessing.image import load_img, save_img, img_to_array
+# from tensorflow.keras.preprocessing.image import load_img, save_img, img_to_array
 from tensorflow.python.keras import backend as K
 import numpy as np
 from tensorflow.python.keras.layers import Conv2D
 
-from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index,numeral_layers_index_bitsVersion,\
-    Precompute_Cumulated_Hist_4Moments,load_Cumulated_Hist_4Moments,get_list_im
-from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
-    load_resize_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
-    MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
-    ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,ResNet_cut,vgg_suffleInStats,\
-    get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,\
-    get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet,\
-    vgg_FRN,get_those_layers_output
-from StatsConstr_ClassifwithTL import learn_and_eval
+# from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index,numeral_layers_index_bitsVersion,\
+#     Precompute_Cumulated_Hist_4Moments,load_Cumulated_Hist_4Moments,get_list_im
+#import Stats_Fcts 
+# import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
+#     load_resize_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
+#     MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
+#     ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,ResNet_cut,vgg_suffleInStats,\
+#     get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,\
+#     get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet,\
+#     vgg_FRN,get_those_layers_output
+import StatsConstr_ClassifwithTL #import learn_and_eval
 from googlenet import inception_v1_oldTF as Inception_V1
 from inceptionV1_keras_utils import get_trainable_layers_name
 from keras_resnet_utils import getResNet50_trainable_vizualizable_layers_name
@@ -41,59 +42,25 @@ from keras_vgg_utils import getVGG_trainable_vizualizable_layers_name
 
 from inception_v1 import InceptionV1_slim,trainable_layers
 
-import cv2
+#import cv2
 
 import pickle
 import pathlib
-import itertools
+#import itertools
 
 import matplotlib.pyplot as plt
-import matplotlib.cm as mplcm
-import matplotlib.colors as colors
-from matplotlib.backends.backend_pdf import PdfPages
-from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion,\
-    fit_generator_ForRefineParameters
+# import matplotlib.cm as mplcm
+# import matplotlib.colors as colors
+# from matplotlib.backends.backend_pdf import PdfPages
+# from keras_resnet_utils import getBNlayersResNet50,getResNetLayersNumeral,getResNetLayersNumeral_bitsVersion,\
+#     fit_generator_ForRefineParameters
 
 import lucid_utils
 import platform
 
-possible_datasets = ['IconArt_v1','RMN','RASTA']
-possible_lr = ['big0001_modif','small001_modif','big001_modif','small01_modif','big01_modif']
-possible_opt = ['','_adam','_Adadelta','_RMSprop']
-possible_freeze=  ['','_unfreeze50','_unfreeze84','_unfreeze44','_unfreeze20','_unfreeze8']
-# _unfreeze50 for InceptionV1 to train starting at mixed4a_3x3_bottleneck_pre_relu
-# but _unfreeze84 for InceptionV1_slim to train at 
-#  Mixed_4b_Branch_1_a_1x1_conv : because the name of the layer are not the same !
-possible_loss= ['','_cosineloss']
-possibleInit = ['','_RandInit','_RandForUnfreezed']
-possible_crop = ['','_randomCrop']
-possible_Sup = ['','_deepSupervision']
-possible_Aug = ['','_dataAug','_SmallDataAug','_MediumDataAug']
-possible_epochs = ['','_ep120','_ep200','_ep1']
-possible_clipnorm = ['','_cn1','_cn10']
-possible_LRSched = ['','_LRschedG','_RedLROnPlat'] # For LR scheduler
-possible_dropout = ['','_dropout04','_dropout070704'] # For LR scheduler
-# For the parameters based on : https://www.analyticsvidhya.com/blog/2018/10/understanding-inception-network-from-scratch/
-# Use the learning rate at 0.01 and the list dropout
-possible_lastEpochs = ['','_LastEpoch']
+from shortmodelname import get_list_shortcut_name_model
 
-list_finetuned_models_name = []
-for dataset in possible_datasets:
-    for lr in possible_lr:
-        for opt in possible_opt:
-            for f in possible_freeze:
-                for loss in possible_loss:
-                    for init in  possibleInit:
-                        for crop in possible_crop:
-                            for sup in possible_Sup:
-                                for aug in possible_Aug:
-                                    for ep in possible_epochs:
-                                        for le in possible_lastEpochs:
-                                            for c in possible_clipnorm:
-                                                for ls in possible_LRSched:
-                                                    for dp in possible_dropout:
-                                                        list_finetuned_models_name +=[dataset+'_'+lr+opt+f+loss+init+crop+sup+aug+ep+c+ls+dp+le]
-                        
+list_finetuned_models_name = get_list_shortcut_name_model()
 #list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
 #                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
 #                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
@@ -298,7 +265,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
         returnStatistics = False
     else:  # To return the network
         returnStatistics = True   
-    output = learn_and_eval(target_dataset,source_dataset,final_clf,features,\
+    output = StatsConstr_ClassifwithTL.learn_and_eval(target_dataset,source_dataset,final_clf,features,\
                            constrNet,kind_method,style_layers=[],weights=weights,\
                            normalisation=normalisation,transformOnFinalLayer=transformOnFinalLayer,
                            ReDo=False,
@@ -1166,6 +1133,8 @@ if __name__ == '__main__':
     # cela a ete fait 
      # liste_possible_fromScatch = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
      #                              'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+     # Ca a plante la a cause de la visualisation et je ne sais pas pourquoi .... 
+     # Faut il faire les entrainements puis ensuite les visualisations ??? 
      liste_possible_fromScatch = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                                   'RASTA_big01_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
                                   'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704',
@@ -1182,7 +1151,8 @@ if __name__ == '__main__':
     
     #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
 
-     list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_ep200',
+     list_model_name_5 = ['RMN_small01_modif',
+                          'RASTA_big001_modif_adam_unfreeze50_ep200',
                          'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
