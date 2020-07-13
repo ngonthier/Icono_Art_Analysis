@@ -1498,7 +1498,7 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
             
         if stats_on_layer=='max':
             name_fig = str(1)+ 'max_' + name_fig 
-        else:
+        elif not(stats_on_layer=='mean'):
             name_fig = stats_on_layer+'_' + name_fig
         name_fig = layer + '_' + name_fig
         path_fig = os.path.join(path_output_composition,name_fig)
