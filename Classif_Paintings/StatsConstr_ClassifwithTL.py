@@ -4637,7 +4637,13 @@ def Crowley_reproduction_results():
 def Paintings_comparaisonModel():
     target_dataset = 'Paintings'
     ReDo = True        
-        
+    
+    learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='activation_48',\
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True)    
+    
     learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
                 constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=ReDo,\
                 transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
