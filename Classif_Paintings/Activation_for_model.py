@@ -66,6 +66,10 @@ def get_Model_that_output_StatsOnActivation_forGivenLayers(model,
                 stats_each_feature = tf.keras.backend.min(layer_output, axis=[1,2], keepdims=False)
             elif stats_on_layer=='meanFirePos':
                 stats_each_feature = tf.keras.backend.mean(fct01(layer_output), axis=[1,2], keepdims=False)
+            elif stats_on_layer=='meanFirePos_minusMean':
+                means = list_means[i]
+                i+=1
+                stats_each_feature = tf.keras.backend.mean(fct01(layer_output-means), axis=[1,2], keepdims=False)
             elif stats_on_layer=='max&min':
                 maxl = tf.keras.backend.max(layer_output, axis=[1,2], keepdims=False)
                 minl = tf.keras.backend.min(layer_output, axis=[1,2], keepdims=False)
