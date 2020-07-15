@@ -29,7 +29,7 @@ import pathlib
 
 import h5py
 
-import tensorflow as tf
+#import tensorflow as tf
 from IMDB import get_database
 from Stats_Fcts import get_intermediate_layers_vgg,get_gram_mean_features,\
     load_resize_and_process_img,get_VGGmodel_gram_mean_features,get_BaseNorm_gram_mean_features,\

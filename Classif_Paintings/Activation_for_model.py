@@ -64,6 +64,12 @@ def get_Model_that_output_StatsOnActivation_forGivenLayers(model,
                 stats_each_feature = tf.keras.backend.max(layer_output, axis=[1,2], keepdims=False)
             elif stats_on_layer=='min':
                 stats_each_feature = tf.keras.backend.min(layer_output, axis=[1,2], keepdims=False)
+            elif stats_on_layer=='meanFirePos':
+                stats_each_feature = tf.keras.backend.mean(fct01(layer_output), axis=[1,2], keepdims=False)
+            elif stats_on_layer=='meanFirePos_minusMean':
+                means = list_means[i]
+                i+=1
+                stats_each_feature = tf.keras.backend.mean(fct01(layer_output-means), axis=[1,2], keepdims=False)
             elif stats_on_layer=='max&min':
                 maxl = tf.keras.backend.max(layer_output, axis=[1,2], keepdims=False)
                 minl = tf.keras.backend.min(layer_output, axis=[1,2], keepdims=False)
@@ -83,6 +89,15 @@ def get_Model_that_output_StatsOnActivation_forGivenLayers(model,
     new_model = Model(model.input,list_outputs)
     
     return(new_model)
+ 
+def fct01(x):
+    """
+    This function return 0 if x is inferior or equal to 0 and 1 otherwise
+    """
+    # fct01(0) currently returns 0.
+    sign = tf.sign(x)
+    step_func = tf.maximum(0.0, sign)
+    return step_func
     
 def get_Model_that_output_StatsOnActivation(model,stats_on_layer='mean'):
     """
@@ -100,6 +115,8 @@ def get_Model_that_output_StatsOnActivation(model,stats_on_layer='mean'):
                 stats_each_feature = tf.keras.backend.mean(layer_output, axis=[1,2], keepdims=False)
             elif stats_on_layer=='meanAfterRelu':
                 stats_each_feature = tf.keras.backend.mean(tf.keras.activations.relu(layer_output), axis=[1,2], keepdims=False)
+            elif stats_on_layer=='meanFirePos':
+                stats_each_feature = tf.keras.backend.mean(fct01(layer_output), axis=[1,2], keepdims=False)
             elif stats_on_layer=='max':
                 stats_each_feature = tf.keras.backend.max(layer_output, axis=[1,2], keepdims=False)
             elif stats_on_layer=='min':

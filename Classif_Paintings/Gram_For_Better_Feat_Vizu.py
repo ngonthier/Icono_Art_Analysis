@@ -1231,7 +1231,7 @@ def topK_features_per_class_list_of_modelpretrained():
     
     for layer in ['mixed4d','mixed5a']:
         for model_name in model_name_list:
-            for stats_on_layer in ['mean','max']:
+            for stats_on_layer in ['mean','max','meanFirePos_minusMean','meanFirePos']:
                 for selection_feature in [None,'ClassMinusGlobalMean']:
                     vizu_topK_feature_per_class(model_name =model_name,\
                                                layer=layer,\
@@ -1239,7 +1239,16 @@ def topK_features_per_class_list_of_modelpretrained():
                                                num_components_draw = 10,
                                                stats_on_layer=stats_on_layer,
                                                selection_feature=selection_feature)
-
+                    
+def test_meanFirePos():
+    
+    for selection_feature in [None]:
+        vizu_topK_feature_per_class(model_name ='RASTA_small01_modif',\
+                                   layer='mixed4d',\
+                                   source_dataset='RASTA',
+                                   num_components_draw = 2,
+                                   stats_on_layer='meanFirePos_minusMean',# meanFirePos
+                                   selection_feature=selection_feature)
 
 def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
                                layer='mixed4d',\
@@ -1308,19 +1317,30 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
     ROBUSTNESS = True
     DECORRELATE = True
     
+    if model_name=='pretrained':
+        path_lucid_model = os.path.join('')
+    else:
+        path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
+    suffix = ''
+    
     if not(os.path.isfile(path_dico)):
 
         if model_name=='pretrained':
            fine_tuned_model = Activation_for_model.get_Network(constrNet)
-           path_lucid_model = os.path.join('')
         else:
            fine_tuned_model, _ = get_fine_tuned_model(model_name,constrNet=constrNet,suffix='',get_Metrics=False)
            path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
-        suffix = ''
+        
         style_layers = [layer]
         
-        mean_model = Activation_for_model.get_Model_that_output_StatsOnActivation_forGivenLayers(fine_tuned_model,list_layers=style_layers,stats_on_layer=stats_on_layer)
-        
+        if stats_on_layer=='meanFirePos_minusMean':
+            mean_model = Activation_for_model.get_Model_that_output_StatsOnActivation_forGivenLayers(fine_tuned_model,
+                                                                                                     list_layers=style_layers,
+                                                                                                     stats_on_layer='meanAfterRelu')
+        else:
+            mean_model = Activation_for_model.get_Model_that_output_StatsOnActivation_forGivenLayers(fine_tuned_model,
+                                                                                                     list_layers=style_layers,
+                                                                                                     stats_on_layer=stats_on_layer)
         
         suffix_str = suffix                                                                     
         if not(model_name=='pretrained'):
@@ -1340,6 +1360,17 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
 
         dico_most_response_feat = {}
 
+
+            
+        if stats_on_layer=='meanFirePos_minusMean':
+            list_spatial_means_all = predictionFT_net(mean_model,df_train,x_col=item_name,y_col=classes,path_im=path_to_img,
+                                                  Net=constrNet,cropCenter=cropCenter)
+            array_spatial_means_all = np.array(np.vstack(list_spatial_means_all))
+            total_number_im = len(list_spatial_means_all)
+            mean_model = Activation_for_model.get_Model_that_output_StatsOnActivation_forGivenLayers(fine_tuned_model,
+                                                                                                     list_layers=style_layers,
+                                                                                                     stats_on_layer=stats_on_layer,
+                                                                                                     list_means=list_spatial_means_all)
         if selection_feature=='ClassMinusGlobalMean':
             list_spatial_means_all = predictionFT_net(mean_model,df_train,x_col=item_name,y_col=classes,path_im=path_to_img,
                                                   Net=constrNet,cropCenter=cropCenter)
@@ -1376,6 +1407,13 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
                     mean_spatial_means_notc = np.max(array_spatial_means_notc,axis=0)
                 elif selection_feature=='ClassMinusGlobalMean':
                     mean_spatial_means_all = np.max(array_spatial_means_all,axis=0)
+                    
+            elif stats_on_layer=='meanFirePos' or stats_on_layer=='meanFirePos_minusMean': # In this case we take the mean of th meanFirePos
+                mean_spatial_means = np.mean(array_spatial_means,axis=0)
+                if selection_feature=='TopOnlyForClass':
+                    mean_spatial_means_notc = np.mean(array_spatial_means_notc,axis=0)
+                elif selection_feature=='ClassMinusGlobalMean':
+                    mean_spatial_means_all = np.mean(array_spatial_means_all,axis=0)
 
             else:
                 raise(ValueError(stats_on_layer))
@@ -1459,7 +1497,7 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
         argsort_mean_spatial = dico_most_response_feat[classe]
        
         plt.rcParams["figure.figsize"] = [num_components_draw,2]
-        fig, axes = plt.subplots(1, num_components_draw)
+        fig, axes = plt.subplots(1, num_components_draw) # squeeze=False for the case of one figure only
         fig.suptitle(classe)
 
         for comp_number in range(num_components_draw):
@@ -1479,11 +1517,34 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
             else:
               ext+= '_noRob'
             name_base = layer  + kind_layer+'_'+prexif_name+ext+'_toRGB.png'
+            
+            if not(os.path.isfile(name_base)):
+                suffix_str = suffix                                                                     
+                if not(model_name=='pretrained'):
+                    name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
+                    if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
+                        name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                                                   constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+                    if constrNet=='VGG':
+                        input_name_lucid ='block1_conv1_input'
+                    elif constrNet=='InceptionV1':
+                        input_name_lucid ='input_1'
+                    elif constrNet=='InceptionV1_slim':
+                        input_name_lucid ='input_1'
+                
+                else:
+                    name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
+                lucid_utils.print_images(model_path=os.path.join(path_lucid_model,name_pb),
+                                         list_layer_index_to_print=[layer,index_feature],
+                                         path_output=path_output_lucid_im,prexif_name=prexif_name,\
+                                         input_name=input_name_lucid,Net=constrNet,sizeIm=224,
+                                         ROBUSTNESS=ROBUSTNESS,
+                                         DECORRELATE=DECORRELATE)
             name_output = os.path.join(path_output_lucid_im,name_base)
-            
+            print(name_output)
             img = plt.imread(name_output)
-            
-            ax.imshow(img)
+            print(img)
+            ax.imshow(img, interpolation='none')
             ax.set(title=str(index_feature))
             ax.tick_params(axis='both', which='both', length=0)
             plt.setp(ax.get_xticklabels(), visible=False)
@@ -1496,8 +1557,10 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
         else:
             name_fig = classe +'_Top'+str(num_components_draw)+'_Features.png'
             
-        if not(stats_on_layer=='max'):
-            name_fig = str(1)+ 'max' + name_fig 
+        if stats_on_layer=='max':
+            name_fig = str(1)+ 'max_' + name_fig 
+        elif not(stats_on_layer=='mean'):
+            name_fig = stats_on_layer+'_' + name_fig
         name_fig = layer + '_' + name_fig
         path_fig = os.path.join(path_output_composition,name_fig)
         plt.savefig(path_fig,dpi=600,bbox_inches='tight')
@@ -1668,6 +1731,36 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
     #                         path_output=path_output_lucid_im,prexif_name=prexif_name_spm,\
     #                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
             
+            for comp_number in range(num_components_draw):
+                weights = eigen_vectors[:,comp_number]
+                prexif_name = '_PCA'+str(comp_number)
+                if not(classe is None):
+                   prexif_name += '_'+classe 
+                print(prexif_name)
+                do_lucidVizu_forPCA_all_case(path_lucid_model,
+                                            name_pb,
+                                             prexif_name,features_size,
+                                             layer,weights,path_output_lucid_im,
+                                             input_name_lucid,constrNet,
+                                             strictMinimum=strictMinimum,cossim=cossim,
+                                             dot_vector=dot_vector,num_features=num_features)
+        elif clustering=='corr': 
+            # On va convertir la matrice de covariance en matrice de correlation
+            D = np.diag(np.sqrt(np.diag(mean_cov_matrix)))
+            DInv = np.linalg.inv(D)
+            corr_matrix = np.matmul(DInv,np.matmul(mean_cov_matrix,DInv)) # correlation matrix
+            eigen_values, eigen_vectors = LA.eig(corr_matrix)
+
+            pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True) 
+            plt.figure()
+            plt.scatter(np.arange(0,len(eigen_values)),eigen_values,s=4)
+            plt.ylabel('Eigen Value')
+            plt.savefig(os.path.join(path_output_lucid_im,'EigenValues_CorrMatrix'+layer+'_'+classe_str+'.png'),\
+                        dpi=300)
+            plt.close()
+            
+            eigen_vectors = np.real(eigen_vectors) 
+         
             for comp_number in range(num_components_draw):
                 weights = eigen_vectors[:,comp_number]
                 prexif_name = '_PCA'+str(comp_number)
@@ -3348,28 +3441,50 @@ if __name__ == '__main__':
     #                           clustering='PCA',
     #                           num_components_draw=3)
     
-    produce_latex_textV2(model_name = 'RASTA_small01_modif',
-                       layer_tab=['mixed4d_pre_relu'],classe_tab = ['Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art',
-                                 'Post-Impressionism','Realism'],
-                               folder_im_latex='im',
-                               num_components_draw = 3,
-                               KindOfMeanReduciton='global')
+#    produce_latex_textV2(model_name = 'RASTA_small01_modif',
+#                       layer_tab=['mixed4d_pre_relu'],classe_tab = ['Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art',
+#                                 'Post-Impressionism','Realism'],
+#                               folder_im_latex='im',
+#                               num_components_draw = 3,
+#                               KindOfMeanReduciton='global')
+    
+    topK_features_per_class_list_of_modelpretrained()
+    
+#    PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',
+#                                       classe = 'Northern_Renaissance',\
+#                                       layer='mixed4d',
+#                                       clustering='corr')
+    
+    for layer in ['mixed4d','mixed5a']:
+        for kind_method in ['corr','PCA','PCAsubset']:
+        
+            for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art','Post-Impressionism','Realism']:
+                PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                                       classe = classe,\
+                                       layer=layer,
+                                       clustering=kind_method)
+            for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art','Post-Impressionism','Realism']:
+                PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',
+                                       classe = classe,\
+                                       layer=layer,
+                                       clustering=kind_method)
+    
     
     for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e']:
         for cossim in [False]:
-            #for clustering in ['NMF','Kmeans','PCA','IPCA','WHC']:
-            for clustering in ['WHC']:
-                for whiten in [False]:
-                    if clustering=='WHC':
-                        number_of_blocks = 1
-                    else:
-                        number_of_blocks = 20
-                    Generate_Im_class_conditionated(model_name='RASTA_small01_modif',
-                                        constrNet = 'InceptionV1',
-                                        classe=classe,layer='mixed4d',
-                                        num_components_draw =3,clustering = clustering,
-                                        number_of_blocks = number_of_blocks,strictMinimum=True,
-                                        whiten=whiten,cossim=cossim)
+            for clustering in ['NMF','Kmeans','PCA','IPCA','WHC']:
+                for whiten in [False,True]:
+                    for layer in ['mixed4d','mixed5a']:
+                        if clustering=='WHC':
+                            number_of_blocks = 1
+                        else:
+                            number_of_blocks = 20
+                        Generate_Im_class_conditionated(model_name='RASTA_small01_modif',
+                                            constrNet = 'InceptionV1',
+                                            classe=classe,layer=layer,
+                                            num_components_draw =3,clustering = clustering,
+                                            number_of_blocks = number_of_blocks,strictMinimum=True,
+                                            whiten=whiten,cossim=cossim)
     
     # for classe in ['Abstract_Art','Ukiyo-e']:
     #     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',

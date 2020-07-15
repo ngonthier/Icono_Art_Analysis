@@ -16,15 +16,8 @@ import numpy as np
 import math
 import os.path
 import platform
-from Study_Var_FeaturesMaps import get_dict_stats,numeral_layers_index,numeral_layers_index_bitsVersion
-from Stats_Fcts import vgg_cut,vgg_InNorm_adaptative,vgg_InNorm,vgg_BaseNorm,\
-    load_resize_and_process_img,VGG_baseline_model,vgg_AdaIn,ResNet_baseline_model,\
-    MLP_model,Perceptron_model,vgg_adaDBN,ResNet_AdaIn,ResNet_BNRefinements_Feat_extractor,\
-    ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction,ResNet_cut,vgg_suffleInStats,\
-    get_ResNet_ROWD_meanX_meanX2_features,get_BaseNorm_meanX_meanX2_features,\
-    get_VGGmodel_meanX_meanX2_features,add_head_and_trainable,extract_Norm_stats_of_ResNet,\
-    vgg_FRN,set_momentum_BN,ResNet_suffleInStats,vgg_suffleInStatsOnSameLabel,\
-    InceptionV1_baseline_model,saveInitialisationOfModel_beforeFT,saveInitialisationOfMLP
+import Study_Var_FeaturesMaps
+import Stats_Fcts
 from IMDB import get_database
 import pickle
 import pathlib
@@ -113,7 +106,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
             if verbose: print(i_layer,layer_name)
             if i_layer==0:
                 style_layers_firstLayer = [layer_name]
-                dict_stats_target0 = get_dict_stats(target_dataset,target_number_im_considered,\
+                dict_stats_target0 = Study_Var_FeaturesMaps.get_dict_stats(target_dataset,target_number_im_considered,\
                                                     style_layers_firstLayer,\
                                                     whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,\
                                                     set=target_set,Net=Net,cropCenter=cropCenter,BV=BV)
@@ -132,7 +125,7 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
                 else:
                     list_mean_and_std_source_i = list_mean_and_std_source[0:i_layer]
                 
-                dict_stats_target_i = get_dict_stats(target_dataset,target_number_im_considered,\
+                dict_stats_target_i = Study_Var_FeaturesMaps.get_dict_stats(target_dataset,target_number_im_considered,\
                                                      style_layers=style_layers_exported,whatToload=whatToload,\
                                                      saveformat='h5',getBeforeReLU=getBeforeReLU,\
                                                      set=target_set,Net=Net,\
@@ -153,9 +146,9 @@ def get_dict_stats_BaseNormCoherent(target_dataset,source_dataset,target_number_
         current_list_mean_and_std_target = []
         if 'VGG' in Net:
             if BV:
-                str_layers = numeral_layers_index(style_layers)
+                str_layers = Study_Var_FeaturesMaps.numeral_layers_index(style_layers)
             else:
-                str_layers = numeral_layers_index_bitsVersion(style_layers)
+                str_layers = Study_Var_FeaturesMaps.numeral_layers_index_bitsVersion(style_layers)
         elif 'ResNet50' in Net:
             if BV:
                 str_layers = getResNetLayersNumeral_bitsVersion(style_layers,num_layers=50)
@@ -252,15 +245,15 @@ def compute_mean_std_onDataset(dataset,number_im_considered,style_layers,\
         with session1.as_default():
     
             if Net=='VGG':
-                net_get_SpatialMean_SpatialMeanOfSquare =  get_VGGmodel_meanX_meanX2_features(style_layers,getBeforeReLU=getBeforeReLU)
+                net_get_SpatialMean_SpatialMeanOfSquare =  Stats_Fcts.get_VGGmodel_meanX_meanX2_features(style_layers,getBeforeReLU=getBeforeReLU)
             elif Net=='VGGBaseNorm' or Net=='VGGBaseNormCoherent':
                 style_layers_exported = style_layers
-                net_get_SpatialMean_SpatialMeanOfSquare = get_BaseNorm_meanX_meanX2_features(style_layers_exported,\
+                net_get_SpatialMean_SpatialMeanOfSquare = Stats_Fcts.get_BaseNorm_meanX_meanX2_features(style_layers_exported,\
                                 style_layers_imposed,list_mean_and_std_source,list_mean_and_std_target,\
                                 getBeforeReLU=getBeforeReLU)
             elif 'ResNet50_ROWD_CUMUL' in Net: # Base coherent here also but only update the batch normalisation
                 style_layers_exported = style_layers
-                net_get_SpatialMean_SpatialMeanOfSquare = get_ResNet_ROWD_meanX_meanX2_features(style_layers_exported,style_layers_imposed,\
+                net_get_SpatialMean_SpatialMeanOfSquare = Stats_Fcts.get_ResNet_ROWD_meanX_meanX2_features(style_layers_exported,style_layers_imposed,\
                                             list_mean_and_std_target,transformOnFinalLayer=None,
                                             res_num_layers=50,weights='imagenet')
             else:
@@ -570,9 +563,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     
     if 'VGG' in  constrNet: 
         if BV:
-            num_layers = numeral_layers_index_bitsVersion(style_layers)
+            num_layers = Study_Var_FeaturesMaps.numeral_layers_index_bitsVersion(style_layers)
         else:
-            num_layers = numeral_layers_index(style_layers)
+            num_layers = Study_Var_FeaturesMaps.numeral_layers_index(style_layers)
     elif 'ResNet' in constrNet:
         if BV: 
             num_layers = getResNetLayersNumeral_bitsVersion(style_layers)
@@ -757,12 +750,12 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 im_net = []
                 # Load Network 
                 if constrNet=='VGG':
-                    network_features_extraction = vgg_cut(final_layer,\
+                    network_features_extraction = Stats_Fcts.vgg_cut(final_layer,\
                                                           transformOnFinalLayer=transformOnFinalLayer,\
                                                           weights=weights)
                 elif constrNet=='VGGInNorm' or constrNet=='VGGInNormAdapt':
                     whatToload = 'varmean'
-                    dict_stats = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                    dict_stats = Study_Var_FeaturesMaps.get_dict_stats(source_dataset,number_im_considered,style_layers,\
                            whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
                            cropCenter=cropCenter,BV=BV)
                     # Compute the reference statistics
@@ -770,20 +763,20 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                          imageUsed='all',whatToload =whatToload,
                                                          applySqrtOnVar=True)
                     if constrNet=='VGGInNormAdapt':
-                        network_features_extraction = vgg_InNorm_adaptative(style_layers,
+                        network_features_extraction = Stats_Fcts.vgg_InNorm_adaptative(style_layers,
                                                                            vgg_mean_stds_values,
                                                                            final_layer=final_layer,
                                                                            transformOnFinalLayer=transformOnFinalLayer,
                                                                            HomeMadeBatchNorm=True,getBeforeReLU=getBeforeReLU)
                     elif constrNet=='VGGInNorm':
-                        network_features_extraction = vgg_InNorm(style_layers,
+                        network_features_extraction = Stats_Fcts.vgg_InNorm(style_layers,
                                                                 vgg_mean_stds_values,
                                                                 final_layer=final_layer,
                                                                 transformOnFinalLayer=transformOnFinalLayer,
                                                                 HomeMadeBatchNorm=True,getBeforeReLU=getBeforeReLU)
                 elif constrNet=='VGGBaseNorm':
                     whatToload = 'varmean'
-                    dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                    dict_stats_source = Study_Var_FeaturesMaps.get_dict_stats(source_dataset,number_im_considered,style_layers,\
                            whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
                            cropCenter=cropCenter,BV=BV)
                     # Compute the reference statistics
@@ -792,7 +785,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                          applySqrtOnVar=True)
                     target_number_im_considered = None
                     target_set = 'trainval' # Todo ici
-                    dict_stats_target = get_dict_stats(target_dataset,target_number_im_considered,style_layers,\
+                    dict_stats_target = Study_Var_FeaturesMaps.get_dict_stats(target_dataset,target_number_im_considered,style_layers,\
                            whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=target_set,\
                            cropCenter=cropCenter,BV=BV)
                     # Compute the reference statistics
@@ -801,7 +794,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                                          applySqrtOnVar=True)
     #                
     #                
-                    network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
+                    network_features_extraction = Stats_Fcts.vgg_BaseNorm(style_layers,list_mean_and_std_source,
                         list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
                         getBeforeReLU=getBeforeReLU)
                     
@@ -810,7 +803,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     # We will pass the dataset several time through the net modify bit after bit to 
                     # get the coherent mean and std of the target domain
                     whatToload = 'varmean'
-                    dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+                    dict_stats_source = Study_Var_FeaturesMaps.get_dict_stats(source_dataset,number_im_considered,style_layers,\
                            whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
                            cropCenter=cropCenter,BV=BV)
                     # Compute the reference statistics
@@ -824,13 +817,13 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                            getBeforeReLU=getBeforeReLU,target_set=target_set,\
                            applySqrtOnVar=True,cropCenter=cropCenter,BV=BV,verbose=verbose) # It also computes the reference statistics (mean,var)
                     
-                    network_features_extraction = vgg_BaseNorm(style_layers,list_mean_and_std_source,
+                    network_features_extraction = Stats_Fcts.vgg_BaseNorm(style_layers,list_mean_and_std_source,
                         list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
                         getBeforeReLU=getBeforeReLU)
                 
                 elif constrNet=='ResNet50':
                     # in the case of ResNet50 : final_alyer = features = 'activation_48'
-                    network_features_extraction = ResNet_cut(final_layer=features,\
+                    network_features_extraction = Stats_Fcts.ResNet_cut(final_layer=features,\
                                      transformOnFinalLayer =transformOnFinalLayer,\
                              verbose=verbose,weights=weights,res_num_layers=50)
                     
@@ -854,7 +847,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     if returnStatistics:
                         return(dict_stats_target,list_mean_and_std_target)
                         
-                    network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
+                    network_features_extraction = Stats_Fcts.ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
                                    final_layer=features,\
                                    transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
@@ -880,7 +873,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     if returnStatistics:
                         return(dict_stats_target,list_mean_and_std_target)
 
-                    network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
+                    network_features_extraction = Stats_Fcts.ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                                    style_layers,list_mean_and_std_target=list_mean_and_std_target,\
                                    final_layer=features,\
                                    transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
@@ -915,7 +908,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                           # It's also process the images
                           # For VGG or ResNet size == 224
                     else:
-                        image = load_resize_and_process_img(im_path,Net=constrNet)
+                        image = Stats_Fcts.load_resize_and_process_img(im_path,Net=constrNet)
                     features_im = network_features_extraction.predict(image)
                     #print(i,name_img,features_im.shape,features_im[0,0:10])
                     if features_net is not None:
@@ -1186,17 +1179,17 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
 
                 if gridSearch:
                     if final_clf=='MLP2':
-                        builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,\
+                        builder_model = partial(Stats_Fcts.MLP_model,num_of_classes=num_classes,optimizer=optimizer,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                           nesterov=nesterov,decay=decay,verbose=verbose,\
                                           final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
                     if final_clf=='MLP3':
-                        builder_model = partial(MLP_model,num_of_classes=num_classes,optimizer=optimizer,num_layers=3,\
+                        builder_model = partial(Stats_Fcts.MLP_model,num_of_classes=num_classes,optimizer=optimizer,num_layers=3,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                           nesterov=nesterov,decay=decay,verbose=verbose,\
                                           final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
                     elif final_clf=='MLP1':
-                        builder_model = partial(Perceptron_model,num_of_classes=num_classes,optimizer=optimizer,\
+                        builder_model = partial(Stats_Fcts.Perceptron_model,num_of_classes=num_classes,optimizer=optimizer,\
                                                 regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                                 nesterov=nesterov,decay=decay,verbose=verbose,\
                                                 final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
@@ -1206,17 +1199,17 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 else:
                     
                     if final_clf=='MLP2':
-                        model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
+                        model = Stats_Fcts.MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                           nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose,\
                                           final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
                     if final_clf=='MLP3':
-                        model = MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,num_layers=3,\
+                        model = Stats_Fcts.MLP_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,num_layers=3,\
                                           regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                           nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose,\
                                           final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
                     elif final_clf=='MLP1':
-                        model = Perceptron_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
+                        model = Stats_Fcts.Perceptron_model(num_of_classes=num_classes,optimizer=optimizer,lr=lr,\
                                                 regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,dropout=dropout,\
                                                 nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,verbose=verbose,\
                                                 final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm)
@@ -1227,7 +1220,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     
                     if SaveInit:
                         print('cela n a jamais ete teste desole')
-                        saveInitialisationOfMLP(model,init_model_path)
+                        Stats_Fcts.saveInitialisationOfMLP(model,init_model_path)
                     
                     model = TrainMLP(model,X_train,y_train,X_val,y_val,batch_size,epochs,\
                                  verbose=verbose,plotConv=plotConv,return_best_model=return_best_model,\
@@ -1316,7 +1309,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     imSize=imSize)
                         
                         if SaveInit:
-                            saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
+                            Stats_Fcts.saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
                                                       final_clf,deepSupervision)
         
                         model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
@@ -1371,7 +1364,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                                     final_activation,metrics,loss,deepSupervision,clipnorm=clipnorm,imSize=imSize)
         
                     if SaveInit:
-                        saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
+                        Stats_Fcts.saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
                                                       final_clf,deepSupervision)
         
                     model = FineTuneModel_forSameLabel(model,dataset=target_dataset,df=df_label,\
@@ -1527,7 +1520,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
     # We fineTune a VGG
     if constrNet=='VGG':
         getBeforeReLU = False
-        model = VGG_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
+        model = Stats_Fcts.VGG_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,
                                    optimizer=optimizer,opt_option=opt_option,freezingType=freezingType,
                                    final_clf=final_clf,final_layer=features,verbose=verbose,
@@ -1537,7 +1530,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    imSize=imSize)
         
     elif constrNet=='VGGAdaIn': # Only the Normalisation BN  layer are trainable
-        model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
+        model = Stats_Fcts.vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
                   transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
                   final_clf=final_clf,final_layer=features,verbose=verbose,\
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
@@ -1555,7 +1548,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
         # We will pass the dataset several time through the net modify bit after bit to 
         # get the coherent mean and std of the target domain
         whatToload = 'varmean'
-        dict_stats_source = get_dict_stats(source_dataset,number_im_considered,style_layers,\
+        dict_stats_source = Study_Var_FeaturesMaps.get_dict_stats(source_dataset,number_im_considered,style_layers,\
                whatToload,saveformat='h5',getBeforeReLU=getBeforeReLU,set=set,Net='VGG',\
                cropCenter=cropCenter,BV=BV)
         # Compute the reference statistics
@@ -1569,10 +1562,10 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                getBeforeReLU=getBeforeReLU,target_set=target_set,\
                applySqrtOnVar=True,cropCenter=cropCenter,BV=BV,verbose=verbose) # It also computes the reference statistics (mean,var)
         
-        # We use the vgg_BaseNorm as the initialisation of the VGGAdaIn one 
+        # We use the Stats_Fcts.vgg_BaseNorm as the initialisation of the VGGAdaIn one 
         # That means we allow to fine-tune the batch normalisation
         
-        model = vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
+        model = Stats_Fcts.vgg_AdaIn(style_layers,num_of_classes=num_classes,weights=weights,\
               transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
               final_clf=final_clf,final_layer=features,verbose=verbose,\
               optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
@@ -1583,7 +1576,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
               imSize=imSize)
     
     elif constrNet=='VGGFRN': # Only the FRN layer are trainable
-        model = vgg_FRN(style_layers,num_of_classes=num_classes,weights=weights,\
+        model = Stats_Fcts.vgg_FRN(style_layers,num_of_classes=num_classes,weights=weights,\
                   transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,\
                   final_clf=final_clf,final_layer=features,verbose=verbose,\
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
@@ -1593,7 +1586,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   imSize=imSize)
         
     elif constrNet=='VGGAdaDBN': # Only the DBN decorrelated layer are trainable
-        model = vgg_adaDBN(style_layers,num_of_classes=num_classes,\
+        model = Stats_Fcts.vgg_adaDBN(style_layers,num_of_classes=num_classes,\
                   transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,verbose=verbose,\
                   weights=weights,final_layer=features,final_clf=final_clf,\
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
@@ -1604,7 +1597,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   imSize=imSize)
     
     elif constrNet=='VGGsuffleInStats':
-        model = vgg_suffleInStats(style_layers,num_of_classes=num_classes,\
+        model = Stats_Fcts.vgg_suffleInStats(style_layers,num_of_classes=num_classes,\
                   transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,verbose=verbose,\
                   weights=weights,final_layer=features,final_clf=final_clf,\
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
@@ -1616,7 +1609,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                   imSize=imSize)
             
     elif constrNet=='VGGsuffleInStatsSameLabel':
-        model = vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=num_classes,\
+        model = Stats_Fcts.vgg_suffleInStatsOnSameLabel(style_layers,num_of_classes=num_classes,\
                   transformOnFinalLayer=transformOnFinalLayer,getBeforeReLU=getBeforeReLU,verbose=verbose,\
                   weights=weights,final_layer=features,final_clf=final_clf,\
                   optimizer=optimizer,opt_option=opt_option,regulOnNewLayer=regulOnNewLayer,\
@@ -1629,7 +1622,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
     
     elif constrNet=='ResNet50':
         getBeforeReLU = False
-        model = ResNet_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
+        model = Stats_Fcts.ResNet_baseline_model(num_of_classes=num_classes,pretrainingModif=pretrainingModif,
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,opt_option=opt_option,\
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,\
                                    freezingType=freezingType,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
@@ -1640,7 +1633,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
             
     elif constrNet=='ResNet50AdaIn':
         getBeforeReLU = False
-        model = ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
+        model = Stats_Fcts.ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
                                    regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
@@ -1650,7 +1643,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
             
     elif constrNet=='ResNet50suffleInStats':
         getBeforeReLU = False
-        model = ResNet_suffleInStats(style_layers,final_layer=features,num_of_classes=num_classes,\
+        model = Stats_Fcts.ResNet_suffleInStats(style_layers,final_layer=features,num_of_classes=num_classes,\
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
                                    regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
@@ -1662,7 +1655,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
     
     elif constrNet=='ResNet50suffleInStats':
         getBeforeReLU = False
-        model = ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
+        model = Stats_Fcts.ResNet_AdaIn(style_layers,final_layer=features,num_of_classes=num_classes,\
                                    transformOnFinalLayer=transformOnFinalLayer,weights=weights,\
                                    res_num_layers=50,final_clf=final_clf,verbose=verbose,opt_option=opt_option,
                                    regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
@@ -1688,13 +1681,13 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                 applySqrtOnVar=True,Net=constrNet,cropCenter=cropCenter,\
                 BV=BV,cumulativeWay=True,verbose=verbose,useFloat32=useFloat32) # It also computes the reference statistics (mean,var)
         
-        network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
+        network_features_extraction = Stats_Fcts.ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                        style_layers,list_mean_and_std_target=list_mean_and_std_target,\
                        final_layer=features,\
                        transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
                        weights=weights)
 
-        model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
+        model = Stats_Fcts.add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
                      final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,
                      dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet,\
@@ -1717,13 +1710,13 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                 applySqrtOnVar=True,Net='ResNet50_ROWD_CUMUL',cropCenter=cropCenter,\
                 BV=BV,cumulativeWay=True,verbose=verbose,useFloat32=useFloat32) # It also computes the reference statistics (mean,var)
         
-        network_features_extraction = ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
+        network_features_extraction = Stats_Fcts.ResNet_BaseNormOnlyOnBatchNorm_ForFeaturesExtraction(
                        style_layers,list_mean_and_std_target=list_mean_and_std_target,\
                        final_layer=features,\
                        transformOnFinalLayer=transformOnFinalLayer,res_num_layers=50,\
                        weights=weights)
 
-        model = add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
+        model = Stats_Fcts.add_head_and_trainable(network_features_extraction,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
                      final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                      dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      AdaIn_mode=True,style_layers=style_layers,\
@@ -1747,7 +1740,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                         num_epochs_BN=epochs_RF,output_path=output_path,\
                         cropCenter=cropCenter)
         
-#                dict_stats_target,list_mean_and_std_target = extract_Norm_stats_of_ResNet(network_features_extractionBNRF,\
+#                dict_stats_target,list_mean_and_std_target = Stats_Fcts.extract_Norm_stats_of_ResNet(network_features_extractionBNRF,\
 #                                                    res_num_layers=res_num_layers,model_type=constrNet)
 #                # To the network name
 #                K.clear_session()
@@ -1760,7 +1753,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
 #                               transformOnFinalLayer=transformOnFinalLayer,res_num_layers=res_num_layers,\
 #                               weights='imagenet')
         
-        model = add_head_and_trainable(network_features_extractionBNRF,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
+        model = Stats_Fcts.add_head_and_trainable(network_features_extractionBNRF,num_of_classes=num_classes,optimizer=optimizer,opt_option=opt_option,\
                      final_clf=final_clf,regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
                      dropout=dropout,nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay,\
                      pretrainingModif=pretrainingModif,freezingType=freezingType,net_model=constrNet,\
@@ -1769,7 +1762,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
             ## Non tester !!!
     
     elif constrNet=='InceptionV1':
-        model = InceptionV1_baseline_model(num_of_classes=num_classes,\
+        model = Stats_Fcts.InceptionV1_baseline_model(num_of_classes=num_classes,\
                              pretrainingModif=pretrainingModif,verbose=verbose,weights=weights,\
                              optimizer=optimizer,opt_option=opt_option,freezingType=freezingType,final_clf=final_clf,\
                              regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
@@ -1778,7 +1771,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                              loss=loss,deepSupervision=deepSupervision,clipnorm=clipnorm,\
                              imSize=imSize,final_layer=features)
     elif constrNet=='InceptionV1_slim':
-        model = InceptionV1_baseline_model(num_of_classes=num_classes,\
+        model = Stats_Fcts.InceptionV1_baseline_model(num_of_classes=num_classes,\
                              pretrainingModif=pretrainingModif,verbose=verbose,weights=weights,\
                              optimizer=optimizer,opt_option=opt_option,freezingType=freezingType,final_clf=final_clf,\
                              regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam,\
@@ -2034,7 +2027,7 @@ def FineTuneModel_withBayseianOptimisation(constrNet,target_dataset,num_classes,
                           pretrainingModif,constrNet,freezingType,BaysianOptimFT=True)
 
     if not(init_model_path is None):
-        saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
+        Stats_Fcts.saveInitialisationOfModel_beforeFT(model,init_model_path,weights,\
                                                       final_clf,deepSupervision)    
 
     model = FineTuneModel(model,dataset=target_dataset,df=df_label,\
@@ -2069,13 +2062,13 @@ def get_ResNet_BNRefin(df,x_col,path_im,str_val,num_of_classes,Net,\
     
     print('model_file_name_path',model_file_name_path_for_test_existence,'it is exist ? ',os.path.isfile(model_file_name_path_for_test_existence))
     verbose = True
-    model = ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
+    model = Stats_Fcts.ResNet_BNRefinements_Feat_extractor(num_of_classes=num_of_classes,\
                                             transformOnFinalLayer =transformOnFinalLayer,\
                                             verbose=verbose,weights=weights,\
                                             res_num_layers=res_num_layers,momentum=momentum,\
                                             kind_method=kind_method)
     
-    # model = ResNet_cut(final_layer='activation_48',\
+    # model = Stats_Fcts.ResNet_cut(final_layer='activation_48',\
     #                     transformOnFinalLayer =transformOnFinalLayer,\
     #                     verbose=verbose,weights=weights,res_num_layers=res_num_layers)
     
@@ -3333,9 +3326,9 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                         elif style_layers==['block1_conv1']:
                             labelstr += 'b1_conv1' 
                         else:
-                            labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                            labelstr += '_'+ Study_Var_FeaturesMaps.numeral_layers_index_bitsVersion(style_layers)
                     else:
-                        labelstr += '_'+ numeral_layers_index(style_layers)
+                        labelstr += '_'+ Study_Var_FeaturesMaps.numeral_layers_index(style_layers)
                 x = len(style_layers)
                 plt.plot([x],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
                          marker=list_markers[fig_i_m],linestyle='')
@@ -3383,9 +3376,9 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                         elif style_layers==['block1_conv1']:
                             labelstr += 'b1_conv1' 
                         else:
-                            labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                            labelstr += '_'+ Study_Var_FeaturesMaps.numeral_layers_index_bitsVersion(style_layers)
                     else:
-                        labelstr += '_'+ numeral_layers_index(style_layers)
+                        labelstr += '_'+ Study_Var_FeaturesMaps.numeral_layers_index(style_layers)
                 x = len(style_layers)
                 plt.plot([x],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
                          marker=list_markers[fig_i_m],linestyle='')
@@ -3438,9 +3431,9 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                         elif style_layers==['block1_conv1']:
                             labelstr += 'b1_conv1' 
                         else:
-                            labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                            labelstr += '_'+ Study_Var_FeaturesMaps.numeral_layers_index_bitsVersion(style_layers)
                     else:
-                        labelstr += '_'+ numeral_layers_index(style_layers)
+                        labelstr += '_'+ Study_Var_FeaturesMaps.numeral_layers_index(style_layers)
                 x = len(style_layers)
                 plt.plot([x],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
                         marker=list_markers[fig_i_m],linestyle='')
@@ -3491,9 +3484,9 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
                             elif style_layers==['block1_conv1']:
                                 labelstr += 'b1_conv1' 
                             else:
-                                labelstr += '_'+ numeral_layers_index_bitsVersion(style_layers)
+                                labelstr += '_'+ Study_Var_FeaturesMaps.numeral_layers_index_bitsVersion(style_layers)
                         else:
-                            labelstr += '_'+ numeral_layers_index(style_layers)
+                            labelstr += '_'+ Study_Var_FeaturesMaps.numeral_layers_index(style_layers)
                     plt.plot([last_layer],[mMetric],label=labelstr,color=scalarMap.to_rgba(fig_i_c),\
                              marker=list_markers[fig_i_m],linestyle='')
                     fig_i += 1
