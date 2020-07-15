@@ -251,7 +251,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
         final_clf = 'MLP1'
         transformOnFinalLayer=None
     elif constrNet=='ResNet50':
-        features = 'block5_pool'
+        features = 'conv5_block3_out'
         final_clf = 'MLP1'
         transformOnFinalLayer=None
     else:
@@ -539,11 +539,13 @@ def why_white_output():
     plt.imshow(img_rescale)
     
 
-def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImagesOfOtherModel_feature = False):
+def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImagesOfOtherModel_feature = False,
+                                  testMode=False):
     """
     This function will load the two models (deep nets) before and after fine-tuning 
     and then compute the difference between the weights and finally run a 
     deep dream on the feature maps of the weights that have the most change
+    @param testMode : if true we only print the two first feature
     """
     
     if constrNet=='VGG':
@@ -628,6 +630,10 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                              topk = dict_layers_argsort[key][k]
                              list_layer_index_to_print += [[key,topk]]
                              list_layer_index_to_print_base_model += [[key,topk]]
+                             
+                    if testMode:
+                        list_layer_index_to_print = [list_layer_index_to_print[0],list_layer_index_to_print[1]]
+                        list_layer_index_to_print_base_model = [list_layer_index_to_print_base_model[0],list_layer_index_to_print_base_model[1]]
                     
                     dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
                     
@@ -668,6 +674,10 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
                             topk = dict_key[k]
                             list_layer_index_to_print += [[key,topk]]
                             list_layer_index_to_print_base_model += [[key,topk]]
+                            
+                    if testMode:
+                        list_layer_index_to_print = [list_layer_index_to_print[0],list_layer_index_to_print[1]]
+                        list_layer_index_to_print_base_model = [list_layer_index_to_print_base_model[0],list_layer_index_to_print_base_model[1]]
                     
                     dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
                    
@@ -971,6 +981,21 @@ def plotHistory_of_training():
     plt.draw()
     plt.pause(0.001)
     
+ 
+def testFct_PbTrainThenVizu():
+    """
+    Le but de cette fonciton est de trouver le bug qu il peut y avoir dans la fct  
+    Comparaison_of_FineTunedModel quand je cherche a fine-tune puis a visualiser 
+    les filtres
+    """
+    # list_models_name = ['IconArt_v1_big01_modif_RandInit_deepSupervision_ep1_LRschedG_dropout070704',
+    #                     'IconArt_v1_big01_modif_RandInit_randomCrop_deepSupervision_ep1_RedLROnPlat_dropout070704']
+    
+    # Comparaison_of_FineTunedModel(list_models_name,testMode=True,constrNet='InceptionV1')
+    
+    list_model_name_5 = ['RASTA_small01_modif'
+                        ]
+    Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50',testMode=True) 
     
 
     
@@ -1135,8 +1160,12 @@ if __name__ == '__main__':
      #                              'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
      # Ca a plante la a cause de la visualisation et je ne sais pas pourquoi .... 
      # Faut il faire les entrainements puis ensuite les visualisations ??? 
+    # Il y a un soucis quand je cherche a visualiser les features et je en sais pas pourquoi !!! 
+     liste_possible_fromScatch = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'] 
+     # visu a faire !!!
      liste_possible_fromScatch = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                                  'RASTA_big01_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
+                                 'RASTA_big01_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
+                                  'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_RedLROnPlat_dropout070704',
                                   'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704',
                                   'RASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
                                   'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704']
@@ -1151,7 +1180,7 @@ if __name__ == '__main__':
     
     #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
 
-     list_model_name_5 = ['RMN_small01_modif',
+     list_model_name_5 = ['RASTA_small01_modif',
                           'RASTA_big001_modif_adam_unfreeze50_ep200',
                          'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                          'RASTA_big001_modif_adam_unfreeze20_ep200',
