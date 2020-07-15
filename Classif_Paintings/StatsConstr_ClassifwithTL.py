@@ -4725,6 +4725,14 @@ def test_fined_onOtherDatasetFirst():
     learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[0.1,10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RASTA_small01_modif') 
+    # & 52.8 & 38.8 & 88.6 & 70.5 & 45.7 & 65.5 & 43.8 & 72.0 & 57.5 & 73.3 & 60.9 \\ 
+        
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                 optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
                 epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
                 weights='RASTA_small01_modif') 
