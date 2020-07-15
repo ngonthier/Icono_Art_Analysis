@@ -1239,7 +1239,16 @@ def topK_features_per_class_list_of_modelpretrained():
                                                num_components_draw = 10,
                                                stats_on_layer=stats_on_layer,
                                                selection_feature=selection_feature)
-
+                    
+def test_meanFirePos():
+    
+    for selection_feature in [None,'ClassMinusGlobalMean']:
+        vizu_topK_feature_per_class(model_name ='RASTA_small01_modif',\
+                                   layer='mixed4d',\
+                                   source_dataset='RASTA',
+                                   num_components_draw = 1,
+                                   stats_on_layer='meanFirePos',
+                                   selection_feature=selection_feature)
 
 def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
                                layer='mixed4d',\
@@ -1376,6 +1385,13 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
                     mean_spatial_means_notc = np.max(array_spatial_means_notc,axis=0)
                 elif selection_feature=='ClassMinusGlobalMean':
                     mean_spatial_means_all = np.max(array_spatial_means_all,axis=0)
+                    
+            elif stats_on_layer=='meanFirePos': # In this case we take the mean of th meanFirePos
+                mean_spatial_means = np.mean(array_spatial_means,axis=0)
+                if selection_feature=='TopOnlyForClass':
+                    mean_spatial_means_notc = np.mean(array_spatial_means_notc,axis=0)
+                elif selection_feature=='ClassMinusGlobalMean':
+                    mean_spatial_means_all = np.mean(array_spatial_means_all,axis=0)
 
             else:
                 raise(ValueError(stats_on_layer))
@@ -1670,6 +1686,36 @@ def PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',\
     #                         path_output=path_output_lucid_im,prexif_name=prexif_name_spm,\
     #                         input_name=input_name_lucid,Net=constrNet,sizeIm=256)
             
+            for comp_number in range(num_components_draw):
+                weights = eigen_vectors[:,comp_number]
+                prexif_name = '_PCA'+str(comp_number)
+                if not(classe is None):
+                   prexif_name += '_'+classe 
+                print(prexif_name)
+                do_lucidVizu_forPCA_all_case(path_lucid_model,
+                                            name_pb,
+                                             prexif_name,features_size,
+                                             layer,weights,path_output_lucid_im,
+                                             input_name_lucid,constrNet,
+                                             strictMinimum=strictMinimum,cossim=cossim,
+                                             dot_vector=dot_vector,num_features=num_features)
+        elif clustering=='corr': 
+            # On va convertir la matrice de covariance en matrice de correlation
+            D = np.diag(np.sqrt(np.diag(mean_cov_matrix)))
+            DInv = np.linalg.inv(D)
+            corr_matrix = np.matmul(DInv,np.matmul(mean_cov_matrix,DInv)) # correlation matrix
+            eigen_values, eigen_vectors = LA.eig(corr_matrix)
+
+            pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True) 
+            plt.figure()
+            plt.scatter(np.arange(0,len(eigen_values)),eigen_values,s=4)
+            plt.ylabel('Eigen Value')
+            plt.savefig(os.path.join(path_output_lucid_im,'EigenValues_CorrMatrix'+layer+'_'+classe_str+'.png'),\
+                        dpi=300)
+            plt.close()
+            
+            eigen_vectors = np.real(eigen_vectors) 
+         
             for comp_number in range(num_components_draw):
                 weights = eigen_vectors[:,comp_number]
                 prexif_name = '_PCA'+str(comp_number)
@@ -3350,28 +3396,45 @@ if __name__ == '__main__':
     #                           clustering='PCA',
     #                           num_components_draw=3)
     
-    produce_latex_textV2(model_name = 'RASTA_small01_modif',
-                       layer_tab=['mixed4d_pre_relu'],classe_tab = ['Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art',
-                                 'Post-Impressionism','Realism'],
-                               folder_im_latex='im',
-                               num_components_draw = 3,
-                               KindOfMeanReduciton='global')
+#    produce_latex_textV2(model_name = 'RASTA_small01_modif',
+#                       layer_tab=['mixed4d_pre_relu'],classe_tab = ['Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art',
+#                                 'Post-Impressionism','Realism'],
+#                               folder_im_latex='im',
+#                               num_components_draw = 3,
+#                               KindOfMeanReduciton='global')
+    
+    topK_features_per_class_list_of_modelpretrained()
+    
+    for layer in ['mixed4d','mixed5a']:
+        for kind_method in ['corr','PCA','PCAsubset']:
+        
+            for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art','Post-Impressionism','Realism']:
+                PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
+                                       classe = classe,\
+                                       layer=layer,
+                                       clustering=kind_method)
+            for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e','Pop_Art','Post-Impressionism','Realism']:
+                PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_small01_modif',
+                                       classe = classe,\
+                                       layer=layer,
+                                       clustering=kind_method)
+    
     
     for classe in ['Northern_Renaissance','Abstract_Art','Ukiyo-e']:
         for cossim in [False]:
-            #for clustering in ['NMF','Kmeans','PCA','IPCA','WHC']:
-            for clustering in ['WHC']:
-                for whiten in [False]:
-                    if clustering=='WHC':
-                        number_of_blocks = 1
-                    else:
-                        number_of_blocks = 20
-                    Generate_Im_class_conditionated(model_name='RASTA_small01_modif',
-                                        constrNet = 'InceptionV1',
-                                        classe=classe,layer='mixed4d',
-                                        num_components_draw =3,clustering = clustering,
-                                        number_of_blocks = number_of_blocks,strictMinimum=True,
-                                        whiten=whiten,cossim=cossim)
+            for clustering in ['NMF','Kmeans','PCA','IPCA','WHC']:
+                for whiten in [False,True]:
+                    for layer in ['mixed4d','mixed5a']:
+                        if clustering=='WHC':
+                            number_of_blocks = 1
+                        else:
+                            number_of_blocks = 20
+                        Generate_Im_class_conditionated(model_name='RASTA_small01_modif',
+                                            constrNet = 'InceptionV1',
+                                            classe=classe,layer=layer,
+                                            num_components_draw =3,clustering = clustering,
+                                            number_of_blocks = number_of_blocks,strictMinimum=True,
+                                            whiten=whiten,cossim=cossim)
     
     # for classe in ['Abstract_Art','Ukiyo-e']:
     #     PCAbased_FeaVizu_deepmodel(model_name = 'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
