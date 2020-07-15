@@ -2223,9 +2223,9 @@ def new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,lr_mul
           else:
               dropout_i = dropout
       name_head = head.name
-      print(name_head)
+      #print(name_head)
       name_head = name_head.split('/')[0]
-      print(name_head,'name_head')
+      #print(name_head,'name_head')
       if not(slim):
           name_head_prediction = name_head + '_prediction'
           x = Flatten()(head)

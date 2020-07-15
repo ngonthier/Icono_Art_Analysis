@@ -4746,6 +4746,15 @@ def test_fined_onOtherDatasetFirst():
                 epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
                 weights='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200')    
     # & 43.6 & 29.6 & 88.1 & 65.9 & 42.2 & 54.1 & 38.8 & 72.1 & 60.7 & 72.5 & 56.8 \\  mais la loss ne semble pas avoir atteint son minimum
+  
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200')    
+    #  & 54.5 & 31.1 & 90.2 & 67.7 & 50.7 & 62.8 & 43.9 & 73.9 & 62.9 & 76.0 & 61.4 \\  
+    # L optimization ne semble pas encore etre fini
      
         
     learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='conv5_block3_out',\
@@ -4755,6 +4764,14 @@ def test_fined_onOtherDatasetFirst():
            epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
            weights='RASTA_small01_modif')    
     #& 5.5 & 11.7 & 65.3 & 48.5 & 11.9 & 28.5 & 17.2 & 25.6 & 15.9 & 17.6 & 24.8 \\
+        
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='conv5_block3_out',\
+           constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+           transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+           optimizer='SGD',opt_option=[0.1,10**(-2)],pretrainingModif=True,\
+           epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+           weights='RASTA_small001_modif')    
+    # a tester
         
     # TEst pour voir si tu n a pas tout cassé
     # learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
