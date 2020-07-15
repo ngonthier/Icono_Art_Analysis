@@ -408,15 +408,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         - linear SVM 'LinearSVC' or two layers NN 'MLP2' or MLP1 for perceptron
     @param : features : which features we will use
         - fc2, fc1, flatten block5_pool (need a transformation) for VGG
-        - block5_pool ou avg_pool ou activation_48 for ResNet50
+        - block5_pool ou avg_pool ou activation_48,conv5_block3_out for ResNet50
         - avgpool for InceptionV1 
     @param : constrNet the constrained net used :
-        VGG
+        VGG : last layer fc2,fc1 or block5_pool
         VGGInNorm
         VGGInNormAdapt : seulement sur les features qui répondent trop fort
         VGGBaseNorm
         VGGBaseNormCoherent
-        ResNet50
+        ResNet50 : last layer in this case : conv5_block3_out
         ResNet50_ROWD
         ResNet50_ROWD_CUMUL
         ResNet50_BNRF
@@ -429,8 +429,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         ResNet50suffleInStats
         ResNet50AdaIn
         ResNet50_ROWD_CUMUL_AdaIn : fine tune only the batch normalisation refined
-        InceptionV1
-        InceptionV1_slim : ne fonctionne pas !
+        InceptionV1 : last layer avg_pool
+        InceptionV1_slim : ne fonctionne pas !?
 
         TODO : VGGGram that modify the gram matrices
     @param : transformOnFinalLayer can be :
@@ -545,9 +545,12 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     if final_clf=='LinearSVC' and kind_method=='FT':
         print('You can not have LinearSVC and finetuning ie FT option at the same time')
         print('With FT option you have to use MLP final classifier')
-        raise(NotImplementedError)
+        raise(NotImplementedError('LinearSVC is not compatible with FT model exp'))
         
-
+    list_finetuned_models_name = get_list_shortcut_name_model()
+    if weights in list_finetuned_models_name: # When we used a fine-tuned model from one dataset to another one
+        if not(constrNet=='InceptionV1' or constrNet=='InceptionV1_slim' or constrNet=='ResNet50'):
+            raise(NotImplementedError('Fine tuning an already fine-tuned network is only available for InceptionV1 and ResNet model not for '+constrNet))
         
         
     assert(not(returnStatistics and returnFeatures)) # Need to choose between both
@@ -588,8 +591,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if kind_method=='TL' and constrNet in ['VGGInNorm','VGGInNormAdapt','VGGBaseNorm','VGGBaseNormCoherent']:
             name_base += source_dataset +str(number_im_considered)
         name_base +=  '_' + num_layers
-        
-    list_finetuned_models_name = get_list_shortcut_name_model()
+
     if kind_method=='FT' :
         if (weights=='imagenet'):
             name_base += '' # Random initialisation 
@@ -695,7 +697,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         if features in ['avg_pool']: # A remplir
             name_base += '_' + features
         else:
-            if not(features=='activation_48'): # TODO ici
+            if not(features=='activation_48' or features=='conv5_block3_out'):
                 name_base += '_' + features
             if not((transformOnFinalLayer is None) or (transformOnFinalLayer=='')):
                name_base += '_'+ transformOnFinalLayer
@@ -1634,7 +1636,7 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                                    dropout=dropout,nesterov=nesterov,\
                                    SGDmomentum=SGDmomentum,decay=decay,optimizer=optimizer,\
                                    final_activation=final_activation,metrics=metrics,loss=loss,clipnorm=clipnorm,\
-                                   imSize=imSize)
+                                   imSize=imSize,final_layer=features)
             
     elif constrNet=='ResNet50AdaIn':
         getBeforeReLU = False
@@ -4710,6 +4712,14 @@ def test_fined_onOtherDatasetFirst():
                 transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                 optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
                 epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='imagenet') # La baseline en quelque sorte 
+    # & 49.0 & 28.4 & 87.1 & 63.7 & 34.6 & 53.3 & 32.4 & 70.3 & 48.7 & 71.9 & 54.0 \\     
+        
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
                 weights='RMN_small01_modif')    
     # & 65.6 & 44.3 & 90.7 & 68.3 & 59.6 & 67.3 & 43.3 & 79.5 & 71.6 & 80.8 & 67.1 \\
     learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
@@ -4717,7 +4727,34 @@ def test_fined_onOtherDatasetFirst():
                 transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                 optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
                 epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RASTA_small01_modif') 
+    # & 61.1 & 42.7 & 91.7 & 68.8 & 60.1 & 65.9 & 46.1 & 79.0 & 74.3 & 80.3 & 67.0 \\ 
+    # Et l optimization n est pas fini
+       
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[0.1,0.1],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RASTA_small01_modif') 
+    # & 62.2 & 44.5 & 90.9 & 67.8 & 55.1 & 64.8 & 37.8 & 76.9 & 63.3 & 78.7 & 64.2 \\ 
+        
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
                 weights='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200')    
+    # & 43.6 & 29.6 & 88.1 & 65.9 & 42.2 & 54.1 & 38.8 & 72.1 & 60.7 & 72.5 & 56.8 \\  mais la loss ne semble pas avoir atteint son minimum
+     
+        
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='conv5_block3_out',\
+           constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+           transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+           optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+           epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+           weights='RASTA_small01_modif')    
+    #& 5.5 & 11.7 & 65.3 & 48.5 & 11.9 & 28.5 & 17.2 & 25.6 & 15.9 & 17.6 & 24.8 \\
         
     # TEst pour voir si tu n a pas tout cassé
     # learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\

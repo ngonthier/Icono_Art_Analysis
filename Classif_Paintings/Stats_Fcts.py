@@ -1010,6 +1010,7 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
                              pretrainingModif=True,verbose=True,weights='imagenet',res_num_layers=50,\
                              optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',\
                              regulOnNewLayer=None,regulOnNewLayerParam=[],\
+                             final_layer='conv5_block3_out',
                              dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
                              final_activation='sigmoid',metrics='accuracy',
                              loss='binary_crossentropy',clipnorm=None,
@@ -1030,6 +1031,12 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
                                                           input_shape= (imSize, imSize, 3))
           random_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=None,\
                                                           input_shape= (imSize, imSize, 3))
+              
+      elif weights in list_finetuned_models_name:
+          pre_model,_ = CompNet_FT_lucidIm.get_fine_tuned_model(weights,constrNet='ResNet50',suffix='',
+                               get_Metrics=False,verbose=False) # it will returns the fine-tuned net and the initialization
+      else:
+          raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in list_finetuned_models_name'))
           
       number_of_trainable_layers = 106
   else:
@@ -1089,8 +1096,15 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
           random_layer = random_model.get_layer(layer.name)
           random_weights = random_layer.get_weights()
           layer.set_weights(random_weights)
+          
+      if final_layer==layer.name:
+          x = layer.output
+          break
 
-  x = pre_model.output
+  # TODO ici aussi il va falloir checker le nom de la derniere couche a considerer comme dans InceptionV1 
+          # pour ensuite selectionner la bonne couche et ne pas garder la classification couche d avant !
+
+  #x = pre_model.output
   if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
      x = GlobalMaxPooling2D()(x)
   elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
