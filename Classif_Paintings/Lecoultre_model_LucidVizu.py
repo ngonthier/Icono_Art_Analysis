@@ -54,7 +54,8 @@ sess = tf.Session()
 set_session(sess)
 
 
-original_model = resnet_trained(n_retrain_layers=20) # Cela va charger un model keras et non un tf.keras model
+original_model = resnet_trained(n_retrain_layers=20)
+ # Cela va charger un model keras et non un tf.keras model
 
 base_model = resnet_trained(20)
 predictions = Dense(25, activation='softmax')(base_model.output)
@@ -72,6 +73,8 @@ path_to_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','rast
 constrNet = 'LResNet50' # For Lecoutre ResNet50 version
 model_name = 'Lecoutre2017'
 input_name_lucid = 'input_1'
+
+tf.keras.backend.set_image_data_format('channels_last')
 
 net_finetuned.load_weights(path_to_model)
 
@@ -158,17 +161,17 @@ matplotlib.use('Agg')
 output_path_with_model = os.path.join(output_path,model_name)
 pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
 
-#global sess
-#global graph
-#with graph.as_default():
-#    set_session(sess)
-#    net_finetuned.predict(np.random.rand(1,224,224,3))
+global sess
+global graph
+with graph.as_default():
+    set_session(sess)
+    net_finetuned.predict(np.random.rand(1,224,224,3))
 
 lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
          ,path_output=output_path_with_model,prexif_name=model_name,input_name=input_name_lucid,Net=constrNet)
 
 # For the original one !!! 
-#original_model.predict(np.random.rand(1,224,224,3))
+original_model.predict(np.random.rand(1,224,224,3))
 #sess = keras.backend.get_session()
 #sess.run()
 frozen_graph = lucid_utils.freeze_session(sess,
