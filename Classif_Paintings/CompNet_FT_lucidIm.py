@@ -770,15 +770,19 @@ def print_RASTA_performance():
                         #'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200', # NotImplemented
                         #'RASTA_small01_modif_adam_unfreeze50_SmallDataAug_ep200_cn1'
                         'RASTA_big001_modif_adam_unfreeze50_randomCrop_ep200_cn1',
-                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_cn1',
-                        'RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
+                        'RASTA_big001_modif_adam_RandInit_randomCrop_deepSupervision_ep200_cn1']
+    list_models_name = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200_LRschedG',
                         'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                         'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                          'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                          'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
-                         'RASTA_big001_modif_Adadelta_unfreeze50_MediumDataAug_ep200'
-                        ]
+                         'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                         'RASTA_big01_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
+                          'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_RedLROnPlat_dropout070704',
+                          'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704',
+                          'RASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
+                          'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704'
+                          ]
     print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=list_models_name,
                                         suffix_tab=[''],latexOutput=True)
@@ -788,10 +792,15 @@ def print_RASTA_performance():
 #    print_performance_FineTuned_network(constrNet='InceptionV1_slim',
 #                                        list_models_name=list_models_name,
 #                                        suffix_tab=[''],latexOutput=True)
-#    list_models_name=['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
-#    print_performance_FineTuned_network(constrNet='ResNet50',
-#                                        list_models_name=list_models_name,
-#                                        suffix_tab=[''],latexOutput=True)
+    list_models_name=['RASTA_small01_modif',
+                     'RASTA_big001_modif_adam_unfreeze50_ep200',
+                     'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                     'RASTA_big001_modif_adam_unfreeze20_ep200',
+                     'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
+                     'RASTA_big001_modif_RMSprop_unfreeze20_SmallDataAug_ep200']
+    print_performance_FineTuned_network(constrNet='ResNet50',
+                                        list_models_name=list_models_name,
+                                        suffix_tab=[''],latexOutput=True)
 def print_IconArtv1_performance():
 
     list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200',
