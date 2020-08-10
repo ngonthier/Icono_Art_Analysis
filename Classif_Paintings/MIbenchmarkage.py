@@ -1825,6 +1825,20 @@ def BenchmarkRun():
 #            for dataWhen,dataNorm in zip(['onTrainSet'],['std']):
                 evalPerf(method=method,dataset=dataset,reDo=False,verbose=False,
                          dataNormalizationWhen=dataWhen,dataNormalization=dataNorm)
+                
+def BenchmarkRunWithMaxOfMax():
+
+    datasets = ['Birds','Newsgroups','SIVAL']
+    list_of_algo= ['MaxOfMax']
+    # Warning the IA_mi_model repeat the element to get bag of equal size that can lead to bad results !
+
+    for method in list_of_algo:
+        for dataset in datasets:
+            print('==== ',method,dataset,' ====')
+            for dataWhen,dataNorm in zip(['onTrainSet',None],['std',None]):
+#            for dataWhen,dataNorm in zip(['onTrainSet'],['std']):
+                evalPerf(method=method,dataset=dataset,reDo=False,verbose=False,
+                         dataNormalizationWhen=dataWhen,dataNormalization=dataNorm)
 
 def BenchmarkRunClassical():
 

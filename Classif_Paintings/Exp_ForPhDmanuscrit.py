@@ -176,10 +176,16 @@ def Other_way_to_use_score_MaxOfMax():
 
 if __name__ == '__main__':                                       
     
+    print('TwoThousandsboxes_MIMAX')
     TwoThousandsboxes_MIMAX()
+    print('CVmode_MIMAX')
     CVmode_MIMAX()
+    print('Other_way_to_use_score_MIMAX')
     Other_way_to_use_score_MIMAX()
+    print('Other_way_to_use_score_MaxOfMax')
     Other_way_to_use_score_MaxOfMax()
     
+    print('PascalVOC_sanity_check')
     PascalVOC_sanity_check()
+    print('miperceptron_for_artistist_dataset')
     miperceptron_for_artistist_dataset()
