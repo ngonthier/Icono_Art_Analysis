@@ -4700,6 +4700,10 @@ def Paintings_comparaisonModel():
     # diverge complement
 
 def test_fined_onOtherDatasetFirst():
+    """
+    In this fct we try to fine tuned a model on IconArt or Paintings that have been 
+    pretrained on RASTA instead of ImageNet
+    """
     learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
@@ -4715,6 +4719,7 @@ def test_fined_onOtherDatasetFirst():
                 epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
                 weights='RMN_small01_modif')    
     # & 65.6 & 44.3 & 90.7 & 68.3 & 59.6 & 67.3 & 43.3 & 79.5 & 71.6 & 80.8 & 67.1 \\
+    
     learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\

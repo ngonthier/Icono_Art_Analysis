@@ -1222,8 +1222,10 @@ def topK_features_per_class_list_of_modelpretrained():
                        'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                        'RASTA_small01_modif',
                        'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                       'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                        'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
-                       'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200'
+                       'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                       'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
                        ] # a faire plus tard
     
     # Tu n'as pas fini pour RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200 
