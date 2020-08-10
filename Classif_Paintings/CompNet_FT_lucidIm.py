@@ -1170,36 +1170,34 @@ if __name__ == '__main__':
      # Ca a plante la a cause de la visualisation et je ne sais pas pourquoi .... 
      # Faut il faire les entrainements puis ensuite les visualisations ??? 
     # Il y a un soucis quand je cherche a visualiser les features et je en sais pas pourquoi !!! 
-     liste_possible_fromScatch = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'] 
-     # visu a faire !!!
-     liste_possible_fromScatch = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                                 'RASTA_big01_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
-                                  'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_RedLROnPlat_dropout070704',
-                                  'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704',
-                                  'RASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
-                                  'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704']
-     Comparaison_of_FineTunedModel(liste_possible_fromScatch,constrNet='InceptionV1') 
+    #  liste_possible_fromScatch = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'] 
+    #  # visu a faire !!!
+    #  liste_possible_fromScatch = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+    #                              'RASTA_big01_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
+    #                               'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_RedLROnPlat_dropout070704',
+    #                               'RASTA_big01_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704',
+    #                               'RASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedG_dropout070704',
+    #                               'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_dropout070704']
+    #  Comparaison_of_FineTunedModel(liste_possible_fromScatch,constrNet='InceptionV1') 
     
-    # Cela a faire : 
+    # # Cela a faire : 
     
-    # list_model_name_I = ['RASTA_small01_modif_ep200',
-    #                      'RASTA_small001_modif_ep200']
-    # list_model_name_I = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200']
-    # Comparaison_of_FineTunedModel(list_model_name_I,constrNet='InceptionV1') 
+    # # list_model_name_I = ['RASTA_small01_modif_ep200',
+    # #                      'RASTA_small001_modif_ep200']
+    # # list_model_name_I = ['RASTA_big0001_modif_RandInit_deepSupervision_ep200']
+    # # Comparaison_of_FineTunedModel(list_model_name_I,constrNet='InceptionV1') 
     
-    #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
+    # #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
 
-     list_model_name_5 = ['RASTA_small01_modif',
-                          'RASTA_big001_modif_adam_unfreeze50_ep200',
-                         'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
-                         'RASTA_big001_modif_adam_unfreeze20_ep200',
-                         'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
-                         'RASTA_big001_modif_RMSprop_unfreeze20_SmallDataAug_ep200',
-                         'RASTA_big001_modif_RMSprop_unfreeze20_randomCrop_ep200',
-                         'RASTA_big001_modif_RMSprop_unfreeze50_SmallDataAug_ep200',
-                         'RASTA_big001_modif_RMSprop_unfreeze50_randomCrop_ep200'
-                        ]
-     Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
+    #  list_model_name_5 = ['RASTA_small01_modif',
+    #                       'RASTA_big001_modif_adam_unfreeze50_ep200',
+    #                      'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+    #                      'RASTA_big001_modif_adam_unfreeze20_ep200',
+    #                      'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
+    #                     ]
+    #  Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
+    # InceptionV1 and ResNet50 models have been trained => need to look at the results ! 
+    #Test avec RMSprop non fait !
      list_model_name_4 = ['RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200',
                          'RASTA_big0001_modif_adam_unfreeze8_ep200',
                          'RASTA_big0001_modif_adam_unfreeze8_SmallDataAug_ep200',

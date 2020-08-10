@@ -1536,12 +1536,14 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
                 
                 else:
                     name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
+                # TODO !!!! ici il y a un probleme et je ne sais pas pourquoi .... Chelou !
                 lucid_utils.print_images(model_path=os.path.join(path_lucid_model,name_pb),
                                          list_layer_index_to_print=[layer,index_feature],
                                          path_output=path_output_lucid_im,prexif_name=prexif_name,\
                                          input_name=input_name_lucid,Net=constrNet,sizeIm=224,
                                          ROBUSTNESS=ROBUSTNESS,
                                          DECORRELATE=DECORRELATE)
+                    
             name_output = os.path.join(path_output_lucid_im,name_base)
             print(name_output)
             img = plt.imread(name_output)
