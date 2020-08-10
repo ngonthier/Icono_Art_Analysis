@@ -4779,6 +4779,22 @@ def test_fined_onOtherDatasetFirst():
            weights='RASTA_small001_modif')    
     # a tester
         
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='conv5_block3_out',\
+           constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+           transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+           optimizer='SGD',opt_option=[0.1,10**(-2)],pretrainingModif=True,\
+           epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+           weights='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG')    
+    # a tester aussi on est parti de zero pour voir ce que cela donne
+        
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='conv5_block3_out',\
+           constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+           transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+           optimizer='SGD',opt_option=[0.1,10**(-2)],pretrainingModif=True,\
+           epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+           weights='RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200') 
+    # A tester car on est pas parti de zero mais que la fin du reseau depuis scratch
+        
     # TEst pour voir si tu n a pas tout cassé
     # learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
     #             constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
@@ -5445,11 +5461,51 @@ def RASTAclassifTest():
         transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
         regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
         epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True)
-    # Baseline ResNet50 
+    # Baseline ResNet50avec MLP2
     # Top-1 accuracy : 61.07%
     # Top-3 accuracy : 84.58%
     # Top-5 accuracy : 92.53%
         
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+        constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True)
+    # RASTA ResNet avec MLP1 
+    # Top-1 accuracy : 60.10%
+    # Top-3 accuracy : 83.38%
+    # Top-5 accuracy : 91.61%    
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+        constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
+        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True,
+        return_best_model=True)
+    # RASTA ResNet avec MLP1  return_best_model = True
+    
+        
+    ## Only fine tuned the head MLP
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+        constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.01],\
+        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=False,verbose=True)
+    # Top-1 accuracy : 40.69%
+    # Top-3 accuracy : 70.94%
+    # Top-5 accuracy : 83.73%
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='conv5_block3_out',\
+        constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.01],\
+        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=False,verbose=True)
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP3',features='conv5_block3_out',\
+        constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+        regulOnNewLayer=None,optimizer='SGD',opt_option=[0.01],\
+        epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=False,verbose=True)
+ 
         
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
         constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=True,\

@@ -1195,10 +1195,12 @@ if __name__ == '__main__':
     #                      'RASTA_big001_modif_adam_unfreeze20_ep200',
     #                      'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
     #                     ]
-    #  Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
+     list_model_name_5 = ['RASTA_small001_modif'] # Provide 60% on Top1 
+     Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
     # InceptionV1 and ResNet50 models have been trained => need to look at the results ! 
     #Test avec RMSprop non fait !
-     list_model_name_4 = ['RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200',
+ #'RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200','RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200',
+     list_model_name_4 = [
                          'RASTA_big0001_modif_adam_unfreeze8_ep200',
                          'RASTA_big0001_modif_adam_unfreeze8_SmallDataAug_ep200',
                          'RASTA_big0001_modif_adam_unfreeze8_ep200',
