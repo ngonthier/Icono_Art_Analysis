@@ -5,6 +5,8 @@ Created on Tue Aug 11 11:35:45 2020
 
 @author: gonthier
 """
+import sys
+sys.path.append("..")
 from Exp_ForPhDmanuscrit import miperceptron_for_artistist_dataset
 
 if __name__ == '__main__':

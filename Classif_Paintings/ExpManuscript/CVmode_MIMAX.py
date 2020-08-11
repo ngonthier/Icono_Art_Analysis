@@ -5,7 +5,8 @@ Created on Tue Aug 11 11:31:33 2020
 
 @author: gonthier
 """
-
+import sys
+sys.path.append("..")
 from Exp_ForPhDmanuscrit import CVmode_MIMAX
 
 if __name__ == '__main__':
