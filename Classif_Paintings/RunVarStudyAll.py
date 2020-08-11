@@ -114,7 +114,11 @@ def VariationStudyPart1_forVOC07():
     First Part Store thevectors computed
     '''
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     database_tab = ['VOC2007','PeopleArt','watercolor','WikiTenLabels']
 #    database_tab = ['VOC2007','PeopleArt']
 #    database_tab = ['PeopleArt']
@@ -433,7 +437,11 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
     Max_version = None
     k_per_bag = 300
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     ReDo = True
     
     for with_scores in scores_tab:
@@ -546,7 +554,11 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
     Max_version = None
     k_per_bag = 300
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     ReDo = True
 
     for with_scores in scores_tab:
@@ -653,7 +665,11 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
     Max_version = None
     k_per_bag = 300
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     onlyAP05 = False
     for with_scores in [False,True]:
         for loss_type in ['','hinge']:
@@ -809,7 +825,11 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
     
     k_per_bag = 300
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     ReDo = True
     
     
@@ -936,7 +956,11 @@ def approx_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10,
     mini_batch_size=120
     k_per_bag = 300
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     ReDo = True
     scores_tab = [True]
     loss_tab = ['']
@@ -1147,7 +1171,11 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
             
 def ComputationForLossPlot(database= 'PeopleArt'):
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     C_Searching = False
     loss_type = ''
     CV_Mode = ''
@@ -1890,8 +1918,7 @@ def VariationStudyPart2_forVOC07():
     Dict = {}
 
     seuil = 0.9 
-    
-    data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+
     listi = [0,5]
     seuil = 0.9 
 
@@ -2301,7 +2328,7 @@ def VariationStudyPart2_forVOC07():
                         Lossstoredextract = Lossstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep]
                         loss_value = np.reshape(Lossstoredextract,(-1,),order='F')
                         ## Creation of the model
-                        export_dir =  modelcreator.createIt(data_path,class_indice,W_tmp,b_tmp,loss_value)
+                        export_dir =  modelcreator.createIt(path_data,class_indice,W_tmp,b_tmp,loss_value)
                         number_zone = 300
                         Number_of_positif_elt = 1
                         dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
@@ -2442,8 +2469,6 @@ def VariationStudyPart2bis():
     start_i = 0
     end_i = 12
     seuil = 0.9 
-    
-    data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
 #    listi = range(start_i,end_i+1) 
     listi = [0,5]
@@ -2735,7 +2760,7 @@ def VariationStudyPart2bis():
                         Lossstoredextract = Lossstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep]
                         loss_value = np.reshape(Lossstoredextract,(-1,),order='F')
                         ## Creation of the model
-                        export_dir =  modelcreator.createIt(data_path,class_indice,W_tmp.astype(np.float32),b_tmp.astype(np.float32),loss_value)
+                        export_dir =  modelcreator.createIt(path_data,class_indice,W_tmp.astype(np.float32),b_tmp.astype(np.float32),loss_value)
                         number_zone = 300
                         Number_of_positif_elt = 1
                         dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
@@ -2878,7 +2903,6 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
 
     seuil = 0.9 
     listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
-    data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     
     liste = []
     
@@ -3043,7 +3067,6 @@ def VariationStudyPart3bis():
     end_i = 12
     seuil = 0.9 
     listAggregW = [None,'maxOfTanh','meanOfTanh','minOfTanh','AveragingW']
-    data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     listi = [0,4]
     for database  in database_tab:
         print('--------------------------------')
@@ -3228,7 +3251,10 @@ def VariationStudy():
     method
     '''
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
     database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
 #    database_tab = ['VOC2007','PeopleArt']
 #    database_tab = ['PeopleArt','watercolor']
