@@ -404,7 +404,8 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
                                         scores_tab=[True],
                                         loss_tab=[''],
                                         obj_score_mul_tanh = False,
-                                        obj_score_add_tanh=False):
+                                        obj_score_add_tanh=False,
+                                        number_restarts = 11):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
     """
@@ -416,7 +417,7 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
     C_Searching = False
     
     layer = 'fc7'
-    number_restarts = 11
+    
     CV_Mode = ''
     AggregW = None
     proportionToKeep = [0.25,1.0]
