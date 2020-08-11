@@ -253,7 +253,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
     else:
         raise(ValueError(constrNet + ' is unknown in this function'))
 
-    # En fait il y avait 
+    # En fait il y avait besoin de cela pour les models VGG et ResNet mais pas pour
+    # Inception V1 !!!! 
     if 'GAP' in model_name:
         transformOnFinalLayer='GlobalAveragePooling2D'
     elif 'GMP' in model_name:
