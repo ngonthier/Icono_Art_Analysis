@@ -1040,7 +1040,11 @@ def VariationStudyPart1(database=None,scenarioSubset=None,demonet = 'res152_COCO
     '''
     tf.reset_default_graph()
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     if database is None:
         database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
     else:
@@ -1868,7 +1872,11 @@ def VariationStudyPart2_forVOC07():
     '''
     demonet = 'res101_VOC07'
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
 #    database_tab = ['watercolor']
 ##    database_tab = ['VOC2007','PeopleArt']
@@ -2412,7 +2420,11 @@ def VariationStudyPart2bis():
     '''
     demonet = 'res152_COCO'
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
 #    database_tab = ['watercolor']
 ##    database_tab = ['VOC2007','PeopleArt']
@@ -2842,7 +2854,11 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
     '''
     
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     if database is None:
         database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
     else:
@@ -3007,7 +3023,11 @@ def VariationStudyPart3bis():
     '''
     demonet = 'res152_COCO'
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
 #    database_tab = ['VOC2007','PeopleArt']
 #    database_tab = ['PeopleArt']
