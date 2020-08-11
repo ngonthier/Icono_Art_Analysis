@@ -3435,17 +3435,34 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             else:
                 X = get_tensor_by_nameDescendant(graph,"X")
                 y = get_tensor_by_nameDescendant(graph,"y")
+            if with_tanh_alreadyApplied:
+                nameTensor = "Tanh"
+            
+                    
             if scoreInMI_max: 
                 scores_tf = get_tensor_by_nameDescendant(graph,"scores")
                 if with_tanh_alreadyApplied:
-                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+                    nameTensor = "Tanh"
+                    nameTensor_bis = "ProdScore"
                 else:
-                    Prod_best = get_tensor_by_nameDescendant(graph,"ProdScore")
+                    nameTensor = "ProdScore"
+                    nameTensor_bis = "Tanh"
+                try:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor)
+                except  KeyError as e:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor_bis)
+
             else:
                 if with_tanh_alreadyApplied:
-                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+                    nameTensor = "Tanh"
+                    nameTensor_bis = "Prod"
                 else:
-                    Prod_best =  get_tensor_by_nameDescendant(graph,"Prod")
+                    nameTensor = "Prod"
+                    nameTensor_bis = "Tanh"
+                try:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor)
+                except  KeyError as e:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor_bis)
             if with_tanh:
                 if verbose: print('use of tanh')
                 Tanh = tf.tanh(Prod_best)
@@ -3613,14 +3630,27 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             if scoreInMI_max: 
                 scores_tf = get_tensor_by_nameDescendant(graph,"scores")
                 if with_tanh_alreadyApplied:
-                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+                    nameTensor = "Tanh"
+                    nameTensor_bis = "ProdScore"
                 else:
-                    Prod_best = get_tensor_by_nameDescendant(graph,"ProdScore")
+                    nameTensor = "ProdScore"
+                    nameTensor_bis = "Tanh"
+                try:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor)
+                except  KeyError as e:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor_bis)
+
             else:
                 if with_tanh_alreadyApplied:
-                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+                    nameTensor = "Tanh"
+                    nameTensor_bis = "Prod"
                 else:
-                    Prod_best =  get_tensor_by_nameDescendant(graph,"Prod")
+                    nameTensor = "Prod"
+                    nameTensor_bis = "Tanh"
+                try:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor)
+                except  KeyError as e:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor_bis)
             if with_tanh:
                 print('use of tanh')
                 Tanh = tf.tanh(Prod_best)
@@ -3930,14 +3960,27 @@ def tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,
             if scoreInMI_max: 
                 scores_tf = get_tensor_by_nameDescendant(graph,"scores")
                 if with_tanh_alreadyApplied:
-                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+                    nameTensor = "Tanh"
+                    nameTensor_bis = "ProdScore"
                 else:
-                    Prod_best = get_tensor_by_nameDescendant(graph,"ProdScore")
+                    nameTensor = "ProdScore"
+                    nameTensor_bis = "Tanh"
+                try:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor)
+                except  KeyError as e:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor_bis)
+
             else:
                 if with_tanh_alreadyApplied:
-                    Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+                    nameTensor = "Tanh"
+                    nameTensor_bis = "Prod"
                 else:
-                    Prod_best =  get_tensor_by_nameDescendant(graph,"Prod")
+                    nameTensor = "Prod"
+                    nameTensor_bis = "Tanh"
+                try:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor)
+                except  KeyError as e:
+                    Prod_best = get_tensor_by_nameDescendant(graph,nameTensor_bis)
             if with_tanh:
                 print('We add the tanh in the test fct')
                 Tanh = tf.tanh(Prod_best)
@@ -4834,14 +4877,27 @@ def MImax_detectionOnOtherImages(demonet = 'res152_COCO',learning_database = 'Ic
     if scoreInMI_max: 
         scores_tf = get_tensor_by_nameDescendant(graph,"scores")
         if with_tanh_alreadyApplied:
-            Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+            nameTensor = "Tanh"
+            nameTensor_bis = "ProdScore"
         else:
-            Prod_best = get_tensor_by_nameDescendant(graph,"ProdScore")
+            nameTensor = "ProdScore"
+            nameTensor_bis = "Tanh"
+        try:
+            Prod_best = get_tensor_by_nameDescendant(graph,nameTensor)
+        except  KeyError as e:
+            Prod_best = get_tensor_by_nameDescendant(graph,nameTensor_bis)
+
     else:
         if with_tanh_alreadyApplied:
-            Prod_best = get_tensor_by_nameDescendant(graph,"Tanh")
+            nameTensor = "Tanh"
+            nameTensor_bis = "Prod"
         else:
-            Prod_best =  get_tensor_by_nameDescendant(graph,"Prod")
+            nameTensor = "Prod"
+            nameTensor_bis = "Tanh"
+        try:
+            Prod_best = get_tensor_by_nameDescendant(graph,nameTensor)
+        except  KeyError as e:
+            Prod_best = get_tensor_by_nameDescendant(graph,nameTensor_bis)
     if with_tanh:
         print('We add the tanh in the test fct')
         Tanh = tf.tanh(Prod_best)
