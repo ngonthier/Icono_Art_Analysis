@@ -975,7 +975,15 @@ def plot_confusion_matrix(conf_arr,classes,title=''):
     plt.show()
 
 def get_confusion_matrices_for_list_models(list_model_name=['RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200','RASTA_small01_modif'],
-                                           list_constrNet=['InceptionV1']):
+                                           list_constrNet=['InceptionV1'],
+                                           bagging_method = 'mean'):
+    """
+    This fct compute confusion matrices for various models but also try to do bagging between models
+    bagging_method = 'mean'
+    bagging_method = 'val_weighted_top1_acc'
+    bagging_method = 'val_weighted_ap'
+    """
+    
     model_name = list_model_name[0]
     if 'IconArt_v1' in model_name:
         dataset = 'IconArt_v1'
@@ -1002,12 +1010,13 @@ def get_confusion_matrices_for_list_models(list_model_name=['RASTA_big001_modif_
     list_ap = []
     
     mean_pred = None
-    bagging_method = 'mean'
-    bagging_method = 'val_weighted_top1_acc'
-    bagging_method = 'val_weighted_ap'
+    
     
     for model_name,constrNet in zip(list_model_name,list_constrNet):
-    
+        if 'deepSupervision' in model_name:
+            deepSupervision = True
+        else: 
+            deepSupervision = False
         print(model_name)
         fine_tuned_model, _ = get_fine_tuned_model(model_name,constrNet=constrNet,suffix='',get_Metrics=False)
         labels = df_test[classes].values
@@ -1020,8 +1029,11 @@ def get_confusion_matrices_for_list_models(list_model_name=['RASTA_big001_modif_
             labels_multiclass += [classes[where]]
             
         #labels_multiclass = np.where(labels==1)
-        val_pred = predictionFT_net(fine_tuned_model,df_val,x_col=item_name,y_col=classes,path_im=path_to_img,
+        if not(bagging_method=='mean'): 
+            val_pred = predictionFT_net(fine_tuned_model,df_val,x_col=item_name,y_col=classes,path_im=path_to_img,
                                               Net=constrNet,cropCenter=cropCenter)
+            if constrNet=='InceptionV1' and deepSupervision: # As we have several outputs 
+                val_pred = val_pred[-1]
         if bagging_method=='val_weighted_top1_acc':
             raise(NotImplementedError)
             top_1_acc_val = tf.keras.metrics.top_k_categorical_accuracy(val_labels,val_pred,k=1).eval()
@@ -1035,6 +1047,8 @@ def get_confusion_matrices_for_list_models(list_model_name=['RASTA_big001_modif_
 
         test_pred = predictionFT_net(fine_tuned_model,df_test.copy(),x_col=item_name,y_col=classes,path_im=path_to_img,
                                      Net=constrNet,cropCenter=cropCenter)
+        if constrNet=='InceptionV1' and deepSupervision: # As we have several outputs 
+            test_pred = test_pred[-1]
         curr_session = tf.get_default_session()
         # close current session
         if curr_session is not None:
@@ -1125,6 +1139,26 @@ def get_confusion_matrices_for_list_models(list_model_name=['RASTA_big001_modif_
 #Top 3 accuracy : 82.73 %
 #Top 5 accuracy : 91.33 %
     
+    # Avec Mean bagging ['RASTA_small01_modif','RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+#    Top 1 accuracy : 58.76 %
+#    Top 3 accuracy : 83.99 %
+#    Top 5 accuracy : 92.23 %
+    # Avec  ap weigthed bagging ['RASTA_small01_modif','RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+#    Top 1 accuracy : 59.07 %
+#    Top 3 accuracy : 84.20 %
+#    Top 5 accuracy : 92.26 %
+# Avec  ap weigthed bagging ['RASTA_small01_modif','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']  
+#    Top 1 accuracy : 56.22 %
+#    Top 3 accuracy : 82.21 %
+#    Top 5 accuracy : 90.96 %
+# Avec  ap weigthed bagging ['RASTA_small01_modif','RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200']  
+#    Top 1 accuracy : 56.22 %
+#    Top 3 accuracy : 82.21 %
+#    Top 5 accuracy : 90.96 %
+# Avec  ap weigthed bagging ['RASTA_small01_modif','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']  
+#    Top 1 accuracy : 58.44 %
+#    Top 3 accuracy : 84.29 %
+#    Top 5 accuracy : 92.38 %
     
     
     
@@ -1217,22 +1251,27 @@ def topK_features_per_class_list_of_modelpretrained():
 #                       'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
 #                       'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200'
 #                       ]
-    model_name_list = [
-                       'pretrained',
+    model_name_list = ['pretrained',
                        'RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
                        'RASTA_small01_modif',
                        'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                       'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                        'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
-                       'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200'
+                       'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                       'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
+                       ] # a faire plus tard
+    model_name_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
                        ] # a faire plus tard
     
     # Tu n'as pas fini pour RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200 
     # il faudra relancer cela 
     
-    for layer in ['mixed4d','mixed5a']:
-        for model_name in model_name_list:
+    
+    for model_name in model_name_list:
+        for layer in ['mixed4d','mixed5a']:
             for stats_on_layer in ['mean','max','meanFirePos_minusMean','meanFirePos']:
                 for selection_feature in [None,'ClassMinusGlobalMean']:
+                    # Je pense qu il faut cleaner tout ici avant de recommencer :/
                     vizu_topK_feature_per_class(model_name =model_name,\
                                                layer=layer,\
                                                source_dataset='RASTA',
