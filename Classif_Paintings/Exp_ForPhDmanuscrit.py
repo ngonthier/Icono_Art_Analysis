@@ -5,6 +5,12 @@ Created on Wed Jun 10 17:20:44 2020
 
 This file contains the differents experiments I need to run for my PhD manuscript
 
+Pour faire tourner sur le cluster il va d abord falloir faire le precomputing du 
+model Faster RCNN 
+Les resultats seront la : /media/gonthier/HDD/output_exp/ClassifPaintings
+et ensuite il faudra les copier dans le fichier : 
+    /ldaphome/gonthier/IconArtAnalysis/Classif_Paintings/data/ClassifPaintings
+
 @author: gonthier
 """
 
@@ -67,7 +73,7 @@ def PascalVOC_sanity_check():
     database = 'VOC2007'
     for demonet in ['res152_COCO','res101_VOC07']:
         try: 
-            unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
+            unefficient_way_MaxOfMax_evaluation(database=database,num_rep = 10,
                             Optimizer='GradientDescent',
                             max_iters_all_base = 3000,
                             number_restarts = 11,scores_tab =[True,False],
@@ -185,7 +191,9 @@ if __name__ == '__main__':
     print('Other_way_to_use_score_MaxOfMax')
     Other_way_to_use_score_MaxOfMax()
     
-    print('PascalVOC_sanity_check')
-    PascalVOC_sanity_check()
     print('miperceptron_for_artistist_dataset')
     miperceptron_for_artistist_dataset()
+    
+    print('PascalVOC_sanity_check')
+    PascalVOC_sanity_check()
+    
