@@ -61,6 +61,7 @@ from tf_faster_rcnn.lib.datasets.factory import get_imdb
 ##from hyperopt import tpe
 #from random import uniform
 from shutil import copyfile
+import pathlib
 
 from IMDB import get_database
 import numpy as np
@@ -1529,8 +1530,14 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
     print('========= Part 2 Variation Study ===========')
     
     tf.reset_default_graph()
+    
     path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    path_data_output = path_data +'VarStudy/'
+    if not(os.path.exists(path_data)):
+        path_data = 'data/ClassifPaintings/'
+        pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
+    path_data_output = path_data+'VarStudy/'
+    pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
+    
     if database is None:
         database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
     else:
@@ -1561,9 +1568,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
     else:
         print(metamodel,'unkwnon ! Error raised')
         raise(NotImplementedError)
-    
-    data_path = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
-    
+        
     for i_scenario in listi:
         print('Scenario :',i_scenario)
         output = get_params_fromi_scenario(i_scenario)
@@ -1737,7 +1742,7 @@ def VariationStudyPart2(database=None,scenarioSubset=None,withoutAggregW=True,
                             Lossstoredextract = Lossstored[:,l*numberofW_to_keep:(l+1)*numberofW_to_keep]
                             loss_value = np.reshape(Lossstoredextract,(-1,),order='F')
                             ## Creation of the model
-                            export_dir =  modelcreator.createIt(data_path,class_indice,W_tmp,b_tmp,loss_value)
+                            export_dir =  modelcreator.createIt(path_data,class_indice,W_tmp,b_tmp,loss_value)
                             number_zone = 300
                             Number_of_positif_elt = 1
                             dict_class_weight = {0:np_neg_value*number_zone ,1:np_pos_value* Number_of_positif_elt}
