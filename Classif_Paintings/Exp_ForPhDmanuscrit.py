@@ -14,7 +14,7 @@ et ensuite il faudra les copier dans le fichier :
 @author: gonthier
 """
 
-from MIbenchmarkage import fit_train_plot_GaussianToy
+# from MIbenchmarkage import fit_train_plot_GaussianToy
 
 from RunVarStudyAll import VariationStudyPart1,VariationStudyPart2,VariationStudyPart3,\
     unefficient_way_MaxOfMax_evaluation,unefficient_way_OneHiddenLayer_evaluation,\
@@ -22,29 +22,29 @@ from RunVarStudyAll import VariationStudyPart1,VariationStudyPart2,VariationStud
 
 ### 1 / Toy Model pour MaxOfMax et MIMAX-HL
 
-def run_Missing_ToyExample():
+# def run_Missing_ToyExample():
 
-    overlap_tab = [False,True]
-    specificCase_tab = [None,'2cloudsOpposite']
-    specificCase_tab = ['2cloudsOpposite']
-    reDo = True
-    number_rep = 1
+#     overlap_tab = [False,True]
+#     specificCase_tab = [None,'2cloudsOpposite']
+#     specificCase_tab = ['2cloudsOpposite']
+#     reDo = True
+#     number_rep = 1
     
-    list_method = ['MIMAX','MIMAXaddLayer','MaxOfMax','IA_mi_model']    
+#     list_method = ['MIMAX','MIMAXaddLayer','MaxOfMax','IA_mi_model']    
     
-    # Cas AddOneLayer True : MIMAX HL
-    for method in list_method:
-        for overlap in overlap_tab:
-            for specificCase in specificCase_tab:
-                end_name= '_PhDmanuscript'
-                fit_train_plot_GaussianToy(method=method,dataset='GaussianToy',
-                                           WR=0.01,verbose=True,reDo=reDo,specificCase=specificCase,
-                                           dataNormalizationWhen='onTrainSet',dataNormalization='std',
-                                           overlap = overlap,end_name=end_name)
-                fit_train_plot_GaussianToy(method=method,dataset='GaussianToy',
-                                           WR=0.01,verbose=True,reDo=reDo,specificCase=specificCase,
-                                           dataNormalizationWhen=None,dataNormalization='std',
-                                           overlap = overlap,end_name=end_name)
+#     # Cas AddOneLayer True : MIMAX HL
+#     for method in list_method:
+#         for overlap in overlap_tab:
+#             for specificCase in specificCase_tab:
+#                 end_name= '_PhDmanuscript'
+#                 fit_train_plot_GaussianToy(method=method,dataset='GaussianToy',
+#                                            WR=0.01,verbose=True,reDo=reDo,specificCase=specificCase,
+#                                            dataNormalizationWhen='onTrainSet',dataNormalization='std',
+#                                            overlap = overlap,end_name=end_name)
+#                 fit_train_plot_GaussianToy(method=method,dataset='GaussianToy',
+#                                            WR=0.01,verbose=True,reDo=reDo,specificCase=specificCase,
+#                                            dataNormalizationWhen=None,dataNormalization='std',
+#                                            overlap = overlap,end_name=end_name)
 ### miperceptron pour les 6 datasets artistiques !
 def miperceptron_for_artistist_dataset():
     # Instance based model mi_model
