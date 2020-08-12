@@ -413,10 +413,10 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
                                         number_restarts = 11):
     """
     Compute the performance for the MaxOfMax model on num_rep runs
+    or MaxMMeanOfMax (MaxMMeanOfMax)
     """
     
     seuillage_by_score = False
-    obj_score_add_tanh = False
     loss_type = ''
     seuil = 0
     C_Searching = False
@@ -455,7 +455,7 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
             CV_Mode+'_'+str(loss_type)
             if not(WR):
                 name_dict += '_withRegularisationTermInLoss'
-            if with_scores:
+            if with_scores and not(obj_score_mul_tanh or obj_score_add_tanh):
                  name_dict += '_WithScore'
             if seuillage_by_score:
                 name_dict += 'SC'+str(seuil)
@@ -2887,7 +2887,11 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
     if database is None:
         database_tab = ['PeopleArt','watercolor','WikiTenLabels','VOC2007']
     else:
-        database_tab = [database]
+        if not(type(database)==list):
+            database_tab = [database]
+        else:
+            database_tab = database
+            
     start_i = 0
     end_i = 19
     if scenarioSubset is None:

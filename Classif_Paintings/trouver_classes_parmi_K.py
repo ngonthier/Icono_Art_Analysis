@@ -2711,7 +2711,7 @@ class tf_MI_max():
             elif self.obj_score_add_tanh:
                 Prod_score=tf.add(self.lambdas*tf.tanh(Prod_best),(1-self.lambdas)*scores_*tf.sign(Prod_best),name='ProdScore')
             elif self.obj_score_mul_tanh:
-                Prod_score=tf.multiply(scores_,Prod_best,name='ProdScore')
+                Prod_score=tf.multiply(scores_,tf.tanh(Prod_best),name='ProdScore')
                 
         head, tail = os.path.split(data_path)
         export_dir = os.path.join(head,'MI_max',str(time.time()))

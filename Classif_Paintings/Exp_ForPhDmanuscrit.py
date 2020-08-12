@@ -119,8 +119,7 @@ def CVmode_MIMAX():
         # MI_max
         scenario_tab = [25]
         try: 
-#            Number 23 : multiplication Tanh and score
-#            Number 24 : Addition Tanh and score
+#            Number 25 : CV mode
             VariationStudyPart1(database,scenario_tab,num_rep = 10)
             VariationStudyPart2(database,scenario_tab,num_rep = 10)
         except Exception as e:
@@ -160,6 +159,7 @@ def Other_way_to_use_score_MaxOfMax():
         
     for database in database_tab :
         ## obj_score_add_tanh
+        print('- obj_score_add_tanh -')
         try: 
             unefficient_way_MaxOfMax_evaluation(database=database,num_rep = 10,
                             Optimizer='GradientDescent',
@@ -170,6 +170,7 @@ def Other_way_to_use_score_MaxOfMax():
              print(e)
              pass
         ## obj_score_mul_tanh
+        print('- obj_score_mul_tanh -')
         try: 
             unefficient_way_MaxOfMax_evaluation(database=database,num_rep = 10,
                             Optimizer='GradientDescent',
@@ -182,18 +183,29 @@ def Other_way_to_use_score_MaxOfMax():
 
 if __name__ == '__main__':                                       
     
-    print('TwoThousandsboxes_MIMAX')
-    TwoThousandsboxes_MIMAX()
+#    print('TwoThousandsboxes_MIMAX')
+#    TwoThousandsboxes_MIMAX()
+
     print('CVmode_MIMAX')
-    CVmode_MIMAX()
+#    CVmode_MIMAX()
+    # To print performance 
+    VariationStudyPart3(['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
+                        ,scenarioSubset=[25],withoutAggregW=True)
+    
     print('Other_way_to_use_score_MIMAX')
-    Other_way_to_use_score_MIMAX()
-    print('Other_way_to_use_score_MaxOfMax')
-    Other_way_to_use_score_MaxOfMax()
+    #Other_way_to_use_score_MIMAX()
+    # To print performance 
+    VariationStudyPart3(['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
+                        ,scenarioSubset=[23,24],withoutAggregW=True)
     
-    print('miperceptron_for_artistist_dataset')
-    miperceptron_for_artistist_dataset()
     
-    print('PascalVOC_sanity_check')
-    PascalVOC_sanity_check()
+#    print('Other_way_to_use_score_MaxOfMax')
+#    Other_way_to_use_score_MaxOfMax()
+#    
+#    print('miperceptron_for_artistist_dataset')
+#    miperceptron_for_artistist_dataset()
+#    
+#    print('PascalVOC_sanity_check')
+#    PascalVOC_sanity_check()
+
     
