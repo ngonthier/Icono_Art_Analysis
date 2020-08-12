@@ -190,13 +190,13 @@ if __name__ == '__main__':
 #    CVmode_MIMAX()
     # To print performance 
     VariationStudyPart3(['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
-                        ,scenarioSubset=[25],withoutAggregW=True)
+                        ,scenarioSubset=[25],withoutAggregW=True,num_rep=10)
     
     print('Other_way_to_use_score_MIMAX')
     #Other_way_to_use_score_MIMAX()
     # To print performance 
     VariationStudyPart3(['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
-                        ,scenarioSubset=[23,24],withoutAggregW=True)
+                        ,scenarioSubset=[23,24],withoutAggregW=True,num_rep=10)
     
     
 #    print('Other_way_to_use_score_MaxOfMax')
