@@ -2913,6 +2913,9 @@ def tfR_FRCNN(demonet = 'res152_COCO',database = 'IconArt_v1', ReDo = False,
         if verbose:
             t1 = time.time()
 
+        # Reset the graph as default 
+        tf.reset_default_graph()
+
         true_label_all_test,predict_label_all_test,name_all_test,labels_test_predited \
         ,all_boxes = \
         tfR_evaluation_parall(database,dict_class_weight,num_classes,predict_with,

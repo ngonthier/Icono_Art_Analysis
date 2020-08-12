@@ -401,6 +401,61 @@ def Study_eval_perf_onSplit_of_IconArt(computeMode=True):
                 # a finir
                 
 
+def test_MaxOfMax_with_other_scores():
+    """
+    The goal is to test obj_score_mul_tanh with maxOfMax and obj_score_add_tanh with it also
+    """
+    database='IconArt_v1'
+    num_rep = 10
+    Optimizer='GradientDescent'
+    MaxOfMax=True
+    MaxMMeanOfMax=False
+    max_iters_all_base=2
+    demonet = 'res152_COCO'
+ 
+    obj_score_mul_tanh = False
+    obj_score_add_tanh= True
+    number_restarts = 11
+    ReDo = True
+    seuillage_by_score = False
+    loss_type = ''
+    seuil = 0
+    C_Searching = False
+    
+    layer = 'fc7'
+    
+    CV_Mode = ''
+    AggregW = None
+    proportionToKeep = [0.25,1.0]
+    loss_type = ''
+    WR = True
+        
+    lambdas = 0.5
+    
+    PCAuse = False
+    Max_version = None
+    k_per_bag = 300
+    path_data = '/media/gonthier/HDD/output_exp/ClassifPaintings/'
+    with_scores = False
+    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                                                  verbose = True,testMode = False,jtest = 'cow',loss_type=loss_type,
+                                                  PlotRegions = False,saved_clf=False,RPN=False,
+                                                  CompBest=False,Stocha=True,k_per_bag=k_per_bag,
+                                                  parallel_op=True,CV_Mode=CV_Mode,num_split=2,
+                                                  WR=WR,init_by_mean =None,seuil_estimation='',
+                                                  restarts=number_restarts,max_iters_all_base=max_iters_all_base,LR=0.01,with_tanh=True,
+                                                  C=1.0,Optimizer=Optimizer,norm='',
+                                                  transform_output='tanh',with_rois_scores_atEnd=False,
+                                                  with_scores=with_scores,epsilon=0.01,restarts_paral='paral',
+                                                  Max_version=Max_version,w_exp=10.0,seuillage_by_score=seuillage_by_score,seuil=seuil,
+                                                  k_intopk=1,C_Searching=C_Searching,predict_with='MI_max',
+                                                  gridSearch=False,thres_FinalClassifier=0.5,n_jobs=1,
+                                                  thresh_evaluation=0.05,TEST_NMS=0.3,AggregW=AggregW
+                                                  ,proportionToKeep=proportionToKeep,storeVectors=False,
+                                                  obj_score_add_tanh=obj_score_add_tanh,lambdas=lambdas,
+                                                  obj_score_mul_tanh=obj_score_mul_tanh,PCAuse=PCAuse,
+                                                  layer=layer,MaxOfMax=MaxOfMax,MaxMMeanOfMax=MaxMMeanOfMax)
+
 def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
                                         Optimizer='GradientDescent',
                                         MaxOfMax=True,MaxMMeanOfMax=False,
@@ -428,9 +483,7 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
     proportionToKeep = [0.25,1.0]
     loss_type = ''
     WR = True
-    
-    seuillage_by_score=False
-    
+        
     lambdas = 0.5
     
     PCAuse = False
