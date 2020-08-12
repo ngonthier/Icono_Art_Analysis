@@ -5482,7 +5482,9 @@ def RASTAclassifTest():
         epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=True,verbose=True,
         return_best_model=True)
     # RASTA ResNet avec MLP1  return_best_model = True
-    
+    # Top-1 accuracy : 55.99%
+    # Top-3 accuracy : 82.71%
+    # Top-5 accuracy : 91.70%
         
     ## Only fine tuned the head MLP
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
@@ -5499,6 +5501,9 @@ def RASTAclassifTest():
         transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
         regulOnNewLayer=None,optimizer='SGD',opt_option=[0.01],\
         epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=False,verbose=True)
+    # Top-1 accuracy : 46.29%
+    # Top-3 accuracy : 73.66%
+    # Top-5 accuracy : 84.51%
         
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP3',features='conv5_block3_out',\
         constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\

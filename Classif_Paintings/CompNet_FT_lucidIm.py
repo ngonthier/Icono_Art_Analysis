@@ -1201,17 +1201,28 @@ if __name__ == '__main__':
     #                      'RASTA_big001_modif_adam_unfreeze20_ep200',
     #                      'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
     #                     ]
-     list_model_name_5 = ['RASTA_small01_GAP_modif'] # Provide 60% on Top1 
+     list_model_name_5 = ['RASTA_small01_modif_GAP',
+                          'RASTA_big001_modif_GAP_adam_unfreeze50',
+                          'RASTA_big001_modif_GAP_adam_unfreeze50_SmallDataAug',
+                          'RASTA_big001_modif_GAP_adam_unfreeze50_randomCrop',
+                          'RASTA_big001_modif_GAP_adam_unfreeze50_RandForUnfreezed_randomCrop',
+                          'RASTA_big001_modif_GAP_adam_unfreeze20',
+                          'RASTA_big001_modif_GAP_adam_unfreeze20_SmallDataAug',
+                          'RASTA_big001_modif_GAP_adam_unfreeze20_randomCrop',
+                          'RASTA_big001_modif_GAP_adam_unfreeze20_RandForUnfreezed_randomCrop',
+                          'RASTA_big0001_modif_GAP_RandInit_deepSupervision_ep200'
+                          ] # Provide 60% on Top1 
      Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
     # InceptionV1 and ResNet50 models have been trained => need to look at the results ! 
     #Test avec RMSprop non fait !
  #'RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200','RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200',
-     list_model_name_4 = [
-                         'RASTA_big0001_modif_adam_unfreeze8_ep200',
-                         'RASTA_big0001_modif_adam_unfreeze8_SmallDataAug_ep200',
-                         'RASTA_big0001_modif_adam_unfreeze8_ep200',
-                         'RASTA_big001_modif_RMSprop_unfreeze8_SmallDataAug_ep200',
-                         'RASTA_big0001_modif_RMSprop_unfreeze8_SmallDataAug_ep200',
+     list_model_name_4 = ['RASTA_big001_modif_GAP_adam_unfreeze8',
+                          'RASTA_big001_modif_GAP_adam_unfreeze8_SmallDataAug',
+                         'RASTA_big0001_modif_GAP_adam_unfreeze8',
+                         'RASTA_big0001_modif_GAP_adam_unfreeze8_SmallDataAug',
+                         'RASTA_big0001_modif_GAP_adam_unfreeze8',
+                         'RASTA_big001_modif_GAP_RMSprop_unfreeze8_SmallDataAug',
+                         'RASTA_big0001_modif_GAP_RMSprop_unfreeze8_SmallDataAug',
                         ]
      Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
 #    
