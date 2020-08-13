@@ -4752,7 +4752,14 @@ def test_fined_onOtherDatasetFirst():
                 epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
                 weights='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200')    
     # & 43.6 & 29.6 & 88.1 & 65.9 & 42.2 & 54.1 & 38.8 & 72.1 & 60.7 & 72.5 & 56.8 \\  mais la loss ne semble pas avoir atteint son minimum
-  
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG')    
+    # & 30.7 & 29.7 & 83.6 & 62.5 & 29.0 & 51.5 & 29.2 & 59.6 & 47.5 & 66.4 & 49.0 \\ 
+        
     learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
@@ -4808,6 +4815,36 @@ def test_fined_onOtherDatasetFirst():
     #             optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
     #             epochs=1,return_best_model=True,SGDmomentum=0.9,verbose=True,\
     #             weights='imagenet',deepSupervision=True)    
+     
+    learn_and_eval(target_dataset='IconArt_v1',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True) 
+    #& 40.4 & 58.3 & 10.0 & 68.1 & 62.6 & 60.5 & 6.3 & 43.8 \\ 
+    learn_and_eval(target_dataset='IconArt_v1',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RASTA_small01_modif') 
+   #  & 56.4 & 83.2 & 73.0 & 86.1 & 78.4 & 71.3 & 27.6 & 68.0 \\ 
+        
+    learn_and_eval(target_dataset='IconArt_v1',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG')    
+    #& 48.3 & 69.4 & 16.8 & 80.1 & 69.8 & 62.8 & 8.5 & 50.8 \\ 
+        
+    learn_and_eval(target_dataset='IconArt_v1',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200')  
+    # & 52.4 & 79.9 & 37.0 & 84.2 & 74.7 & 68.9 & 10.5 & 58.2 \\ 
         
 def test_InceptionV1_onIconArt_and_RASTA():
     learn_and_eval('RMN',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
@@ -5510,7 +5547,9 @@ def RASTAclassifTest():
         transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
         regulOnNewLayer=None,optimizer='SGD',opt_option=[0.01],\
         epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=32,pretrainingModif=False,verbose=True)
- 
+    #  Top-1 accuracy : 45.01%
+    # Top-3 accuracy : 73.02%
+    # Top-5 accuracy : 84.82%
         
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
         constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=True,\

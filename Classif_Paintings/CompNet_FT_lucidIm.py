@@ -1201,10 +1201,11 @@ if __name__ == '__main__':
     #                      'RASTA_big001_modif_adam_unfreeze20_ep200',
     #                      'RASTA_big001_modif_adam_unfreeze20_SmallDataAug_ep200',
     #                     ]
-     list_model_name_5 = ['RASTA_small01_modif_GAP',
-                          'RASTA_big001_modif_GAP_adam_unfreeze50',
-                          'RASTA_big001_modif_GAP_adam_unfreeze50_SmallDataAug',
-                          'RASTA_big001_modif_GAP_adam_unfreeze50_randomCrop',
+    # 'RASTA_small01_modif_GAP',
+    #                       'RASTA_big001_modif_GAP_adam_unfreeze50',
+    #                       'RASTA_big001_modif_GAP_adam_unfreeze50_SmallDataAug',
+    #                       'RASTA_big001_modif_GAP_adam_unfreeze50_randomCrop',
+     list_model_name_5 = [
                           'RASTA_big001_modif_GAP_adam_unfreeze50_RandForUnfreezed_randomCrop',
                           'RASTA_big001_modif_GAP_adam_unfreeze20',
                           'RASTA_big001_modif_GAP_adam_unfreeze20_SmallDataAug',
