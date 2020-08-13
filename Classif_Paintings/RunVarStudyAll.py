@@ -495,8 +495,8 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
         pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
     path_data_output = path_data+'VarStudy/'
     pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
-    ReDo = True
-    
+
+    ReDo  = False
     for with_scores in scores_tab:
         for loss_type in loss_tab:
             name_dict = path_data_output 
@@ -536,7 +536,7 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
                 name_dict += '_MaxMMeanOfMax'
             name_dictAP = name_dict + '_APscore.pkl'
             
-            ReDo  = False
+            
             if not os.path.isfile(name_dictAP) or ReDo: 
                 DictAP = {}
                 ll = []
@@ -544,7 +544,7 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
                 lclassif = []
                 for r in range(num_rep):
                     print('reboot',r,'on',num_rep)
-                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=ReDo,
+                    apsAt05,apsAt01,AP_per_class = tfR_FRCNN(demonet =demonet,database = database,ReDo=True,
                                                   verbose = True,testMode = False,jtest = 'cow',loss_type=loss_type,
                                                   PlotRegions = False,saved_clf=False,RPN=False,
                                                   CompBest=False,Stocha=True,k_per_bag=k_per_bag,
@@ -613,8 +613,8 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
         pathlib.Path(path_data).mkdir(parents=True, exist_ok=True)
     path_data_output = path_data+'VarStudy/'
     pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
-    ReDo = True
 
+    ReDo  = False
     for with_scores in scores_tab:
         for loss_type in loss_tab:
             name_dict = path_data_output 
@@ -650,8 +650,7 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
             if not(Optimizer=='GradientDescent'):
                 name_dict += '_'+Optimizer
             name_dictAP = name_dict + '_APscore.pkl'
-            
-            ReDo  = False
+
             if not os.path.isfile(name_dictAP) or ReDo: 
                 DictAP = {}
                 ll = []
