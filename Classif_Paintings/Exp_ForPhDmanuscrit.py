@@ -185,6 +185,7 @@ def MaxOfMax_other_way_score_print_results():
     database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
         
     for database in database_tab :
+        print(database)
         print('- obj_score_add_tanh -') 
         unefficient_evaluation_PrintResults(database=database,num_rep = 10,
                                         Optimizer='GradientDescent',
