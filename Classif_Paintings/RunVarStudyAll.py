@@ -706,9 +706,7 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                                         number_restarts=11,
                                         with_scores_tab=[False,True],
                                         loss_type_tab=['','hinge']):
-    seuillage_by_score = False
-    obj_score_add_tanh = False
-    loss_type = ''
+
     seuil = 0
     C_Searching = False
     demonet = 'res152_COCO'
