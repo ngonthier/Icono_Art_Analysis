@@ -508,8 +508,10 @@ def unefficient_way_MaxOfMax_evaluation(database='IconArt_v1',num_rep = 10,
             CV_Mode+'_'+str(loss_type)
             if not(WR):
                 name_dict += '_withRegularisationTermInLoss'
+            if not(number_restarts==11):
+                name_dict+= '_r'+str(number_restarts)
             if with_scores and not(obj_score_mul_tanh or obj_score_add_tanh):
-                 name_dict += '_WithScore'
+                name_dict += '_WithScore'
             if seuillage_by_score:
                 name_dict += 'SC'+str(seuil)
             if obj_score_add_tanh:
@@ -598,7 +600,6 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
     proportionToKeep = [0.25,1.0]
     loss_type = ''
     WR = True
-    with_scores = True
     seuillage_by_score=False
     obj_score_add_tanh=False
     lambdas = 0.5
@@ -626,6 +627,8 @@ def unefficient_way_mi_model_evaluation(database='IconArt_v1',num_rep = 10,
             CV_Mode+'_'+str(loss_type)
             if not(WR):
                 name_dict += '_withRegularisationTermInLoss'
+            if not(number_restarts==11):
+                name_dict+= '_r'+str(number_restarts)
             if with_scores:
                  name_dict += '_WithScore'
             if seuillage_by_score:
@@ -696,7 +699,11 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                                         MaxOfMax=True,MaxMMeanOfMax=False,
                                         max_iters_all_base=3000,AddOneLayer=False,
                                         num_features_hidden=256,pm_only_on_mean=True,
-                                        mi_model=False):
+                                        mi_model=False,
+                                        seuillage_by_score=False,
+                                        obj_score_add_tanh=False,
+                                        obj_score_mul_tanh = False,
+                                        number_restarts=11):
     seuillage_by_score = False
     obj_score_add_tanh = False
     loss_type = ''
@@ -710,10 +717,9 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
     loss_type = ''
     WR = True
     with_scores = True
-    seuillage_by_score=False
-    obj_score_add_tanh=False
+
     lambdas = 0.5
-    obj_score_mul_tanh = False
+    
     PCAuse = False
     Max_version = None
     k_per_bag = 300
@@ -737,6 +743,8 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
             CV_Mode+'_'+str(loss_type)
             if not(WR):
                 name_dict += '_withRegularisationTermInLoss'
+            if not(number_restarts==11):
+                name_dict+= '_r'+str(number_restarts)
             if with_scores:
                  name_dict += '_WithScore'
             if seuillage_by_score:
@@ -898,6 +906,8 @@ def unefficient_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10
             CV_Mode+'_'+str(loss_type)
             if not(WR):
                 name_dict += '_withRegularisationTermInLoss'
+            if not(number_restarts==11):
+                name_dict+= '_r'+str(number_restarts)
             if with_scores:
                  name_dict += '_WithScore'
             if seuillage_by_score:
@@ -1029,6 +1039,8 @@ def approx_way_OneHiddenLayer_evaluation(database='IconArt_v1',num_rep = 10,
             CV_Mode+'_'+str(loss_type)
             if not(WR):
                 name_dict += '_withRegularisationTermInLoss'
+            if not(number_restarts==11):
+                name_dict+= '_r'+str(number_restarts)
             if with_scores:
                  name_dict += '_WithScore'
             if seuillage_by_score:

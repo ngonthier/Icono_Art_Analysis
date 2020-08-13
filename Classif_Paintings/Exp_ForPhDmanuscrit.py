@@ -180,6 +180,31 @@ def Other_way_to_use_score_MaxOfMax():
         except Exception as e:
              print(e)
              pass
+         
+def MaxOfMax_other_way_score_print_results():
+    database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
+        
+    for database in database_tab :
+        print('- obj_score_add_tanh -') 
+        unefficient_evaluation_PrintResults(database=database,num_rep = 10,
+                                        Optimizer='GradientDescent',
+                                        MaxOfMax=True,MaxMMeanOfMax=False,
+                                        max_iters_all_base=3000,AddOneLayer=False,
+                                        num_features_hidden=256,pm_only_on_mean=False,
+                                        mi_model=False,
+                                        seuillage_by_score=False,
+                                        obj_score_add_tanh=True,
+                                        obj_score_mul_tanh = False)
+        print('- obj_score_mul_tanh -') 
+        unefficient_evaluation_PrintResults(database=database,num_rep = 10,
+                                        Optimizer='GradientDescent',
+                                        MaxOfMax=True,MaxMMeanOfMax=False,
+                                        max_iters_all_base=3000,AddOneLayer=False,
+                                        num_features_hidden=256,pm_only_on_mean=False,
+                                        mi_model=False,
+                                        seuillage_by_score=False,
+                                        obj_score_add_tanh=False,
+                                        obj_score_mul_tanh = True)
 
 if __name__ == '__main__':                                       
     
@@ -189,18 +214,19 @@ if __name__ == '__main__':
     print('CVmode_MIMAX')
 #    CVmode_MIMAX()
     # To print performance 
-    VariationStudyPart3(['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
-                        ,scenarioSubset=[25],withoutAggregW=True,num_rep=10)
+    # VariationStudyPart3(['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
+    #                     ,scenarioSubset=[25],withoutAggregW=True,num_rep=10)
     
-    print('Other_way_to_use_score_MIMAX')
-    #Other_way_to_use_score_MIMAX()
-    # To print performance 
-    VariationStudyPart3(['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
-                        ,scenarioSubset=[23,24],withoutAggregW=True,num_rep=10)
+    # print('Other_way_to_use_score_MIMAX')
+    # #Other_way_to_use_score_MIMAX()
+    # # To print performance 
+    # VariationStudyPart3(['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
+    #                     ,scenarioSubset=[23,24],withoutAggregW=True,num_rep=10)
     
     
-#    print('Other_way_to_use_score_MaxOfMax')
+    print('Other_way_to_use_score_MaxOfMax')
 #    Other_way_to_use_score_MaxOfMax()
+    MaxOfMax_other_way_score_print_results()
 #    
 #    print('miperceptron_for_artistist_dataset')
 #    miperceptron_for_artistist_dataset()
