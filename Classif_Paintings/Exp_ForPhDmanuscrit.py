@@ -194,7 +194,9 @@ def MaxOfMax_other_way_score_print_results():
                                         mi_model=False,
                                         seuillage_by_score=False,
                                         obj_score_add_tanh=True,
-                                        obj_score_mul_tanh = False)
+                                        obj_score_mul_tanh = False,
+                                        with_scores_tab=[False],
+                                        loss_type_tab=[''])
         print('- obj_score_mul_tanh -') 
         unefficient_evaluation_PrintResults(database=database,num_rep = 10,
                                         Optimizer='GradientDescent',
@@ -204,7 +206,9 @@ def MaxOfMax_other_way_score_print_results():
                                         mi_model=False,
                                         seuillage_by_score=False,
                                         obj_score_add_tanh=False,
-                                        obj_score_mul_tanh = True)
+                                        obj_score_mul_tanh = True,
+                                        with_scores_tab=[False],
+                                        loss_type_tab=[''])
 
 if __name__ == '__main__':                                       
     

@@ -703,7 +703,9 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                                         seuillage_by_score=False,
                                         obj_score_add_tanh=False,
                                         obj_score_mul_tanh = False,
-                                        number_restarts=11):
+                                        number_restarts=11,
+                                        with_scores_tab=[False,True],
+                                        loss_type_tab=['','hinge']):
     seuillage_by_score = False
     obj_score_add_tanh = False
     loss_type = ''
@@ -716,8 +718,6 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
     proportionToKeep = [0.25,1.0]
     loss_type = ''
     WR = True
-    with_scores = True
-
     lambdas = 0.5
     
     PCAuse = False
@@ -730,8 +730,8 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
     path_data_output = path_data+'VarStudy/'
     pathlib.Path(path_data_output).mkdir(parents=True, exist_ok=True)
     onlyAP05 = False
-    for with_scores in [False,True]:
-        for loss_type in ['','hinge']:
+    for with_scores in with_scores_tab:
+        for loss_type in loss_type_tab:
             name_dict = path_data_output
             if mi_model:
                 name_dict += 'mi_model_'
