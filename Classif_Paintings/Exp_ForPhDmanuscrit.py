@@ -180,6 +180,25 @@ def Other_way_to_use_score_MaxOfMax():
         except Exception as e:
              print(e)
              pass
+         
+def MaxOfMax():
+    """
+    Le but de ce script va etre de verifier les performances de MaxOfMax sur ces 
+    datasets la car on a un std a 0 ce qui est vraiment bizarre !! 
+    """
+    database_tab = ['clipart','comic','CASPApaintings']
+        
+    for database in database_tab :
+        try: 
+            unefficient_way_MaxOfMax_evaluation(database=database,num_rep = 10,
+                            Optimizer='GradientDescent',
+                            max_iters_all_base = 3000,
+                            number_restarts = 11,scores_tab =[True,False],
+                            loss_tab=['','hinge'])
+        except Exception as e:
+             print(e)
+             pass
+         
 def IcoOther_way_to_use_score_MaxOfMax():
     database_tab = ['IconArt_v1']
         
@@ -225,6 +244,25 @@ def MaxOfMax_other_way_score_print_results():
                                         obj_score_mul_tanh = True,
                                         with_scores_tab=[False],
                                         loss_type_tab=[''])
+        
+def print_old_results_MaxOfMax_artistic_datasets():
+    database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
+        
+    print('=== Polyhedral MIMAX ===')
+    for database in database_tab :
+        print(database)
+        unefficient_evaluation_PrintResults(database=database,num_rep = 10,
+                                        Optimizer='GradientDescent',
+                                        MaxOfMax=True,MaxMMeanOfMax=False,
+                                        max_iters_all_base=3000,AddOneLayer=False,
+                                        num_features_hidden=256,pm_only_on_mean=False,
+                                        mi_model=False,
+                                        seuillage_by_score=False,
+                                        obj_score_add_tanh=False,
+                                        obj_score_mul_tanh = False,
+                                        with_scores_tab=[True,False],
+                                        loss_type_tab=['','hinge'])
+        
 
 if __name__ == '__main__':                                       
     
