@@ -2967,7 +2967,6 @@ def VariationStudyPart3(database=None,scenarioSubset=None,demonet = 'res152_COCO
 #    database_tab = ['VOC2007','PeopleArt']
 #    database_tab = ['PeopleArt']
 
-    max_iters_all_base = 300
     k_per_bag = 300
 
     seuil = 0.9 

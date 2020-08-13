@@ -13,7 +13,7 @@ Remarques tu peux parfois avoir l'erreur suivante :
 UnknownError: 2 root error(s) found.(0) Unknown: Failed to get convolution algorithm. This is probably because cuDNN failed to initialize, so try looking to see if a warning log message was printed above.
     
 Il te faudra alors peut etre vider le cache qui se trouve a l'endroit suivant : 
-    AppData Roaming NVIDIA ComputeCache
+    Users gonthier AppData Roaming NVIDIA ComputeCache
 
 https://stackoverflow.com/questions/53698035/failed-to-get-convolution-algorithm-this-is-probably-because-cudnn-failed-to-in
 
