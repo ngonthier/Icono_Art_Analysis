@@ -248,7 +248,8 @@ def MaxOfMax_other_way_score_print_results():
 def print_old_results_MaxOfMax_artistic_datasets():
     database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
         
-    print('=== Polyhedral MIMAX ===')
+    print('=== Polyhedral MIMAX model de base ===')
+    print('== avec et sans score avec et sans la loss hinge ==')
     for database in database_tab :
         print(database)
         unefficient_evaluation_PrintResults(database=database,num_rep = 10,
@@ -262,6 +263,13 @@ def print_old_results_MaxOfMax_artistic_datasets():
                                         obj_score_mul_tanh = False,
                                         with_scores_tab=[True,False],
                                         loss_type_tab=['','hinge'])
+        
+def print_old_results_MIMAX_artistic_datasets():
+        
+    print('=== MIMAX model de base ===')
+    print('== avec et sans score avec et sans la loss hinge ==')
+    VariationStudyPart3(['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
+                        ,scenarioSubset=[0,5,3,22],withoutAggregW=True,num_rep=10)
         
 
 if __name__ == '__main__':                                       
