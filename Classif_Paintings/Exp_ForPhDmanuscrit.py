@@ -180,6 +180,21 @@ def Other_way_to_use_score_MaxOfMax():
         except Exception as e:
              print(e)
              pass
+def IcoOther_way_to_use_score_MaxOfMax():
+    database_tab = ['IconArt_v1']
+        
+    for database in database_tab :
+        ## obj_score_mul_tanh
+        print('- obj_score_mul_tanh -')
+        try: 
+            unefficient_way_MaxOfMax_evaluation(database=database,num_rep = 10,
+                            Optimizer='GradientDescent',
+                            max_iters_all_base = 3000,
+                            number_restarts = 11,scores_tab =[False],
+                            obj_score_mul_tanh=True)
+        except Exception as e:
+             print(e)
+             pass
          
 def MaxOfMax_other_way_score_print_results():
     database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
