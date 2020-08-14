@@ -8,7 +8,7 @@ Created on Mon Jul 13 18:06:10 2020
 
 def get_list_shortcut_name_model():
 
-    possible_datasets = ['IconArt_v1','RMN','RASTA']
+    possible_datasets = ['IconArt_v1','RMN','RASTA','Paintings']
     possible_lr = ['big0001_modif','small001_modif','big001_modif','small01_modif','big01_modif']
     possible_llt = ['','_GAP','_GMP']
     # For the last layer transformation !!! GlobalAveragePooling2D
