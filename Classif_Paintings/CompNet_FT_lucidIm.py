@@ -216,6 +216,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
         target_dataset = 'RASTA'
     elif 'RMN' in model_name:
         target_dataset = 'RMN'
+    elif 'Paintings' in model_name:
+        target_dataset = 'Paintings'
     elif 'IconArt_v1' in model_name:
         target_dataset = 'IconArt_v1'
     else:
@@ -545,13 +547,16 @@ def why_white_output():
     plt.imshow(img_rescale)
     
 
-def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImagesOfOtherModel_feature = False,
-                                  testMode=False):
+def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
+                                  doAlsoImagesOfOtherModel_feature = False,
+                                  testMode=False,
+                                  suffix_tab = ['']):
     """
     This function will load the two models (deep nets) before and after fine-tuning 
     and then compute the difference between the weights and finally run a 
     deep dream on the feature maps of the weights that have the most change
     @param testMode : if true we only print the two first feature
+    @param suffix_tab = ['','1'] # In order to have more than once the model fine-tuned with some given hyperparameters
     """
     
     if constrNet=='VGG':
@@ -583,8 +588,7 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',doAlsoImage
     #list_models_name = ['random']
     #opt_option_tab = [opt_option_small,opt_option_big,opt_option_small,opt_option_big,None]
     
-    suffix_tab = ['','1'] # In order to have more than once the model fine-tuned with some given hyperparameters
-    suffix_tab = [''] 
+
     
     K.set_learning_phase(0)
     #with K.get_session().as_default(): 
@@ -1195,6 +1199,14 @@ if __name__ == '__main__':
     
     # #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
 
+     Comparaison_of_FineTunedModel(constrNet='InceptionV1',
+                                list_models_name = ['Paintings_small01_modif',
+                                                    'Paintings_small001_modif',
+                                                    'Paintings_big001_modif',
+                                                    'Paintings_small001_modif_deepSupervision'])
+    
+
+
     #  list_model_name_5 = ['RASTA_small01_modif',
     #                       'RASTA_big001_modif_adam_unfreeze50_ep200',
     #                      'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
@@ -1205,14 +1217,12 @@ if __name__ == '__main__':
     #                       'RASTA_big001_modif_GAP_adam_unfreeze50',
     #                       'RASTA_big001_modif_GAP_adam_unfreeze50_SmallDataAug',
     #                       'RASTA_big001_modif_GAP_adam_unfreeze50_randomCrop',
-     list_model_name_5 = [
-                          'RASTA_big001_modif_GAP_adam_unfreeze50_RandForUnfreezed_randomCrop',
-                          'RASTA_big001_modif_GAP_adam_unfreeze20',
-                          'RASTA_big001_modif_GAP_adam_unfreeze20_SmallDataAug',
-                          'RASTA_big001_modif_GAP_adam_unfreeze20_randomCrop',
-                          'RASTA_big001_modif_GAP_adam_unfreeze20_RandForUnfreezed_randomCrop',
-                          'RASTA_big0001_modif_GAP_RandInit_deepSupervision_ep200'
-                          ] # Provide 60% on Top1 
+#                            'RASTA_big001_modif_GAP_adam_unfreeze50_RandForUnfreezed_randomCrop',
+#                          'RASTA_big001_modif_GAP_adam_unfreeze20',
+#                          'RASTA_big001_modif_GAP_adam_unfreeze20_SmallDataAug',
+#                          'RASTA_big001_modif_GAP_adam_unfreeze20_randomCrop',
+
+     list_model_name_5 = ['RASTA_big001_modif_GAP_adam_unfreeze20_RandForUnfreezed_randomCrop'] # Provide 60% on Top1 
      Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
     # InceptionV1 and ResNet50 models have been trained => need to look at the results ! 
     #Test avec RMSprop non fait !
@@ -1226,6 +1236,9 @@ if __name__ == '__main__':
                          'RASTA_big0001_modif_GAP_RMSprop_unfreeze8_SmallDataAug',
                         ]
      Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
+     
+     Comparaison_of_FineTunedModel(['RASTA_big0001_modif_GAP_RandInit_deepSupervision_ep200'],constrNet='ResNet50') 
+     
 #    
     # Test pour voir si la visualisation est possible pour les autres modeles : ResNet, VGG  Ok  
     # With unfreeze and without
@@ -1236,6 +1249,8 @@ if __name__ == '__main__':
 #    list_model_name_4 = ['RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200'
 #                        ]
 #    Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
+    
+
     
     
     

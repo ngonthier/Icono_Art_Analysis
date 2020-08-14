@@ -488,7 +488,7 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         raise(ValueError(Net+ 'is unkonwn'))
     lucid_net.load_graphdef()
     nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
-    print(nodes_tab)
+    #print(nodes_tab)
     assert(input_name in nodes_tab)
     
     
