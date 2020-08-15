@@ -1358,6 +1358,7 @@ if __name__ == '__main__':
     
     ## Pour DHNord les differents model que l on pourrait regarder 
     # Pretrained model
+    # It takes almost 5h per layer and per model to do so ....................
     list_name_models = ['pretrained']
     list_layers=['mixed4b','mixed4d','mixed5b']
     Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
