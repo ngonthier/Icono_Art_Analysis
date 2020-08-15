@@ -238,6 +238,8 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
         weights = 'RandForUnfreezed'
     else:
         weights = 'imagenet'
+        
+        
     SaveInit = True # il faudra corriger cela
     
     if constrNet=='VGG':
@@ -546,19 +548,72 @@ def why_white_output():
     plt.figure()
     plt.imshow(img_rescale)
     
+def Do_FeatVizu_all_a_layer_FineTunedModel(list_models_name,constrNet = 'InceptionV1',
+                                           list_layers=[],
+                                           suffix='',
+                                           FTModel=True):
+    """
+    The goal of this fct is to do the feature visualisation of all the feature of 
+    some of the layer of a given model 
+    @param : in the case where we are using RandInit model you can 
+    """
 
-def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
-                                  doAlsoImagesOfOtherModel_feature = False,
-                                  testMode=False,
-                                  suffix_tab = ['']):
-    """
-    This function will load the two models (deep nets) before and after fine-tuning 
-    and then compute the difference between the weights and finally run a 
-    deep dream on the feature maps of the weights that have the most change
-    @param testMode : if true we only print the two first feature
-    @param suffix_tab = ['','1'] # In order to have more than once the model fine-tuned with some given hyperparameters
-    """
+    input_name_lucid,trainable_layers_name = get_input_name_lucid_trainable_layer(constrNet)
     
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet)
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+
+    matplotlib.use('Agg') # To avoid to have the figure that's pop up during execution
+    
+    path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
+
+    K.set_learning_phase(0)
+    for model_name in list_models_name:
+        print('#### ',model_name)
+
+        if not(model_name=='pretrained'):
+            output_path_with_model = os.path.join(output_path,model_name+suffix)
+            pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
+            net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+
+            name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+               constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+
+            for layer in list_layers:  
+                output_path_with_model_and_layer = os.path.join(output_path_with_model,layer)
+                pathlib.Path(output_path_with_model_and_layer).mkdir(parents=True, exist_ok=True)
+                net_layer = net_finetuned.get_layer(layer)
+                shape_layer = net_layer.output_shape
+                num_feat = shape_layer[-1]
+                
+                list_layer_index_to_print = [[layer,i] for i in range(num_feat)]
+                
+                lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
+                         ,path_output=output_path_with_model_and_layer,prexif_name=model_name+suffix,
+                         input_name=input_name_lucid,Net=constrNet,
+                         reDo=False)
+                    
+        else:
+            net = lucid_utils.get_pretrained_model(Net=constrNet)
+            for layer in list_layers:  
+                output_path_with_model_and_layer = os.path.join(output_path_with_model,layer)
+                pathlib.Path(output_path_with_model_and_layer).mkdir(parents=True, exist_ok=True)
+                net_layer = net.get_layer(layer)
+                shape_layer = net.output_shape
+                num_feat = shape_layer[-1]
+                
+                list_layer_index_to_print = [[layer,i] for i in range(num_feat)]
+
+                print_imags_for_pretrainedModel(list_layer_index_to_print,output_path=output_path_with_model_and_layer,\
+                                         constrNet=constrNet,
+                                         reDo=False)
+                
+                
+                
+def get_input_name_lucid_trainable_layer(constrNet):
     if constrNet=='VGG':
         input_name_lucid ='block1_conv1_input'
         trainable_layers_name = getVGG_trainable_vizualizable_layers_name()
@@ -574,6 +629,21 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
         #raise(NotImplementedError('Not implemented yet with ResNet for print_images'))
     else:
         raise(NotImplementedError(constrNet + ' is not implemented sorry.'))
+    return(input_name_lucid,trainable_layers_name)
+
+def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
+                                  doAlsoImagesOfOtherModel_feature = False,
+                                  testMode=False,
+                                  suffix_tab = ['']):
+    """
+    This function will load the two models (deep nets) before and after fine-tuning 
+    and then compute the difference between the weights and finally run a 
+    deep dream on the feature maps of the weights that have the most change
+    @param testMode : if true we only print the two first feature
+    @param suffix_tab = ['','1'] # In order to have more than once the model fine-tuned with some given hyperparameters
+    """
+    
+    input_name_lucid,trainable_layers_name = get_input_name_lucid_trainable_layer(constrNet)
     
     if platform.system()=='Windows': 
         output_path = os.path.join('CompModifModel',constrNet)
@@ -1222,22 +1292,23 @@ if __name__ == '__main__':
 #                          'RASTA_big001_modif_GAP_adam_unfreeze20_SmallDataAug',
 #                          'RASTA_big001_modif_GAP_adam_unfreeze20_randomCrop',
 
-     list_model_name_5 = ['RASTA_big001_modif_GAP_adam_unfreeze20_RandForUnfreezed_randomCrop'] # Provide 60% on Top1 
-     Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
-    # InceptionV1 and ResNet50 models have been trained => need to look at the results ! 
-    #Test avec RMSprop non fait !
- #'RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200','RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200',
-     list_model_name_4 = ['RASTA_big001_modif_GAP_adam_unfreeze8',
-                          'RASTA_big001_modif_GAP_adam_unfreeze8_SmallDataAug',
-                         'RASTA_big0001_modif_GAP_adam_unfreeze8',
-                         'RASTA_big0001_modif_GAP_adam_unfreeze8_SmallDataAug',
-                         'RASTA_big0001_modif_GAP_adam_unfreeze8',
-                         'RASTA_big001_modif_GAP_RMSprop_unfreeze8_SmallDataAug',
-                         'RASTA_big0001_modif_GAP_RMSprop_unfreeze8_SmallDataAug',
-                        ]
-     Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
-     
-     Comparaison_of_FineTunedModel(['RASTA_big0001_modif_GAP_RandInit_deepSupervision_ep200'],constrNet='ResNet50') 
+###%  A faire tourner plus tard !
+#     list_model_name_5 = ['RASTA_big001_modif_GAP_adam_unfreeze20_RandForUnfreezed_randomCrop'] # Provide 60% on Top1 
+#     Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
+#    # InceptionV1 and ResNet50 models have been trained => need to look at the results ! 
+#    #Test avec RMSprop non fait !
+# #'RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200','RASTA_big001_modif_adam_unfreeze8_SmallDataAug_ep200',
+#     list_model_name_4 = ['RASTA_big001_modif_GAP_adam_unfreeze8',
+#                          'RASTA_big001_modif_GAP_adam_unfreeze8_SmallDataAug',
+#                         'RASTA_big0001_modif_GAP_adam_unfreeze8',
+#                         'RASTA_big0001_modif_GAP_adam_unfreeze8_SmallDataAug',
+#                         'RASTA_big0001_modif_GAP_adam_unfreeze8',
+#                         'RASTA_big001_modif_GAP_RMSprop_unfreeze8_SmallDataAug',
+#                         'RASTA_big0001_modif_GAP_RMSprop_unfreeze8_SmallDataAug',
+#                        ]
+#     Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
+#     
+#     Comparaison_of_FineTunedModel(['RASTA_big0001_modif_GAP_RandInit_deepSupervision_ep200'],constrNet='ResNet50') 
      
 #    
     # Test pour voir si la visualisation est possible pour les autres modeles : ResNet, VGG  Ok  

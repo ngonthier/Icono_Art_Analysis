@@ -164,6 +164,21 @@ class Lucid_Inception_v1_slim(Model):
        self.input_name = input_name
        super(Lucid_Inception_v1_slim, self).__init__(**kwargs)
 
+def get_pretrained_model(Net):
+    if Net=='InceptionV1_slim':
+        model = InceptionV1_slim(include_top=True, weights='imagenet')
+    elif Net=='InceptionV1':
+        model = inception_v1_oldTF(weights='imagenet',include_top=True)
+    elif Net=='VGG':
+        model = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet',input_shape=(224,224,3))
+    elif Net=='ResNet50':
+        model = tf.keras.applications.resnet50.ResNet50(include_top=True, weights='imagenet',\
+                                                      input_shape= (224, 224, 3))
+    else:
+        raise(ValueError(Net+' is unknown'))
+        
+    return(model)
+        
 def create_pb_model_of_pretrained(Net):
     K.set_learning_phase(0)
     with K.get_session().as_default():
@@ -464,9 +479,9 @@ def feature_block_var(channels,w, h=None, batch=None, sd=None, fft=True):
   return t
   
 def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name='',\
-                 input_name='block1_conv1_input',Net='VGG',sizeIm=256,\
+                 input_name='block1_conv1_input',Net='VGG',sizeIm=224,\
                  DECORRELATE = True,ROBUSTNESS  = True,just_return_output=False,
-                 dico=None,image_shape=None,inverseAndSave=True):
+                 dico=None,image_shape=None,inverseAndSave=True,reDo=False):
     """
     This fct will run the feature visualisation for the layer and feature in the
     list_layer_index_to_print list 
@@ -489,6 +504,8 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     lucid_net.load_graphdef()
     nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
     #print(nodes_tab)
+    # Il faudrait peut etre lever une exception si ca arrive la que tu puisse la recuperer
+    # plus haut et recreer le fichier .pb qui pose problem    
     assert(input_name in nodes_tab)
     
     
@@ -520,6 +537,15 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         obj = obj_str+':'+str(i)
         name_base = layer  + type_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
               
+        name_output = os.path.join(path_output,name_base)
+        new_output_path = os.path.join(path_output,'RGB')
+        if inverseAndSave:
+            name_output = name_output.replace('.png','_toRGB.png')
+            
+        if not(just_return_output) and not(reDo):
+            if os.path.isfile(name_output):
+                continue
+        
         output_im = render.render_vis(lucid_net,obj ,
                                       transforms=transforms,
                                       thresholds=[2048],
@@ -531,13 +557,9 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
             output_im_list += [output_im]
         else:
             image = np.array(output_im[0][0]*255) # car une seule image dans le batch
-            name_output = os.path.join(path_output,name_base)
-            new_output_path = os.path.join(path_output,'RGB')
             if inverseAndSave:
-                name_output = name_output.replace('.png','_toRGB.png')
                 image =image[:,:,[2,1,0]]
                 tf.keras.preprocessing.image.save_img(name_output, image)
-            
             else:
                 tf.keras.preprocessing.image.save_img(name_output, image)
                 pathlib.Path(new_output_path).mkdir(parents=True, exist_ok=True) 
@@ -546,7 +568,7 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     return(output_im_list)
     
 def get_feature_block_that_maximizeGivenOutput(model_path,list_layer_index_to_print,
-                                         input_name='block1_conv1_input',sizeIm=256,\
+                                         input_name='block1_conv1_input',sizeIm=224,\
                                          DECORRELATE = True,ROBUSTNESS  = True,
                                          dico=None,image_shape=None):
 
