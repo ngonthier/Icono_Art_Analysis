@@ -145,6 +145,8 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     path_data,Not_on_NicolasPC = get_database(dataset)
     df_train = df_label[df_label['set']=='train']
 
+    extra_str = ''
+
     if model_name=='pretrained':
         base_model = get_Network(constrNet)
     else:
@@ -155,7 +157,8 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
             if FTmodel:
                 base_model = FT_model
             else:
-               base_model = init_model 
+                extra_str = '_InitModel'
+                base_model = init_model 
         else:
             output = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
             if len(output)==2:
@@ -170,9 +173,6 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     
     folder_name = model_name+suffix
     
-    if not(FTmodel):
-        folder_name += '_Initialisation'
-    
     if platform.system()=='Windows': 
         output_path = os.path.join('CompModifModel',constrNet,folder_name)
     else:
@@ -181,13 +181,13 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     
     act_plus_layer = [list_outputs_name,activations]
     if stats_on_layer=='mean':
-        save_file = os.path.join(output_path,'activations_per_img.pkl')
+        save_file = os.path.join(output_path,'activations_per_img'+extra_str+'.pkl')
     elif stats_on_layer=='meanAfterRelu':
-        save_file = os.path.join(output_path,'meanAfterRelu_activations_per_img.pkl')
+        save_file = os.path.join(output_path,'meanAfterRelu_activations_per_img'+extra_str+'.pkl')
     elif stats_on_layer=='max':
-        save_file = os.path.join(output_path,'max_activations_per_img.pkl')
+        save_file = os.path.join(output_path,'max_activations_per_img'+extra_str+'.pkl')
     elif stats_on_layer=='min':
-        save_file = os.path.join(output_path,'min_activations_per_img.pkl')
+        save_file = os.path.join(output_path,'min_activations_per_img'+extra_str+'.pkl')
     else:
         raise(ValueError(stats_on_layer+' is unknown'))
     with open(save_file, 'wb') as handle:
@@ -266,9 +266,12 @@ def dead_kernel_QuestionMark(dataset,model_name,constrNet,fraction = 1.0,suffix=
 def plot_images_Pos_Images(dataset,model_name,constrNet,
                             layer_name='mixed4d_3x3_bottleneck_pre_relu',
                             num_feature=64,
-                            numberIm=9,stats_on_layer='mean',suffix=''):
+                            numberIm=9,stats_on_layer='mean',suffix='',
+                            FTmodel=True):
     """
     This function will plot k image a given layer with a given features number
+    @param : in the case of a trained (FT) model from scratch FTmodel == False will lead to 
+        use the initialization model
     """
     cropCenter = True
     printNearZero = False
@@ -286,12 +289,19 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     pathlib.Path(output_path_for_img).mkdir(parents=True, exist_ok=True) 
         
+    if not(FTmodel):
+        extra_str = '_InitModel'
+    else:
+        extra_str = ''
+    
     if stats_on_layer=='mean':
-        save_file = os.path.join(output_path,'activations_per_img.pkl')
+        save_file = os.path.join(output_path,'activations_per_img'+extra_str+'.pkl')
     elif stats_on_layer=='meanAfterRelu':
-        save_file = os.path.join(output_path,'meanAfterRelu_activations_per_img.pkl')
+        save_file = os.path.join(output_path,'meanAfterRelu_activations_per_img'+extra_str+'.pkl')
     elif stats_on_layer=='max':
-        save_file = os.path.join(output_path,'max_activations_per_img.pkl')
+        save_file = os.path.join(output_path,'max_activations_per_img'+extra_str+'.pkl')
+    elif stats_on_layer=='min':
+        save_file = os.path.join(output_path,'min_activations_per_img'+extra_str+'.pkl')
     else:
         raise(ValueError(stats_on_layer+' is unknown'))
         
@@ -304,7 +314,8 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
         list_outputs_name,activations = compute_OneValue_Per_Feature(dataset,
                                             model_name,constrNet,suffix=suffix,
                                             stats_on_layer=stats_on_layer,
-                                            cropCenter=cropCenter)
+                                            cropCenter=cropCenter,
+                                            FTmodel=FTmodel)
     
     for layer_name_inlist,activations_l in zip(list_outputs_name,activations):
         if layer_name==layer_name_inlist:
@@ -328,6 +339,8 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
             name_fig = dataset+'_'+layer_name+'_'+str(num_feature)+'_Most_Pos_Images_NumberIm'+str(numberIm)
             if not(stats_on_layer=='mean'):
                 name_fig += '_'+stats_on_layer
+            if not(FTmodel):
+                name_fig += '_InitModel'
             plt_multiple_imgs(list_images=list_most_pos_images,path_output=output_path_for_img,\
                               path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
                               Net=None,title_imgs=title_imgs)
@@ -356,6 +369,8 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
                 name_fig = dataset+'_'+layer_name+'_'+str(num_feature) +'_Near_Zero_Pos_Images_NumberIm'+str(numberIm)
                 if not(stats_on_layer=='mean'):
                     name_fig += '_'+stats_on_layer
+                if not(FTmodel):
+                    name_fig += '_InitModel'
                 plt_multiple_imgs(list_images=list_nearZero_pos_images,path_output=output_path_for_img,\
                                   path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
                                   Net=None,title_imgs=title_imgs)
@@ -439,4 +454,43 @@ if __name__ == '__main__':
                                 num_feature=num_feature,
                                 numberIm=81,
                                 stats_on_layer='mean')
+        
+    # Pour le model from scratch trained on RASTA 
+    # RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG a faire aussi
+    # A faire tourner 
+    for num_feature in [469,103,16,66,57,8]:
+        plot_images_Pos_Images(dataset='RASTA',
+                               model_name='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                               constrNet='InceptionV1',
+                                layer_name='mixed4d',
+                                num_feature=num_feature,
+                                numberIm=100,
+                                stats_on_layer='mean')
+        plot_images_Pos_Images(dataset='RASTA',
+                               model_name='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                               constrNet='InceptionV1',
+                                layer_name='mixed4d',
+                                num_feature=num_feature,
+                                numberIm=100,
+                                stats_on_layer='mean',
+                                FTmodel=False)
+    for num_feature in [469,103,16,66,57,8]:
+        plot_images_Pos_Images(dataset='RASTA',
+                               model_name='RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                               constrNet='InceptionV1',
+                                layer_name='mixed4d',
+                                num_feature=num_feature,
+                                numberIm=100,
+                                stats_on_layer='mean')
+        plot_images_Pos_Images(dataset='RASTA',
+                               model_name='RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                               constrNet='InceptionV1',
+                                layer_name='mixed4d',
+                                num_feature=num_feature,
+                                numberIm=100,
+                                stats_on_layer='mean',
+                                FTmodel=False)
+        
+    
+        
     

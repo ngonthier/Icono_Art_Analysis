@@ -1260,17 +1260,22 @@ def topK_features_per_class_list_of_modelpretrained():
                        'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
                        ] # a faire plus tard
-    model_name_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'
+    model_name_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                       'RASTA_small01_modif',
+                       'RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                       'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                       'RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                       'RASTA_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
                        ] # a faire plus tard
     
     # Tu n'as pas fini pour RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200 
     # il faudra relancer cela 
     
     
-    for model_name in model_name_list:
-        for layer in ['mixed4d','mixed5a']:
-            for stats_on_layer in ['mean','max','meanFirePos_minusMean','meanFirePos']:
-                for selection_feature in [None,'ClassMinusGlobalMean']:
+    for stats_on_layer in ['mean','max','meanFirePos_minusMean','meanFirePos']:
+        for selection_feature in [None,'ClassMinusGlobalMean']:
+            for model_name in model_name_list:
+                for layer in ['mixed4d','mixed5a']:
                     # Je pense qu il faut cleaner tout ici avant de recommencer :/
                     vizu_topK_feature_per_class(model_name =model_name,\
                                                layer=layer,\
@@ -1573,18 +1578,20 @@ def vizu_topK_feature_per_class(model_name = 'RASTA_big001_modif_adam_unfreeze44
                 
                 else:
                     name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
-                # TODO !!!! ici il y a un probleme et je ne sais pas pourquoi .... Chelou !
+                # Ici il peut y avoir un problem si par le passe il y a eu un bug lors de l execution du code, 
+                # le fichier .pb doit etre supprime et recreer
+                #print('name_pb',os.path.join(path_lucid_model,name_pb))
                 lucid_utils.print_images(model_path=os.path.join(path_lucid_model,name_pb),
-                                         list_layer_index_to_print=[layer,index_feature],
+                                         list_layer_index_to_print=[[layer,index_feature]],
                                          path_output=path_output_lucid_im,prexif_name=prexif_name,\
                                          input_name=input_name_lucid,Net=constrNet,sizeIm=224,
                                          ROBUSTNESS=ROBUSTNESS,
                                          DECORRELATE=DECORRELATE)
                     
             name_output = os.path.join(path_output_lucid_im,name_base)
-            print(name_output)
+            #print(name_output)
             img = plt.imread(name_output)
-            print(img)
+            #print(img)
             ax.imshow(img, interpolation='none')
             ax.set(title=str(index_feature))
             ax.tick_params(axis='both', which='both', length=0)
