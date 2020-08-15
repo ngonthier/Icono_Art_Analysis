@@ -70,8 +70,6 @@ def get_list_shortcut_name_model_wTwiceTrained():
     # but _unfreeze84 for InceptionV1_slim to train at 
     #  Mixed_4b_Branch_1_a_1x1_conv : because the name of the layer are not the same !
     possible_loss= ['','_cosineloss']
-    possibleInit = ['','_RandInit','_RandForUnfreezed']
-    possibleInit = ['','_RandInit','_RandForUnfreezed']
     possible_crop = ['','_randomCrop']
     possible_Sup = ['','_deepSupervision']
     possible_Aug = ['','_dataAug','_SmallDataAug','_MediumDataAug']
