@@ -58,10 +58,11 @@ import matplotlib.pyplot as plt
 import lucid_utils
 import platform
 
-from shortmodelname import get_list_shortcut_name_model,get_list_shortcut_name_model_wTwiceTrained
-
-list_finetuned_models_name_twiceTrained = get_list_shortcut_name_model_wTwiceTrained()
-list_finetuned_models_name = get_list_shortcut_name_model()
+from shortmodelname import test_if_the_name_is_correct,test_if_the_name_is_correct_wTwiceTrained
+#from shortmodelname import get_list_shortcut_name_model,get_list_shortcut_name_model_wTwiceTrained
+#
+#list_finetuned_models_name_twiceTrained = get_list_shortcut_name_model_wTwiceTrained()
+#list_finetuned_models_name = get_list_shortcut_name_model()
 #list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
 #                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
 #                        'IconArt_v1_small001_modif_deepSupervision','IconArt_v1_big001_modif_deepSupervision',
@@ -113,7 +114,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
     opt_option_big01=[0.01]
     opt_option_big001=[0.0001] # 10**-4 
     
-    if not(model_name in list_finetuned_models_name_twiceTrained):
+    if not(test_if_the_name_is_correct_wTwiceTrained(model_name)):
         raise(NotImplementedError(model_name+' is unknown.'))
         
     if 'small001' in  model_name:

@@ -53,10 +53,7 @@ from functools import partial
 
 import CompNet_FT_lucidIm
 
-from shortmodelname import get_list_shortcut_name_model
-
-list_finetuned_models_name = get_list_shortcut_name_model()
-
+from shortmodelname import test_if_the_name_is_correct
 ### Metrics function 
 def top_1_categorical_accuracy(y_true, y_pred):
     return tf.keras.metrics.top_k_categorical_accuracy(y_true, y_pred, k=1) 
@@ -1032,11 +1029,11 @@ def ResNet_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoo
           random_model = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=None,\
                                                           input_shape= (imSize, imSize, 3))
               
-      elif weights in list_finetuned_models_name:
+      elif test_if_the_name_is_correct(weights):
           pre_model,_ = CompNet_FT_lucidIm.get_fine_tuned_model(weights,constrNet='ResNet50',suffix='',
                                get_Metrics=False,verbose=False) # it will returns the fine-tuned net and the initialization
       else:
-          raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in list_finetuned_models_name'))
+          raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in possible finetuned short name'))
           
       number_of_trainable_layers = 106
   else:
@@ -2345,11 +2342,11 @@ def InceptionV1_baseline_model(num_of_classes=10,\
                               input_shape= (imSize, imSize, 3),pooling='avg')
           random_model = InceptionV1_slim(include_top=False, weights=None,\
                               input_shape= (imSize, imSize, 3),pooling='avg')  
-      elif weights in list_finetuned_models_name:
+      elif test_if_the_name_is_correct(weights):
           pre_model,_ = CompNet_FT_lucidIm.get_fine_tuned_model(weights,constrNet='InceptionV1',suffix='',
                                get_Metrics=False,verbose=False) # it will returns the fine-tuned net and the initialization
       else:
-          raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in list_finetuned_models_name'))
+          raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in short name list models'))
              
       number_of_trainable_layers = 114 # Total number of layers 199
       # TODO Chiffre faux qu il faudra modifier TODO
@@ -2362,11 +2359,11 @@ def InceptionV1_baseline_model(num_of_classes=10,\
                               input_shape= (imSize, imSize, 3))
           random_model = Inception_V1(include_top=False, weights=None,\
                               input_shape= (imSize, imSize, 3))
-      elif weights in list_finetuned_models_name:
+      elif test_if_the_name_is_correct(weights):
           pre_model,_ = CompNet_FT_lucidIm.get_fine_tuned_model(weights,constrNet='InceptionV1',suffix='',
                                get_Metrics=False,verbose=False) # it will returns the fine-tuned net and the initialization
       else:
-          raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in list_finetuned_models_name'))
+          raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in short name models'))
       if deepSupervision:
           number_of_trainable_layers = 65
       else:

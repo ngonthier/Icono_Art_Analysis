@@ -63,7 +63,7 @@ from googlenet import LRN,PoolHelper
 
 from wildcat_keras.pooling import ClassWisePool,WildcatPool2d
 
-from shortmodelname import get_list_shortcut_name_model
+from shortmodelname import test_if_the_name_is_correct
 
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -540,11 +540,12 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         print('With FT option you have to use MLP final classifier')
         raise(NotImplementedError('LinearSVC is not compatible with FT model exp'))
         
-    list_finetuned_models_name = get_list_shortcut_name_model()
-    if weights in list_finetuned_models_name: # When we used a fine-tuned model from one dataset to another one
+
+    if test_if_the_name_is_correct(weights): # When we used a fine-tuned model from one dataset to another one
         if not(constrNet=='InceptionV1' or constrNet=='InceptionV1_slim' or constrNet=='ResNet50'):
             raise(NotImplementedError('Fine tuning an already fine-tuned network is only available for InceptionV1 and ResNet model not for '+constrNet))
-        
+    else:
+        raise(NotImplementedError(weights+' is unknown.'))
         
     assert(not(returnStatistics and returnFeatures)) # Need to choose between both
     assert(freezingType in ['FromBottom','FromTop','Alter'])
