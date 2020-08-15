@@ -256,7 +256,7 @@ def print_old_results_MaxOfMax_artistic_datasets():
                                         Optimizer='GradientDescent',
                                         MaxOfMax=True,MaxMMeanOfMax=False,
                                         max_iters_all_base=3000,AddOneLayer=False,
-                                        num_features_hidden=256,pm_only_on_mean=False,
+                                        num_features_hidden=256,pm_only_on_mean=True,
                                         mi_model=False,
                                         seuillage_by_score=False,
                                         obj_score_add_tanh=False,
@@ -269,7 +269,8 @@ def print_old_results_MIMAX_artistic_datasets():
     print('=== MIMAX model de base ===')
     print('== avec et sans score avec et sans la loss hinge ==')
     VariationStudyPart3(['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
-                        ,scenarioSubset=[0,5,3,22],withoutAggregW=True,num_rep=10)
+                        ,scenarioSubset=[0,5,3,22],withoutAggregW=True,num_rep=10,
+                        pm_only_on_mean=True)
         
 
 if __name__ == '__main__':                                       

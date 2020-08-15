@@ -1006,7 +1006,7 @@ if __name__ == '__main__':
     Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'PeopleArt',Test_on_k_bag=False,
                         normalisation= False,baseline_kind = 'miSVM',verbose = True,
                         gridSearch=False,k_per_bag=300,n_jobs=4,PCAuse=False,variance_thres= 0.9,
-                        restarts=0,max_iter=50,testMode=False)
+                        restarts=0,max_iter=50,testMode=False,reDo=False)
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
 #                        normalisation= False,baseline_kind = 'SISVM',verbose = True,
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
