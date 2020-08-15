@@ -611,13 +611,14 @@ def Do_FeatVizu_all_a_layer_FineTunedModel(list_models_name,constrNet = 'Incepti
                     
         else:
             net = lucid_utils.get_pretrained_model(Net=constrNet)
+            output_path_with_model = os.path.join(output_path,model_name+suffix)
+            pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
             for layer in list_layers:  
                 output_path_with_model_and_layer = os.path.join(output_path_with_model,layer)
                 pathlib.Path(output_path_with_model_and_layer).mkdir(parents=True, exist_ok=True)
                 net_layer = net.get_layer(layer)
-                shape_layer = net.output_shape
+                shape_layer = net_layer.output_shape
                 num_feat = shape_layer[-1]
-                
                 list_layer_index_to_print = [[layer,i] for i in range(num_feat)]
 
                 print_imags_for_pretrainedModel(list_layer_index_to_print,output_path=output_path_with_model_and_layer,\
