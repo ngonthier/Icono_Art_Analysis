@@ -58,8 +58,9 @@ import matplotlib.pyplot as plt
 import lucid_utils
 import platform
 
-from shortmodelname import get_list_shortcut_name_model
+from shortmodelname import get_list_shortcut_name_model,get_list_shortcut_name_model_wTwiceTrained
 
+list_finetuned_models_name_twiceTrained = get_list_shortcut_name_model_wTwiceTrained()
 list_finetuned_models_name = get_list_shortcut_name_model()
 #list_finetuned_models_name = ['IconArt_v1_small001_modif','IconArt_v1_big001_modif',
 #                        'IconArt_v1_small001_modif_LastEpoch','IconArt_v1_big001_modif_LastEpoch',
@@ -112,7 +113,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
     opt_option_big01=[0.01]
     opt_option_big001=[0.0001] # 10**-4 
     
-    if not(model_name in list_finetuned_models_name):
+    if not(model_name in list_finetuned_models_name_twiceTrained):
         raise(NotImplementedError(model_name+' is unknown.'))
         
     if 'small001' in  model_name:
@@ -236,10 +237,12 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
         weights = None
     elif 'RandForUnfreezed' in model_name:
         weights = 'RandForUnfreezed'
+    elif 'XX' in model_name:
+        splittedXX = model_name.split('XX')
+        weights = splittedXX[1]
     else:
         weights = 'imagenet'
-        
-        
+
     SaveInit = True # il faudra corriger cela
     
     if constrNet=='VGG':
@@ -426,7 +429,8 @@ def get_weights_and_name_layers(keras_net):
     return(list_weights,list_name_layers)
 
 def _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path='',\
-                                    constrNet='InceptionV1',input_name='input_1'):
+                                    constrNet='InceptionV1',input_name='input_1'
+                                    ,reDo=False):
     try:
         if constrNet=='VGG':
             # For the original pretrained imagenet VGG
@@ -434,28 +438,28 @@ def _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output
             if not(os.path.exists(model_path)):
                 lucid_utils.create_pb_model_of_pretrained(constrNet)
             lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet)
+                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet,reDo=reDo)
         elif constrNet=='InceptionV1':
             model_path = os.path.join('model','tf_inception_v1.pb')
             if not(os.path.exists(model_path)):
                 lucid_utils.create_pb_model_of_pretrained(constrNet)
             # For the original pretrained imagenet InceptionV1 from Lucid to keras to Lucid
             lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet)
+                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet,reDo=reDo)
         elif constrNet=='InceptionV1_slim':
             model_path = os.path.join('model','tf_inception_v1_slim.pb')
             if not(os.path.exists(model_path)):
                 lucid_utils.create_pb_model_of_pretrained(constrNet)
             # For the original pretrained imagenet InceptionV1 from slim convert to keras
             lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet)
+                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet,reDo=reDo)
         elif constrNet=='ResNet50':
             model_path = os.path.join('model','tf_resnet50.pb')
             if not(os.path.exists(model_path)):
                 lucid_utils.create_pb_model_of_pretrained(constrNet)
             # ResNet 50 from Keras
             lucid_utils.print_images(model_path=model_path,list_layer_index_to_print=list_layer_index_to_print_base_model\
-                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet)
+                          ,path_output=output_path,prexif_name='Imagnet',input_name=input_name,Net=constrNet,reDo=reDo)
         else:
             raise(NotImplementedError(constrNet+' is unknown here.'))
         return(False,model_path,None)
@@ -463,18 +467,18 @@ def _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output
         return(True,model_path,e)
     
 def print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path='',\
-                                    constrNet='InceptionV1'):
+                                    constrNet='InceptionV1',reDo=False):
        
      error,path,e = _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,
                                                    output_path,\
-                                                       constrNet)
+                                                       constrNet,reDo=reDo)
      if error:
         os.remove(path)
         for i in range(1,4):
             input_name = 'input_'+str(i)
             error2,path,e2 = _print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,
                                                    output_path,\
-                                                       constrNet,input_name=input_name) 
+                                                       constrNet,input_name=input_name,reDo=reDo) 
             if not(error2):
                 return(0)
             
@@ -634,7 +638,7 @@ def get_input_name_lucid_trainable_layer(constrNet):
 def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
                                   doAlsoImagesOfOtherModel_feature = False,
                                   testMode=False,
-                                  suffix_tab = ['']):
+                                  suffix_tab = [''],reDo=False):
     """
     This function will load the two models (deep nets) before and after fine-tuning 
     and then compute the difference between the weights and finally run a 
@@ -718,10 +722,11 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
                     dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
                     
                     lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                         ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
+                         ,path_output=output_path_with_model,prexif_name=model_name+suffix,
+                         input_name=input_name_lucid,Net=constrNet,reDo=reDo)
                     
                     print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
-                                         constrNet=constrNet)
+                                         constrNet=constrNet,reDo=reDo)
                         
                      # Do the images for the other models case
                     if doAlsoImagesOfOtherModel_feature:
@@ -733,7 +738,10 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
                                      output_path_with_model_local =  os.path.join(output_path_with_model,'FromOtherTraining'+suffix_local)
                                      pathlib.Path(output_path_with_model_local).mkdir(parents=True, exist_ok=True)
                                      lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                                                              ,path_output=output_path_with_model_local,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
+                                                              ,path_output=output_path_with_model_local
+                                                              ,prexif_name=model_name+suffix,
+                                                              input_name=input_name_lucid,Net=constrNet
+                                                              ,reDo=reDo)
                     
                 else: # In the RandInit case : random initialisation
                     list_weights_initialisation,list_name_layers_init = get_weights_and_name_layers(init_net)
@@ -762,7 +770,9 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
                     dict_list_layer_index_to_print_base_model[model_name+suffix] = list_layer_index_to_print_base_model
                    
                     lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                             ,path_output=output_path_with_model,prexif_name=model_name+suffix,input_name=input_name_lucid,Net=constrNet)
+                             ,path_output=output_path_with_model,prexif_name=model_name+suffix,
+                             input_name=input_name_lucid,Net=constrNet
+                             ,reDo=reDo)
         
         else:
             # Random model 
@@ -783,10 +793,11 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
             output_path_with_model = os.path.join(output_path,model_name)
             pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
             lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                         ,path_output=output_path_with_model,prexif_name=model_name,input_name='input_1',Net=constrNet)
+                         ,path_output=output_path_with_model,prexif_name=model_name,input_name='input_1',Net=constrNet
+                         ,reDo=reDo)
              
             print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
-                                    constrNet=constrNet)
+                                    constrNet=constrNet,reDo=reDo)
     
 def print_DiffRelat_FineTuned_network(constrNet='InceptionV1',list_models_name=None,
                                         suffix_tab=None):
@@ -1269,11 +1280,12 @@ if __name__ == '__main__':
     
     # #list_model_name_5 = ['RASTA_big001_modif_adam_unfreeze50_SmallDataAug_ep200']
 
-     Comparaison_of_FineTunedModel(constrNet='InceptionV1',
-                                list_models_name = ['Paintings_small01_modif',
-                                                    'Paintings_small001_modif',
-                                                    'Paintings_big001_modif',
-                                                    'Paintings_small001_modif_deepSupervision'])
+    # A lancer tout a l heure
+#     Comparaison_of_FineTunedModel(constrNet='InceptionV1',
+#                                list_models_name = ['Paintings_small01_modif',
+#                                                    'Paintings_small001_modif',
+#                                                    'Paintings_big001_modif',
+#                                                    'Paintings_small001_modif_deepSupervision'])
     
 
 
@@ -1321,6 +1333,16 @@ if __name__ == '__main__':
 #                        ]
 #    Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG') 
     
+    
+    ## Test pour voir si ca marche aussi 
+    Comparaison_of_FineTunedModel(constrNet='InceptionV1',
+                                list_models_name = ['Paintings_small01_modif_XXRASTA_small01_modifXX'])
+    ## Test a faire pour voir si ca marche ! 
+    Do_FeatVizu_all_a_layer_FineTunedModel(['pretrained','RASTA_small01_modif'],
+                                           constrNet = 'InceptionV1',
+                                           list_layers=['mixed4d'],
+                                           suffix='',
+                                           FTModel=True)
 
     
     
