@@ -85,20 +85,24 @@ def test_if_the_name_is_correct(model_name):
     possible_lastEpochs = ['_LastEpoch']
     correct_name = False
     for dataset in possible_datasets:
+        #print(dataset,model_name)
         if dataset in model_name:
             correct_name = True
             model_name_new = model_name.replace(dataset,'')
+            break
     if not(correct_name):
-        print('Dataset is missing')
+        if not(model_name in [None,'RandForUnfreezed','imagenet']):
+            print('Dataset is missing in',model_name)
         return(False)
-        raise(ValueError('Dataset is missing'))
+        #raise(ValueError('Dataset is missing'))
     correct_name = False
     for lr in possible_lr:
         if lr in model_name:
             correct_name = True
             model_name_new = model_name_new.replace(lr,'')
+            break
     if not(correct_name):
-        print('lr is missing')
+        print('lr is missing in ',model_name)
         return(False)
         #raise(ValueError('lr is missing'))
 

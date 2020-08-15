@@ -2360,6 +2360,7 @@ def InceptionV1_baseline_model(num_of_classes=10,\
           random_model = Inception_V1(include_top=False, weights=None,\
                               input_shape= (imSize, imSize, 3))
       elif test_if_the_name_is_correct(weights):
+          print('RRRR ',weights)
           pre_model,_ = CompNet_FT_lucidIm.get_fine_tuned_model(weights,constrNet='InceptionV1',suffix='',
                                get_Metrics=False,verbose=False) # it will returns the fine-tuned net and the initialization
       else:
@@ -4491,12 +4492,14 @@ def saveInitialisationOfModel_beforeFT(model,init_model_path,weights,final_clf,\
                                        deepSupervision,\
                                        shape_info=[None, 224, 224,3]):
     
-    assert(weights in ['imagenet',None,'RandForUnfreezed'])
+    if not(weights in ['imagenet',None,'RandForUnfreezed'] or test_if_the_name_is_correct(weights)):
+        raise(NotImplementedError(weights+' is unknown'))
     
     if weights is None or weights=='RandForUnfreezed':
         model.save(init_model_path,include_optimizer=False)
         utils_keras.fix_layer0(init_model_path, shape_info, 'float32')
     else: # ImageNet case : we only save the head !
+         # It can also be a transfer from an other dataset as RASTA etc
         layers = model.layers
         assert('MLP' in final_clf)
         if 'MLP' in final_clf:

@@ -105,7 +105,7 @@ def get_random_net(constrNet='VGG'):
         randomNet = tf.keras.applications.resnet50.ResNet50(include_top=False, weights=None)
     return(randomNet)
 
-def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
+def get_fine_tuned_model(model_name,constrNet='InceptionV1',suffix='',get_Metrics=False,
                          verbose=True):
     
     opt_option_small=[0.1,0.001] # Car opt_option = multiplier_lrp, lr
@@ -214,16 +214,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
         randomCrop = False
         cropCenter=True
         
-    if 'RASTA' in model_name:
-        target_dataset = 'RASTA'
-    elif 'RMN' in model_name:
-        target_dataset = 'RMN'
-    elif 'Paintings' in model_name:
-        target_dataset = 'Paintings'
-    elif 'IconArt_v1' in model_name:
-        target_dataset = 'IconArt_v1'
-    else:
-        raise(NotImplementedError)
+
 
     if 'cn' in model_name:
         if 'cn10' in model_name:
@@ -234,6 +225,7 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
         clipnorm = False
 
 
+    model_name_wo_oldModel = None
     if 'RandInit' in model_name:
         weights = None
     elif 'RandForUnfreezed' in model_name:
@@ -241,8 +233,25 @@ def get_fine_tuned_model(model_name,constrNet='VGG',suffix='',get_Metrics=False,
     elif 'XX' in model_name:
         splittedXX = model_name.split('XX')
         weights = splittedXX[1]
+        model_name_wo_oldModel = model_name.replace('_XX'+weights+'XX','')
     else:
         weights = 'imagenet'
+
+    if model_name_wo_oldModel is None:
+        model_name_wo_oldModel = model_name
+
+    print('model_name_wo_oldModel',model_name_wo_oldModel)
+
+    if 'RASTA' in model_name_wo_oldModel:
+        target_dataset = 'RASTA'
+    elif 'RMN' in model_name_wo_oldModel:
+        target_dataset = 'RMN'
+    elif 'Paintings' in model_name_wo_oldModel:
+        target_dataset = 'Paintings'
+    elif 'IconArt_v1' in model_name_wo_oldModel:
+        target_dataset = 'IconArt_v1'
+    else:
+        raise(NotImplementedError(target_dataset + 'is not implemented yet here.'))
 
     SaveInit = True # il faudra corriger cela
     
@@ -304,8 +313,7 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suff
     tf.reset_default_graph()
     K.set_learning_phase(0)
 
-    list_models_name_all = list_finetuned_models_name + ['random']
-    if not(model_name in list_models_name_all):
+    if not(test_if_the_name_is_correct_wTwiceTrained(model_name)) or model_name=='random':
         raise(NotImplementedError)
         
     if model_name=='random':
