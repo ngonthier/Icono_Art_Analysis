@@ -4708,10 +4708,17 @@ def test_fined_onOtherDatasetFirst():
     learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[0.1,10**(-3)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='imagenet')
+    #& 52.8 & 30.7 & 89.5 & 63.3 & 44.4 & 60.5 & 40.3 & 70.0 & 54.1 & 73.9 & 58.0 \\    
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                 optimizer='SGD',opt_option=[0.1,10**(-2)],pretrainingModif=True,\
                 epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
                 weights='imagenet') # autre base line : a tester
-    
+    #  & 57.0 & 38.5 & 91.2 & 68.0 & 51.5 & 61.5 & 43.8 & 72.6 & 61.0 & 79.2 & 62.4 \\ 
     
     learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
@@ -4737,13 +4744,7 @@ def test_fined_onOtherDatasetFirst():
                 weights='RASTA_small01_modif') 
     # & 52.8 & 38.8 & 88.6 & 70.5 & 45.7 & 65.5 & 43.8 & 72.0 & 57.5 & 73.3 & 60.9 \\ 
         
-    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
-                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
-                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
-                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
-                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
-                weights='RASTA_small01_modif') 
-    # & 61.1 & 42.7 & 91.7 & 68.8 & 60.1 & 65.9 & 46.1 & 79.0 & 74.3 & 80.3 & 67.0 \\ 
+
     # Et l optimization n est pas fini
        
     learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
