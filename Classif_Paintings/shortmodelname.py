@@ -110,29 +110,29 @@ def test_if_the_name_is_correct(model_name):
         model_name_new = model_name_new.replace(llt,'')
         
     for opt in possible_opt:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(opt,'')
     for f in possible_freeze:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(f,'')
     for loss in possible_loss:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(loss,'')
     for init in  possibleInit:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(init,'')
     for crop in possible_crop:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(crop,'')
     for sup in possible_Sup:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(sup,'')
     for aug in possible_Aug:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(aug,'')
     for ep in possible_epochs:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(ep,'')
     for le in possible_lastEpochs:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(le,'')
     for c in possible_clipnorm:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(c,'')
     for ls in possible_LRSched:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(ls,'')
     for dp in possible_dropout:
-        model_name_new = model_name_new.replace(llt,'')
+        model_name_new = model_name_new.replace(dp,'')
     
     if not(model_name_new==''):
         print(model_name_new + ' parameter is unknonw sorry.')
