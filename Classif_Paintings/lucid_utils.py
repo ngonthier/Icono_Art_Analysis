@@ -181,6 +181,7 @@ def get_pretrained_model(Net):
         
 def create_pb_model_of_pretrained(Net):
     K.set_learning_phase(0)
+    tf.reset_default_graph()
     with K.get_session().as_default():
         if Net=='InceptionV1_slim':
             model = InceptionV1_slim(include_top=True, weights='imagenet')
@@ -506,6 +507,7 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     #print(nodes_tab)
     # Il faudrait peut etre lever une exception si ca arrive la que tu puisse la recuperer
     # plus haut et recreer le fichier .pb qui pose problem    
+    #print(input_name)
     assert(input_name in nodes_tab)
     
     
