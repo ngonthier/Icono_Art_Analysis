@@ -278,7 +278,7 @@ if __name__ == '__main__':
 #    print('TwoThousandsboxes_MIMAX')
 #    TwoThousandsboxes_MIMAX()
 
-    print('CVmode_MIMAX')
+#    print('CVmode_MIMAX')
 #    CVmode_MIMAX()
     # To print performance 
     # VariationStudyPart3(['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
@@ -294,6 +294,9 @@ if __name__ == '__main__':
     print('Other_way_to_use_score_MaxOfMax')
 #    Other_way_to_use_score_MaxOfMax()
     MaxOfMax_other_way_score_print_results()
+    
+    print('Old MaxOfMax results redo')
+    print_old_results_MaxOfMax_artistic_datasets()
 #    
 #    print('miperceptron_for_artistist_dataset')
 #    miperceptron_for_artistist_dataset()
