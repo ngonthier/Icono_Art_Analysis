@@ -502,7 +502,7 @@ def inception_v1_oldTF(weights='imagenet',include_top=True,input_shape= (224, 22
     bias_init = tf.keras.initializers.Constant(value=0.2)
     
     K.set_image_data_format('channels_last')
-    img_input = Input(shape=(224, 224, 3),name='input_1')
+    img_input = Input(shape=input_shape,name='input_1')
     
     axis_concat = -1
     output_classes_num = 1008

@@ -946,7 +946,10 @@ def print_RASTA_performance():
                                         suffix_tab=[''],latexOutput=True)
 def print_IconArtv1_performance():
 
-    list_models_name = ['IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200',
+    list_models_name = ['IconArt_v1_small01_modif',
+                        'IconArt_v1_big01_modif',
+                        'IconArt_v1_big001_modif',
+                        'IconArt_v1_big001_modif_adam_randomCrop_deepSupervision_ep200',
                         'IconArt_v1_big001_modif_Adadelta_unfreeze50_MediumDataAug_ep200',
                         'IconArt_v1_big001_modif_adam_unfreeze50_SmallDataAug_ep200',
                         'IconArt_v1_big001_modif_adam_unfreeze44_SmallDataAug_ep200',
@@ -957,6 +960,12 @@ def print_IconArtv1_performance():
                          'IconArt_v1_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                          'IconArt_v1_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                          'IconArt_v1_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                         'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
+                        'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
+                        'IconArt_v1_small01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                        'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                        'IconArt_v1_small01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                        'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX'
                         ]
 
     print_performance_FineTuned_network(constrNet='InceptionV1',
@@ -968,6 +977,24 @@ def print_IconArtv1_performance():
     print_performance_FineTuned_network(constrNet='InceptionV1_slim',
                                         list_models_name=list_models_name,
                                         suffix_tab=[''],latexOutput=True)
+    
+def print_Paintings_performance():
+
+    list_models_name = ['Paintings_small01_modif',
+                        'Paintings_big01_modif',
+                        'Paintings_big001_modif',
+                        'Paintings_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                        'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                        'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedGXX',
+                        'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                        'Paintings_small01_modif_XXRASTA_small01_modifXX',
+                        'Paintings_big001_modif_XXRASTA_small01_modifXX']
+
+    print_performance_FineTuned_network(constrNet='InceptionV1',
+                                        list_models_name=list_models_name,
+                                        suffix_tab=[''],latexOutput=True)
+    
+
     
 def print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=None,
@@ -1413,70 +1440,72 @@ if __name__ == '__main__':
 #    ## Pour DHNord les differents model que l on pourrait regarder 
 #    # Pretrained model
 #    # It takes almost 5h per layer and per model to do so ....................
-    list_name_models = ['pretrained']
-    list_layers=['mixed4b','mixed4d','mixed5b']
-    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
-                                           constrNet = 'InceptionV1',
-                                           list_layers=list_layers,
-                                           suffix='',
-                                           FTModel=True)
-    
-    # Les modeles entraines au debut avec un remaque
-    list_name_models = ['RASTA_small01_modif',
-                        'RASTA_small001_modif',
-                        'RASTA_big001_modif',
-                        'RASTA_small001_modif_deepSupervision']
-    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
-                                           constrNet = 'InceptionV1',
-                                           list_layers=list_layers,
-                                           suffix='',
-                                           FTModel=True)
-    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
-                                           constrNet = 'InceptionV1',
-                                           list_layers=list_layers,
-                                           suffix='1',
-                                           FTModel=True)
-    
-    # Model entraine plus longtemps 
-    list_name_models = ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                        'RASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedG']
-    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
-                                           constrNet = 'InceptionV1',
-                                           list_layers=list_layers,
-                                           suffix='',
-                                           FTModel=True)
-    
-    # Paintings model
-    list_models_name = ['Paintings_small01_modif',
-                        'Paintings_small001_modif',
-                        'Paintings_big001_modif',
-                        'Paintings_small001_modif_deepSupervision']
-    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
-                                           constrNet = 'InceptionV1',
-                                           list_layers=list_layers,
-                                           suffix='',
-                                           FTModel=True)
-    # IconArt model
-    list_models_name = ['IconArt_v1_small01_modif',
-                        'IconArt_v1_small001_modif',
-                        'IconArt_v1_big001_modif',
-                        'IconArt_v1_small001_modif_deepSupervision']
-    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
-                                           constrNet = 'InceptionV1',
-                                           list_layers=list_layers,
-                                           suffix='',
-                                           FTModel=True)
-    
-    # Test avec RASTA as Initand trained on Paintings
-    list_models_name = ['Paintings_big001_modif_XXRASTA_small01_modifXX',
-                        'Paintings_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
-                        'Paintings_big001_modif_XXRASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedGXX']
-    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
-                                           constrNet = 'InceptionV1',
-                                           list_layers=list_layers,
-                                           suffix='',
-                                           FTModel=True)
+# Tout cela a decommenter pour plus tard !!!
+#    list_name_models = ['pretrained']
+#    list_layers=['mixed4b','mixed4d','mixed5b']
+#    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+#                                           constrNet = 'InceptionV1',
+#                                           list_layers=list_layers,
+#                                           suffix='',
+#                                           FTModel=True)
+#    
+#    # Les modeles entraines au debut avec un remaque
+#    list_name_models = ['RASTA_small01_modif',
+#                        'RASTA_small001_modif',
+#                        'RASTA_big001_modif',
+#                        'RASTA_small001_modif_deepSupervision']
+#    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+#                                           constrNet = 'InceptionV1',
+#                                           list_layers=list_layers,
+#                                           suffix='',
+#                                           FTModel=True)
+#    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+#                                           constrNet = 'InceptionV1',
+#                                           list_layers=list_layers,
+#                                           suffix='1',
+#                                           FTModel=True)
+#    
+#    # Model entraine plus longtemps 
+#    list_name_models = ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+#                        'RASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedG']
+#    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+#                                           constrNet = 'InceptionV1',
+#                                           list_layers=list_layers,
+#                                           suffix='',
+#                                           FTModel=True)
+#    
+#    # Paintings model
+#    list_models_name = ['Paintings_small01_modif',
+#                        'Paintings_small001_modif',
+#                        'Paintings_big001_modif',
+#                        'Paintings_small001_modif_deepSupervision']
+#    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+#                                           constrNet = 'InceptionV1',
+#                                           list_layers=list_layers,
+#                                           suffix='',
+#                                           FTModel=True)
+#    # IconArt model
+#    list_models_name = ['IconArt_v1_small01_modif',
+#                        'IconArt_v1_small001_modif',
+#                        'IconArt_v1_big001_modif',
+#                        'IconArt_v1_small001_modif_deepSupervision']
+#    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+#                                           constrNet = 'InceptionV1',
+#                                           list_layers=list_layers,
+#                                           suffix='',
+#                                           FTModel=True)
+#    
+#    # Test avec RASTA as Initand trained on Paintings
+#    list_models_name = ['Paintings_big001_modif_XXRASTA_small01_modifXX',
+#                        'Paintings_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+#                        'Paintings_big001_modif_XXRASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedGXX']
+#    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+#                                           constrNet = 'InceptionV1',
+#                                           list_layers=list_layers,
+#                                           suffix='',
+#                                           FTModel=True)
 
+    print_Paintings_performance()
     
     
         
