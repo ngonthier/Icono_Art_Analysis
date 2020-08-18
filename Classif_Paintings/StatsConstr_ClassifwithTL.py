@@ -1257,6 +1257,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 print('We will load the trained model :')
                 print(model_path)
                 
+                print('weights',weights)
+                
                 #elif: constrNet=='InceptionV1_s':
                 #    model = load_model(model_path,compile=False, custom_objects={'PoolHelper': PoolHelper,'LRN':LRN})
                 
