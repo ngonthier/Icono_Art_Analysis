@@ -541,10 +541,12 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         raise(NotImplementedError('LinearSVC is not compatible with FT model exp'))
         
 
-    if test_if_the_name_is_correct_wTwiceTrained(weights): # When we used a fine-tuned model from one dataset to another one
+    if weights in [None,'RandForUnfreezed','imagenet','']:  
+        pass    
+    elif test_if_the_name_is_correct_wTwiceTrained(weights): # When we used a fine-tuned model from one dataset to another one
         if not(constrNet=='InceptionV1' or constrNet=='InceptionV1_slim' or constrNet=='ResNet50'):
             raise(NotImplementedError('Fine tuning an already fine-tuned network is only available for InceptionV1 and ResNet model not for '+constrNet))
-    elif not(weights in [None,'RandForUnfreezed','imagenet','']):
+    else:
         raise(NotImplementedError(weights+' is unknown.'))
         
     assert(not(returnStatistics and returnFeatures)) # Need to choose between both
@@ -4722,6 +4724,14 @@ def test_fined_onOtherDatasetFirst():
     
     learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=False,\
+                optimizer='SGD',opt_option=[0.1,10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='imagenet',randomCrop=True)   
+    # & 60.3 & 42.5 & 91.4 & 68.1 & 52.9 & 65.0 & 46.0 & 75.4 & 62.7 & 79.4 & 64.4 \\ 
+        
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                 optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
                 epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
@@ -4743,10 +4753,24 @@ def test_fined_onOtherDatasetFirst():
                 epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
                 weights='RASTA_small01_modif') 
     # & 52.8 & 38.8 & 88.6 & 70.5 & 45.7 & 65.5 & 43.8 & 72.0 & 57.5 & 73.3 & 60.9 \\ 
-        
-
     # Et l optimization n est pas fini
-       
+    
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RASTA_small01_modif') 
+    #  & 61.1 & 42.7 & 91.7 & 68.8 & 60.1 & 65.9 & 46.1 & 79.0 & 74.3 & 80.3 & 67.0 \\
+        
+    learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=False,\
+                optimizer='SGD',opt_option=[10**(-2)],pretrainingModif=True,\
+                epochs=20,return_best_model=True,SGDmomentum=0.9,verbose=True,\
+                weights='RASTA_small01_modif',randomCrop=True)
+    # & 67.8 & 45.6 & 92.9 & 69.7 & 58.1 & 66.6 & 49.6 & 80.5 & 73.1 & 81.4 & 68.5 \\
+        
     learn_and_eval(target_dataset='Paintings',source_dataset='',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
                 transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
