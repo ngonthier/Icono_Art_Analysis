@@ -19,10 +19,12 @@ import lucid_utils
 
 
 
-def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],dataset='RASTA',
+def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],
+                    dataset='RASTA',
                     constrNet='InceptionV1',
                     numberIm = 100,
-                    stats_on_layer = 'meanAfterRelu'):
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=''):
     
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     for model_name in list_models_name:
@@ -31,34 +33,77 @@ def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],d
         for layer_name,num_feature in list_layer_index_to_print:
         
             if model_name=='pretrained':
+                output_path_for_img = os.path.join(output_path,model_name)
                 plot_images_Pos_Images(dataset,model_name,constrNet,
                                 layer_name=layer_name,
                                 num_feature=num_feature,
-                                numberIm=numberIm,stats_on_layer=stats_on_layer,suffix='',
-                                FTmodel=True)
+                                numberIm=numberIm,stats_on_layer=stats_on_layer,
+                                suffix='',
+                                FTmodel=True,
+                                output_path_for_img=output_path_for_img)
             elif not(model_name=='random'):
                 
                 for suffix in suffix_tab:
+                    output_path_for_img = os.path.join(output_path,model_name+suffix)
                     plot_images_Pos_Images(dataset,model_name,constrNet,
                                 layer_name=layer_name,
                                 num_feature=num_feature,
-                                numberIm=numberIm,stats_on_layer=stats_on_layer,suffix=suffix,
-                                FTmodel=True)
+                                numberIm=numberIm,stats_on_layer=stats_on_layer,
+                                suffix=suffix,
+                                FTmodel=True,
+                                output_path_for_img=output_path_for_img)
 
 if __name__ == '__main__': 
     
     # Liste figure pour AdaptationFiltersRASTA de DHNord 2020 paper
     suffix_tab = ['','1']
-    list_features = [['mixed4d_pool_reduce_pre_relu',64],['mixed4b_3x3_bottleneck_pre_relu',35],['mixed4d_3x3_pre_relu',52]]
-    list_models = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
-                        'RASTA_small001_modif_deepSupervision','RASTA_big001_modif_deepSupervision']
+    list_features = [['mixed4d_pool_reduce_pre_relu',63],['mixed4b_3x3_bottleneck_pre_relu',35],['mixed4d_3x3_pre_relu',52]]
+    list_models = ['pretrained','RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision',
+                        'RASTA_big001_modif_deepSupervision']
     # Il y a un pb non resolu avec le pretrained model !
-    output_path = path_lucid_model = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
+    output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
     do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
                                  suffix_tab = suffix_tab,
                                  output_path=output_path,constrNet='InceptionV1')
     
-    # 
+    # Afficher les 100 images qui repondent le plus pour ces filtres là :
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=suffix_tab,dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 100,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path)
     
+    # Pour la figure Mid-level detectors can be learned from scratch : a lancer 
+    list_models = ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
+    list_features = [['mixed5a_3x3_bottleneck_pre_relu',1],['mixed4d_5x5_pre_relu',50]]
+    output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
+    do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
+                                 output_path=output_path,constrNet='InceptionV1')
+    
+    # Pour la figure low level feature 
+    list_models = ['pretrained','RASTA_small01_modif']
+    list_features = [['conv2d1_pre_relu',30],['mixed3a_3x3_pre_relu',12],['mixed3a_5x5_bottleneck_pre_relu',8]]
+    output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
+    do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
+                                 output_path=output_path,constrNet='InceptionV1')
+    
+    # Pour la figure High-level filters seem poly-semantic; feat vizu + top images associées
+    # A lancer 
+    list_models = ['pretrained','RASTA_small01_modif']
+    list_features = [['mixed5b_pool_reduce_pre_relu',92],['mixed5b_3x3_pre_relu',33],['mixed5b_5x5_pre_relu',82]]
+    output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
+    do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
+                                 output_path=output_path,constrNet='InceptionV1')
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 100,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path)
+
     
     

@@ -267,7 +267,8 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
                             layer_name='mixed4d_3x3_bottleneck_pre_relu',
                             num_feature=64,
                             numberIm=9,stats_on_layer='mean',suffix='',
-                            FTmodel=True):
+                            FTmodel=True,
+                            output_path_for_img=None):
     """
     This function will plot k image a given layer with a given features number
     @param : in the case of a trained (FT) model from scratch FTmodel == False will lead to 
@@ -285,7 +286,11 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
     else:
         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
     # For images
-    output_path_for_img = os.path.join(output_path,'ActivationsImages')
+    if output_path_for_img is None:
+        output_path_for_img = os.path.join(output_path,'ActivationsImages')
+    else:
+        output_path_for_img = os.path.join(output_path_for_img,'ActivationsImages')
+
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     pathlib.Path(output_path_for_img).mkdir(parents=True, exist_ok=True) 
         
