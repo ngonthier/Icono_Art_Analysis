@@ -1248,7 +1248,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         elif kind_method=='FT':
             
             include_optimizer=False
-        
+
             # This have not been tested maybe you have to put it after the get_deep_model_for_FT function
             if os.path.exists(model_path) and not(ReDo): # We will load the model and return it
                 if not(constrNet=='ResNet50' or constrNet=='VGG' or constrNet=='InceptionV1' or constrNet=='InceptionV1_slim'):

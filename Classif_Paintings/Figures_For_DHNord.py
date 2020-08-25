@@ -12,7 +12,7 @@ import pathlib
 import matplotlib
 import tensorflow as tf
 
-from CompNet_FT_lucidIm import do_lucid_vizu_for_list_model
+from CompNet_FT_lucidIm import do_lucid_vizu_for_list_model,print_performance_FineTuned_network
 from Activation_for_model import plot_images_Pos_Images
 
 import lucid_utils
@@ -61,6 +61,8 @@ if __name__ == '__main__':
     list_models = ['pretrained','RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
                         'RASTA_small001_modif_deepSupervision',
                         'RASTA_big001_modif_deepSupervision']
+    list_models = ['RASTA_small001_modif_deepSupervision',
+                        'RASTA_big001_modif_deepSupervision']
     # Il y a un pb non resolu avec le pretrained model !
     output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
     do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
@@ -76,7 +78,7 @@ if __name__ == '__main__':
                     stats_on_layer = 'meanAfterRelu',
                     output_path=output_path)
     
-    # Pour la figure Mid-level detectors can be learned from scratch : a lancer 
+    # Pour la figure Mid-level detectors can be learned from scratch
     list_models = ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
     list_features = [['mixed5a_3x3_bottleneck_pre_relu',1],['mixed4d_5x5_pre_relu',50]]
     output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
@@ -91,7 +93,6 @@ if __name__ == '__main__':
                                  output_path=output_path,constrNet='InceptionV1')
     
     # Pour la figure High-level filters seem poly-semantic; feat vizu + top images associées
-    # A lancer 
     list_models = ['pretrained','RASTA_small01_modif']
     list_features = [['mixed5b_pool_reduce_pre_relu',92],['mixed5b_3x3_pre_relu',33],['mixed5b_5x5_pre_relu',82]]
     output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
@@ -104,6 +105,21 @@ if __name__ == '__main__':
                     numberIm = 100,
                     stats_on_layer = 'meanAfterRelu',
                     output_path=output_path)
+    
+    # Model from scratch completement : a lancer 
+    list_models = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+    list_features = [['mixed4d',8],['mixed4d',16],['mixed4d',66]]
+    output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
+    do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
+                                 output_path=output_path,constrNet='InceptionV1')
+    
+    # Print fine-tuned models :
+    list_models_name = ['RASTA_small01_modif',
+                        'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+    print_performance_FineTuned_network(constrNet='InceptionV1',
+                                        list_models_name=list_models_name,
+                                        suffix_tab=[''],latexOutput=True)
 
     
     
