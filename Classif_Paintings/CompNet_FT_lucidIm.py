@@ -954,15 +954,18 @@ def print_IconArtv1_performance():
                         'IconArt_v1_big001_modif_adam_MediumDataAug_ep200',
                         'IconArt_v1_big001_modif_adam_randomCrop_ep200',
                         'IconArt_v1_big001_modif_adam_RandInit_SmallDataAug_ep200',
-                         'IconArt_v1_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                         'IconArt_v1_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                         'IconArt_v1_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
-                         'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
+                        'IconArt_v1_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                        'IconArt_v1_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                        'IconArt_v1_big0001_modif_adam_unfreeze50_SmallDataAug_ep200',
+                        'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
                         'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
+                        'IconArt_v1_big001_modif_XXRASTA_small01_modifXX',
                         'IconArt_v1_small01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                         'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                        'IconArt_v1_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                         'IconArt_v1_small01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
                         'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX'
+                        'IconArt_v1_big001_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX'
                         ]
 
     print_performance_FineTuned_network(constrNet='InceptionV1',
