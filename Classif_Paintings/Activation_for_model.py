@@ -146,7 +146,18 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     df_train = df_label[df_label['set']=='train']
 
     extra_str = ''
-
+    
+    if 'XX' in model_name:
+        splittedXX = model_name.split('XX')
+        weights = splittedXX[1]
+        model_name_wo_oldModel = model_name.replace('_XX'+weights+'XX','')
+    else:
+        model_name_wo_oldModel = model_name
+    if dataset in model_name_wo_oldModel:
+        dataset_str = ''
+    else:
+        dataset_str = dataset
+        
     if model_name=='pretrained':
         base_model = get_Network(constrNet)
     else:
@@ -181,13 +192,13 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     
     act_plus_layer = [list_outputs_name,activations]
     if stats_on_layer=='mean':
-        save_file = os.path.join(output_path,'activations_per_img'+extra_str+'.pkl')
+        save_file = os.path.join(output_path,'activations_per_img'+extra_str+dataset_str+'.pkl')
     elif stats_on_layer=='meanAfterRelu':
-        save_file = os.path.join(output_path,'meanAfterRelu_activations_per_img'+extra_str+'.pkl')
+        save_file = os.path.join(output_path,'meanAfterRelu_activations_per_img'+extra_str+dataset_str+'.pkl')
     elif stats_on_layer=='max':
-        save_file = os.path.join(output_path,'max_activations_per_img'+extra_str+'.pkl')
+        save_file = os.path.join(output_path,'max_activations_per_img'+extra_str+dataset_str+'.pkl')
     elif stats_on_layer=='min':
-        save_file = os.path.join(output_path,'min_activations_per_img'+extra_str+'.pkl')
+        save_file = os.path.join(output_path,'min_activations_per_img'+extra_str+dataset_str+'.pkl')
     else:
         raise(ValueError(stats_on_layer+' is unknown'))
     with open(save_file, 'wb') as handle:
@@ -262,20 +273,74 @@ def dead_kernel_QuestionMark(dataset,model_name,constrNet,fraction = 1.0,suffix=
         if not(noFire):
             print('No image that doesn t fire for this layer :',layer_name_inlist)
             
+ 
+def get_list_activations(dataset,output_path,stats_on_layer,
+                         model_name,constrNet,suffix,cropCenter,FTmodel,
+                         model_name_wo_oldModel):
+    
+    if dataset in model_name_wo_oldModel:
+        dataset_str = ''
+    else:
+        dataset_str = dataset
+    
+    if not(FTmodel):
+        extra_str = '_InitModel'
+    else:
+        extra_str = ''
+    
+    # Load the activations for the main model :
+    if stats_on_layer=='mean':
+        save_file = os.path.join(output_path,'activations_per_img'+extra_str+dataset_str+'.pkl')
+    elif stats_on_layer=='meanAfterRelu':
+        save_file = os.path.join(output_path,'meanAfterRelu_activations_per_img'+extra_str+dataset_str+'.pkl')
+    elif stats_on_layer=='max':
+        save_file = os.path.join(output_path,'max_activations_per_img'+extra_str+dataset_str+'.pkl')
+    elif stats_on_layer=='min':
+        save_file = os.path.join(output_path,'min_activations_per_img'+extra_str+dataset_str+'.pkl')
+    else:
+        raise(ValueError(stats_on_layer+' is unknown'))
+        
+    if os.path.exists(save_file):
+        # The file exist
+        with open(save_file, 'rb') as handle:
+            act_plus_layer = pickle.load(handle)
+            [list_outputs_name,activations] = act_plus_layer
+    else:
+        list_outputs_name,activations = compute_OneValue_Per_Feature(dataset,
+                                            model_name,constrNet,suffix=suffix,
+                                            stats_on_layer=stats_on_layer,
+                                            cropCenter=cropCenter,
+                                            FTmodel=FTmodel)
+    return(list_outputs_name,activations)
     
 def plot_images_Pos_Images(dataset,model_name,constrNet,
                             layer_name='mixed4d_3x3_bottleneck_pre_relu',
                             num_feature=64,
                             numberIm=9,stats_on_layer='mean',suffix='',
                             FTmodel=True,
-                            output_path_for_img=None):
+                            output_path_for_img=None,
+                            cropCenter = True,
+                            alreadyAtInit=False):
     """
     This function will plot k image a given layer with a given features number
     @param : in the case of a trained (FT) model from scratch FTmodel == False will lead to 
         use the initialization model
     """
-    cropCenter = True
+    
     printNearZero = False
+
+    
+    if 'XX' in model_name:
+        splittedXX = model_name.split('XX')
+        weights = splittedXX[1] # original model
+        model_name_wo_oldModel = model_name.replace('_XX'+weights+'XX','')
+    else:
+        model_name_wo_oldModel = model_name
+        if 'RandForUnfreezed' in model_name or 'RandInit' in model_name:
+            weights = 'random'
+        else:
+            weights = 'pretrained'
+    
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
     path_data,Not_on_NicolasPC = get_database(dataset)
     df_train = df_label[df_label['set']=='train']
@@ -294,33 +359,42 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     pathlib.Path(output_path_for_img).mkdir(parents=True, exist_ok=True) 
         
-    if not(FTmodel):
-        extra_str = '_InitModel'
-    else:
-        extra_str = ''
-    
-    if stats_on_layer=='mean':
-        save_file = os.path.join(output_path,'activations_per_img'+extra_str+'.pkl')
-    elif stats_on_layer=='meanAfterRelu':
-        save_file = os.path.join(output_path,'meanAfterRelu_activations_per_img'+extra_str+'.pkl')
-    elif stats_on_layer=='max':
-        save_file = os.path.join(output_path,'max_activations_per_img'+extra_str+'.pkl')
-    elif stats_on_layer=='min':
-        save_file = os.path.join(output_path,'min_activations_per_img'+extra_str+'.pkl')
-    else:
-        raise(ValueError(stats_on_layer+' is unknown'))
+    list_outputs_name,activations = get_list_activations(dataset,
+                                                         output_path,stats_on_layer,
+                                                         model_name,constrNet,
+                                                         suffix,cropCenter,FTmodel,
+                                                         model_name_wo_oldModel)
         
-    if os.path.exists(save_file):
-        # The file exist
-        with open(save_file, 'rb') as handle:
-            act_plus_layer = pickle.load(handle)
-            [list_outputs_name,activations] = act_plus_layer
-    else:
-        list_outputs_name,activations = compute_OneValue_Per_Feature(dataset,
-                                            model_name,constrNet,suffix=suffix,
-                                            stats_on_layer=stats_on_layer,
-                                            cropCenter=cropCenter,
-                                            FTmodel=FTmodel)
+    if alreadyAtInit: # Load the activation on the initialisation model
+        if weights == 'pretrained':
+            if platform.system()=='Windows': 
+                output_path_init = os.path.join('CompModifModel',constrNet,'pretrained')
+            else:
+                output_path_init = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,'pretrained')
+            pathlib.Path(output_path_init).mkdir(parents=True, exist_ok=True) 
+            list_outputs_name_init,activations_init= get_list_activations(dataset,
+                                                        output_path_init,stats_on_layer,
+                                                        'pretrained',constrNet,
+                                                        '',cropCenter,FTmodel,
+                                                        'pretrained')
+        elif weights == 'random':
+            list_outputs_name_init,activations_init= get_list_activations(dataset,
+                                                        output_path,stats_on_layer,
+                                                        model_name,constrNet,
+                                                        suffix,cropCenter,False,
+                                                        model_name) # FTmodel = False to get the initialisation model
+        else:
+            if platform.system()=='Windows': 
+                output_path_init = os.path.join('CompModifModel',constrNet,weights)
+            else:
+                output_path_init = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,weights)
+            pathlib.Path(output_path_init).mkdir(parents=True, exist_ok=True) 
+            list_outputs_name_init,activations_init= get_list_activations(dataset,
+                                                        output_path,stats_on_layer,
+                                                        weights,constrNet,
+                                                        '',cropCenter,FTmodel,
+                                                        weights)
+            
     
     for layer_name_inlist,activations_l in zip(list_outputs_name,activations):
         if layer_name==layer_name_inlist:
@@ -337,6 +411,27 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
             # Most positive images
             list_most_pos_images = name_images_l_f_pos[argsort[0:numberIm]]
             act_most_pos_images = activations_l_f_pos[argsort[0:numberIm]]
+            
+            if alreadyAtInit:
+                activations_init_l = activations_init[list_outputs_name_init.index(layer_name)]
+                activations_init_l_f = activations_init_l[:,num_feature]
+                where_activations_init_l_f_pos = np.where(activations_init_l_f>0)[0]
+                if len(where_activations_init_l_f_pos)==0:
+                    print('No activation positive for this layer')
+                    print(activations_l_f)
+                    continue
+                activations_init_l_f_pos = activations_init_l_f[where_activations_init_l_f_pos]
+                name_images_init_l_f_pos = name_images[where_activations_init_l_f_pos]
+                argsort_init = np.argsort(activations_init_l_f_pos)[::-1]
+                # Most positive images
+                list_most_pos_images_init = list(name_images_init_l_f_pos[argsort_init[0:numberIm]])
+            else:
+                list_most_pos_images_init = []
+                
+#            print(len(list_most_pos_images))
+#            print(len(list_most_pos_images_init))
+#            print('!!! intersection len',len(list(set(list_most_pos_images) & set(list_most_pos_images_init))))                
+            # Plot figures
             title_imgs = []
             for act in act_most_pos_images:
                 str_act = '{:.02f}'.format(act)
@@ -346,9 +441,11 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
                 name_fig += '_'+stats_on_layer
             if not(FTmodel):
                 name_fig += '_InitModel'
+            if alreadyAtInit:
+                name_fig += '_GreenIfInInit'
             plt_multiple_imgs(list_images=list_most_pos_images,path_output=output_path_for_img,\
                               path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
-                              Net=None,title_imgs=title_imgs)
+                              Net=None,title_imgs=title_imgs,roundColor=list_most_pos_images_init)
             print(output_path_for_img,name_fig)
             
 #            # Slightly positive images : TODO

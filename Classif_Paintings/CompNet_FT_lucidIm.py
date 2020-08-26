@@ -964,7 +964,7 @@ def print_IconArtv1_performance():
                         'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                         'IconArt_v1_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                         'IconArt_v1_small01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
-                        'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX'
+                        'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
                         'IconArt_v1_big001_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX'
                         ]
 
