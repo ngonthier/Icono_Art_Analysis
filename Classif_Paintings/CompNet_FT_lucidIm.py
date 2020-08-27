@@ -995,7 +995,7 @@ def print_Paintings_performance():
 
     print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=list_models_name,
-                                        suffix_tab=[''],latexOutput=False)
+                                        suffix_tab=[''],latexOutput=True)
     
 
     
@@ -1455,6 +1455,27 @@ if __name__ == '__main__':
 #    # Pretrained model
 #    # It takes almost 5h per layer and per model to do so ....................
 # Tout cela a decommenter pour plus tard !!!
+
+
+    # A fire pour DHNord Paper : 
+    # Paintings model
+    list_layers=['mixed4b','mixed4d','mixed5b']
+    list_models_name = ['Paintings_small01_modif',
+                        'Paintings_big01_modif_XXRASTA_small01_modifXX']
+    Do_FeatVizu_all_a_layer_FineTunedModel(list_models_name,
+                                          constrNet = 'InceptionV1',
+                                          list_layers=list_layers,
+                                          suffix='',
+                                          FTModel=True)
+    # IconArt model
+    list_models_name = ['IconArt_v1_small01_modif',
+                        'IconArt_v1_big01_modif_XXRASTA_small01_modifXX']
+    Do_FeatVizu_all_a_layer_FineTunedModel(list_models_name,
+                                          constrNet = 'InceptionV1',
+                                          list_layers=list_layers,
+                                          suffix='',
+                                          FTModel=True)    
+
     list_name_models = ['pretrained']
     list_layers=['mixed4b','mixed4d','mixed5b']
     Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
@@ -1493,7 +1514,7 @@ if __name__ == '__main__':
                         'Paintings_small001_modif',
                         'Paintings_big001_modif',
                         'Paintings_small001_modif_deepSupervision']
-    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+    Do_FeatVizu_all_a_layer_FineTunedModel(list_models_name,
                                           constrNet = 'InceptionV1',
                                           list_layers=list_layers,
                                           suffix='',
@@ -1503,7 +1524,7 @@ if __name__ == '__main__':
                         'IconArt_v1_small001_modif',
                         'IconArt_v1_big001_modif',
                         'IconArt_v1_small001_modif_deepSupervision']
-    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+    Do_FeatVizu_all_a_layer_FineTunedModel(list_models_name,
                                           constrNet = 'InceptionV1',
                                           list_layers=list_layers,
                                           suffix='',
@@ -1513,7 +1534,7 @@ if __name__ == '__main__':
     list_models_name = ['Paintings_big001_modif_XXRASTA_small01_modifXX',
                         'Paintings_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                         'Paintings_big001_modif_XXRASTA_big001_modif_RandInit_deepSupervision_ep200_LRschedGXX']
-    Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+    Do_FeatVizu_all_a_layer_FineTunedModel(list_models_name,
                                           constrNet = 'InceptionV1',
                                           list_layers=list_layers,
                                           suffix='',

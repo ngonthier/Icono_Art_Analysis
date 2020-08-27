@@ -4882,6 +4882,9 @@ def test_fined_onOtherDatasetFirst():
                 weights='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200')  
     # & 52.4 & 79.9 & 37.0 & 84.2 & 74.7 & 68.9 & 10.5 & 58.2 \\ 
         
+    # Baseline for the DHNord paper : 
+    
+        
 def test_InceptionV1_onIconArt_and_RASTA():
     learn_and_eval('RMN',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
@@ -4965,21 +4968,11 @@ def test_InceptionV1_onIconArt_and_RASTA():
                 pretrainingModif=False,return_best_model=True,weights='imagenet',\
                 optimizer='SGD',opt_option=[0.01],
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)         
-    # Top-1 accuracy : 30.95%
+    # Top-1 accuracy : 30.95% # For DHNOrd paper a finir ici
     # Top-3 accuracy : 58.71%
     # Top-5 accuracy : 74.10%
         
-    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='avgpool',\
-                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
-                pretrainingModif=False,return_best_model=True,weights='imagenet',\
-                optimizer='SGD',opt_option=[0.01],
-                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)   
-        
-    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
-        constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
-        pretrainingModif=False,return_best_model=True,weights='imagenet',\
-        optimizer='SGD',opt_option=[0.01],
-        epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)   
+      
         
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
@@ -4997,6 +4990,89 @@ def test_InceptionV1_onIconArt_and_RASTA():
     # Top-1 accuracy : 53.24%
     # Top-3 accuracy : 79.90%
     # Top-5 accuracy : 89.22%
+    
+def DHNord_perf_IconArt_ArtUK_RASTA_baseline_FT():
+    print('IconArtv1')
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.01],
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+      # & 38.6 & 66.0 & 45.9 & 76.7 & 65.9 & 67.1 & 11.9 & 53.2 \\  
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif',\
+                optimizer='SGD',opt_option=[0.01],
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+    # & 50.9 & 68.6 & 33.1 & 79.0 & 68.8 & 66.2 & 14.6 & 54.4 \\     
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+            constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+            pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
+            optimizer='SGD',opt_option=[0.01],
+            epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+    #& 40.2 & 55.8 & 11.0 & 68.3 & 59.7 & 45.0 & 5.0 & 40.7 \\   
+    
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+            constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+            pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',\
+            optimizer='SGD',opt_option=[0.01],
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+    #& 44.8 & 57.3 & 16.0 & 70.4 & 60.4 & 57.4 & 5.6 & 44.6   
+    print('Paintings')
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.01],
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+    #& 51.0 & 31.2 & 86.4 & 60.1 & 43.4 & 55.7 & 37.8 & 68.9 & 55.8 & 69.8 & 56.0 \\
+        
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif',\
+                optimizer='SGD',opt_option=[0.01],
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+   # & 43.0 & 32.4 & 83.4 & 67.1 & 33.8 & 58.9 & 34.9 & 58.6 & 47.2 & 64.6 & 52.4 \\      
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+            constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+            pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_adam_unfreeze44_SmallDataAug_ep200',\
+            optimizer='SGD',opt_option=[0.01],
+            epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+# & 17.1 & 20.5 & 57.7 & 54.5 & 13.2 & 35.7 & 21.7 & 26.2 & 22.6 & 24.5 & 29.4 \\ 
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+            constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+            pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',\
+            optimizer='SGD',opt_option=[0.01],
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+    #  & 18.4 & 27.0 & 68.1 & 57.5 & 22.0 & 40.7 & 25.4 & 40.2 & 27.9 & 47.5 & 37.5 \\    
+    print('RASTA')
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.01],
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+  
+    
+    # Top-1 accuracy : 30.95%
+    # Top-3 accuracy : 58.71%
+    # Top-5 accuracy : 74.10%        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.01],
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)   
+        
+    # Top-1 accuracy : 39.46%
+    # Top-3 accuracy : 65.75%
+    # Top-5 accuracy : 77.93%
+        
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP3',features='avgpool',\
+        constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+        pretrainingModif=False,return_best_model=True,weights='imagenet',\
+        optimizer='SGD',opt_option=[0.01],
+        epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+    # Top-1 accuracy : 41.45%
+    # Top-3 accuracy : 69.47%
+    # Top-5 accuracy : 80.72%
     
 def test_RandForUnfreezed():
     # Inception V1
