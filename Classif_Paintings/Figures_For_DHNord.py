@@ -9,13 +9,13 @@ List des figures a faire pour le papier DHNord
 
 import os
 import pathlib
-import matplotlib
-import tensorflow as tf
+#import matplotlib
+#import tensorflow as tf
 
 from CompNet_FT_lucidIm import do_lucid_vizu_for_list_model,print_performance_FineTuned_network
 from Activation_for_model import plot_images_Pos_Images
 
-import lucid_utils
+#import lucid_utils
 
 
 
@@ -24,7 +24,8 @@ def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],
                     constrNet='InceptionV1',
                     numberIm = 100,
                     stats_on_layer = 'meanAfterRelu',
-                    output_path=''):
+                    output_path='',
+                    alreadyAtInit=False):
     
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     for model_name in list_models_name:
@@ -33,6 +34,7 @@ def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],
         for layer_name,num_feature in list_layer_index_to_print:
         
             if model_name=='pretrained':
+                assert(alreadyAtInit==False)
                 output_path_for_img = os.path.join(output_path,model_name)
                 plot_images_Pos_Images(dataset,model_name,constrNet,
                                 layer_name=layer_name,
@@ -51,7 +53,11 @@ def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],
                                 numberIm=numberIm,stats_on_layer=stats_on_layer,
                                 suffix=suffix,
                                 FTmodel=True,
-                                output_path_for_img=output_path_for_img)
+                                output_path_for_img=output_path_for_img,
+                                alreadyAtInit=alreadyAtInit)
+                    
+            else:
+                raise(NotImplementedError('random model not implemented'))
 
 if __name__ == '__main__': 
     
@@ -60,8 +66,6 @@ if __name__ == '__main__':
     list_features = [['mixed4d_pool_reduce_pre_relu',63],['mixed4b_3x3_bottleneck_pre_relu',35],['mixed4d_3x3_pre_relu',52]]
     list_models = ['pretrained','RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
                         'RASTA_small001_modif_deepSupervision',
-                        'RASTA_big001_modif_deepSupervision']
-    list_models = ['RASTA_small001_modif_deepSupervision',
                         'RASTA_big001_modif_deepSupervision']
     # Il y a un pb non resolu avec le pretrained model !
     output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
@@ -77,6 +81,19 @@ if __name__ == '__main__':
                     numberIm = 100,
                     stats_on_layer = 'meanAfterRelu',
                     output_path=output_path)
+    
+    # Plot Top100 images with the image already present at the initialisation 
+    # surrounded by green 
+    list_features = [['mixed4d_pool_reduce_pre_relu',63],['mixed4b_3x3_bottleneck_pre_relu',35],['mixed4d_3x3_pre_relu',52]]
+    list_models = ['RASTA_small01_modif']
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 100,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path,
+                    alreadyAtInit=True)
     
     # Pour la figure Mid-level detectors can be learned from scratch
     list_models = ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
@@ -106,7 +123,7 @@ if __name__ == '__main__':
                     stats_on_layer = 'meanAfterRelu',
                     output_path=output_path)
     
-    # Model from scratch completement : a lancer 
+    # Model from scratch completement
     list_models = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
     list_features = [['mixed4d',8],['mixed4d',16],['mixed4d',66]]
     output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
@@ -120,6 +137,34 @@ if __name__ == '__main__':
     print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=list_models_name,
                                         suffix_tab=[''],latexOutput=True)
-
+    
+    # Figures pour Model trained on RASTA and then on IconArt 
+    list_models_name = ['IconArt_v1_big01_modif_XXRASTA_small01_modifXX','RASTA_small01_modif','pretrained']
+    list_features = [['mixed4d_3x3_bottleneck_pre_relu',64],
+                     ['mixed4c_5x5_bottleneck_pre_relu',1],
+                     ['mixed4e_3x3_pre_relu',92],
+                     ['mixed4c_3x3_bottleneck_pre_relu',78],
+                     ['mixed4c_pool_reduce_pre_relu',2],
+                     ['mixed4d_5x5_pre_relu',33],
+                     ['mixed4d_5x5_pre_relu',49]
+                     ]
+    do_TopK_figures(list_models_name=list_models_name,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='IconArt_v1',
+                    constrNet='InceptionV1',
+                    numberIm = 100,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path)
+    do_TopK_figures(list_models_name=list_models_name,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 100,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path)
+    
+    do_lucid_vizu_for_list_model(list_models_name=list_models_name,list_layer_index_to_print=list_features,
+                                 output_path=output_path,constrNet='InceptionV1')
+    
     
     

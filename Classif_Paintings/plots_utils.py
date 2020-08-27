@@ -8,27 +8,32 @@ This file contains useful plot function for the differents other scripts
 """
 
 
-import scipy
+#import scipy
 import numpy as np
-import tensorflow as tf
-import seaborn as sns
+#import tensorflow as tf
+#import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
 import os
-import pandas as pd
-import time
-import pickle
-from matplotlib.backends.backend_pdf import PdfPages
-import scipy.stats as stats
-from tensorflow.python.framework import dtypes
-import matplotlib.gridspec as gridspec
-import math
-from skimage import exposure
+#import pandas as pd
+#import time
+#import pickle
+#from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.patches as patches
+#import scipy.stats as stats
+#from tensorflow.python.framework import dtypes
+#import matplotlib.gridspec as gridspec
+#import math
+#from skimage import exposure
 from PIL import Image
 from preprocess_crop import load_and_crop_img
 
 def plt_multiple_imgs(list_images,path_output,path_img='',name_fig='',\
-                      cropCenter=False,Net='VGG',title_imgs=None):
+                      cropCenter=False,Net='VGG',title_imgs=None,
+                      roundColor=[],color='g'):
+    """
+    The image in the list roundColor will be rounded by a rectangle of color = color
+    """
     
     matplotlib.use('Agg')
     number_imgs = len(list_images)
@@ -67,7 +72,14 @@ def plt_multiple_imgs(list_images,path_output,path_img='',name_fig='',\
         fig, axes = plt.subplots(grid_size, grid_size, gridspec_kw =gridspec_kw)
      
     i = 0
-    axes = axes.flatten()
+    if not(number_imgs==1):
+        axes = axes.flatten()
+    else:
+        axes= [axes]
+        
+    linewidth_rect = 10
+    
+        
     for axis,img_name in zip(axes,list_images):
          img_name_path = os.path.join(path_img,img_name)
          if not('jpg' in img_name_path) or not('png' in img_name_path):
@@ -86,6 +98,18 @@ def plt_multiple_imgs(list_images,path_output,path_img='',name_fig='',\
          else:
              img = Image.open(img_name_path)
          axis.imshow(img)
+         
+         # If in list roundColor will be rounded by a color rectangle
+         if img_name in roundColor:
+             #print(img_name,len(roundColor),roundColor.index(img_name))
+             xdim,ydim,c = img.shape
+             axis.set_ylim(ydim,-linewidth_rect)
+             axis.set_xlim(-linewidth_rect,xdim)
+             rect = patches.Rectangle((-linewidth_rect,-linewidth_rect),xdim+linewidth_rect,ydim+linewidth_rect,
+                                      linewidth=linewidth_rect,
+                                      edgecolor=color,facecolor='none')
+             axis.add_patch(rect)
+             
          if not(title_imgs is None):
              axis.set_title(title_imgs[i],fontdict={'fontsize':5})
          axis.set_axis_off()
