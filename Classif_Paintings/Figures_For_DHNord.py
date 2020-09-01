@@ -25,7 +25,8 @@ def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],
                     numberIm = 100,
                     stats_on_layer = 'meanAfterRelu',
                     output_path='',
-                    alreadyAtInit=False):
+                    alreadyAtInit=False,
+                    ReDo=False):
     
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     for model_name in list_models_name:
@@ -42,7 +43,8 @@ def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],
                                 numberIm=numberIm,stats_on_layer=stats_on_layer,
                                 suffix='',
                                 FTmodel=True,
-                                output_path_for_img=output_path_for_img)
+                                output_path_for_img=output_path_for_img,
+                                ReDo=ReDo)
             elif not(model_name=='random'):
                 
                 for suffix in suffix_tab:
@@ -54,19 +56,29 @@ def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],
                                 suffix=suffix,
                                 FTmodel=True,
                                 output_path_for_img=output_path_for_img,
-                                alreadyAtInit=alreadyAtInit)
+                                alreadyAtInit=alreadyAtInit,ReDo=ReDo)
                     
             else:
                 raise(NotImplementedError('random model not implemented'))
 
 if __name__ == '__main__': 
     
+    # To get the performance results
+    
+    print_performance_FineTuned_network(constrNet='InceptionV1',
+                                        list_models_name=['RASTA_small01_modif'],
+                                        suffix_tab=[''],latexOutput=True,print_all=True)
+    
     # Liste figure pour AdaptationFiltersRASTA de DHNord 2020 paper
     suffix_tab = ['','1']
     list_features = [['mixed4d_pool_reduce_pre_relu',63],['mixed4b_3x3_bottleneck_pre_relu',35],['mixed4d_3x3_pre_relu',52]]
+#    list_features = [['mixed4d_3x3_pre_relu',52]]
     list_models = ['pretrained','RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
                         'RASTA_small001_modif_deepSupervision',
                         'RASTA_big001_modif_deepSupervision']
+#    list_models = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+#                        'RASTA_small001_modif_deepSupervision',
+#                        'RASTA_big001_modif_deepSupervision']
     # Il y a un pb non resolu avec le pretrained model !
     output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
     do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
@@ -121,7 +133,8 @@ if __name__ == '__main__':
                     constrNet='InceptionV1',
                     numberIm = 100,
                     stats_on_layer = 'meanAfterRelu',
-                    output_path=output_path)
+                    output_path=output_path,
+                    alreadyAtInit=False)
     
     # Model from scratch completement
     list_models = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
@@ -129,6 +142,14 @@ if __name__ == '__main__':
     output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
     do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
                                  output_path=output_path,constrNet='InceptionV1')
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 100,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path,
+                    alreadyAtInit=False)
     
     # Print fine-tuned models :
     list_models_name = ['RASTA_small01_modif',
