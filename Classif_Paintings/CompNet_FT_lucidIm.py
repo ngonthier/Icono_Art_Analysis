@@ -41,6 +41,7 @@ from keras_resnet_utils import getResNet50_trainable_vizualizable_layers_name
 from keras_vgg_utils import getVGG_trainable_vizualizable_layers_name
 
 from inception_v1 import InceptionV1_slim,trainable_layers
+from IMDB import get_database
 
 #import cv2
 
@@ -1001,7 +1002,7 @@ def print_Paintings_performance():
     
 def print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=None,
-                                        suffix_tab=[''],latexOutput=False):
+                                        suffix_tab=[''],latexOutput=False,print_all=False):
     """
     This function will return and print the metrics / compute them if needed
     for the different dataset 
@@ -1049,6 +1050,8 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
         print("Warning we will define the suffix such as ['','1']")
         suffix_tab = ['','1'] # In order to have more than once the model fine-tuned with some given hyperparameters
     
+    
+    
     K.set_learning_phase(0)
     #with K.get_session().as_default(): 
     #path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
@@ -1066,6 +1069,16 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                     model_name_wo_oldModel = model_name.replace('_XX'+weights+'XX','')
                 else:
                     model_name_wo_oldModel = model_name
+                    
+                if 'IconArt_v1' in model_name_wo_oldModel:
+                    dataset = 'IconArt_v1'
+                elif 'RASTA' in model_name_wo_oldModel:
+                    dataset = 'RASTA'
+                else:
+                    raise(ValueError('The dataset is unknown'))
+                    
+                item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+                    path_data,Not_on_NicolasPC = get_database(dataset)
                 
                 print('#### ',model_name,' ',suffix)
                 #output_path_with_model = os.path.join(output_path,model_name+suffix)
@@ -1082,7 +1095,7 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                         top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class = metrics
                         for k,top_k_acc in zip([1,3,5],top_k_accs):
                             print('Top-{0} accuracy : {1:.2f}%'.format(k,top_k_acc*100))
-                else:
+                elif not(print_all):
                     latex_str = constrNet.replace('_','\_')  
                     latex_str += ' & ' + model_name.replace('_','\_')
                     if not('RASTA' in model_name_wo_oldModel):
@@ -1095,6 +1108,54 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                             #print('Top-{0} accuracy : {1:.2f}%'.format(k,top_k_acc*100))
                     latex_str += "\\\\"
                     print(latex_str)
+                else:
+
+                    if not('RASTA' in model_name_wo_oldModel):
+                        #AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
+                        first_latex_str = 'Net Model' 
+                        for classe in classes:
+                            c_str = classe.replace('_','\_')  
+                            first_latex_str += ' & ' +c_str
+                        first_latex_str +=  "&  Mean \\\\"
+                        print(first_latex_str)
+                        for m_list,m_str in metrics,['AP','Precision','Recall','Presion@20','F1']:
+                            print(m_str)
+                            latex_str = constrNet.replace('_','\_')  
+                            latex_str += model_name.replace('_','\_')
+                            for m in m_list:
+                                latex_str += ' & ' + '{0:.2f}'.format(m*100)
+                            latex_str += ' & ' + '{0:.2f}'.format(np.mean(m)*100)
+                            latex_str += "\\\\"
+                            print(latex_str)
+                    else:
+                        #top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class = metrics
+                            
+                        first_latex_str = 'Net Model' 
+                        for classe in classes:
+                            c_str = classe.replace('_','\_')  
+                            first_latex_str += ' & ' +c_str
+                        first_latex_str +=  "&  Mean \\\\"
+                        print(first_latex_str)
+                        topkcase = True
+                        for m_list,m_str in zip(metrics,['TopK acc','AP','Precision','Recall','Presion@20','F1','Acc']):
+                            print(m_str)
+                            if topkcase:
+                                latex_str = constrNet.replace('_','\_')  
+                                latex_str += model_name.replace('_','\_')
+                                for k,top_k_acc in zip([1,3,5],m_list):
+                                    latex_str += ' & ' + '{0:.2f}'.format(np.mean(top_k_acc*100))
+                                    latex_str += "\\\\"
+                                print(latex_str)
+                                topkcase = False
+                            else:
+                                latex_str = constrNet.replace('_','\_')  
+                                latex_str += model_name.replace('_','\_')
+                                for m in m_list:
+                                    latex_str += ' & ' + '{0:.2f}'.format(m*100)
+                                latex_str += ' & ' + '{0:.2f}'.format(np.mean(m)*100)
+                                latex_str += "\\\\"
+                                print(latex_str)
+
 
 def plotHistory_of_training():
     

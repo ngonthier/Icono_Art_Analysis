@@ -312,6 +312,29 @@ def get_list_activations(dataset,output_path,stats_on_layer,
                                             cropCenter=cropCenter,
                                             FTmodel=FTmodel)
     return(list_outputs_name,activations)
+ 
+def proportion_labels(list_most_pos_images,dataset):
+    """
+    The goal of this fct is to provide the labels proportion in the list of image 
+    provide
+    """
+    
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+    path_data,Not_on_NicolasPC = get_database(dataset)
+    df_train = df_label[df_label['set']=='train']
+    
+    number_im = len(list_most_pos_images)
+    list_labels = [0]*num_classes
+    for im_name in list_most_pos_images:
+        labels_image_i =  df_train[df_train[item_name]==im_name][classes].values
+        list_labels += np.ravel(labels_image_i)
+    argsort_from_max_to_min = np.argsort(list_labels)[::-1]
+    for index_c in argsort_from_max_to_min:
+        classe = classes[index_c]
+        number_im_c = list_labels[index_c]
+        if number_im_c >0:
+            per_c = number_im_c/number_im*100.0
+            print(classe,per_c)
     
 def plot_images_Pos_Images(dataset,model_name,constrNet,
                             layer_name='mixed4d_3x3_bottleneck_pre_relu',
@@ -320,7 +343,8 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
                             FTmodel=True,
                             output_path_for_img=None,
                             cropCenter = True,
-                            alreadyAtInit=False):
+                            alreadyAtInit=False,
+                            ReDo=False):
     """
     This function will plot k image a given layer with a given features number
     @param : in the case of a trained (FT) model from scratch FTmodel == False will lead to 
@@ -432,6 +456,11 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
 #            print(len(list_most_pos_images_init))
 #            print('!!! intersection len',len(list(set(list_most_pos_images) & set(list_most_pos_images_init))))                
             # Plot figures
+            
+            if alreadyAtInit:
+                number_img_intersec = len(list(set(list_most_pos_images) & set(list_most_pos_images_init)))
+                percentage_intersec = number_img_intersec/numberIm*100.0
+            
             title_imgs = []
             for act in act_most_pos_images:
                 str_act = '{:.02f}'.format(act)
@@ -443,10 +472,16 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
                 name_fig += '_InitModel'
             if alreadyAtInit:
                 name_fig += '_GreenIfInInit'
-            plt_multiple_imgs(list_images=list_most_pos_images,path_output=output_path_for_img,\
+            
+            name_output = os.path.join(output_path_for_img,name_fig+'.png')
+            if not(os.path.isfile(name_output)) or ReDo:
+                plt_multiple_imgs(list_images=list_most_pos_images,path_output=output_path_for_img,\
                               path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
                               Net=None,title_imgs=title_imgs,roundColor=list_most_pos_images_init)
-            print(output_path_for_img,name_fig)
+            if alreadyAtInit:
+                print(output_path_for_img,name_fig,'Percentage intersection : ',percentage_intersec)
+                
+            proportion_labels(list_most_pos_images,dataset)
             
 #            # Slightly positive images : TODO
 #            list_slightly_pos_images = name_images_l_f_pos[argsort[-numberIm:]]

@@ -2960,10 +2960,10 @@ def evaluationScoreRASTA(y_gt,y_pred,verbose=False,seuil=0.5):
         y_gt_c = y_gt[:,c]
         y_predict_confidence_score = y_pred[:,c] # The prediction by the model
         y_predict_test = (y_predict_confidence_score>seuil).astype(int)
-        if verbose:
-            print('classe num',c)
-            print('GT',y_gt_c)
-            print('Pred',y_predict_confidence_score)
+#        if verbose:
+#            print('classe num',c)
+#            print('GT',y_gt_c)
+#            print('Pred',y_predict_confidence_score)
         AP = average_precision_score(y_gt_c,y_predict_confidence_score,average=None)
         if verbose: print("Average Precision ofpickn all the data for classe",c," = ",AP)  
         AP_per_class += [AP] 
