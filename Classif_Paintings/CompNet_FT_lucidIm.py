@@ -1156,10 +1156,10 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                                 latex_str += "\\\\"
                                 print(latex_str)
 
-def from_metrics_to_latex_tab(metrics,model_name,odel_name_wo_oldModel=None,
+def from_metrics_to_latex_tab(metrics,model_name,model_name_wo_oldModel=None,
                               constrNet='InceptionV1',classes=[]):
-    if odel_name_wo_oldModel is None:
-        odel_name_wo_oldModel = model_name
+    if model_name_wo_oldModel is None:
+        model_name_wo_oldModel = model_name
     if not('RASTA' in model_name_wo_oldModel):
         #AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
         first_latex_str = 'Net Model' 
