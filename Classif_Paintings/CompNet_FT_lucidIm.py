@@ -1187,6 +1187,56 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                                 latex_str += "\\\\"
                                 print(latex_str)
 
+def from_metrics_to_latex_tab(metrics,model_name,model_name_wo_oldModel=None,
+                              constrNet='InceptionV1',classes=[]):
+    if model_name_wo_oldModel is None:
+        model_name_wo_oldModel = model_name
+    if not('RASTA' in model_name_wo_oldModel):
+        #AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
+        first_latex_str = 'Net Model' 
+        for classe in classes:
+            c_str = classe.replace('_','\_')  
+            first_latex_str += ' & ' +c_str
+        first_latex_str +=  "&  Mean \\\\"
+        print(first_latex_str)
+        for m_list,m_str in metrics,['AP','Precision','Recall','Presion@20','F1']:
+            print(m_str)
+            latex_str = constrNet.replace('_','\_')  
+            latex_str += model_name.replace('_','\_')
+            for m in m_list:
+                latex_str += ' & ' + '{0:.2f}'.format(m*100)
+            latex_str += ' & ' + '{0:.2f}'.format(np.mean(m)*100)
+            latex_str += "\\\\"
+            print(latex_str)
+    else:
+        #top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class = metrics
+            
+        first_latex_str = 'Net Model' 
+        for classe in classes:
+            c_str = classe.replace('_','\_')  
+            first_latex_str += ' & ' +c_str
+        first_latex_str +=  "&  Mean \\\\"
+        print(first_latex_str)
+        topkcase = True
+        for m_list,m_str in zip(metrics,['TopK acc','AP','Precision','Recall','Presion@20','F1','Acc']):
+            print(m_str)
+            if topkcase:
+                latex_str = constrNet.replace('_','\_')  
+                latex_str += model_name.replace('_','\_')
+                for k,top_k_acc in zip([1,3,5],m_list):
+                    latex_str += ' & ' + '{0:.2f}'.format(np.mean(top_k_acc*100))
+                    latex_str += "\\\\"
+                print(latex_str)
+                topkcase = False
+            else:
+                latex_str = constrNet.replace('_','\_')  
+                latex_str += model_name.replace('_','\_')
+                for m in m_list:
+                    latex_str += ' & ' + '{0:.2f}'.format(m*100)
+                latex_str += ' & ' + '{0:.2f}'.format(np.mean(m)*100)
+                latex_str += "\\\\"
+                print(latex_str)
+
 
 def plotHistory_of_training():
     
