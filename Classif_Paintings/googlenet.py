@@ -470,6 +470,29 @@ def create_googlenet(weights=None,include_top=True):
 
     return googlenet
 
+def get_dict_depending_weights():
+    """
+    This function return a dict of the depending conv layers on wich depend a certain layer in the model 
+    I.E. the non conv layers
+    Form the inception_v1_oldTF model
+    """
+    
+    # TODO finir cette fct !!!
+    
+    dico = {}
+    
+    dico['mixed4c_pre_relu'] = ['mixed4c_1x1_pre_relu','mixed4c_3x3_pre_relu','mixed4c_5x5_pre_relu','mixed4c_pool_reduce_pre_relu']
+    dico['mixed4c'] = ['mixed4c_1x1_pre_relu','mixed4c_3x3_pre_relu','mixed4c_5x5_pre_relu','mixed4c_pool_reduce_pre_relu']
+    
+    dico['mixed4d_pre_relu'] = ['mixed4d_1x1_pre_relu','mixed4d_3x3_pre_relu','mixed4d_5x5_pre_relu','mixed4d_pool_reduce_pre_relu']
+    dico['mixed4d'] = ['mixed4d_1x1_pre_relu','mixed4d_3x3_pre_relu','mixed4d_5x5_pre_relu','mixed4d_pool_reduce_pre_relu']
+    
+    dico['mixed5b_pre_relu'] = ['mixed5b_1x1_pre_relu','mixed5b_3x3_pre_relu','mixed5b_5x5_pre_relu','mixed5b_pool_reduce_pre_relu']
+    dico['mixed5b'] = ['mixed5b_1x1_pre_relu','mixed5b_3x3_pre_relu','mixed5b_5x5_pre_relu','mixed5b_pool_reduce_pre_relu']
+    
+    
+    return(dico)
+
 def inception_v1_oldTF(weights='imagenet',include_top=True,input_shape= (224, 224, 3)):
     """
     Inception V1 avec les poids qui viennent de Lucid  ! 

@@ -36,6 +36,7 @@ from tensorflow.python.keras.layers import Conv2D
 #     vgg_FRN,get_those_layers_output
 import StatsConstr_ClassifwithTL #import learn_and_eval
 from googlenet import inception_v1_oldTF as Inception_V1
+from googlenet import get_dict_depending_weights
 from inceptionV1_keras_utils import get_trainable_layers_name
 from keras_resnet_utils import getResNet50_trainable_vizualizable_layers_name
 from keras_vgg_utils import getVGG_trainable_vizualizable_layers_name
@@ -684,6 +685,36 @@ def get_input_name_lucid_trainable_layer(constrNet):
         raise(NotImplementedError(constrNet + ' is not implemented sorry.'))
     return(input_name_lucid,trainable_layers_name)
 
+def name_most_relatively_modified_filters(model_name,layer_name,constrNet='InceptionV1',suffix='',
+                                          number_filters=10):
+    # RASTA_small01_modif
+    if platform.system()=='Windows': 
+        output_path = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet)
+
+    
+    output_path_with_model = os.path.join(output_path,model_name+suffix)
+    #pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
+    save_file = os.path.join(output_path_with_model,'dict_layers_relative_diff.pkl')
+    with open(save_file, 'rb') as handle:
+        dict_layers_relative_diff = pickle.load(handle)
+        
+    dico = get_dict_depending_weights()
+    
+    layers_with_weights = dico[layer_name]
+
+    
+    list_layer_relative_diff = []
+    for layer in layers_with_weights:
+        layer_relative_diff = dict_layers_relative_diff[layer]
+        list_layer_relative_diff += [layer_relative_diff]
+    combined = np.hstack(list_layer_relative_diff)
+    argsort = np.argsort(combined)[::-1]
+    print(layer_name,argsort[0:number_filters])
+    print('Diff ',combined[argsort[0:number_filters]])
+    
+    
 def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
                                   doAlsoImagesOfOtherModel_feature = False,
                                   testMode=False,

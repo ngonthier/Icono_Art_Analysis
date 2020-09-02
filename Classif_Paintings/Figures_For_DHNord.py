@@ -187,5 +187,20 @@ if __name__ == '__main__':
     do_lucid_vizu_for_list_model(list_models_name=list_models_name,list_layer_index_to_print=list_features,
                                  output_path=output_path,constrNet='InceptionV1')
     
-    
-    
+    # Suite aux remarques de Yann : plus de feature visu sur les couches intermediaires :
+    list_features = [['mixed4b',361],['mixed4d',56],['mixed4d',89],['mixed4d',106]]
+#    list_features = [['mixed4d_3x3_pre_relu',52]]
+    list_models = ['RASTA_small01_modif']
+    #list_models = ['pretrained']
+    output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
+    do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
+                                 suffix_tab = [''],
+                                 output_path=output_path,constrNet='InceptionV1')
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 100,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path,
+                    alreadyAtInit=True)
