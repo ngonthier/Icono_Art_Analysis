@@ -35,7 +35,7 @@ def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],
         for layer_name,num_feature in list_layer_index_to_print:
         
             if model_name=='pretrained':
-                assert(alreadyAtInit==False)
+                #assert(alreadyAtInit==False)
                 output_path_for_img = os.path.join(output_path,model_name)
                 plot_images_Pos_Images(dataset,model_name,constrNet,
                                 layer_name=layer_name,
@@ -161,12 +161,17 @@ if __name__ == '__main__':
     
     # Figures pour Model trained on RASTA and then on IconArt 
     list_models_name = ['IconArt_v1_big01_modif_XXRASTA_small01_modifXX','RASTA_small01_modif','pretrained']
+    list_models_name = ['IconArt_v1_small01_modif']
     list_features = [['mixed4d_3x3_bottleneck_pre_relu',64],
                      ['mixed4c_5x5_bottleneck_pre_relu',1],
                      ['mixed4e_3x3_pre_relu',92],
                      ['mixed4c_3x3_bottleneck_pre_relu',78],
                      ['mixed4c_pool_reduce_pre_relu',2],
                      ['mixed4d_5x5_pre_relu',33],
+                     ['mixed4d_5x5_pre_relu',49]
+                     ]
+    list_features = [['mixed4c_3x3_bottleneck_pre_relu',78],
+                     ['mixed4c_pool_reduce_pre_relu',2],
                      ['mixed4d_5x5_pre_relu',49]
                      ]
     do_TopK_figures(list_models_name=list_models_name,
@@ -204,3 +209,85 @@ if __name__ == '__main__':
                     stats_on_layer = 'meanAfterRelu',
                     output_path=output_path,
                     alreadyAtInit=True)
+    
+    # Faire l'image des draperies !
+    list_features = [['mixed4c_3x3_bottleneck_pre_relu',78]]
+    list_models = ['pretrained','RASTA_small01_modif']
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 100,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path,
+                    alreadyAtInit=True)
+    
+    # Figures pour la presentation : Top 10
+    suffix_tab = ['','1']
+    list_features = [['mixed4d_pool_reduce_pre_relu',63],['mixed4b_3x3_bottleneck_pre_relu',35],['mixed4d_3x3_pre_relu',52]]
+    list_models = ['pretrained','RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision',
+                        'RASTA_big001_modif_deepSupervision']
+    output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
+    # Afficher les 100 images qui repondent le plus pour ces filtres là :
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=suffix_tab,dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 9,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path)
+    list_models = ['pretrained','RASTA_small01_modif']
+    list_features = [['mixed5b_pool_reduce_pre_relu',92],['mixed5b_3x3_pre_relu',33],['mixed5b_5x5_pre_relu',82]]
+    output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 9,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path,
+                    alreadyAtInit=False)
+    
+    list_models = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+    list_features = [['mixed4d',8],['mixed4d',16],['mixed4d',66]]
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 9,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path,
+                    alreadyAtInit=False)
+    list_models_name = ['IconArt_v1_big01_modif_XXRASTA_small01_modifXX','RASTA_small01_modif','pretrained','IconArt_v1_small01_modif']
+    list_features = [['mixed4c_3x3_bottleneck_pre_relu',78],
+                     ['mixed4c_pool_reduce_pre_relu',2],
+                     ['mixed4d_5x5_pre_relu',49]
+                     ]
+    do_TopK_figures(list_models_name=list_models_name,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='IconArt_v1',
+                    constrNet='InceptionV1',
+                    numberIm = 9,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path)
+    do_TopK_figures(list_models_name=list_models_name,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 9,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path)
+    
+    list_features = [['mixed4b',361],['mixed4d',56],['mixed4d',89],['mixed4d',106]]
+    list_models = ['RASTA_small01_modif','pretrained']
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 9,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path,
+                    alreadyAtInit=False)
+
+    
