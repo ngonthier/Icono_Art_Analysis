@@ -85,7 +85,7 @@ x = np.arange(-4,4,0.01)
 obj_score = np.arange(0,1,0.01)
 X, Y = np.meshgrid(x, obj_score)
 lambda_ = 0.5
-score_with_addition = (1-lambda_)*np.tanh(X) + lambda_*Y
+score_with_addition = (1-lambda_)*np.tanh(X) + lambda_*Y*np.sign(X)
 surf = ax.plot_surface(X, Y, score_with_obj_outside_tanh, cmap=cm.coolwarm,
                        linewidth=0, antialiased=False)
 
@@ -97,18 +97,18 @@ cset = ax.contourf(X, Y, score_with_addition, zdir='x', offset=-4, cmap=cm.coolw
 cset = ax.contourf(X, Y, score_with_addition, zdir='y', offset=0, cmap=cm.coolwarm)
 
 
-x = np.arange(-4,4,0.1)
+x = np.arange(-4,4.1,0.1)
 #obj_score = np.arange(0,1,0.1/20)
-obj_score = np.arange(0,1,0.1)
+obj_score = np.arange(0,1.1,0.1)
 X, Y = np.meshgrid(x, obj_score)
 score_with_obj_outside_tanh = Y*np.tanh(X)
 score_with_obj_inside_tanh = np.tanh(X*Y)
 lambda_ = 0.5
-score_with_addition = (1-lambda_)*np.tanh(X) + lambda_*Y
+score_with_addition = (1-lambda_)*np.tanh(X) + lambda_*Y*np.sign(X)
 fig, (ax1, ax2,ax3) = plt.subplots(1, 3)
-cset1 = ax1.contourf(X, Y, score_with_obj_inside_tanh, levels=100,cmap=cm.coolwarm,vmin=-1.,vmax=1.)
-cset = ax2.contourf(X, Y, score_with_obj_outside_tanh, zdir='z', cmap=cm.coolwarm,vmin=-1.,vmax=1.)
-cset = ax3.contourf(X, Y, score_with_addition, zdir='z', cmap=cm.coolwarm,vmin=-1.,vmax=1.)
+cset1 = ax1.contourf(X, Y, score_with_obj_inside_tanh, levels=40,cmap=cm.coolwarm,vmin=-1.,vmax=1.)
+cset = ax2.contourf(X, Y, score_with_obj_outside_tanh, levels=40, cmap=cm.coolwarm,vmin=-1.,vmax=1.)
+cset = ax3.contourf(X, Y, score_with_addition, levels=40, cmap=cm.coolwarm,vmin=-1.,vmax=1.)
 #fig.colorbar(surf, ax=ax3, orientation='horizontal')
 
 #cset1 = ax1.imshow(score_with_obj_inside_tanh, vmin=-1, vmax=1, cmap=cm.coolwarm)
@@ -117,13 +117,13 @@ cset = ax3.contourf(X, Y, score_with_addition, zdir='z', cmap=cm.coolwarm,vmin=-
 
 ax1.set_xlabel(r'$W^{T}X+b$')
 ax1.set_ylabel(r'Objectness score')
-ax1.set_title(r'$\mathop{Tanh}  \lbrace \left( s \right) \left(W^{T} x + b \right) \rbrace$')
+ax1.set_title(r'$\mathop{Tanh}  \lbrace  s  \left(W^{T} x + b \right) \rbrace$')
 ax2.set_xlabel(r'$W^{T}X+b$')
 ax2.set_ylabel(r'Objectness score')
 ax2.set_title(r'$s * \mathop{Tanh}  \lbrace W^{T} x + b \rbrace$')
 ax3.set_xlabel(r'$W^{T}X+b$')
 ax3.set_ylabel(r'Objectness score')
-ax3.set_title(r'$( 1 - \lambda ) * \mathop{Tanh}  \left( W^{T} x + b \right) + \lambda s$')
+ax3.set_title(r'$( 1 - \lambda ) * \mathop{Tanh}  \left( W^{T} x + b \right) + \lambda s  \mathop{sign}  \left( W^{T} x + b \right) ~ with ~ \lambda = 0.5$')
 
 #fig.suptitle(r'
 fig.subplots_adjust(right=0.8)

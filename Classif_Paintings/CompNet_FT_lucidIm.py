@@ -1105,6 +1105,8 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                     dataset = 'IconArt_v1'
                 elif 'RASTA' in model_name_wo_oldModel:
                     dataset = 'RASTA'
+                elif 'Paintings' in model_name_wo_oldModel:
+                    dataset = 'Paintings'
                 else:
                     raise(ValueError('The dataset is unknown'))
                     
@@ -1121,7 +1123,7 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                 if not(latexOutput):
                     if not('RASTA' in model_name_wo_oldModel):
                         AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
-                        print('MAP {0:.2f}'.format(np.mean(AP_per_class)))
+                        print('MAP {0:.2f}'.format(np.mean(AP_per_class)*100))
                     else:
                         top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class = metrics
                         for k,top_k_acc in zip([1,3,5],top_k_accs):
@@ -1131,7 +1133,7 @@ def print_performance_FineTuned_network(constrNet='InceptionV1',
                     latex_str += ' & ' + model_name.replace('_','\_')
                     if not('RASTA' in model_name_wo_oldModel):
                         AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class = metrics
-                        latex_str += ' & ' + '{0:.2f}'.format(np.mean(AP_per_class))
+                        latex_str += ' & ' + '{0:.2f}'.format(np.mean(AP_per_class)*100)
                     else:
                         top_k_accs,AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class,acc_per_class = metrics
                         for k,top_k_acc in zip([1,3,5],top_k_accs):
