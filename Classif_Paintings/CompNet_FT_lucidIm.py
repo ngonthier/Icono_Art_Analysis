@@ -973,7 +973,7 @@ def print_RASTA_performance():
     print_performance_FineTuned_network(constrNet='ResNet50',
                                         list_models_name=list_models_name,
                                         suffix_tab=[''],latexOutput=True)
-def print_IconArtv1_performance():
+def print_IconArtv1_performance(latexOutput=True):
 
     list_models_name = ['IconArt_v1_small01_modif',
                         'IconArt_v1_big01_modif',
@@ -1002,15 +1002,15 @@ def print_IconArtv1_performance():
 
     print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=list_models_name,
-                                        suffix_tab=[''],latexOutput=True)
+                                        suffix_tab=[''],latexOutput=latexOutput)
     
     list_models_name=['IconArt_v1_big001_modif_adam_unfreeze84_SmallDataAug_ep200',
                       'IconArt_v1_big001_modif_Adadelta_unfreeze84_MediumDataAug_ep200']
     print_performance_FineTuned_network(constrNet='InceptionV1_slim',
                                         list_models_name=list_models_name,
-                                        suffix_tab=[''],latexOutput=True)
+                                        suffix_tab=[''],latexOutput=latexOutput)
     
-def print_Paintings_performance():
+def print_Paintings_performance(latexOutput=True):
 
     list_models_name = ['Paintings_small01_modif',
                         'Paintings_big01_modif',
@@ -1027,7 +1027,7 @@ def print_Paintings_performance():
 
     print_performance_FineTuned_network(constrNet='InceptionV1',
                                         list_models_name=list_models_name,
-                                        suffix_tab=[''],latexOutput=True)
+                                        suffix_tab=[''],latexOutput=latexOutput)
     
 
     
