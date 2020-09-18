@@ -3067,6 +3067,11 @@ def FasterRCNN_ImagesObject():
     plt.show()
     sess.close()
         
+def compute_2000boxes_FASTERRCNN_feat():
+    for database in ['watercolor','PeopleArt','clipart','comic','CASPApaintings']:
+        Compute_Faster_RCNN_features(demonet='res152_COCO',nms_thresh = 0.7,database=database,
+                                 augmentation=False,L2 =False,
+                                 saved='all',verbose=True,filesave='tfrecords',k_regions=2000) 
         
 if __name__ == '__main__':
     ## Faster RCNN re-scale  the  images  such  that  their  shorter  side  = 600 pixels  
