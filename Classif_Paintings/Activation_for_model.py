@@ -130,6 +130,31 @@ def get_Model_that_output_StatsOnActivation(model,stats_on_layer='mean'):
     
     return(new_model,list_outputs_name)
     
+def get_Model_that_output_Activation(model,list_layers=None):
+    """
+    Provide a keras model which outputs the stats_on_layer == mean or max of each 
+    features maps
+    """
+    
+    list_outputs = []
+    list_outputs_name = []
+    
+    for layer in model.layers:
+        if list_layers is None:
+            if  isinstance(layer, Conv2D) or isinstance(layer,Concatenate) or isinstance(layer,Activation):
+                layer_output = layer.output
+                list_outputs += [layer_output]
+                list_outputs_name += [layer.name]
+        else:
+            if layer.name in list_layers:
+                layer_output = layer.output
+                list_outputs += [layer_output]
+                list_outputs_name += [layer.name]
+            
+    new_model = Model(model.input,list_outputs)
+    
+    return(new_model,list_outputs_name)
+    
     
 def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='mean',
                                  suffix='',cropCenter = True,FTmodel=True):

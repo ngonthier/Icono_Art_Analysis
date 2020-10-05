@@ -2810,7 +2810,7 @@ def TrainMLPwithGridSearch(builder_model,X,Y,batch_size,epochs):
     return(model)
     
 def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=False,
-                     randomCrop=False,imSize=224):
+                     randomCrop=False,imSize=224,verbose_predict=0):
     """
     This function predict on tht provide test set for a fine-tuned network
     """
@@ -2864,7 +2864,7 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
                                                 target_size=target_size, batch_size=batch_size,\
                                                 use_multiprocessing=use_multiprocessing,workers=workers,\
                                                 interpolation=interpolation)
-    predictions = model.predict_generator(test_generator)
+    predictions = model.predict_generator(test_generator,verbose=verbose_predict)
     
     if cropCenter or randomCrop:
         kp.image.iterator.load_img = old_loading_img_fct
