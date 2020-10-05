@@ -886,7 +886,8 @@ def vis_detections(im, class_name, dets, thresh=0.5,with_title=True,draw=True):
     if draw:
         plt.draw()
     
-def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=None,Correct=None):
+def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,
+                        list_class=None,Correct=None,HD_version=0):
     """Draw detected bounding boxes."""
 
     list_colors = ['#e6194b','#3cb44b','#ffe119','#0082c8',	'#f58231','#911eb4','#46f0f0','#f032e6',	
@@ -894,7 +895,27 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=No
                    '#aaffc3','#808000','#ffd8b1','#000080','#808080','#FFFFFF','#000000']	
     i_color = 0
     im = im[:, :, (2, 1, 0)]
-    fig, ax = plt.subplots(figsize=(12, 12))
+    if HD_version==0:
+        fig, ax = plt.subplots(figsize=(12, 12))
+        fontsize=14
+        linewidth = 10
+        linewidth_b = 3.5
+    elif HD_version==1:     
+        fig, ax = plt.subplots(figsize=(24,24))
+        fontsize=28
+        linewidth = 20
+        linewidth_b = 7
+    else:
+        height, width, c = im.shape
+        fig, ax = plt.subplots()
+        max_shape = max(height,width)
+        if max_shape < 1200:    
+            fontsize=14
+            linewidth = 10
+        else:
+            fontsize = int(14*max_shape/1200.)
+            linewidth = int(10*max_shape/1200.)
+            linewidth_b =     int(3.5*max_shape/1200.)       
     ax.imshow(im, aspect='equal')
    
     for class_name,dets in zip(class_name_list,dets_list):
@@ -914,12 +935,12 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=No
                     plt.Rectangle((bbox[0], bbox[1]),
                                   bbox[2] - bbox[0],
                                   bbox[3] - bbox[1], fill=False,
-                                  edgecolor=color, linewidth=3.5) # Need (x,y) lower corner then width, height
+                                  edgecolor=color, linewidth=linewidth_b) # Need (x,y) lower corner then width, height
                     )
                 ax.text(bbox[0], bbox[1] - 2,
                         '{:s} {:.3f}'.format(class_name, score),
                         bbox=dict(facecolor=color, alpha=0.5),
-                        fontsize=14, color='white')
+                        fontsize=fontsize, color='white')
                             
     plt.axis('off')
     plt.tight_layout()
@@ -934,7 +955,7 @@ def vis_detections_list(im, class_name_list, dets_list, thresh=0.5,list_class=No
             color=  'o'
         elif Correct=='MultipleDetect':
             color=  'p'
-        linewidth = 10
+        
         x = linewidth
         y = linewidth
         h = im.shape[0] - x
@@ -3066,6 +3087,215 @@ def FasterRCNN_ImagesObject():
         plt.savefig(name_output)
     plt.show()
     sess.close()
+    
+def FasterRCNN_Images_with_BB_objectnessScore_HD(Detect_class=False):
+    """
+    @param : Detect_class : will plot the class detected if true otherwise
+    the 10 first bow with objectness without overlapping
+    The Goal of this function is to output image with objectness score in HD 
+    """
+    DATA_DIR =  '/media/gonthier/HDD/output_exp/HD_illust/input/'
+    output_DIR = '/media/gonthier/HDD/output_exp/HD_illust/output/'
+    pathlib.Path(output_DIR).mkdir(parents=True, exist_ok=True)
+    demonet = 'res152_COCO'
+    tf.reset_default_graph() # Needed to use different nets one after the other
+    print(demonet)
+    if 'VOC'in demonet:
+        CLASSES = CLASSES_SET['VOC']
+        anchor_scales=[8, 16, 32] # It is needed for the right net architecture !! 
+    elif 'COCO'in demonet:
+        CLASSES = CLASSES_SET['COCO']
+        anchor_scales = [4, 8, 16, 32]
+    nbClasses = len(CLASSES)
+    path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
+    tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
+    
+    #tfmodel = os.path.join(path_to_model,DATASETS[dataset][0],NETS[demonet][0])
+    print(tfmodel)
+#    tfmodel = os.path.join('output', demonet, DATASETS[dataset][0], 'default',
+#                              NETS[demonet][0])
+    
+    tfconfig = tf.ConfigProto(allow_soft_placement=True)
+    tfconfig.gpu_options.allow_growth=True
+    dirs = os.listdir(DATA_DIR)
+    target_smallest_size = 600
+    
+    if Detect_class:
+    
+        #init session
+        sess = tf.Session(config=tfconfig)
+        
+        # load network
+        if  'vgg16' in demonet:
+          net = vgg16()
+        elif demonet == 'res50':
+          raise NotImplementedError
+        elif 'res101' in demonet:
+          net = resnetv1(num_layers=101)
+        elif 'res152' in demonet:
+          net = resnetv1(num_layers=152)
+        elif demonet == 'mobile':
+          raise NotImplementedError
+        else:
+          raise NotImplementedError
+          
+        net.create_architecture("TEST", nbClasses,
+                              tag='default', anchor_scales=anchor_scales)
+        saver = tf.train.Saver()
+        saver.restore(sess, tfmodel)
+    
+        print('Loaded network {:s}'.format(tfmodel))
+        
+        for im_name in dirs:
+        
+            #    im_name = 'Adoration bergers Antoon.jpg'
+            #    im_name = 'Adoration bergers Lorenzo.jpg'
+            im_name_wt_ext, _ = im_name.split('.')
+            #im_name = 'L Adoration des mages - Jan Mabuse - 1515.jpg'
+            #print('Demo for data/demo/{}'.format(im_name))
+            imfile = os.path.join(DATA_DIR, im_name)
+            im_hd = cv2.imread(imfile)
+            height, width, c = im_hd.shape
+            # Resize the image
+            print(im_name,width, height)
+            # result should be no smaller than the targer size, include crop fraction overhead
+            if width >= height:
+                ratio = target_smallest_size/height
+                new_height = target_smallest_size
+                new_width = int(ratio*width)
+            elif  width < height:
+                ratio = target_smallest_size/width
+                new_width = target_smallest_size
+                new_height = int(ratio*height)
+            
+            im = cv2.resize(im_hd, (new_width,new_height), interpolation = cv2.INTER_AREA)
+            print(im.shape)
+            scores, boxes = im_detect(sess, net, im) # Arguments: im (ndarray): a color image in BGR order
+            # Only single-image batch implemented !
+            print(scores.shape)
+            #print(scores)
+            
+            CONF_THRESH = 0.95
+            NMS_THRESH = 0.5 # non max suppression
+            cls_list = []
+            dets_list = []
+            for cls_ind, cls in enumerate(CLASSES[1:]):
+                cls_ind += 1 # because we skipped background
+                cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
+                cls_scores = scores[:, cls_ind]
+                dets = np.hstack((cls_boxes,
+                              cls_scores[:, np.newaxis])).astype(np.float32)
+                keep = nms(dets, NMS_THRESH)
+                dets = dets[keep, :]
+                inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
+                cls_list += [cls]
+                dets_list += [dets]
+                if(len(inds)>0):
+                    print(CLASSES[cls_ind])
+            vis_detections_list(im, cls_list, dets_list, thresh=CONF_THRESH)
+            name_output = output_DIR + im_name_wt_ext + '_FasterRCNN.jpg'
+            plt.savefig(name_output)
+            plt.show()
+            
+            CONF_THRESH = 0.95
+            NMS_THRESH = 0.5 # non max suppression
+            cls_list = []
+            dets_list = []
+            for cls_ind, cls in enumerate(CLASSES[1:]):
+                cls_ind += 1 # because we skipped background
+                cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]*(1./ratio)
+                cls_scores = scores[:, cls_ind]
+                dets = np.hstack((cls_boxes,
+                              cls_scores[:, np.newaxis])).astype(np.float32)
+                keep = nms(dets, NMS_THRESH)
+                dets = dets[keep, :]
+                inds = np.where(dets[:, -1] >= CONF_THRESH)[0]
+                cls_list += [cls]
+                dets_list += [dets]
+                if(len(inds)>0):
+                    print(CLASSES[cls_ind])
+            vis_detections_list(im_hd, cls_list, dets_list, thresh=CONF_THRESH,
+                                HD_version=1)
+            name_output = output_DIR + im_name_wt_ext + '_FasterRCNN_HD.jpg'
+            plt.savefig(name_output)
+        plt.show()
+        sess.close()
+        
+    else:
+    
+        # Objectness score : objectness score
+        
+        nms_thresh = 0.0
+        number_box_keep = 12
+        plt.ion()
+        plt.close('all')    
+        sess = tf.Session(config=tfconfig)
+        
+        # load network
+        if  'vgg16' in demonet:
+          net_TL = vgg16()
+        elif demonet == 'res50':
+          raise NotImplementedError
+        elif 'res101' in demonet:
+          net_TL = resnetv1(num_layers=101)
+        elif 'res152' in demonet:
+          net_TL = resnetv1(num_layers=152)
+        elif demonet == 'mobile':
+          raise NotImplementedError
+        else:
+          raise NotImplementedError
+        net_TL.create_architecture("TEST", nbClasses,
+                                      tag='default', anchor_scales=anchor_scales,
+                                      modeTL= True,nms_thresh=nms_thresh)
+        saver = tf.train.Saver()
+        saver.restore(sess, tfmodel)       
+        for im_name in dirs:
+        
+            #    im_name = 'Adoration bergers Antoon.jpg'
+            #    im_name = 'Adoration bergers Lorenzo.jpg'
+            im_name_wt_ext, _ = im_name.split('.')
+            #im_name = 'L Adoration des mages - Jan Mabuse - 1515.jpg'
+            #print('Demo for data/demo/{}'.format(im_name))
+            imfile = os.path.join(DATA_DIR, im_name)
+            im_hd = cv2.imread(imfile)
+            height, width, c = im_hd.shape
+            # Resize the image
+            print(im_name,width, height)
+            # result should be no smaller than the targer size, include crop fraction overhead
+            if width >= height:
+                ratio = target_smallest_size/height
+                new_height = target_smallest_size
+                new_width = int(ratio*width)
+            elif  width < height:
+                ratio = target_smallest_size/width
+                new_width = target_smallest_size
+                new_height = int(ratio*height)
+            
+            im = cv2.resize(im_hd, (new_width,new_height), interpolation = cv2.INTER_AREA)
+            print(im.shape)
+            cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = \
+            TL_im_detect(sess, net_TL, im)
+            blobs, im_scales = get_blobs(im)
+            roi =  rois[0:number_box_keep,1:5] / im_scales[0]
+            scores = roi_scores[0:number_box_keep]
+            
+            roi_boxes_and_score = np.concatenate((roi,scores),axis=1)
+            cls = ['object']*len(roi_boxes_and_score)
+            #print(best_roi_boxes)
+            vis_detections_list(im, cls, [roi_boxes_and_score], thresh=0.0)
+            name_output = output_DIR + im_name_wt_ext + '_ObjectScoresMax.jpg'
+            plt.savefig(name_output)
+            
+            roi =  rois[0:number_box_keep,1:5] / im_scales[0]*(1./ratio)
+            scores = roi_scores[0:number_box_keep]
+            roi_boxes_and_score = np.concatenate((roi,scores),axis=1)
+            cls = ['object']*len(roi_boxes_and_score)
+            #print(best_roi_boxes)
+            vis_detections_list(im_hd, cls, [roi_boxes_and_score], thresh=0.0)
+            name_output = output_DIR + im_name_wt_ext + '_ObjectScoresMax_HD.jpg'
+            plt.savefig(name_output)
+        sess.close()
+        plt.close('all')
         
 def compute_2000boxes_FASTERRCNN_feat():
     for database in ['watercolor','PeopleArt','clipart','comic','CASPApaintings']:
