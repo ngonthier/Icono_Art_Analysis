@@ -5689,6 +5689,7 @@ def RASTAclassifTest():
         regulOnNewLayer=None,optimizer='SGD',opt_option=[0.1,0.01],\
         epochs=20,SGDmomentum=0.9,decay=1e-4,batch_size=16,pretrainingModif=True,verbose=True,\
         kind_of_shuffling='roll_partial',style_layers = ['conv1'],p=0.06)
+    # le lundi 28 septembre tu as lance ca comme entrainenemtn : a voir ce que cela donne
     learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
         constrNet='ResNet50suffleInStats',kind_method='FT',gridSearch=False,ReDo=True,\
         transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
