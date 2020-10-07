@@ -818,9 +818,9 @@ def comp_cka_for_paper():
                    'RASTA_small001_modif_deepSupervision',
                    'RASTA_big001_modif_deepSupervision']
     
-     all_pairs = itertools.combinations(list_models, r=2)
+    all_pairs = itertools.combinations(list_models, r=2)
      
-     for pair in all_pairs:
+    for pair in all_pairs:
         netA,netB = pair
         dico = get_linearCKA_bw_nets(dataset='RASTA',netA=netA,netB=netB,
                                                      list_layers=['conv2d0','conv2d1',
@@ -879,7 +879,7 @@ def comp_cka_for_paper():
                         'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                         'pretrained'
                         ]
-    all_pairs = itertools.combinations(list_models, r=2)
+    all_pairs = itertools.combinations(list_models_name_P, r=2)
     for pair in all_pairs:
         netA,netB = pair
         dico = get_linearCKA_bw_nets(dataset='Paintings',netA=netA,netB=netB,
@@ -892,7 +892,7 @@ def comp_cka_for_paper():
         print(netA,netB,dico)
         
     # Paintings dataset 
-    list_models_name_P = ['IconArt_v1_small01_modif',
+    list_models_name_I = ['IconArt_v1_small01_modif',
                         'IconArt_v1_big01_modif',
                         'IconArt_v1_big001_modif',
                         'IconArt_v1_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
@@ -909,7 +909,7 @@ def comp_cka_for_paper():
                         'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                         'pretrained'
                         ]
-    all_pairs = itertools.combinations(list_models, r=2)
+    all_pairs = itertools.combinations(list_models_name_I, r=2)
     for pair in all_pairs:
         netA,netB = pair
         dico = get_linearCKA_bw_nets(dataset='IconArt_v1',netA=netA,netB=netB,
