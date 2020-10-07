@@ -164,15 +164,15 @@ class Lucid_Inception_v1_slim(Model):
        self.input_name = input_name
        super(Lucid_Inception_v1_slim, self).__init__(**kwargs)
 
-def get_pretrained_model(Net):
+def get_pretrained_model(Net,include_top=True):
     if Net=='InceptionV1_slim':
-        model = InceptionV1_slim(include_top=True, weights='imagenet')
+        model = InceptionV1_slim(include_top=include_top, weights='imagenet')
     elif Net=='InceptionV1':
-        model = inception_v1_oldTF(weights='imagenet',include_top=True)
+        model = inception_v1_oldTF(weights='imagenet',include_top=include_top)
     elif Net=='VGG':
-        model = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet',input_shape=(224,224,3))
+        model = tf.keras.applications.vgg19.VGG19(include_top=include_top, weights='imagenet',input_shape=(224,224,3))
     elif Net=='ResNet50':
-        model = tf.keras.applications.resnet50.ResNet50(include_top=True, weights='imagenet',\
+        model = tf.keras.applications.resnet50.ResNet50(include_top=include_top, weights='imagenet',\
                                                       input_shape= (224, 224, 3))
     else:
         raise(ValueError(Net+' is unknown'))

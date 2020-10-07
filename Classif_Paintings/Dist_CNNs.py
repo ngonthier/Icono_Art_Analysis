@@ -7,6 +7,12 @@ used in What is being transferred in transfer learning? Neyshabur 2020
 
 To measure the distance between CNN models
 
+Remarques tu peux parfois avoir l'erreur suivante : 
+UnknownError: 2 root error(s) found.(0) Unknown: Failed to get convolution algorithm. This is probably because cuDNN failed to initialize, so try looking to see if a warning log message was printed above.
+    
+Il te faudra alors peut etre vider le cache qui se trouve a l'endroit suivant : 
+    Users gonthier AppData Roaming NVIDIA ComputeCache
+
 @author: gonthier
 """
 
@@ -16,8 +22,12 @@ import platform
 import pathlib
 import pickle
 from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.layers import Conv2D
+from tensorflow.python.keras import layers
+from tensorflow.python.keras.layers import Conv2D,Activation,Concatenate,Input,Lambda
+from tensorflow.python.keras import Model
+import tensorflow as tf
 import gzip
+import gc
 
 from StatsConstr_ClassifwithTL import predictionFT_net
 import Stats_Fcts
@@ -26,9 +36,10 @@ from IMDB import get_database
 from plots_utils import plt_multiple_imgs
 from CompNet_FT_lucidIm import get_fine_tuned_model
 
+from lucid_utils import get_pretrained_model
 from CompNet_FT_lucidIm import get_imageNet_weights,get_fine_tuned_model,print_stats_on_diff,get_weights_and_name_layers
 
-from Activation_for_model import get_Model_that_output_Activation,get_Network
+from Activation_for_model import get_Model_that_output_Activation,get_Network,get_model_name_wo_oldModel
 
 from CKA import linear_CKA
 
@@ -69,19 +80,7 @@ def get_l2_norm_weights(list_name_layers,list_weights,net_finetuned,verbose=Fals
         
     return(dict_layers_diff,l2_norm_total)
 
-def get_model_name_wo_oldModel(model_name):
-    if 'XX' in model_name:
-        splittedXX = model_name.split('XX')
-        weights = splittedXX[1] # original model
-        model_name_wo_oldModel = model_name.replace('_XX'+weights+'XX','')
-    else:
-        model_name_wo_oldModel = model_name
-        if 'RandForUnfreezed' in model_name or 'RandInit' in model_name:
-            weights = 'random'
-        else:
-            weights = 'pretrained'
-            
-    return(model_name_wo_oldModel,weights)
+
     
 def l2norm_bw_nets(netA,netB,constrNet='InceptionV1',suffixA='',suffixB='',initA=False,initB=False):
     """ 
@@ -301,6 +300,294 @@ def compute_Full_Feature(dataset,model_name,constrNet,list_layers=None,
     
     
     return(activations)
+
+def layer_3dots(inputA,inputB,sampling_FM=None):
+    
+    #ReduceSumA = Lambda(lambda z: K.sum(z, axis=0))
+    ReduceSum = Lambda(lambda z: K.sum(z, axis=0))
+    #TransposeA = Lambda(lambda z: K.transpose(z))
+    ReduceSumSquared = Lambda(lambda z: K.sum(K.square(z), axis=0))
+    #ReduceSumSquaredA = Lambda(lambda z: K.sum(K.square(z), axis=0))
+    #ReduceSumB = Lambda(lambda z: K.sum(z, axis=1))
+    #ReduceSumSquaredB = Lambda(lambda z: K.sum(K.square(z), axis=0))
+    
+    dotlayer = Lambda(lambda z: tf.linalg.matmul(z[0], z[1], transpose_a=True))
+    
+    
+    if sampling_FM is None:
+        layer_outputA = layers.Flatten()(inputA) # batch size and on the other one channel * h * w
+        layer_outputB = layers.Flatten()(inputB)
+    elif sampling_FM=='avg':
+        layer_outputA = layers.GlobalAveragePooling2D()(inputA) # batch size and on the other one channel * h * w
+        layer_outputB = layers.GlobalAveragePooling2D()(inputB)
+    else:
+       raise(ValueError(sampling_FM+' is unknown')) 
+        
+    sumA = ReduceSum(layer_outputA)
+    sumB = ReduceSum(layer_outputB)
+    sum_squaredA =ReduceSumSquared(layer_outputA)
+    sum_squaredB = ReduceSumSquared(layer_outputB)
+    #layer_outputA_T = TransposeA(layer_outputA)
+    #layer_outputB_T = TransposeA(layer_outputB)
+    dotAB = dotlayer([layer_outputA,layer_outputB])
+    dotAA = dotlayer([layer_outputA,layer_outputA])
+    dotBB = dotlayer([layer_outputB,layer_outputB])
+    
+    return(sumA,sumB,sum_squaredA,sum_squaredB,dotAB,dotAA,dotBB)
+
+
+def get_cumulated_output_model(modelA,modelB,list_layers=None,sampling_FM=None):
+    """
+    Provide a keras model which outputs the stats_on_layer == mean or max of each 
+    features maps
+    """
+    
+    list_outputs = []
+    list_outputs_name = []
+    
+#    commonInput = Input(input_shape)
+#
+#    outA = modelA(commonInput)    
+#    outB = modelB(commonInput) 
+#    
+#    print('outA',outA)
+#    
+#    modelA = Model(commonInput,outA)
+#    modelB = Model(commonInput,outB)
+#        
+#    print(modelA,modelA.summary())
+    
+
+    for layerA in modelA.layers:
+        
+        name_of_this_layer = layerA.name
+        layerA._name = name_of_this_layer + '_A'
+        
+        if list_layers is None:
+            if  isinstance(layerA, Conv2D) or isinstance(layerA,Concatenate) or isinstance(layerA,Activation):
+                layerA_output = layerA.output
+                layerB_output = modelB.get_layer(layerA.name).output
+#                layer_outputA = K.flatten(layerA.output) # batch size and on the other one channel * h * w
+#                layer_outputB = K.flatten(layerB.output)
+#                sumA = K.sum(layer_outputA,axis=0)
+#                sumB = K.sum(layer_outputB,axis=0)
+#                sum_squaredA =K.sum(K.square(layer_outputA),axis=0)
+#                sum_squaredB = K.sum(K.square(layer_outputB),axis=0)
+#                dotAB = K.dot(K.transpose(layer_outputA),layer_outputB)
+#                dotAA = K.dot(K.transpose(layer_outputA),layer_outputA)
+#                dotBB = K.dot(K.transpose(layer_outputB),layer_outputB)
+                sumA,sumB,sum_squaredA,sum_squaredB,dotAB,dotAA,dotBB= layer_3dots(inputA=layerA_output,inputB=layerB_output,
+                                                                                   sampling_FM=sampling_FM)
+                list_outputs += [[sumA,sumB,sum_squaredA,sum_squaredB,dotAB,dotAA,dotBB]]
+                list_outputs_name += [layerA.name]
+        else:
+            if name_of_this_layer in list_layers:
+                
+                layerA_output = layerA.output
+                layerB_output = modelB.get_layer(name_of_this_layer).output
+#                layer_outputA = K.flatten(layerA.output) #
+#                sumA = K.sum(layer_outputA,axis=0) batch size and on the other one channel * h * w
+#                layer_outputB = K.flatten(layerB.output)
+#                sumB = K.sum(layer_outputB,axis=0)
+#                sum_squaredA =K.sum(K.square(layer_outputA),axis=0)
+#                sum_squaredB = K.sum(K.square(layer_outputB),axis=0)
+#                dotAB = K.dot(K.transpose(layer_outputA),layer_outputB)
+#                dotAA = K.dot(K.transpose(layer_outputA),layer_outputA)
+#                dotBB = K.dot(K.transpose(layer_outputB),layer_outputB)
+                #print(layerA.output)
+                sumA,sumB,sum_squaredA,sum_squaredB,dotAB,dotAA,dotBB= layer_3dots(inputA=layerA_output,inputB=layerB_output,
+                                                                                   sampling_FM=sampling_FM)
+                list_outputs += [[sumA,sumB,sum_squaredA,sum_squaredB,dotAB,dotAA,dotBB]]
+                #print(dotAB)
+                list_outputs_name += [name_of_this_layer]
+        # Need to rename layers
+        
+            
+    print(list_outputs)
+                
+    new_model = Model([modelA.input,modelB.input],list_outputs)
+    #new_model = Model(commonInput,list_outputs)
+    
+    return(new_model,list_outputs_name)
+    
+def compute_cumulated_feat_and_squaredfeat_TwoModels(dataset,netA,netB,constrNet='InceptionV1',
+                                                     suffixA='',suffixB='',
+                                                     initA=False,initB=False
+                                                     ,list_layers=['conv2d0'],
+                                                     suffix='',cropCenter = True):
+    """
+    This function will compute the cumulated sum of the fatures value and the cumulated of the 
+    squared of the fatures value and the cumulated dot product between the features of 
+    the two models in order to compute the linear CKA     """
+    K.set_learning_phase(0) #IE no training
+    tf.compat.v1.disable_eager_execution()
+
+    curr_session = tf.get_default_session()
+    # close current session
+    if curr_session is not None:
+        curr_session.close()
+    # reset graph
+    K.clear_session()
+    # create new session
+    s = tf.Session()
+    K.set_session(s)
+    
+    # Load info about dataset
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+    path_data,Not_on_NicolasPC = get_database(dataset)
+    df_test = df_label[df_label['set']=='test']
+    df_test = df_test.sample(128)
+    num_samples= len(df_test)
+
+    extra_str = ''
+    
+    net_P = None  
+    if netA=='pretrained':
+        net_P = 'pretrained'
+        net_Autre = netB
+        suffix_Autre = suffixB
+        init_Autre = initB
+    elif netB=='pretrained':
+        net_P = 'pretrained'
+        suffix_Autre = suffixA
+        init_Autre = initA
+
+    if not(net_P is None): # Dans le cas ou un des deux networks est pretrained weights
+        
+        
+        
+#        g = tf.Graph()
+#        print('graph',g)
+#        with g.as_default():
+        keras_netA = get_pretrained_model(Net=constrNet,include_top=False)
+        net_finetuned, init_net = get_fine_tuned_model(net_Autre,constrNet=constrNet,suffix=suffix_Autre,
+                                                       clearSessionTf=False)
+        
+#        print(keras_netA.summary())
+#        print(net_finetuned.summary())
+        #g = tf.Graph()
+        
+        if init_Autre:
+            keras_netB = init_net
+        else:
+            keras_netB = net_finetuned
+        
+    else: # No pretrained model compared to an other one
+        net_finetuned_A, init_net_A = get_fine_tuned_model(netA,constrNet=constrNet,suffix=suffixA,
+                                                       clearSessionTf=False)
+        if initA:
+            keras_netA = init_net_A
+        else:
+            keras_netA = net_finetuned_A
+        net_finetuned_B, init_net_B = get_fine_tuned_model(netB,constrNet=constrNet,suffix=suffixB,
+                                                       clearSessionTf=False)
+        if initB:
+            keras_netB = init_net_B
+        else:
+            keras_netB = net_finetuned_B
+        
+    # We get the two networks here
+    # Now we will put them together to get the different cumulated information 
+    # we want
+    
+    #with g.as_default():
+    sampling_FM='avg'
+    model,_ = get_cumulated_output_model(keras_netA,keras_netB,list_layers,sampling_FM=sampling_FM) # the merge model
+    
+    print(model.summary())
+    batch_size = 32
+    activations = predictionFT_net(model,df_test,x_col=item_name,y_col=classes,path_im=path_to_img,
+                     Net=constrNet,cropCenter=cropCenter,verbose_predict=1,
+                     two_images_as_input=True,batch_size=batch_size)
+    
+    num_steps = num_samples // batch_size
+    
+    if len(list_layers) == 1:
+        activations = [activations]
+        
+#    print(len(activations))
+#    print(len(activations[0]))
+#    print(activations[0][0].shape)
+#    print(activations[0][4].shape)
+    data_to_save = {}
+    l = 0
+    for layer_name in list_layers:
+        i = 0
+        
+        activations_l = activations[l*7:(l+1)*7]
+        [sumA,sumB,sum_squaredA,sum_squaredB,dotAB,dotAA,dotBB] = activations_l
+        #print(sumA.shape,sumB.shape,sum_squaredA.shape,sum_squaredB.shape,dotAB.shape,dotAA.shape,dotBB.shape)
+        sumA = sumA.reshape(num_steps,-1)
+        _,num_pA = sumA.shape
+        sumB = sumB.reshape(num_steps,-1)
+        _,num_pB = sumB.shape
+        #sum_squaredA = sum_squaredA.reshape(-1,num_steps)
+        #sum_squaredB = sum_squaredB.reshape(-1,num_steps)
+        dotAB = dotAB.reshape(num_steps,num_pA,num_pB)
+        dotAA = dotAA.reshape(num_steps,num_pA,num_pA)
+        dotBB = dotBB.reshape(num_steps,num_pB,num_pB)
+        meanAt = np.sum(sumA/num_samples,axis=0)
+        meanBt = np.sum(sumB/num_samples,axis=0)
+        dotABt = np.sum(dotAB,axis=0)
+        dotAAt = np.sum(dotAA,axis=0)
+        dotBBt = np.sum(dotBB,axis=0)
+        
+        l += 1
+#        for elt in activations_l:
+#            if i ==0:
+#                [sumA,sumB,sum_squaredA,sum_squaredB,dotAB,dotAA,dotBB] = elt
+#                meanAt = sumA/num_samples
+#                meanBt = sumB/num_samples
+#                sum_squaredAt = sum_squaredA/num_samples
+#                sum_squaredBt = sum_squaredB/num_samples
+#                dotABt = dotAB
+#                dotAAt = dotAA
+#                dotBBt = dotBB
+#            else:
+#                [sumA,sumB,sum_squaredA,sum_squaredB,dot] = elt
+#                meanAt += sumA/num_samples
+#                meanBt += sumB/num_samples
+#                sum_squaredAt += sum_squaredA/num_samples
+#                sum_squaredBt += sum_squaredB/num_samples
+#                dotABt += dotAB
+#                dotAAt += dotAA
+#                dotBBt += dotBB
+#            i += 1
+        multi_means_AB = np.reshape(meanAt,(-1,1))*np.reshape(meanBt,(1,-1))
+        multi_means_AA = np.reshape(meanAt,(-1,1))*np.reshape(meanAt,(1,-1))
+        multi_means_BB = np.reshape(meanBt,(-1,1))*np.reshape(meanBt,(1,-1))
+        centered_dotABt = dotABt - num_samples*multi_means_AB
+        centered_dotAAt = dotAAt - num_samples*multi_means_AA
+        centered_dotBBt = dotBBt - num_samples*multi_means_BB
+        
+        frobenium_norm_AB_squared = np.square(np.linalg.norm(centered_dotABt))
+        frobenium_norm_AA = np.linalg.norm(centered_dotAAt)
+        frobenium_norm_BB = np.linalg.norm(centered_dotBBt)
+        
+        linearCKA = frobenium_norm_AB_squared / (frobenium_norm_AA*frobenium_norm_BB)
+        
+        print(layer_name,linearCKA)
+        data_to_save[layer_name] = linearCKA
+  
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,'Dists')
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,'Dists')
+    # For output data
+    output_path_full = os.path.join(output_path,'data')
+
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    pathlib.Path(output_path_full).mkdir(parents=True, exist_ok=True)
+    
+    name_data = 'linearCKA'+sampling_FM+'-'+netA+'-'+suffixA+'-'+netB+'-'+suffixB+'.pkl'
+    with open(name_data, 'wb') as handle:
+        pickle.dump(data_to_save, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # To clean GPU memory
+    K.clear_session()
+    gc.collect()
+
+    return(data_to_save)
     
 def get_data_pts_for_analysis(model_name,dataset,list_layers,
                                  constrNet='InceptionV1',suffix='',
@@ -452,5 +739,21 @@ if __name__ == '__main__':
     #l2norm_bw_nets(netA='pretrained',netB='RASTA_small01_modif')
     #l2norm_bw_nets(netA='RASTA_small01_modif',netB='RASTA_small01_modif',suffixA='',suffixB='1')
     #l2norm_bw_nets(netA='RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',netB='RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',initA=False,initB=True)
-    feat_sim(model_nameA='pretrained',model_nameB='RASTA_small01_modif',dataset='RASTA',stats_on_layer='mean')
+    #feat_sim(model_nameA='pretrained',model_nameB='RASTA_small01_modif',dataset='RASTA',stats_on_layer='mean')
 
+    compute_cumulated_feat_and_squaredfeat_TwoModels(dataset='RASTA',netA='pretrained',netB='RASTA_small01_modif',
+                                                     list_layers=['conv2d0','conv2d1',
+                                                          'conv2d2','mixed3a',
+                                                          'mixed3b','mixed4a',
+                                                          'mixed4b','mixed4c',
+                                                          'mixed4d','mixed4e',
+                                                          'mixed5a','mixed5b'])
+#    compute_cumulated_feat_and_squaredfeat_TwoModels(dataset='RASTA',
+#                                                     netA='RASTA_small01_modif',
+#                                                     netB='RASTA_small01_modif',
+#                                                     list_layers=['conv2d0','conv2d1',
+#                                                          'conv2d2','mixed3a',
+#                                                          'mixed3b','mixed4a',
+#                                                          'mixed4b','mixed4c',
+#                                                          'mixed4d','mixed4e',
+#                                                          'mixed5a','mixed5b'])

@@ -5,6 +5,12 @@ Created on Mon Apr  6 18:39:41 2020
 The goal of this script is to compute the mean value of each features maps of 
 the whole image from a given training dataset for a given network
 
+Remarques tu peux parfois avoir l'erreur suivante : 
+UnknownError: 2 root error(s) found.(0) Unknown: Failed to get convolution algorithm. This is probably because cuDNN failed to initialize, so try looking to see if a warning log message was printed above.
+    
+Il te faudra alors peut etre vider le cache qui se trouve a l'endroit suivant : 
+    Users gonthier AppData Roaming NVIDIA ComputeCache
+
 @author: gonthier
 """
 
@@ -26,6 +32,19 @@ from googlenet import inception_v1_oldTF as Inception_V1
 from IMDB import get_database
 from plots_utils import plt_multiple_imgs
 from CompNet_FT_lucidIm import get_fine_tuned_model
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon
+import matplotlib.cm as mplcm
+import matplotlib.colors as colors
+import matplotlib.gridspec as gridspec
+import matplotlib.image as mpimg
+import pandas as pd
+import tikzplotlib
+
+CB_color_cycle = ['#377eb8', '#ff7f00','#984ea3', '#4daf4a','#A2C8EC','#e41a1c',
+                  '#f781bf', '#a65628', '#dede00','#FFBC79','#999999']
 
 def get_Network(Net):
     weights = 'imagenet'
@@ -204,7 +223,7 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     model,list_outputs_name = get_Model_that_output_StatsOnActivation(base_model,stats_on_layer=stats_on_layer)
     #print(model.summary())
     activations = predictionFT_net(model,df_train,x_col=item_name,y_col=classes,path_im=path_to_img,
-                     Net=constrNet,cropCenter=cropCenter)
+                     Net=constrNet,cropCenter=cropCenter,verbose_predict=1)
     print('activations len and shape of first element',len(activations),activations[0].shape)
     
     folder_name = model_name+suffix
@@ -325,6 +344,8 @@ def get_list_activations(dataset,output_path,stats_on_layer,
     else:
         raise(ValueError(stats_on_layer+' is unknown'))
         
+    print(save_file)
+        
     if os.path.exists(save_file):
         # The file exist
         with open(save_file, 'rb') as handle:
@@ -338,7 +359,7 @@ def get_list_activations(dataset,output_path,stats_on_layer,
                                             FTmodel=FTmodel)
     return(list_outputs_name,activations)
  
-def proportion_labels(list_most_pos_images,dataset):
+def proportion_labels(list_most_pos_images,dataset,verbose=True):
     """
     The goal of this fct is to provide the labels proportion in the list of image 
     provide
@@ -354,12 +375,15 @@ def proportion_labels(list_most_pos_images,dataset):
         labels_image_i =  df_train[df_train[item_name]==im_name][classes].values
         list_labels += np.ravel(labels_image_i)
     argsort_from_max_to_min = np.argsort(list_labels)[::-1]
+    dico_c = {}
     for index_c in argsort_from_max_to_min:
         classe = classes[index_c]
         number_im_c = list_labels[index_c]
         if number_im_c >0:
             per_c = number_im_c/number_im*100.0
-            print(classe,per_c)
+            if verbose: print(classe,per_c)
+            dico_c[classe] = per_c
+    return(dico_c)
     
 def plot_images_Pos_Images(dataset,model_name,constrNet,
                             layer_name='mixed4d_3x3_bottleneck_pre_relu',
@@ -378,17 +402,7 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
     
     printNearZero = False
 
-    
-    if 'XX' in model_name:
-        splittedXX = model_name.split('XX')
-        weights = splittedXX[1] # original model
-        model_name_wo_oldModel = model_name.replace('_XX'+weights+'XX','')
-    else:
-        model_name_wo_oldModel = model_name
-        if 'RandForUnfreezed' in model_name or 'RandInit' in model_name:
-            weights = 'random'
-        else:
-            weights = 'pretrained'
+    model_name_wo_oldModel,weights = get_model_name_wo_oldModel(model_name)
     
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
     path_data,Not_on_NicolasPC = get_database(dataset)
@@ -536,6 +550,259 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
                 plt_multiple_imgs(list_images=list_nearZero_pos_images,path_output=output_path_for_img,\
                                   path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
                                   Net=None,title_imgs=title_imgs)
+ 
+def get_model_name_wo_oldModel(model_name):
+    if 'XX' in model_name:
+        splittedXX = model_name.split('XX')
+        weights = splittedXX[1] # original model
+        model_name_wo_oldModel = model_name.replace('_XX'+weights+'XX','')
+    else:
+        model_name_wo_oldModel = model_name
+        if 'RandForUnfreezed' in model_name or 'RandInit' in model_name:
+            weights = 'random'
+        else:
+            weights = 'pretrained'
+            
+    return(model_name_wo_oldModel,weights)
+
+def doing_overlaps_for_paper():
+    
+    numberIm_list = [100,1000,-1]
+    model_list = ['RASTA_small01_modif']
+    model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+    for model_name in model_list:
+        for numberIm in numberIm_list:
+            overlapping_rate_print(dataset='RASTA',model_name=model_name,
+                               constrNet='InceptionV1',numberIm=numberIm,
+                               stats_on_layer='meanAfterRelu')# because meanAfterRelu already computed
+               
+def overlapping_rate_print(dataset,model_name,constrNet='InceptionV1',
+                      list_layers=['conv2d0','conv2d1',
+                                  'conv2d2','mixed3a',
+                                  'mixed3b','mixed4a',
+                                  'mixed4b','mixed4c',
+                                  'mixed4d','mixed4e',
+                                  'mixed5a','mixed5b'],
+                            numberIm=100,stats_on_layer='mean',suffix='',
+                            FTmodel=True,
+                            output_path_for_dico=None,
+                            cropCenter = True,
+                            ReDo=False):
+    """
+    This function will compute the overlapping ratio between the top k images with 
+    positive activation before and after the trainingon train set images
+    @param : numberIm = top k images used : numberIm = -1 if you want to take all the images
+    @param : in the case of a trained (FT) model from scratch FTmodel == False will lead to 
+        use the initialization model
+    """
+    matplotlib.rcParams['text.usetex'] = True
+    sns.set()
+    sns.set_style("whitegrid")
+
+
+    model_name_wo_oldModel,weights = get_model_name_wo_oldModel(model_name)
+    
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+    path_data,Not_on_NicolasPC = get_database(dataset)
+    df_train = df_label[df_label['set']=='train']
+    name_images = df_train[item_name].values
+    
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name+suffix)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
+    # For images
+    if output_path_for_dico is None:
+        output_path_for_dico = os.path.join(output_path,'Overlapping')
+    else:
+        output_path_for_dico = os.path.join(output_path_for_dico,'Overlapping')
+
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    pathlib.Path(output_path_for_dico).mkdir(parents=True, exist_ok=True) 
+
+    dico_percentage_intersec_list = {}
+    
+    name_dico = 'OverRatio_'+str(numberIm)
+    name_path_dico = os.path.join(output_path_for_dico,name_dico+'.pkl')
+    
+    
+    if os.path.exists(name_path_dico) and not(ReDo):
+        # The file exist
+        with open(name_path_dico, 'rb') as handle:
+            dico_percentage_intersec_list = pickle.load(handle)
+    else:
+    
+        list_outputs_name,activations = get_list_activations(dataset,
+                                                         output_path,stats_on_layer,
+                                                         model_name,constrNet,
+                                                         suffix,cropCenter,FTmodel,
+                                                         model_name_wo_oldModel)
+        
+        # Load the activation on the initialisation model # 
+        if weights == 'pretrained':
+            if platform.system()=='Windows': 
+                output_path_init = os.path.join('CompModifModel',constrNet,'pretrained')
+            else:
+                output_path_init = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,'pretrained')
+            pathlib.Path(output_path_init).mkdir(parents=True, exist_ok=True) 
+            list_outputs_name_init,activations_init= get_list_activations(dataset,
+                                                        output_path_init,stats_on_layer,
+                                                        'pretrained',constrNet,
+                                                        '',cropCenter,FTmodel,
+                                                        'pretrained')
+        elif weights == 'random':
+            list_outputs_name_init,activations_init= get_list_activations(dataset,
+                                                        output_path,stats_on_layer,
+                                                        model_name,constrNet,
+                                                        suffix,cropCenter,False,
+                                                        model_name) # FTmodel = False to get the initialisation model
+        else:
+            if platform.system()=='Windows': 
+                output_path_init = os.path.join('CompModifModel',constrNet,weights)
+            else:
+                output_path_init = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,weights)
+            pathlib.Path(output_path_init).mkdir(parents=True, exist_ok=True) 
+            list_outputs_name_init,activations_init= get_list_activations(dataset,
+                                                        output_path,stats_on_layer,
+                                                        weights,constrNet,
+                                                        '',cropCenter,FTmodel,
+                                                        weights)
+        
+        for layer_name_inlist,activations_l in zip(list_outputs_name,activations):
+            if layer_name_inlist in list_layers:
+                print('===',layer_name_inlist,'===')
+                num_im, number_of_features = activations_l.shape
+                
+                percentage_intersec_list = []
+                
+                for num_feature in range(number_of_features):
+                    activations_l_f = activations_l[:,num_feature]
+                    where_activations_l_f_pos = np.where(activations_l_f>0)[0]
+                    if len(where_activations_l_f_pos)==0:
+                        print('No activation positive for this layer')
+                        #print(activations_l_f)
+                        percentage_intersec_f = 0
+                        percentage_intersec_list += [percentage_intersec_f]
+                        continue
+                    activations_l_f_pos = activations_l_f[where_activations_l_f_pos]
+                    name_images_l_f_pos = name_images[where_activations_l_f_pos]
+                    argsort = np.argsort(activations_l_f_pos)[::-1]
+                    # Most positive images
+                    list_most_pos_images = name_images_l_f_pos[argsort[0:numberIm]]
+                    #act_most_pos_images = activations_l_f_pos[argsort[0:numberIm]]
+                
+                    activations_init_l = activations_init[list_outputs_name_init.index(layer_name_inlist)]
+                    activations_init_l_f = activations_init_l[:,num_feature]
+                    where_activations_init_l_f_pos = np.where(activations_init_l_f>0)[0]
+                    if len(where_activations_init_l_f_pos)==0:
+                        print('No activation positive for this layer')
+                        #print(activations_l_f)
+                        percentage_intersec_f = 0
+                        percentage_intersec_list += [percentage_intersec_f]
+                        continue
+    
+                    activations_init_l_f_pos = activations_init_l_f[where_activations_init_l_f_pos]
+                    name_images_init_l_f_pos = name_images[where_activations_init_l_f_pos]
+                    argsort_init = np.argsort(activations_init_l_f_pos)[::-1]
+                    # Most positive images
+                    list_most_pos_images_init = list(name_images_init_l_f_pos[argsort_init[0:numberIm]])
+                    
+                    number_img_intersec = len(list(set(list_most_pos_images) & set(list_most_pos_images_init)))
+                    if numberIm==-1:
+                        percentage_intersec_f = number_img_intersec/max(len(list_most_pos_images),len(list_most_pos_images_init))*100.0
+                    else:
+                        percentage_intersec_f = number_img_intersec/numberIm*100.0
+                    percentage_intersec_list += [percentage_intersec_f]
+                    
+                dico_percentage_intersec_list[layer_name_inlist] = percentage_intersec_list
+                
+                with open(name_path_dico, 'wb') as handle:
+                    pickle.dump(dico_percentage_intersec_list,handle)
+                    
+    # Print the boxplot per layer
+    list_percentage = []
+    for layer_name_inlist in list_layers:
+        percentage_intersec_list = dico_percentage_intersec_list[layer_name_inlist]
+        list_percentage += [percentage_intersec_list]
+        
+    save_or_show = True
+    
+    if save_or_show:
+        matplotlib.use('Agg')
+        plt.switch_backend('agg')
+        
+    output_img = 'png'
+    case_str = str(numberIm)
+    ext_name = 'OverLap_'
+    
+    if output_img=='png':
+        fig, ax1 = plt.subplots(figsize=(10, 6))
+    elif output_img=='tikz':
+        fig, ax1 = plt.subplots()
+        
+    fig.canvas.set_window_title('Boxplots of the Overlapping percentage.')
+    bp = ax1.boxplot(list_percentage, notch=0, sym='+')
+    plt.setp(bp['boxes'], color='black')
+    plt.setp(bp['whiskers'], color='black')
+    plt.setp(bp['fliers'], color='black', marker='+')
+    # Hide these grid behind plot objects
+    ax1.set_axisbelow(True)
+    #ax1.set_title('Comparison of '+leg_str+' score for different methods')
+    ax1.set_xlabel('Layer')
+    ax1.set_ylabel('Overlapping (\%)')
+    
+    medians = np.empty(len(list_layers))
+    for i in range(len(list_layers)):
+        box = bp['boxes'][i]
+        boxX = []
+        boxY = []
+        for j in range(5):
+            boxX.append(box.get_xdata()[j])
+            boxY.append(box.get_ydata()[j])
+        box_coords = np.column_stack([boxX, boxY])
+        # Color of the box
+        ax1.add_patch(Polygon(box_coords, facecolor=CB_color_cycle[i % (len(CB_color_cycle))],alpha=0.5))
+        # Now draw the median lines back over what we just filled in
+        med = bp['medians'][i]
+        medianX = []
+        medianY = []
+        for j in range(2):
+            medianX.append(med.get_xdata()[j])
+            medianY.append(med.get_ydata()[j])
+            ax1.plot(medianX, medianY, 'k')
+        # Finally, overplot the sample averages, with horizontal alignment
+        # in the center of each box
+        if output_img=='png':
+            ax1.plot(np.average(med.get_xdata()), np.average(list_percentage[i]),
+                 color='w', marker='*', markeredgecolor='k', markersize=8)
+        elif output_img=='tikz':
+            ax1.plot(np.average(med.get_xdata()), np.average(list_percentage[i]),
+                 color='w', marker='h', markeredgecolor='k', markersize=6)
+    # X labels
+    if output_img=='png':
+        ax1.set_xticklabels(list_layers,
+                    rotation=45, fontsize=8) 
+    elif output_img=='tikz':
+        ax1.set_xticklabels(list_layers,
+                    rotation=75, fontsize=8)    
+    if save_or_show:
+        if output_img=='png':
+            plt.tight_layout()
+            path_fig = os.path.join(output_path_for_dico,ext_name+case_str+'_Boxplots_per_layer.png')
+            plt.savefig(path_fig,bbox_inches='tight')
+            plt.close()
+        if output_img=='tikz':
+            path_fig = os.path.join(output_path_for_dico,ext_name+case_str+'_Boxplots_per_layer.tex')
+            tikzplotlib.save(path_fig)
+            # From from DataForPerceptual_Evaluation import modify_underscore,modify_labels,modify_fontsizeByInput
+            # si besoin
+#            modify_underscore(path_fig)
+#            modify_labels(path_fig)
+#            modify_fontsizeByInput(path_fig)
+    else:
+        plt.show()
+        input('Enter to close.')
+        plt.close()
     
 if __name__ == '__main__': 
     # Petit test 
