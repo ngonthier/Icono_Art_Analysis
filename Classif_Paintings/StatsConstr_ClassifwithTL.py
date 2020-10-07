@@ -390,7 +390,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
                    suffix='',dataAug=False,randomCrop=False,\
                    SaveInit=False,loss=None,clipnorm=None,LR_scheduling_kind=None,\
-                   patience=5,param_wildcat=None):
+                   patience=5,param_wildcat=None,clearSessionTf=True):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
     It will return the metrics or the model itself depending on the input parameters
@@ -483,6 +483,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : patience : for the val_loss monitor with learning rate reduction
     @param : param_wildcat in the case of the wildcat param that are not None (ie default)
         numberfilterPerClass, kmax,kmin,alpha = param_wildcat
+    @param : clearSessionTf : to clear the old session and everything !
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -727,15 +728,17 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     if not(suffix is None or suffix==''):
        name_base += '_Run'+suffix 
     
-    curr_session = tf.get_default_session()
-    # close current session
-    if curr_session is not None:
-        curr_session.close()
-    # reset graph
-    K.clear_session()
-    # create new session
-    s = tf.InteractiveSession()
-    K.set_session(s)
+    
+    if  clearSessionTf:
+        curr_session = tf.get_default_session()
+        # close current session
+        if curr_session is not None:
+            curr_session.close()
+        # reset graph
+        K.clear_session()
+        # create new session
+        s = tf.InteractiveSession()
+        K.set_session(s)
     
     if kind_method=='TL': # Transfert Learning
         final_layer = features
@@ -2457,7 +2460,8 @@ class StepDecay(LearningRateSchedule):
 
 
 def generator_with_im_and_label_as_output(generator, dataframe, directory, x_col, y_col,target_size,\
-                     batch_size,shuffle,interpolation,class_mode):
+                     batch_size,shuffle,interpolation,class_mode,
+                     use_multiprocessing=True,workers=8):
     """
     custom generator that provide as output the data (the image and the label)
     """
@@ -2467,12 +2471,33 @@ def generator_with_im_and_label_as_output(generator, dataframe, directory, x_col
             class_mode=class_mode, \
             target_size=target_size, batch_size=batch_size,\
             shuffle=shuffle,\
-            interpolation=interpolation)
+            interpolation=interpolation,
+            use_multiprocessing=use_multiprocessing,workers=workers)
     
     while True:
         gnext = gen.next()
         # return [images,labels] batch and labels
         yield [gnext[0],gnext[1]], gnext[1]
+        
+def generator_with_2im_as_output(generator, dataframe, directory, x_col,target_size,\
+                     batch_size,shuffle,interpolation,class_mode,
+                     use_multiprocessing=True,workers=8):
+    """
+    custom generator that provide as output the data (the image and the label)
+    """
+    gen = generator.flow_from_dataframe(
+            dataframe=dataframe, directory=directory,\
+            x_col=x_col,\
+            class_mode=class_mode, \
+            target_size=target_size, batch_size=batch_size,\
+            shuffle=shuffle,\
+            interpolation=interpolation,
+            use_multiprocessing=use_multiprocessing,workers=workers)
+    
+    while True:
+        gnext = gen.next()
+        # return [images,labels] batch and labels
+        yield [gnext,gnext]
     
 def FineTuneModel_forSameLabel(model,dataset,df,x_col,y_col,path_im,str_val,num_classes,epochs=20,\
                   Net='VGG',batch_size = 16,plotConv=False,test_size=0.15,\
@@ -2810,9 +2835,11 @@ def TrainMLPwithGridSearch(builder_model,X,Y,batch_size,epochs):
     return(model)
     
 def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=False,
-                     randomCrop=False,imSize=224):
+                     randomCrop=False,imSize=224,verbose_predict=0,
+                     two_images_as_input=False,batch_size = 16):
     """
     This function predict on tht provide test set for a fine-tuned network
+    @param : two_images_as_input : for the model with two times the same input image
     """
     df_test_local = df_test.copy()
     
@@ -2855,16 +2882,35 @@ def predictionFT_net(model,df_test,x_col,y_col,path_im,Net='VGG',cropCenter=Fals
     else:
         use_multiprocessing = True
         workers=8
-    batch_size = 16
+    
         
     datagen= tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=preprocessing_function)    
-    test_generator=datagen.flow_from_dataframe(dataframe=df_test_local, directory=path_im,\
+    
+    
+    if not(two_images_as_input): # cas normal 
+        test_generator=datagen.flow_from_dataframe(dataframe=df_test_local, directory=path_im,\
                                                 x_col=x_col,\
                                                 class_mode=None,shuffle=False,\
                                                 target_size=target_size, batch_size=batch_size,\
                                                 use_multiprocessing=use_multiprocessing,workers=workers,\
                                                 interpolation=interpolation)
-    predictions = model.predict_generator(test_generator)
+    
+        predictions = model.predict_generator(test_generator,verbose=verbose_predict)
+    
+    else: # cas two_images_as_input
+        
+        test_generator=generator_with_2im_as_output(datagen, dataframe=df_test_local,directory=path_im,
+                                                    x_col=x_col,\
+                                                    class_mode=None, \
+                                                    target_size=target_size, batch_size=batch_size,\
+                                                    shuffle=False,\
+                                                    use_multiprocessing=use_multiprocessing,workers=workers,\
+                                                    interpolation=interpolation)
+        #STEP_SIZE=test_generator.n//test_generator.batch_size
+    
+        predictions = model.predict_generator(test_generator,verbose=verbose_predict,
+                                              steps=(len(df_test_local)//batch_size))
+        
     
     if cropCenter or randomCrop:
         kp.image.iterator.load_img = old_loading_img_fct
