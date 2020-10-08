@@ -593,81 +593,116 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
         
         #print(model.summary())
         if k >1:
-            batch_size = 32//(k**2)
+            data_to_save = {}
+            batch_size = 1 
+            # We are in a case where we need to cumulate the example ! 
+            i = 0
+            dicto = {}
+            for index_ in range(num_samples):
+                raise(NotImplementedError)
+                row = df_test.iloc[index_,:]
+                print(row)
+                activations = predictionFT_net(model,row,x_col=item_name,y_col=classes,path_im=path_to_img,
+                             Net=constrNet,cropCenter=cropCenter,verbose_predict=1,
+                             two_images_as_input=True,batch_size=batch_size)
+            
+                #num_steps = num_samples // batch_size
+                num_steps = 1
+            
+                if len(list_layers) == 1:
+                    activations = [activations]
+
+                l = 0
+                for layer_name in list_layers:
+
+                    activations_l = activations[l*7:(l+1)*7]
+                    [sumA,sumB,sum_squaredA,sum_squaredB,dotAB,dotAA,dotBB] = activations_l
+                    
+                    if i == 0:
+                        meanAt = sumA/num_samples
+                        meanBt = sumB/num_samples
+                        dotABt = dotAB
+                        dotAAt = dotAA
+                        dotBBt = dotBB
+                        dicto[layer_name] = [meanAt,meanBt,dotABt,dotAAt,dotBBt]
+                    else:
+                        meanAt,meanBt,dotABt,dotAAt,dotBBt = dicto[layer_name]
+                        meanAt += sumA/num_samples
+                        meanBt += sumB/num_samples
+                        dotABt += dotAB
+                        dotAAt += dotAA
+                        dotBBt += dotBB
+                        dicto[layer_name] = [meanAt,meanBt,dotABt,dotAAt,dotBBt]
+                    l += 1
+                i +=1
+                
+            for layer_name in list_layers:
+                meanAt,meanBt,dotABt,dotAAt,dotBBt = dicto[layer_name]
+                multi_means_AB = np.reshape(meanAt,(-1,1))*np.reshape(meanBt,(1,-1))
+                multi_means_AA = np.reshape(meanAt,(-1,1))*np.reshape(meanAt,(1,-1))
+                multi_means_BB = np.reshape(meanBt,(-1,1))*np.reshape(meanBt,(1,-1))
+                centered_dotABt = dotABt - num_samples*multi_means_AB
+                centered_dotAAt = dotAAt - num_samples*multi_means_AA
+                centered_dotBBt = dotBBt - num_samples*multi_means_BB
+                
+                frobenium_norm_AB_squared = np.square(np.linalg.norm(centered_dotABt))
+                frobenium_norm_AA = np.linalg.norm(centered_dotAAt)
+                frobenium_norm_BB = np.linalg.norm(centered_dotBBt)
+                
+                linearCKA = frobenium_norm_AB_squared / (frobenium_norm_AA*frobenium_norm_BB)
+                
+                print(layer_name,linearCKA)
+                data_to_save[layer_name] = linearCKA
+            
+            
         else:
             batch_size = 32
-        activations = predictionFT_net(model,df_test,x_col=item_name,y_col=classes,path_im=path_to_img,
-                         Net=constrNet,cropCenter=cropCenter,verbose_predict=1,
-                         two_images_as_input=True,batch_size=batch_size)
-        
-        num_steps = num_samples // batch_size
-        
-        if len(list_layers) == 1:
-            activations = [activations]
+            activations = predictionFT_net(model,df_test,x_col=item_name,y_col=classes,path_im=path_to_img,
+                             Net=constrNet,cropCenter=cropCenter,verbose_predict=1,
+                             two_images_as_input=True,batch_size=batch_size)
             
-    #    print(len(activations))
-    #    print(len(activations[0]))
-    #    print(activations[0][0].shape)
-    #    print(activations[0][4].shape)
-        data_to_save = {}
-        l = 0
-        for layer_name in list_layers:
-            #i = 0
+            num_steps = num_samples // batch_size
             
-            activations_l = activations[l*7:(l+1)*7]
-            [sumA,sumB,sum_squaredA,sum_squaredB,dotAB,dotAA,dotBB] = activations_l
-            #print(sumA.shape,sumB.shape,sum_squaredA.shape,sum_squaredB.shape,dotAB.shape,dotAA.shape,dotBB.shape)
-            sumA = sumA.reshape(num_steps,-1)
-            _,num_pA = sumA.shape
-            sumB = sumB.reshape(num_steps,-1)
-            _,num_pB = sumB.shape
-            #sum_squaredA = sum_squaredA.reshape(-1,num_steps)
-            #sum_squaredB = sum_squaredB.reshape(-1,num_steps)
-            dotAB = dotAB.reshape(num_steps,num_pA,num_pB)
-            dotAA = dotAA.reshape(num_steps,num_pA,num_pA)
-            dotBB = dotBB.reshape(num_steps,num_pB,num_pB)
-            meanAt = np.sum(sumA/num_samples,axis=0)
-            meanBt = np.sum(sumB/num_samples,axis=0)
-            dotABt = np.sum(dotAB,axis=0)
-            dotAAt = np.sum(dotAA,axis=0)
-            dotBBt = np.sum(dotBB,axis=0)
-            
-            l += 1
-    #        for elt in activations_l:
-    #            if i ==0:
-    #                [sumA,sumB,sum_squaredA,sum_squaredB,dotAB,dotAA,dotBB] = elt
-    #                meanAt = sumA/num_samples
-    #                meanBt = sumB/num_samples
-    #                sum_squaredAt = sum_squaredA/num_samples
-    #                sum_squaredBt = sum_squaredB/num_samples
-    #                dotABt = dotAB
-    #                dotAAt = dotAA
-    #                dotBBt = dotBB
-    #            else:
-    #                [sumA,sumB,sum_squaredA,sum_squaredB,dot] = elt
-    #                meanAt += sumA/num_samples
-    #                meanBt += sumB/num_samples
-    #                sum_squaredAt += sum_squaredA/num_samples
-    #                sum_squaredBt += sum_squaredB/num_samples
-    #                dotABt += dotAB
-    #                dotAAt += dotAA
-    #                dotBBt += dotBB
-    #            i += 1
-            multi_means_AB = np.reshape(meanAt,(-1,1))*np.reshape(meanBt,(1,-1))
-            multi_means_AA = np.reshape(meanAt,(-1,1))*np.reshape(meanAt,(1,-1))
-            multi_means_BB = np.reshape(meanBt,(-1,1))*np.reshape(meanBt,(1,-1))
-            centered_dotABt = dotABt - num_samples*multi_means_AB
-            centered_dotAAt = dotAAt - num_samples*multi_means_AA
-            centered_dotBBt = dotBBt - num_samples*multi_means_BB
-            
-            frobenium_norm_AB_squared = np.square(np.linalg.norm(centered_dotABt))
-            frobenium_norm_AA = np.linalg.norm(centered_dotAAt)
-            frobenium_norm_BB = np.linalg.norm(centered_dotBBt)
-            
-            linearCKA = frobenium_norm_AB_squared / (frobenium_norm_AA*frobenium_norm_BB)
-            
-            print(layer_name,linearCKA)
-            data_to_save[layer_name] = linearCKA
+            if len(list_layers) == 1:
+                activations = [activations]
+    
+            data_to_save = {}
+            l = 0
+            for layer_name in list_layers:
+                #i = 0
+                
+                activations_l = activations[l*7:(l+1)*7]
+                [sumA,sumB,sum_squaredA,sum_squaredB,dotAB,dotAA,dotBB] = activations_l
+                #print(sumA.shape,sumB.shape,sum_squaredA.shape,sum_squaredB.shape,dotAB.shape,dotAA.shape,dotBB.shape)
+                sumA = sumA.reshape(num_steps,-1)
+                _,num_pA = sumA.shape
+                sumB = sumB.reshape(num_steps,-1)
+                _,num_pB = sumB.shape
+                dotAB = dotAB.reshape(num_steps,num_pA,num_pB)
+                dotAA = dotAA.reshape(num_steps,num_pA,num_pA)
+                dotBB = dotBB.reshape(num_steps,num_pB,num_pB)
+                meanAt = np.sum(sumA/num_samples,axis=0)
+                meanBt = np.sum(sumB/num_samples,axis=0)
+                dotABt = np.sum(dotAB,axis=0)
+                dotAAt = np.sum(dotAA,axis=0)
+                dotBBt = np.sum(dotBB,axis=0)
+                
+                l += 1
+                multi_means_AB = np.reshape(meanAt,(-1,1))*np.reshape(meanBt,(1,-1))
+                multi_means_AA = np.reshape(meanAt,(-1,1))*np.reshape(meanAt,(1,-1))
+                multi_means_BB = np.reshape(meanBt,(-1,1))*np.reshape(meanBt,(1,-1))
+                centered_dotABt = dotABt - num_samples*multi_means_AB
+                centered_dotAAt = dotAAt - num_samples*multi_means_AA
+                centered_dotBBt = dotBBt - num_samples*multi_means_BB
+                
+                frobenium_norm_AB_squared = np.square(np.linalg.norm(centered_dotABt))
+                frobenium_norm_AA = np.linalg.norm(centered_dotAAt)
+                frobenium_norm_BB = np.linalg.norm(centered_dotBBt)
+                
+                linearCKA = frobenium_norm_AB_squared / (frobenium_norm_AA*frobenium_norm_BB)
+                
+                print(layer_name,linearCKA)
+                data_to_save[layer_name] = linearCKA
       
         
         with open(name_data, 'wb') as handle:
@@ -884,14 +919,15 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
                 
         for net_init in list_net_init: # Net with a random initialisation at some moment
             dico = get_l2norm_bw_nets(netA=net_init,netB=net_init,
-                                         suffixB='1')
-            l_rasta_dico += [dico]
-            l_rasta_pairs += [(netA,netB+'_init')]
-        for net_ in list_with_suffix: # Net with a random initialisation at some moment
-            dico = get_l2norm_bw_nets(netA=net_,netB=net_,
                                          initB=True)
             l_rasta_dico += [dico]
-            l_rasta_pairs += [(netA,netB+'_init')]
+            l_rasta_pairs += [(net_init,net_init+'_init')]
+            
+        for net_ in list_with_suffix: # Net with a random initialisation at some moment
+            dico = get_l2norm_bw_nets(netA=net_,netB=net_,
+                                         suffixB='1')
+            l_rasta_dico += [dico]
+            l_rasta_pairs += [(net_,net_+'1')]
             
         return(l_rasta_dico,l_rasta_pairs)
         
@@ -1099,7 +1135,7 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                                               'mixed4d','mixed4e',
                                               'mixed5a','mixed5b'])
             l_rasta_dico += [dico]
-            l_rasta_pairs += [(net_init,net_init+'1')]
+            l_rasta_pairs += [(net_,net_+'1')]
         
         return(l_rasta_pairs,l_rasta_dico)
             
@@ -1377,6 +1413,15 @@ if __name__ == '__main__':
     #get_l2norm_bw_nets(netA='RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',netB='RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',initA=False,initB=True)
     #feat_sim(model_nameA='pretrained',model_nameB='RASTA_small01_modif',dataset='RASTA',stats_on_layer='mean')
 
+#    get_linearCKA_bw_nets(dataset='RASTA',netA='pretrained',netB='RASTA_small01_modif',
+#                                                     list_layers=['conv2d0','conv2d1',
+#                                                          'conv2d2','mixed3a',
+#                                                          'mixed3b','mixed4a',
+#                                                          'mixed4b','mixed4c',
+#                                                          'mixed4d','mixed4e',
+#                                                          'mixed5a','mixed5b'],
+#                                                    sampling_FM='selectk2points',
+#                                                    k=3)
 #    get_linearCKA_bw_nets(dataset='RASTA',netA='pretrained',netB='RASTA_small01_modif',
 #                                                     list_layers=['conv2d0','conv2d1',
 #                                                          'conv2d2','mixed3a',
