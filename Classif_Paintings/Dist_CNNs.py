@@ -1195,8 +1195,7 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
     for pair, dico in zip(l_pairs,l_dico):
         netA = pair[0]
         netB = pair[1]
-        if ('RandForUnfreezed' in  netA or 'RandForUnfreezed' in  netB):
-            print(dico)
+
         if not(netA in list_net):
             list_net += [netA]
         if not(netB in list_net):
@@ -1229,7 +1228,7 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
     last_line = '\\hline  \n \\end{tabular} '
     print(last_line)
     
-    print(len(list_net))
+    #print(len(list_net))
     cka_matrice = np.ones((len(list_net),len(list_net)))
     cka_matrice = cka_matrice*np.nan
     
