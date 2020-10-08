@@ -146,19 +146,19 @@ def l2norm_bw_nets(netA,netB,constrNet='InceptionV1',suffixA='',suffixB='',initA
     with open(name_data, 'wb') as handle:
         pickle.dump(data_to_save, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
-def compute_CKA_similarity():
-    
-    # According to 
-    # https://github.com/google/svcca/blob/master/tutorials/002_CCA_for_Convolutional_Layers.ipynb
-    # If the two conv layers being compared have the same spatial dimensions, 
-    # we can flatten the spatial dimensions into the number of datapoints:
-    # But we can do average pooling on the two spatial dimension or interpolation between points
-    # Another thing one can do is to interpolate the spatial dimensions of the 
-    # smaller sized conv layer so that they match the large layer. 
-    # There are many ways to do this, and the interpolate library in 
-    # scipy provides access to many different methods.
-
-    return(0)
+#def compute_CKA_similarity():
+#    
+#    # According to 
+#    # https://github.com/google/svcca/blob/master/tutorials/002_CCA_for_Convolutional_Layers.ipynb
+#    # If the two conv layers being compared have the same spatial dimensions, 
+#    # we can flatten the spatial dimensions into the number of datapoints:
+#    # But we can do average pooling on the two spatial dimension or interpolation between points
+#    # Another thing one can do is to interpolate the spatial dimensions of the 
+#    # smaller sized conv layer so that they match the large layer. 
+#    # There are many ways to do this, and the interpolate library in 
+#    # scipy provides access to many different methods.
+#
+#    return(0)
 
 def get_list_full_activations(dataset,output_path,list_layers,
                          model_name,constrNet,suffix,cropCenter,FTmodel,
