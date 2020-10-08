@@ -1099,7 +1099,7 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                                               'mixed4d','mixed4e',
                                               'mixed5a','mixed5b'])
             l_rasta_dico += [dico]
-            l_rasta_pairs += [(net_init,net_init+'1')]
+            l_rasta_pairs += [(net_,net_+'1')]
         
         return(l_rasta_pairs,l_rasta_dico)
             
