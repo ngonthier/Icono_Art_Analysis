@@ -919,7 +919,7 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
                             'pretrained'
                             ]
         # Version plus courte
-        list_models_name_P = ['Paintings_small01_modif'
+        list_models_name_P = ['Paintings_small01_modif',
                             'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
                             'Paintings_big01_modif_XXRASTA_small01_modifXX',
@@ -1125,7 +1125,7 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                             'pretrained'
                             ]
         # Version courte
-        list_models_name_P = ['Paintings_small01_modif'
+        list_models_name_P = ['Paintings_small01_modif',
                             'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
                             'Paintings_big01_modif_XXRASTA_small01_modifXX',
