@@ -918,6 +918,16 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                             'pretrained'
                             ]
+        # Version plus courte
+        list_models_name_P = ['Paintings_small01_modif'
+                            'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'Paintings_big01_modif_XXRASTA_small01_modifXX',
+                            'RASTA_small01_modif',
+                            'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                            'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                            'pretrained'
+                            ]
         all_pairs = itertools.combinations(list_models_name_P, r=2)
         for pair in all_pairs:
             netA,netB = pair
@@ -933,7 +943,8 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
         l_iconart_pairs = []
         # IconArt v1 dataset 
         # IconArt_v1_small01_modif diverge 
-        list_models_name_I = ['IconArt_v1_big01_modif',
+        list_models_name_I = ['IconArt_v1_small01_modif',
+                              'IconArt_v1_big01_modif',
                             'IconArt_v1_big001_modif',
                             'IconArt_v1_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
@@ -944,6 +955,15 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
                             'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
                             'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
                             'IconArt_v1_big001_modif_XXRASTA_small01_modifXX',
+                            'RASTA_small01_modif',
+                            'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                            'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                            'pretrained'
+                            ]
+        list_models_name_I = ['IconArt_v1_small01_modif',
+                            'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
                             'RASTA_small01_modif',
                             'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
@@ -1104,6 +1124,16 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                             'pretrained'
                             ]
+        # Version courte
+        list_models_name_P = ['Paintings_small01_modif'
+                            'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'Paintings_big01_modif_XXRASTA_small01_modifXX',
+                            'RASTA_small01_modif',
+                            'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                            'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                            'pretrained'
+                            ]
         all_pairs = itertools.combinations(list_models_name_P, r=2)
         for pair in all_pairs:
             netA,netB = pair
@@ -1126,7 +1156,8 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
         l_iconart_dico = []
         l_iconart_pairs = []
         # 'IconArt_v1_small01_modif', diverge
-        list_models_name_I = ['IconArt_v1_big01_modif',
+        list_models_name_I = ['IconArt_v1_small01_modif',
+                              'IconArt_v1_big01_modif',
                             'IconArt_v1_big001_modif',
                             'IconArt_v1_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
@@ -1137,6 +1168,15 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                             'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
                             'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
                             'IconArt_v1_big001_modif_XXRASTA_small01_modifXX',
+                            'RASTA_small01_modif',
+                            'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                            'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                            'pretrained'
+                            ]
+        list_models_name_I = ['IconArt_v1_small01_modif',
+                            'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
                             'RASTA_small01_modif',
                             'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
