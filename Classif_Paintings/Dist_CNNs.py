@@ -1385,6 +1385,7 @@ if __name__ == '__main__':
 #                                                          'mixed5a','mixed5b'])
     
     comp_cka_for_paper('RASTA')
+    comp_cka_for_paper('Paintings')
     comp_cka_for_paper('IconArt_v1')
     comp_l2_for_paper(dataset='RASTA')
     comp_l2_for_paper(dataset='Paintings')
