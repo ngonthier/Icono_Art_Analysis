@@ -1093,8 +1093,8 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
         # IconArt dataset 
         l_iconart_dico = []
         l_iconart_pairs = []
-        list_models_name_I = ['IconArt_v1_small01_modif',
-                            'IconArt_v1_big01_modif',
+        # 'IconArt_v1_small01_modif', diverge
+        list_models_name_I = ['IconArt_v1_big01_modif',
                             'IconArt_v1_big001_modif',
                             'IconArt_v1_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
@@ -1219,7 +1219,8 @@ def produce_latex_tab_result_cka():
 
 def create_matrices_plot_values(matrice,labels,min_val=0., max_val=1.,
                                 output_path='',save_or_show=True,
-                                ext_name='',case_str=''):
+                                ext_name='',case_str='',
+                                output_img='png'):
 
     matplotlib.rcParams['text.usetex'] = True
     #matplotlib.rcParams['axes.titlesize'] =8
@@ -1344,4 +1345,4 @@ if __name__ == '__main__':
 #                                                          'mixed4d','mixed4e',
 #                                                          'mixed5a','mixed5b'])
     
-    comp_cka_for_paper()
+    comp_cka_for_paper('IconArt_v1')
