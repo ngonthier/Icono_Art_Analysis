@@ -854,25 +854,25 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
          
         for pair in all_pairs:
             netA,netB = pair
-            dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB)
+            dico = get_l2norm_bw_nets(netA=netA,netB=netB)
             if verbose:print(netA,netB,dico)
             l_rasta_dico += [dico]
             l_rasta_pairs += [(netA,netB)]
             
             if netA in list_with_suffix:
-                dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB,
+                dico = get_l2norm_bw_nets(netA=netA,netB=netB,
                                                 suffixA='1')
                 if verbose:print(netA,'1',netB,dico)
                 l_rasta_dico += [dico]
                 l_rasta_pairs += [(netA+'1',netB)]
             if netB in list_with_suffix:
-                dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB,
+                dico = get_l2norm_bw_nets(netA=netA,netB=netB,
                                                 suffixB='1')
                 if verbose: print(netA,netB,'1',dico)
                 l_rasta_dico += [dico]
                 l_rasta_pairs += [(netA,netB+'1')]
             if (netB in list_with_suffix) and (netA in list_with_suffix):
-                dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB,
+                dico = get_l2norm_bw_nets(netA=netA,netB=netB,
                                                 suffixA='1',suffixB='1')
                 if verbose:print(netA,'1',netB,'1',dico)
                 l_rasta_dico += [dico]
@@ -883,7 +883,12 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
                        'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
                 
         for net_init in list_net_init: # Net with a random initialisation at some moment
-            dico = get_l2norm_bw_nets(dataset='RASTA',netA=net_init,netB=net_init,
+            dico = get_l2norm_bw_nets(netA=net_init,netB=net_init,
+                                         suffixB='1')
+            l_rasta_dico += [dico]
+            l_rasta_pairs += [(netA,netB+'_init')]
+        for net_ in list_with_suffix: # Net with a random initialisation at some moment
+            dico = get_l2norm_bw_nets(netA=net_,netB=net_,
                                          initB=True)
             l_rasta_dico += [dico]
             l_rasta_pairs += [(netA,netB+'_init')]
@@ -916,7 +921,7 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
         all_pairs = itertools.combinations(list_models_name_P, r=2)
         for pair in all_pairs:
             netA,netB = pair
-            dico = get_linearCKA_bw_nets(dataset='Paintings',netA=netA,netB=netB)   
+            dico = get_l2norm_bw_nets(netA=netA,netB=netB)   
             if verbose:print(netA,netB,dico)
             l_paintings_dico += [dico]
             l_paintings_pairs += [(netA,netB)]
@@ -947,7 +952,7 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
         all_pairs = itertools.combinations(list_models_name_I, r=2)
         for pair in all_pairs:
             netA,netB = pair
-            dico = get_linearCKA_bw_nets(dataset='IconArt_v1',netA=netA,netB=netB)      
+            dico = get_l2norm_bw_nets(netA=netA,netB=netB)      
             if verbose:print(netA,netB,dico)
             l_iconart_dico += [dico]
             l_iconart_pairs += [(netA,netB)]
