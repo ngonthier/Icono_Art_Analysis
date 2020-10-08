@@ -925,8 +925,8 @@ def comp_l2_for_paper():
         print(netA,netB,dico)
         
     # Paintings dataset 
-    list_models_name_I = ['IconArt_v1_small01_modif',
-                        'IconArt_v1_big01_modif',
+    # 'IconArt_v1_small01_modif', diverge
+    list_models_name_I = ['IconArt_v1_big01_modif',
                         'IconArt_v1_big001_modif',
                         'IconArt_v1_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                         'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
