@@ -668,6 +668,7 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
             pickle.dump(data_to_save, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
         # To clean GPU memory
+        s.close()
         K.clear_session()
         gc.collect()
 
@@ -817,142 +818,135 @@ def feat_sim(model_nameA,model_nameB,dataset,list_layers=['conv2d0','mixed5b']
         
     return(dico)
 
-def comp_l2_for_paper():
+def comp_l2_for_paper(dataset='RASTA',verbose=False):
     """
     compute all the l2 difference for the different pair of models
     """
-    list_models = ['pretrained',
-                   'RASTA_small01_modif',
-                   'RASTA_small001_modif',
-                   'RASTA_big001_modif',
-                   'RASTA_small001_modif_deepSupervision',
-                   'RASTA_big001_modif_deepSupervision',
-                   'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                   'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                   'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
     
-    list_with_suffix = ['RASTA_small01_modif',
-                   'RASTA_small001_modif',
-                   'RASTA_big001_modif',
-                   'RASTA_small001_modif_deepSupervision',
-                   'RASTA_big001_modif_deepSupervision']
-    
-    all_pairs = itertools.combinations(list_models, r=2)
-     
-    for pair in all_pairs:
-        netA,netB = pair
-        dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB,
-                                                     list_layers=['conv2d0','conv2d1',
-                                                          'conv2d2','mixed3a',
-                                                          'mixed3b','mixed4a',
-                                                          'mixed4b','mixed4c',
-                                                          'mixed4d','mixed4e',
-                                                          'mixed5a','mixed5b'])
-        print(netA,netB,dico)
-        if netA in list_with_suffix:
-            dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB,
-                                                     list_layers=['conv2d0','conv2d1',
-                                                          'conv2d2','mixed3a',
-                                                          'mixed3b','mixed4a',
-                                                          'mixed4b','mixed4c',
-                                                          'mixed4d','mixed4e',
-                                                          'mixed5a','mixed5b'],
-                                            suffixA='1')
-            print(netA,'1',netB,dico)
-        if netB in list_with_suffix:
-            dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB,
-                                                     list_layers=['conv2d0','conv2d1',
-                                                          'conv2d2','mixed3a',
-                                                          'mixed3b','mixed4a',
-                                                          'mixed4b','mixed4c',
-                                                          'mixed4d','mixed4e',
-                                                          'mixed5a','mixed5b'],
-                                            suffixB='1')
-            print(netA,netB,'1',dico)
-        if (netB in list_with_suffix) and (netA in list_with_suffix):
-            dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB,
-                                                     list_layers=['conv2d0','conv2d1',
-                                                          'conv2d2','mixed3a',
-                                                          'mixed3b','mixed4a',
-                                                          'mixed4b','mixed4c',
-                                                          'mixed4d','mixed4e',
-                                                          'mixed5a','mixed5b'],
-                                            suffixA='1',suffixB='1')
-            print(netA,'1',netB,'1',dico)
-            
-    list_net_init = ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                   'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                   'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
-            
-    for net_init in list_net_init: # Net with a random initialisation at some moment
-        dico = get_l2norm_bw_nets(dataset='RASTA',netA=net_init,netB=net_init,
-                                     initB=True,
-                                     list_layers=['conv2d0','conv2d1',
-                                          'conv2d2','mixed3a',
-                                          'mixed3b','mixed4a',
-                                          'mixed4b','mixed4c',
-                                          'mixed4d','mixed4e',
-                                          'mixed5a','mixed5b'])
-            
-    # Paintings dataset 
-    list_models_name_P = ['Paintings_small01_modif',
-                        'Paintings_big01_modif',
-                        'Paintings_big001_modif',
-                        'Paintings_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
-                        'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
-                        'Paintings_small01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
-                        'Paintings_big001_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
-                        'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
-                        'Paintings_small01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
-                        'Paintings_small01_modif_XXRASTA_small01_modifXX',
-                        'Paintings_big01_modif_XXRASTA_small01_modifXX',
-                        'Paintings_big001_modif_XXRASTA_small01_modifXX',
-                        'RASTA_small01_modif',
-                        'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                        'pretrained'
-                        ]
-    all_pairs = itertools.combinations(list_models_name_P, r=2)
-    for pair in all_pairs:
-        netA,netB = pair
-        dico = get_linearCKA_bw_nets(dataset='Paintings',netA=netA,netB=netB,
-                                                     list_layers=['conv2d0','conv2d1',
-                                                          'conv2d2','mixed3a',
-                                                          'mixed3b','mixed4a',
-                                                          'mixed4b','mixed4c',
-                                                          'mixed4d','mixed4e',
-                                                          'mixed5a','mixed5b'])   
-        print(netA,netB,dico)
+    if dataset=='RASTA':
         
-    # Paintings dataset 
-    # IconArt_v1_small01_modif diverge 
-    list_models_name_I = ['IconArt_v1_big01_modif',
-                        'IconArt_v1_big001_modif',
-                        'IconArt_v1_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
-                        'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
-                        'IconArt_v1_small01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
-                        'IconArt_v1_big001_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
-                        'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
-                        'IconArt_v1_small01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
-                        'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
-                        'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
-                        'IconArt_v1_big001_modif_XXRASTA_small01_modifXX',
-                        'RASTA_small01_modif',
-                        'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                        'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                        'pretrained'
-                        ]
-    all_pairs = itertools.combinations(list_models_name_I, r=2)
-    for pair in all_pairs:
-        netA,netB = pair
-        dico = get_linearCKA_bw_nets(dataset='IconArt_v1',netA=netA,netB=netB,
-                                                     list_layers=['conv2d0','conv2d1',
-                                                          'conv2d2','mixed3a',
-                                                          'mixed3b','mixed4a',
-                                                          'mixed4b','mixed4c',
-                                                          'mixed4d','mixed4e',
-                                                          'mixed5a','mixed5b'])      
-        print(netA,netB,dico)
+        l_rasta_dico = []
+        l_rasta_pairs = []
+        
+        list_models = ['pretrained',
+                       'RASTA_small01_modif',
+                       'RASTA_small001_modif',
+                       'RASTA_big001_modif',
+                       'RASTA_small001_modif_deepSupervision',
+                       'RASTA_big001_modif_deepSupervision',
+                       'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                       'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                       'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+        
+        list_with_suffix = ['RASTA_small01_modif',
+                       'RASTA_small001_modif',
+                       'RASTA_big001_modif',
+                       'RASTA_small001_modif_deepSupervision',
+                       'RASTA_big001_modif_deepSupervision']
+        
+        all_pairs = itertools.combinations(list_models, r=2)
+         
+        for pair in all_pairs:
+            netA,netB = pair
+            dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB)
+            if verbose:print(netA,netB,dico)
+            l_rasta_dico += [dico]
+            l_rasta_pairs += [(netA,netB)]
+            
+            if netA in list_with_suffix:
+                dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB,
+                                                suffixA='1')
+                if verbose:print(netA,'1',netB,dico)
+                l_rasta_dico += [dico]
+                l_rasta_pairs += [(netA+'1',netB)]
+            if netB in list_with_suffix:
+                dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB,
+                                                suffixB='1')
+                if verbose: print(netA,netB,'1',dico)
+                l_rasta_dico += [dico]
+                l_rasta_pairs += [(netA,netB+'1')]
+            if (netB in list_with_suffix) and (netA in list_with_suffix):
+                dico = get_l2norm_bw_nets(dataset='RASTA',netA=netA,netB=netB,
+                                                suffixA='1',suffixB='1')
+                if verbose:print(netA,'1',netB,'1',dico)
+                l_rasta_dico += [dico]
+                l_rasta_pairs += [(netA+'1',netB+'1')]
+                
+        list_net_init = ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                       'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                       'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+                
+        for net_init in list_net_init: # Net with a random initialisation at some moment
+            dico = get_l2norm_bw_nets(dataset='RASTA',netA=net_init,netB=net_init,
+                                         initB=True)
+            l_rasta_dico += [dico]
+            l_rasta_pairs += [(netA,netB+'_init')]
+            
+        return(l_rasta_dico,l_rasta_pairs)
+        
+    elif dataset=='Paintings':
+        # Paintings dataset 
+        l_paintings_dico = []
+        l_paintings_pairs = []
+        
+        # Paintings dataset 
+        list_models_name_P = ['Paintings_small01_modif',
+                            'Paintings_big01_modif',
+                            'Paintings_big001_modif',
+                            'Paintings_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'Paintings_small01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'Paintings_big001_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'Paintings_small01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'Paintings_small01_modif_XXRASTA_small01_modifXX',
+                            'Paintings_big01_modif_XXRASTA_small01_modifXX',
+                            'Paintings_big001_modif_XXRASTA_small01_modifXX',
+                            'RASTA_small01_modif',
+                            'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                            'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                            'pretrained'
+                            ]
+        all_pairs = itertools.combinations(list_models_name_P, r=2)
+        for pair in all_pairs:
+            netA,netB = pair
+            dico = get_linearCKA_bw_nets(dataset='Paintings',netA=netA,netB=netB)   
+            if verbose:print(netA,netB,dico)
+            l_paintings_dico += [dico]
+            l_paintings_pairs += [(netA,netB)]
+        
+        return(l_paintings_pairs,l_paintings_dico)
+        
+    elif dataset=='IconArt_v1':
+        l_iconart_dico = []
+        l_iconart_pairs = []
+        # IconArt v1 dataset 
+        # IconArt_v1_small01_modif diverge 
+        list_models_name_I = ['IconArt_v1_big01_modif',
+                            'IconArt_v1_big001_modif',
+                            'IconArt_v1_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'IconArt_v1_small01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'IconArt_v1_big001_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'IconArt_v1_small01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
+                            'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
+                            'IconArt_v1_big001_modif_XXRASTA_small01_modifXX',
+                            'RASTA_small01_modif',
+                            'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                            'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                            'pretrained'
+                            ]
+        all_pairs = itertools.combinations(list_models_name_I, r=2)
+        for pair in all_pairs:
+            netA,netB = pair
+            dico = get_linearCKA_bw_nets(dataset='IconArt_v1',netA=netA,netB=netB)      
+            if verbose:print(netA,netB,dico)
+            l_iconart_dico += [dico]
+            l_iconart_pairs += [(netA,netB)]
+        
+        return(l_iconart_pairs,l_iconart_dico)
     
     
 def comp_cka_for_paper(dataset='RASTA',verbose=False):
@@ -1126,7 +1120,7 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
         
         return(l_iconart_pairs,l_iconart_dico)
     
-def produce_latex_tab_result_cka():
+def produce_latex_tab_result_cka(dataset = 'RASTA'):
     
     
     # Realisation d un tableau mais aussi d une matrice geante avec les cka moyen
@@ -1142,7 +1136,7 @@ def produce_latex_tab_result_cka():
                   'mixed4d','mixed4e',
                   'mixed5a','mixed5b']
     
-    dataset = 'RASTA'
+    
     constrNet = 'InceptionV1'
     
     l_pairs,l_dico = comp_cka_for_paper(dataset=dataset)
@@ -1345,4 +1339,8 @@ if __name__ == '__main__':
 #                                                          'mixed4d','mixed4e',
 #                                                          'mixed5a','mixed5b'])
     
+    comp_cka_for_paper('RASTA')
     comp_cka_for_paper('IconArt_v1')
+    comp_l2_for_paper(dataset='RASTA')
+    comp_l2_for_paper(dataset='Paintings')
+    comp_l2_for_paper(dataset='IconArt_v1')
