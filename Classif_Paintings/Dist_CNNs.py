@@ -267,21 +267,23 @@ def compute_Full_Feature(dataset,model_name,constrNet,list_layers=None,
         # Pour ton windows il va falloir copier les model .h5 finetuné dans ce dossier la 
         # C:\media\gonthier\HDD2\output_exp\Covdata\RASTA\model
         if 'RandInit' in model_name:
-            FT_model,init_model = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+            FT_model,init_model = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix,
+                                          verbose=False)
             if FTmodel:
                 base_model = FT_model
             else:
                 extra_str = '_InitModel'
                 base_model = init_model 
         else:
-            output = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+            output = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix,
+                                          verbose=False)
             if len(output)==2:
                 base_model, init_model = output
             else:
                 base_model = output
                 
     model,_ = get_Model_that_output_Activation(base_model,list_layers=list_layers)
-    print(model.summary())
+    #print(model.summary())
     activations = predictionFT_net(model,df_test,x_col=item_name,y_col=classes,path_im=path_to_img,
                      Net=constrNet,cropCenter=cropCenter,verbose_predict=1)
     print('activations len and shape of first element',len(activations),activations[0].shape)
@@ -491,9 +493,12 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
     @param : sampling_FM='GlobalAveragePooling2D' or AveragePooling2D or None or ''
         selectk2points
     """
-    
+    owncloud_mode = True
     if platform.system()=='Windows': 
-        output_path = os.path.join('CompModifModel',constrNet,'Dists')
+        if owncloud_mode:
+            output_path = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,'Dists')
+        else:
+            output_path = os.path.join('CompModifModel',constrNet,'Dists')
     else:
         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,'Dists')
     # For output data
@@ -508,7 +513,8 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
     name_data+='-'+netA+'-'+suffixA+'-'+netB+'-'+suffixB+'.pkl'
     
     name_data = os.path.join(output_path_full,name_data)
-    
+    #print(name_data)
+    #return(0)
     if os.path.exists(name_data) and not(ReDo):
         # The file exist
         with open(name_data, 'rb') as handle:
@@ -556,7 +562,7 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
 
             keras_netA = get_pretrained_model(Net=constrNet,include_top=False)
             net_finetuned, init_net = get_fine_tuned_model(net_Autre,constrNet=constrNet,suffix=suffix_Autre,
-                                                           clearSessionTf=False)
+                                                           clearSessionTf=False,verbose=False)
             
             if init_Autre:
                 keras_netB = init_net
@@ -565,13 +571,13 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
             
         else: # No pretrained model compared to an other one
             net_finetuned_A, init_net_A = get_fine_tuned_model(netA,constrNet=constrNet,suffix=suffixA,
-                                                           clearSessionTf=False)
+                                                           clearSessionTf=False,verbose=False)
             if initA:
                 keras_netA = init_net_A
             else:
                 keras_netA = net_finetuned_A
             net_finetuned_B, init_net_B = get_fine_tuned_model(netB,constrNet=constrNet,suffix=suffixB,
-                                                           clearSessionTf=False)
+                                                           clearSessionTf=False,verbose=False)
             if initB:
                 keras_netB = init_net_B
             else:
@@ -947,7 +953,21 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
             l_iconart_pairs += [(netA,netB)]
         
         return(l_iconart_pairs,l_iconart_dico)
+        
+    else:
+        raise(ValueError(dataset+' is unknown'))
     
+def test_pb_nan_in_cka():
+    netA = 'pretrained'
+    netB = 'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200'
+    
+    dico = get_linearCKA_bw_nets(dataset='RASTA',netA=netA,netB=netB,
+                                 list_layers=['conv2d0','conv2d1',
+                                      'conv2d2','mixed3a',
+                                      'mixed3b','mixed4a',
+                                      'mixed4b','mixed4c',
+                                      'mixed4d','mixed4e',
+                                      'mixed5a','mixed5b'])
     
 def comp_cka_for_paper(dataset='RASTA',verbose=False):
     """
@@ -1042,6 +1062,19 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                                               'mixed5a','mixed5b'])
             l_rasta_dico += [dico]
             l_rasta_pairs += [(net_init,net_init+'_init')]
+            
+        # A decommenter et faire tourner sur Morisot
+        for net_ in list_with_suffix: # Net with a random initialisation at some moment
+            dico = get_linearCKA_bw_nets(dataset='RASTA',netA=net_,netB=net_,
+                                         suffixB='1',
+                                         list_layers=['conv2d0','conv2d1',
+                                              'conv2d2','mixed3a',
+                                              'mixed3b','mixed4a',
+                                              'mixed4b','mixed4c',
+                                              'mixed4d','mixed4e',
+                                              'mixed5a','mixed5b'])
+            l_rasta_dico += [dico]
+            l_rasta_pairs += [(net_init,net_init+'1')]
         
         return(l_rasta_pairs,l_rasta_dico)
             
@@ -1120,6 +1153,9 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
         
         return(l_iconart_pairs,l_iconart_dico)
     
+    else:
+        raise(ValueError(dataset+' is unknown'))
+    
 def produce_latex_tab_result_cka(dataset = 'RASTA'):
     
     
@@ -1144,14 +1180,14 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
     main = '\\begin{tabular}{|c|c|'
     for _ in list_layers:
         main += 'c'
-    main +='|c|} \\hline  \n '
+    main +='|c|} \\\\ \\hline  \n '
     print(main)
         
     second_line = 'NetA & NetB '
     for layer in list_layers:
         second_line += ' & ' +layer.replace('_','\_')
     second_line += ' & mean'    
-    second_line += "\\hline \\\\"
+    second_line += "\\\\ \\hline "
     print(second_line)
 
     list_net = []
@@ -1159,6 +1195,8 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
     for pair, dico in zip(l_pairs,l_dico):
         netA = pair[0]
         netB = pair[1]
+        if ('RandForUnfreezed' in  netA or 'RandForUnfreezed' in  netB):
+            print(dico)
         if not(netA in list_net):
             list_net += [netA]
         if not(netB in list_net):
@@ -1171,11 +1209,12 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
             if dataset == 'RASTA' and ('RandForUnfreezed' in  netA or 'RandForUnfreezed' in  netB):# cas du randinit
                if not('unfreeze50' in  netA or 'unfreeze50' in  netB):
                    raise(NotImplementedError)
-                   if layer in list_modified_in_unfreeze50:
-                       latex_str += ' & ' + '{0:.4f}'.format(cka_l)
-                       list_cka += [cka_l]
-                   else:
-                       latex_str += ' & '
+               if layer in list_modified_in_unfreeze50:
+                   latex_str += ' & ' + '{0:.4f}'.format(cka_l)
+                   list_cka += [cka_l]
+                   print(list_cka)
+               else:
+                   latex_str += ' & '
             else:
                latex_str += ' & ' + '{0:.4f}'.format(cka_l)
                list_cka += [cka_l]
@@ -1190,7 +1229,9 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
     last_line = '\\hline  \n \\end{tabular} '
     print(last_line)
     
-    cka_matrice = np.nan*np.ones(len(list_net),len(list_net))
+    print(len(list_net))
+    cka_matrice = np.ones((len(list_net),len(list_net)))
+    cka_matrice = cka_matrice*np.nan
     
     for pair, mean_cka in zip(l_pairs,list_mean_cka):
         netA = pair[0]
@@ -1205,6 +1246,7 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
     else:
         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,'Dists')
     # For output data
+    print(cka_matrice)
     create_matrices_plot_values(matrice=cka_matrice,labels=list_net,
                                 min_val=0., max_val=1.,
                                 output_path=output_path,
@@ -1222,8 +1264,9 @@ def create_matrices_plot_values(matrice,labels,min_val=0., max_val=1.,
     #sns.set_style("whitegrid")
     fontsize_text = 16
     h,w = matrice.shape
+    print(matrice.shape)
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(15,15))
     ax.grid(False)
 
 #    min_val, max_val, diff = 0., 10., 1.
@@ -1254,8 +1297,10 @@ def create_matrices_plot_values(matrice,labels,min_val=0., max_val=1.,
     for l in labels:
         labels_+= [l.replace('_','\_')]
     
-    ax.set_xticklabels(['']+labels_, rotation=90)#%,fontdict={'fontsize':8}) #plt.xticks(list(range(0,len(list_methods)))
-    ax.set_yticklabels(['']+labels_)#,fontdict={'fontsize':8})
+    ax.set_xticks(np.arange(len(labels)))
+    ax.set_yticks(np.arange(len(labels)))
+    ax.set_xticklabels(labels_, rotation=90)#%,fontdict={'fontsize':8}) #plt.xticks(list(range(0,len(list_methods)))
+    ax.set_yticklabels(labels_)#,fontdict={'fontsize':8})
     #ax.set_xlim(min_val-diff/2, max_val-diff/2)
     #ax.set_ylim(min_val-diff/2, max_val-diff/2)
     #ax.grid()
