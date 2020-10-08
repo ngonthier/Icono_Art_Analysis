@@ -462,8 +462,8 @@ def get_cumulated_output_model(modelA,modelB,list_layers=None,sampling_FM=None,k
     
 def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
                                                      suffixA='',suffixB='',
-                                                     initA=False,initB=False
-                                                     ,list_layers=['conv2d0'],
+                                                     initA=False,initB=False,
+                                                     list_layers=['conv2d0'],
                                                      suffix='',cropCenter = True,
                                                      sampling_FM='GlobalAveragePooling2D',
                                                      k = 1,ReDo=False):
@@ -861,6 +861,20 @@ def comp_cka_for_paper():
                                                           'mixed5a','mixed5b'],
                                             suffixA='1',suffixB='1')
             print(netA,'1',netB,'1',dico)
+            
+    list_net_init = ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                   'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                   'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+            
+    for net_init in list_net_init: # Net with a random initialisation at some moment
+        dico = get_linearCKA_bw_nets(dataset='RASTA',netA=net_init,netB=net_init,
+                                     initB=True,
+                                     list_layers=['conv2d0','conv2d1',
+                                          'conv2d2','mixed3a',
+                                          'mixed3b','mixed4a',
+                                          'mixed4b','mixed4c',
+                                          'mixed4d','mixed4e',
+                                          'mixed5a','mixed5b'])
             
     # Paintings dataset 
     list_models_name_P = ['Paintings_small01_modif',
