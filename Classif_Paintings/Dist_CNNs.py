@@ -124,6 +124,7 @@ def get_l2norm_bw_nets(netA,netB,constrNet='InceptionV1',suffixA='',suffixB='',
             net_P = 'pretrained'
             suffix_Autre = suffixA
             init_Autre = initA
+            net_Autre = netA
     
         if not(net_P is None): # Dans le cas ou un des deux networks est pretrained weights
             list_weights,list_name_layers = get_imageNet_weights(Net=constrNet)
@@ -1473,9 +1474,9 @@ if __name__ == '__main__':
 #                                                          'mixed4d','mixed4e',
 #                                                          'mixed5a','mixed5b'])
     
-    comp_cka_for_paper('RASTA')
-    comp_cka_for_paper('Paintings')
-    comp_cka_for_paper('IconArt_v1')
+    # comp_cka_for_paper('RASTA')
+    # comp_cka_for_paper('Paintings')
+    # comp_cka_for_paper('IconArt_v1')
     comp_l2_for_paper(dataset='RASTA')
     comp_l2_for_paper(dataset='Paintings')
     comp_l2_for_paper(dataset='IconArt_v1')
