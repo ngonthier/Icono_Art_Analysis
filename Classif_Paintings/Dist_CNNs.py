@@ -530,6 +530,7 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
             init_Autre = initB
         elif netB=='pretrained':
             net_P = 'pretrained'
+            net_Autre = netA
             suffix_Autre = suffixA
             init_Autre = initA
     
