@@ -377,7 +377,7 @@ def layer_3dots(inputA,inputB,sampling_FM=None,k=1,name=''):
 #        layer_outputB = layers.Flatten(name=name+'_flatten_B')(layer_outputB)       
 #        #layer_outputA = layers.GlobalAveragePooling2D()(inputA) # batch size and on the other one channel * h * w
 #        #layer_outputB = layers.GlobalAveragePooling2D()(inputB)
-    elif sampling_FM=='GlobalAveragePooling2D':
+    elif sampling_FM=='GAP': # for GlobalAveragePooling2D
         layer_outputA = layers.GlobalAveragePooling2D(name=name+'_GAP_A')(inputA) # batch size and on the other one channel * h * w
         layer_outputB = layers.GlobalAveragePooling2D(name=name+'_GAP_B')(inputB)
     elif sampling_FM=='AveragePooling2D':
@@ -485,13 +485,14 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
                                                      initA=False,initB=False,
                                                      list_layers=['conv2d0'],
                                                      suffix='',cropCenter = True,
-                                                     sampling_FM='GlobalAveragePooling2D',
+                                                     sampling_FM='GAP',
                                                      k = 1,ReDo=False):
     """
     This function will compute the cumulated sum of the fatures value and the cumulated of the 
     squared of the fatures value and the cumulated dot product between the features of 
     the two models in order to compute the linear CKA    
-    @param : sampling_FM='GlobalAveragePooling2D' or AveragePooling2D or None or ''
+    
+    @param : sampling_FM='GAP' for 'GlobalAveragePooling2D' or AveragePooling2D or None or ''
         selectk2points
     """
     owncloud_mode = True
@@ -508,7 +509,7 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     pathlib.Path(output_path_full).mkdir(parents=True, exist_ok=True)
     
-    name_data = 'linearCKA'+sampling_FM
+    name_data = 'lCKA'+sampling_FM # lCKA for linear CKA
     if sampling_FM=='selectk2points':
         name_data += str(k)
     name_data+='-'+netA+'-'+suffixA+'-'+netB+'-'+suffixB+'.pkl'
@@ -781,7 +782,7 @@ def get_data_pts_for_analysis(model_name,dataset,list_layers,
     
 def feat_sim(model_nameA,model_nameB,dataset,list_layers=['conv2d0','mixed5b']
              ,constrNet='InceptionV1',suffixA=''
-             ,suffixB='',initA=False,initB=False,kind_feat_sim='linearCKA',
+             ,suffixB='',initA=False,initB=False,kind_feat_sim='lCKA',
              stats_on_layer=None):
     """
     Compute the feature similarity between two models
@@ -1259,7 +1260,7 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
     main = '\\begin{tabular}{|c|c|'
     for _ in list_layers:
         main += 'c'
-    main +='|c|} \\\\ \\hline  \n '
+    main +='|c|} \\\\ \\hline  '
     print(main)
         
     second_line = 'NetA & NetB '
@@ -1284,14 +1285,16 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
         for layer in list_layers:
             cka_l = dico[layer]
             
-            if dataset == 'RASTA' and ('RandForUnfreezed' in  netA or 'RandForUnfreezed' in  netB):# cas du randinit
-               if not('unfreeze50' in  netA or 'unfreeze50' in  netB):
+            #if dataset == 'RASTA' and ('RandForUnfreezed' in  netA or 'RandForUnfreezed' in  netB):
+            # cas du randinit
+            if (('RandForUnfreezed' in netA) and (dataset == 'RASTA' or netB=='pretrained')) or (('RandForUnfreezed' in netB) and (dataset == 'RASTA' or netA=='pretrained')):
+                if not('unfreeze50' in  netA or 'unfreeze50' in  netB):
                    raise(NotImplementedError)
-               if layer in list_modified_in_unfreeze50:
+                if layer in list_modified_in_unfreeze50:
                    latex_str += ' & ' + '{0:.4f}'.format(cka_l)
                    list_cka += [cka_l]
                    #print(list_cka)
-               else:
+                else:
                    latex_str += ' & '
             else:
                latex_str += ' & ' + '{0:.4f}'.format(cka_l)
@@ -1322,7 +1325,7 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
         
         
     case_str = dataset
-    ext_name = 'linearCKA'
+    ext_name = 'lCKA'+'_'
     if platform.system()=='Windows': 
         output_path = os.path.join('CompModifModel',constrNet,'Dists')
     else:
