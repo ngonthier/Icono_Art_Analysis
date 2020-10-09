@@ -32,6 +32,7 @@ import itertools
 import matplotlib.pyplot as plt
 import matplotlib
 import seaborn as sns
+import tikzplotlib
 
 from StatsConstr_ClassifwithTL import predictionFT_net
 import Stats_Fcts
@@ -965,6 +966,7 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
                             ]
         # Version plus courte
         list_models_name_P = ['Paintings_small01_modif',
+                              'Paintings_big01_modif',
                             'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
                             'Paintings_big01_modif_XXRASTA_small01_modifXX',
@@ -1006,6 +1008,7 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
                             'pretrained'
                             ]
         list_models_name_I = ['IconArt_v1_small01_modif',
+                               'IconArt_v1_big01_modif',
                             'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
                             'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
@@ -1170,6 +1173,7 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                             'pretrained']
         # Version courte
         list_models_name_P = ['Paintings_small01_modif',
+                              'Paintings_big01_modif',
                             'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
                             'Paintings_big01_modif_XXRASTA_small01_modifXX',
@@ -1216,6 +1220,7 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                             'pretrained']
         list_models_name_I = ['IconArt_v1_small01_modif',
+                              'IconArt_v1_big01_modif',
                             'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
                             'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
@@ -1643,8 +1648,8 @@ if __name__ == '__main__':
 #                                                          'mixed5a','mixed5b'])
     
     # comp_cka_for_paper('RASTA')
-    # comp_cka_for_paper('Paintings')
+    comp_cka_for_paper('Paintings')
     comp_cka_for_paper('IconArt_v1')
     #comp_l2_for_paper(dataset='RASTA')
-    #comp_l2_for_paper(dataset='Paintings')
+    comp_l2_for_paper(dataset='Paintings')
     comp_l2_for_paper(dataset='IconArt_v1')
