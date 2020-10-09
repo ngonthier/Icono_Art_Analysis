@@ -1159,8 +1159,7 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                             'RASTA_small01_modif',
                             'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                            'pretrained'
-                            ]
+                            'pretrained']
         # Version courte
         list_models_name_P = ['Paintings_small01_modif',
                             'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
@@ -1169,11 +1168,11 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                             'RASTA_small01_modif',
                             'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                            'pretrained'
-                            ]
+                            'pretrained']
         all_pairs = itertools.combinations(list_models_name_P, r=2)
         for pair in all_pairs:
             netA,netB = pair
+            print('===',netA,netB)
             dico = get_linearCKA_bw_nets(dataset='Paintings',netA=netA,netB=netB,
                                                          list_layers=['conv2d0','conv2d1',
                                                               'conv2d2','mixed3a',
@@ -1208,8 +1207,7 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                             'RASTA_small01_modif',
                             'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                            'pretrained'
-                            ]
+                            'pretrained']
         list_models_name_I = ['IconArt_v1_small01_modif',
                             'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
@@ -1217,8 +1215,7 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                             'RASTA_small01_modif',
                             'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                            'pretrained'
-                            ]
+                            'pretrained']
         all_pairs = itertools.combinations(list_models_name_I, r=2)
         for pair in all_pairs:
             netA,netB = pair
@@ -1293,7 +1290,7 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
                if layer in list_modified_in_unfreeze50:
                    latex_str += ' & ' + '{0:.4f}'.format(cka_l)
                    list_cka += [cka_l]
-                   print(list_cka)
+                   #print(list_cka)
                else:
                    latex_str += ' & '
             else:
@@ -1314,10 +1311,14 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
     cka_matrice = np.ones((len(list_net),len(list_net)))
     cka_matrice = cka_matrice*np.nan
     
+    symetric_plot = True
+    
     for pair, mean_cka in zip(l_pairs,list_mean_cka):
         netA = pair[0]
         netB = pair[1]
         cka_matrice[list_net.index(netA),list_net.index(netB)] = mean_cka
+        if symetric_plot:
+            cka_matrice[list_net.index(netB),list_net.index(netA)] = mean_cka
         
         
     case_str = dataset
@@ -1327,7 +1328,7 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
     else:
         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,'Dists')
     # For output data
-    print(cka_matrice)
+    #print(cka_matrice)
     create_matrices_plot_values(matrice=cka_matrice,labels=list_net,
                                 min_val=0., max_val=1.,
                                 output_path=output_path,
@@ -1345,7 +1346,7 @@ def create_matrices_plot_values(matrice,labels,min_val=0., max_val=1.,
     #sns.set_style("whitegrid")
     fontsize_text = 16
     h,w = matrice.shape
-    print(matrice.shape)
+    #print(matrice.shape)
 
     fig, ax = plt.subplots(figsize=(15,15))
     ax.grid(False)
