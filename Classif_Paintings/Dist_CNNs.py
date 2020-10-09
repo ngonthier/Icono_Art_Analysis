@@ -88,14 +88,19 @@ def get_l2_norm_weights(list_name_layers,list_weights,net_finetuned,verbose=Fals
     
 def get_l2norm_bw_nets(netA,netB,constrNet='InceptionV1',suffixA='',suffixB='',
                    initA=False,initB=False,
-                   ReDo=False):
+                   ReDo=False,
+                   owncloud_mode=True):
     """ 
     Distance in parameters space between network. 
     if initA is True : we will use the initialization of A as model
+    @param : owncloud_mode = True look at the value on the owncloud shared folder
     """
     
     if platform.system()=='Windows': 
-        output_path = os.path.join('CompModifModel',constrNet,'Dists')
+        if owncloud_mode:
+            output_path = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,'Dists')
+        else:
+            output_path = os.path.join('CompModifModel',constrNet,'Dists')
     else:
         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,'Dists')
     # For output data
@@ -486,7 +491,8 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
                                                      list_layers=['conv2d0'],
                                                      suffix='',cropCenter = True,
                                                      sampling_FM='GAP',
-                                                     k = 1,ReDo=False):
+                                                     k = 1,ReDo=False,
+                                                     owncloud_mode = True):
     """
     This function will compute the cumulated sum of the fatures value and the cumulated of the 
     squared of the fatures value and the cumulated dot product between the features of 
@@ -494,8 +500,9 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
     
     @param : sampling_FM='GAP' for 'GlobalAveragePooling2D' or AveragePooling2D or None or ''
         selectk2points
+    @param : owncloud_mode = True look at the value on the owncloud shared folder
     """
-    owncloud_mode = True
+    
     if platform.system()=='Windows': 
         if owncloud_mode:
             output_path = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,'Dists')
@@ -931,7 +938,7 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
             l_rasta_dico += [dico]
             l_rasta_pairs += [(net_,net_+'1')]
             
-        return(l_rasta_dico,l_rasta_pairs)
+        return(l_rasta_pairs,l_rasta_dico)
         
     elif dataset=='Paintings':
         # Paintings dataset 
@@ -1001,7 +1008,7 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
         list_models_name_I = ['IconArt_v1_small01_modif',
                             'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
-                            'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
+                            'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
                             'RASTA_small01_modif',
                             'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
@@ -1173,7 +1180,6 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
         all_pairs = itertools.combinations(list_models_name_P, r=2)
         for pair in all_pairs:
             netA,netB = pair
-            print('===',netA,netB)
             dico = get_linearCKA_bw_nets(dataset='Paintings',netA=netA,netB=netB,
                                                          list_layers=['conv2d0','conv2d1',
                                                               'conv2d2','mixed3a',
@@ -1212,7 +1218,7 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
         list_models_name_I = ['IconArt_v1_small01_modif',
                             'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
-                            'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
+                            'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
                             'RASTA_small01_modif',
                             'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
@@ -1336,12 +1342,170 @@ def produce_latex_tab_result_cka(dataset = 'RASTA'):
                                 min_val=0., max_val=1.,
                                 output_path=output_path,
                                 ext_name=ext_name,case_str=case_str)
+    
+def produce_latex_tab_result_l2norm(dataset = 'RASTA'):
+    """
+    Produce latex tabular and matrice visualisation of the mean l2norm distance
+    """
+    
+    # Realisation d un tableau mais aussi d une matrice geante avec les cka moyen
+    
+#    list_layers=['conv2d0','conv2d1',
+#                  'conv2d2','mixed3a',
+#                  'mixed3b','mixed4a',
+#                  'mixed4b','mixed4c',
+#                  'mixed4d','mixed4e',
+#                  'mixed5a','mixed5b']
+    list_modified_in_unfreeze50 = ['mixed4a_3x3_bottleneck_pre_relu',
+                                 'mixed4a_5x5_bottleneck_pre_relu',
+                                 'mixed4a_1x1_pre_relu',
+                                 'mixed4a_3x3_pre_relu',
+                                 'mixed4a_5x5_pre_relu',
+                                 'mixed4a_pool_reduce_pre_relu',
+                                 'mixed4b_3x3_bottleneck_pre_relu',
+                                 'mixed4b_5x5_bottleneck_pre_relu',
+                                 'mixed4b_1x1_pre_relu',
+                                 'mixed4b_3x3_pre_relu',
+                                 'mixed4b_5x5_pre_relu',
+                                 'mixed4b_pool_reduce_pre_relu',
+                                 'mixed4c_3x3_bottleneck_pre_relu',
+                                 'mixed4c_5x5_bottleneck_pre_relu',
+                                 'mixed4c_1x1_pre_relu',
+                                 'mixed4c_3x3_pre_relu',
+                                 'mixed4c_5x5_pre_relu',
+                                 'mixed4c_pool_reduce_pre_relu',
+                                 'mixed4d_3x3_bottleneck_pre_relu',
+                                 'mixed4d_5x5_bottleneck_pre_relu',
+                                 'mixed4d_1x1_pre_relu',
+                                 'mixed4d_3x3_pre_relu',
+                                 'mixed4d_5x5_pre_relu',
+                                 'mixed4d_pool_reduce_pre_relu',
+                                 'mixed4e_3x3_bottleneck_pre_relu',
+                                 'mixed4e_5x5_bottleneck_pre_relu',
+                                 'mixed4e_1x1_pre_relu',
+                                 'mixed4e_3x3_pre_relu',
+                                 'mixed4e_5x5_pre_relu',
+                                 'mixed4e_pool_reduce_pre_relu',
+                                 'mixed5a_3x3_bottleneck_pre_relu',
+                                 'mixed5a_5x5_bottleneck_pre_relu',
+                                 'mixed5a_1x1_pre_relu',
+                                 'mixed5a_3x3_pre_relu',
+                                 'mixed5a_5x5_pre_relu',
+                                 'mixed5a_pool_reduce_pre_relu',
+                                 'mixed5b_3x3_bottleneck_pre_relu',
+                                 'mixed5b_5x5_bottleneck_pre_relu',
+                                 'mixed5b_1x1_pre_relu',
+                                 'mixed5b_3x3_pre_relu',
+                                 'mixed5b_5x5_pre_relu',
+                                 'mixed5b_pool_reduce_pre_relu',]
+    
+    
+    constrNet = 'InceptionV1'
+    
+    l_pairs,l_dico = comp_l2_for_paper(dataset=dataset)
+    
+    list_layers,dict_layers_diff,l2_norm_total = l_dico[0]
+        
+    #list_keys = list(dict_layers_diff.keys()) 
+    
+    try:
+        list_layers.remove('head0_bottleneck_pre_relu')
+    except ValueError:
+        pass
+    try:
+        list_layers.remove('head1_bottleneck_pre_relu')
+    except ValueError:
+        pass
+    
+    main = '\\begin{tabular}{|c|c|'
+    for _ in list_layers:
+        main += 'c'
+    main +='|c|} \\\\ \\hline  '
+    print(main)
+        
+    second_line = 'NetA & NetB '
+    for layer in list_layers:
+        second_line += ' & ' +layer.replace('_','\_')
+    second_line += ' & mean'    
+    second_line += "\\\\ \\hline "
+    print(second_line)
+
+    list_net = []
+    list_mean_l2norm = []
+    for pair, l3_dico in zip(l_pairs,l_dico):
+        netA = pair[0]
+        netB = pair[1]
+        _,dico,_ = l3_dico
+        
+        if not(netA in list_net):
+            list_net += [netA]
+        if not(netB in list_net):
+            list_net += [netB]
+        latex_str = netA.replace('_','\_') + ' & ' + netB.replace('_','\_')
+        list_cka = []
+        for layer in list_layers:
+            l2_l = dico[layer]
+            
+            #if dataset == 'RASTA' and ('RandForUnfreezed' in  netA or 'RandForUnfreezed' in  netB):
+            # cas du randinit
+            if (('RandForUnfreezed' in netA) and (dataset == 'RASTA' or netB=='pretrained')) or (('RandForUnfreezed' in netB) and (dataset == 'RASTA' or netA=='pretrained')):
+                if not('unfreeze50' in  netA or 'unfreeze50' in  netB):
+                   raise(NotImplementedError)
+                if layer in list_modified_in_unfreeze50:
+                   latex_str += ' & ' + '{0:.2f}'.format(l2_l)
+                   list_cka += [l2_l]
+                   #print(list_cka)
+                else:
+                   latex_str += ' & '
+            else:
+               latex_str += ' & ' + '{0:.2f}'.format(l2_l)
+               list_cka += [l2_l]
+               
+
+        mean_cka = np.mean(list_cka)
+        list_mean_l2norm += [mean_cka]
+        latex_str += ' & ' + '{0:.2f}'.format(mean_cka)
+        latex_str += "\\\\"
+        print(latex_str)
+
+    last_line = '\\hline  \n \\end{tabular} '
+    print(last_line)
+    
+    #print(len(list_net))
+    l2norm_matrice = np.ones((len(list_net),len(list_net)))
+    l2norm_matrice = l2norm_matrice*np.nan
+    
+    symetric_plot = True
+    
+    for pair, mean_cka in zip(l_pairs,list_mean_l2norm):
+        netA = pair[0]
+        netB = pair[1]
+        l2norm_matrice[list_net.index(netA),list_net.index(netB)] = mean_cka
+        if symetric_plot:
+            l2norm_matrice[list_net.index(netB),list_net.index(netA)] = mean_cka
+        
+        
+    case_str = dataset
+    ext_name = 'l2norm'+'_'
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,'Dists')
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,'Dists')
+    # For output data
+    #print(cka_matrice)
+    max_val = np.max(list_mean_l2norm)
+    create_matrices_plot_values(matrice=l2norm_matrice,labels=list_net,
+                                min_val=0., max_val=max_val,
+                                output_path=output_path,
+                                ext_name=ext_name,case_str=case_str,
+                                format_str='{0:.1f}')
         
 
 def create_matrices_plot_values(matrice,labels,min_val=0., max_val=1.,
                                 output_path='',save_or_show=True,
                                 ext_name='',case_str='',
-                                output_img='png'):
+                                output_img='png',
+                                format_str='{0:.2f}'):
 
     matplotlib.rcParams['text.usetex'] = True
     #matplotlib.rcParams['axes.titlesize'] =8
@@ -1374,7 +1538,7 @@ def create_matrices_plot_values(matrice,labels,min_val=0., max_val=1.,
     for x_val, y_val in zip(x.flatten(), y.flatten()):
         c = matrice[y_val,x_val]
         if not(np.isnan(c)):
-            ax.text(x_val, y_val, '{0:.2f}'.format(c), va='center', ha='center',color='black',
+            ax.text(x_val, y_val, format_str.format(c), va='center', ha='center',color='black',
                     fontsize=fontsize_text)
     
     #set tick marks for grid
@@ -1480,7 +1644,7 @@ if __name__ == '__main__':
     
     # comp_cka_for_paper('RASTA')
     # comp_cka_for_paper('Paintings')
-    # comp_cka_for_paper('IconArt_v1')
-    comp_l2_for_paper(dataset='RASTA')
-    comp_l2_for_paper(dataset='Paintings')
+    comp_cka_for_paper('IconArt_v1')
+    #comp_l2_for_paper(dataset='RASTA')
+    #comp_l2_for_paper(dataset='Paintings')
     comp_l2_for_paper(dataset='IconArt_v1')
