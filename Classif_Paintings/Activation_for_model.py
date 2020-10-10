@@ -32,6 +32,7 @@ from googlenet import inception_v1_oldTF as Inception_V1
 from IMDB import get_database
 from plots_utils import plt_multiple_imgs
 from CompNet_FT_lucidIm import get_fine_tuned_model
+import lucid_utils
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -42,6 +43,9 @@ import matplotlib.gridspec as gridspec
 import matplotlib.image as mpimg
 import pandas as pd
 import tikzplotlib
+
+from CompNet_FT_lucidIm import get_fine_tuned_model,convert_finetuned_modelToFrozenGraph,\
+    get_path_pbmodel_pretrainedModel
 
 CB_color_cycle = ['#377eb8', '#ff7f00','#984ea3', '#4daf4a','#A2C8EC','#e41a1c',
                   '#f781bf', '#a65628', '#dede00','#FFBC79','#999999']
@@ -575,8 +579,8 @@ def doing_overlaps_for_paper():
             overlapping_rate_print(dataset='RASTA',model_name=model_name,
                                constrNet='InceptionV1',numberIm=numberIm,
                                stats_on_layer='meanAfterRelu')# because meanAfterRelu already computed
-               
-def overlapping_rate_print(dataset,model_name,constrNet='InceptionV1',
+ 
+def get_overlapping_dico(dataset,model_name,constrNet='InceptionV1',
                       list_layers=['conv2d0','conv2d1',
                                   'conv2d2','mixed3a',
                                   'mixed3b','mixed4a',
@@ -588,18 +592,7 @@ def overlapping_rate_print(dataset,model_name,constrNet='InceptionV1',
                             output_path_for_dico=None,
                             cropCenter = True,
                             ReDo=False):
-    """
-    This function will compute the overlapping ratio between the top k images with 
-    positive activation before and after the trainingon train set images
-    @param : numberIm = top k images used : numberIm = -1 if you want to take all the images
-    @param : in the case of a trained (FT) model from scratch FTmodel == False will lead to 
-        use the initialization model
-    """
-    matplotlib.rcParams['text.usetex'] = True
-    sns.set()
-    sns.set_style("whitegrid")
-
-
+    
     model_name_wo_oldModel,weights = get_model_name_wo_oldModel(model_name)
     
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
@@ -623,6 +616,10 @@ def overlapping_rate_print(dataset,model_name,constrNet='InceptionV1',
     dico_percentage_intersec_list = {}
     
     name_dico = 'OverRatio_'+str(numberIm)
+    if not(stats_on_layer=='meanAfterRelu'):
+        name_dico+= '_' + stats_on_layer
+    if not(dataset=='RASTA'):
+        name_dico+= '_' + dataset
     name_path_dico = os.path.join(output_path_for_dico,name_dico+'.pkl')
     
     
@@ -718,7 +715,198 @@ def overlapping_rate_print(dataset,model_name,constrNet='InceptionV1',
                 
                 with open(name_path_dico, 'wb') as handle:
                     pickle.dump(dico_percentage_intersec_list,handle)
-                    
+    return(dico_percentage_intersec_list)
+    
+              
+def do_featVizu_for_Extrem_points(dataset,model_name_base,constrNet='InceptionV1',
+                      list_layers=['conv2d0','conv2d1',
+                                  'conv2d2','mixed3a',
+                                  'mixed3b','mixed4a',
+                                  'mixed4b','mixed4c',
+                                  'mixed4d','mixed4e',
+                                  'mixed5a','mixed5b'],
+                            numberIm=100,
+                            numb_points=1,stats_on_layer='mean',suffix='',
+                            FTmodel=True,
+                            output_path_for_dico=None,
+                            cropCenter = True,
+                            ReDo=False,
+                            owncloud_mode=True):
+    """
+    Do the feature visualization for the extrem points and also the one nearest 
+    to the median according to the overlap ratio metric
+    @param : numb_points = we will draw 3*numb_points images so (for the fine-tuned model and 
+    the original one so 2*3*numb_points)
+    @param : owncloud_mode we will use the synchronise owncloud folder tmp3 as output
+
+    """
+    assert(numb_points>0)
+    if platform.system()=='Windows': 
+        if owncloud_mode:
+            output_path = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,'Dists')
+        else:
+            output_path = os.path.join('CompModifModel',constrNet,'Dists')
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
+    # For images
+    if output_path_for_dico is None:
+        output_path_for_dico = os.path.join(output_path,'Overlapping')
+    else:
+        output_path_for_dico = os.path.join(output_path_for_dico,'Overlapping')
+
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    pathlib.Path(output_path_for_dico).mkdir(parents=True, exist_ok=True) 
+    
+    dico_percentage_intersec_list = get_overlapping_dico(dataset,model_name_base,constrNet=constrNet,
+                      list_layers=list_layers,
+                            numberIm=numberIm,stats_on_layer=stats_on_layer,suffix=suffix,
+                            FTmodel=FTmodel,
+                            output_path_for_dico=None,
+                            cropCenter = cropCenter,
+                            ReDo=ReDo)
+      
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name_base)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+add_end_folder_name)
+    
+    
+    
+    ROBUSTNESS = True
+    DECORRELATE = True
+    # Print the boxplot per layer
+    list_percentage = []
+    
+    if 'RandInit' in model_name_base or 'RandForUnfreezed' in model_name_base:
+        list_models = [model_name_base,model_name_base]
+        list_suffix = [suffix,'']
+    else:
+        list_models = [model_name_base,'pretrained']
+        list_suffix = [suffix,'']
+    for model_name,suffix_str in zip(list_models,list_suffix):
+#        if model_name=='pretrained':
+#            path_lucid_model = os.path.join('')
+#        else:
+#            path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
+#                                                                   
+#        if not(model_name=='pretrained'):
+#            name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
+#            if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
+#                # get the initialisation model for randinit ???
+#                name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+#                                           constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+#            if constrNet=='VGG':
+#                input_name_lucid ='block1_conv1_input'
+#            elif constrNet=='InceptionV1':
+#                input_name_lucid ='input_1'
+#            elif constrNet=='InceptionV1_slim':
+#                input_name_lucid ='input_1'
+#        
+#        else:
+#            name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet=constrNet)
+        for layer in list_layers:
+            path_output_lucid_im = os.path.join(output_path,layer)
+            #pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True)
+            percentage_intersec_list = dico_percentage_intersec_list[layer]
+            median_l = np.median(percentage_intersec_list)
+            argsort_overlap_ratio = np.argsort(percentage_intersec_list)
+            smallest_pt = argsort_overlap_ratio[0:numb_points]
+            highest_pt = argsort_overlap_ratio[-numb_points:]
+            print('==',layer,'==')
+            print('Smallest  : ',layer,smallest_pt)
+            #print('values  : ',np.array(percentage_intersec_list)[layer,smallest_pt])
+            print('Highest  : ',layer,highest_pt)
+            #print('values  : ',np.array(percentage_intersec_list)[layer,highest_pt])
+            
+            # mediane a gerer ! 
+            
+            for index_feature in smallest_pt:
+                prexif_name = '_'+str(index_feature)
+                
+                obj_str,kind_layer = lucid_utils.get_obj_and_kind_layer(layer_to_print=layer
+                                                                        ,Net=constrNet)
+    
+                if DECORRELATE:
+                    ext='_Deco'
+                else:
+                    ext=''
+                
+                if ROBUSTNESS:
+                  ext+= ''
+                else:
+                  ext+= '_noRob'
+                name_base = layer  + kind_layer+'_'+prexif_name+ext+'_toRGB.png'
+                
+                full_name=os.path.join(path_output_lucid_im,name_base)
+                #print(full_name)
+#                
+#                if not(os.path.isfile(full_name)):
+#                    suffix_str = suffix                                                                     
+#                    if not(model_name=='pretrained'):
+#                        name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
+#                        if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
+#                            name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+#                                                       constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+#                        if constrNet=='VGG':
+#                            input_name_lucid ='block1_conv1_input'
+#                        elif constrNet=='InceptionV1':
+#                            input_name_lucid ='input_1'
+#                        elif constrNet=='InceptionV1_slim':
+#                            input_name_lucid ='input_1'
+#                    
+#                    else:
+#                        name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
+#                    # Ici il peut y avoir un problem si par le passe il y a eu un bug lors de l execution du code, 
+#                    # le fichier .pb doit etre supprime et recreer
+#                    #print('name_pb',os.path.join(path_lucid_model,name_pb))
+#                    lucid_utils.print_images(model_path=os.path.join(path_lucid_model,name_pb),
+#                                             list_layer_index_to_print=[[layer,index_feature]],
+#                                             path_output=path_output_lucid_im,prexif_name=prexif_name,\
+#                                             input_name=input_name_lucid,Net=constrNet,sizeIm=224,
+#                                             ROBUSTNESS=ROBUSTNESS,
+#                                             DECORRELATE=DECORRELATE)     
+        
+def overlapping_rate_print(dataset,model_name,constrNet='InceptionV1',
+                      list_layers=['conv2d0','conv2d1',
+                                  'conv2d2','mixed3a',
+                                  'mixed3b','mixed4a',
+                                  'mixed4b','mixed4c',
+                                  'mixed4d','mixed4e',
+                                  'mixed5a','mixed5b'],
+                            numberIm=100,stats_on_layer='mean',suffix='',
+                            FTmodel=True,
+                            output_path_for_dico=None,
+                            cropCenter = True,
+                            ReDo=False):
+    """
+    This function will plot in boxplot overlapping ratio between the top k images 
+    @param : numberIm = top k images used : numberIm = -1 if you want to take all the images
+    """
+    matplotlib.rcParams['text.usetex'] = True
+    sns.set()
+    sns.set_style("whitegrid")
+
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name+suffix)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
+    # For images
+    if output_path_for_dico is None:
+        output_path_for_dico = os.path.join(output_path,'Overlapping')
+    else:
+        output_path_for_dico = os.path.join(output_path_for_dico,'Overlapping')
+
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    pathlib.Path(output_path_for_dico).mkdir(parents=True, exist_ok=True) 
+    
+    dico_percentage_intersec_list = get_overlapping_dico(dataset,model_name,constrNet=constrNet,
+                      list_layers=list_layers,
+                            numberIm=numberIm,stats_on_layer=stats_on_layer,suffix=suffix,
+                            FTmodel=FTmodel,
+                            output_path_for_dico=None,
+                            cropCenter = cropCenter,
+                            ReDo=ReDo)
+      
     # Print the boxplot per layer
     list_percentage = []
     for layer_name_inlist in list_layers:
@@ -920,6 +1108,20 @@ if __name__ == '__main__':
                                 stats_on_layer='mean',
                                 FTmodel=False)
         
-    
+    do_featVizu_for_Extrem_points(dataset='RASTA',model_name_base='RASTA_small01_modif',
+                                  constrNet='InceptionV1',
+                                  list_layers=['conv2d0','conv2d1',
+                                              'conv2d2','mixed3a',
+                                              'mixed3b','mixed4a',
+                                              'mixed4b','mixed4c',
+                                              'mixed4d','mixed4e',
+                                              'mixed5a','mixed5b'],
+                                    numberIm=100,
+                                    numb_points=10,stats_on_layer='meanAfterRelu',suffix='',
+                                    FTmodel=True,
+                                    output_path_for_dico=None,
+                                    cropCenter = True,
+                                    ReDo=False,
+                                    owncloud_mode=True)
         
     
