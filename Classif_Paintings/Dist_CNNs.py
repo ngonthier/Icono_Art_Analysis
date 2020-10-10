@@ -1246,6 +1246,7 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
     
     else:
         raise(ValueError(dataset+' is unknown'))
+
     
 def produce_latex_tab_result_cka(dataset = 'RASTA'):
     
@@ -1577,6 +1578,10 @@ def create_matrices_plot_values(matrice,labels,min_val=0., max_val=1.,
         plt.show()
         input('Enter to close.')
         plt.close()
+
+
+
+
 
 
 if __name__ == '__main__': 
