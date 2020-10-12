@@ -482,7 +482,7 @@ def feature_block_var(channels,w, h=None, batch=None, sd=None, fft=True):
 def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name='',\
                  input_name='block1_conv1_input',Net='VGG',sizeIm=224,\
                  DECORRELATE = True,ROBUSTNESS  = True,just_return_output=False,
-                 dico=None,image_shape=None,inverseAndSave=True,reDo=False):
+                 dico=None,image_shape=None,inverseAndSave=True,reDo=False,verbose=False):
     """
     This fct will run the feature visualisation for the layer and feature in the
     list_layer_index_to_print list 
@@ -504,10 +504,11 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         raise(ValueError(Net+ 'is unkonwn'))
     lucid_net.load_graphdef()
     nodes_tab = [n.name for n in tf.get_default_graph().as_graph_def().node]
-    #print(nodes_tab)
-    # Il faudrait peut etre lever une exception si ca arrive la que tu puisse la recuperer
-    # plus haut et recreer le fichier .pb qui pose problem    
-    #print(input_name)
+    if verbose:
+        print(nodes_tab)
+        # Il faudrait peut etre lever une exception si ca arrive la que tu puisse la recuperer
+        # plus haut et recreer le fichier .pb qui pose problem    
+        print(input_name)
     assert(input_name in nodes_tab)
     
     

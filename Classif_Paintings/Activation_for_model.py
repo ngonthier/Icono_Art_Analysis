@@ -796,6 +796,7 @@ def do_featVizu_for_Extrem_points(dataset,model_name_base,constrNet='InceptionV1
             prexif_name = 'Imagnet'
         # TODO et le cas init ????
         if not(model_name=='pretrained'):
+            net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
             path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
             name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
             if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
@@ -809,7 +810,8 @@ def do_featVizu_for_Extrem_points(dataset,model_name_base,constrNet='InceptionV1
                 input_name_lucid ='input_1'
         
         else:
-            name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
+            path_lucid_model = os.path.join('')
+            name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet=constrNet)
 
         add_end_folder_name = suffix_str
         if platform.system()=='Windows': 
@@ -888,7 +890,7 @@ def do_featVizu_for_Extrem_points(dataset,model_name_base,constrNet='InceptionV1
                     #print('name_pb',os.path.join(path_lucid_model,name_pb))
                     lucid_utils.print_images(model_path=os.path.join(path_lucid_model,name_pb),
                                              list_layer_index_to_print=[[layer,index_feature]],
-                                             path_output=path_output_lucid_im,prexif_name=prexif_name,\
+                                             path_output=path_output_lucid_im_l,prexif_name=prexif_name,\
                                              input_name=input_name_lucid,Net=constrNet,sizeIm=224,
                                              ROBUSTNESS=ROBUSTNESS,
                                              DECORRELATE=DECORRELATE)   
@@ -1271,11 +1273,14 @@ if __name__ == '__main__':
 #                                              'mixed5a','mixed5b'],
     do_featVizu_for_Extrem_points(dataset='RASTA',model_name_base='RASTA_small01_modif',
                                   constrNet='InceptionV1',
-                                  list_layers=['mixed4b',
-                                               'mixed4d',
-                                               'mixed5b'],
+                                  list_layers=['conv2d0','conv2d1',
+                                              'conv2d2','mixed3a',
+                                              'mixed3b','mixed4a',
+                                              'mixed4b','mixed4c',
+                                              'mixed4d','mixed4e',
+                                              'mixed5a','mixed5b'],
                                     numberIm=100,
-                                    numb_points=20,stats_on_layer='meanAfterRelu',suffix='',
+                                    numb_points=5,stats_on_layer='meanAfterRelu',suffix='',
                                     FTmodel=True,
                                     output_path_for_dico=None,
                                     cropCenter = True,
