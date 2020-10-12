@@ -1403,7 +1403,7 @@ def produce_latex_tab_result_l2norm(dataset = 'RASTA'):
                                  'mixed5b_1x1_pre_relu',
                                  'mixed5b_3x3_pre_relu',
                                  'mixed5b_5x5_pre_relu',
-                                 'mixed5b_pool_reduce_pre_relu',]
+                                 'mixed5b_pool_reduce_pre_relu']
     
     
     constrNet = 'InceptionV1'
