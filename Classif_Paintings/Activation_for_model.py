@@ -742,13 +742,10 @@ def do_featVizu_for_Extrem_points(dataset,model_name_base,constrNet='InceptionV1
     """
     assert(numb_points>0)
     if platform.system()=='Windows': 
-        if owncloud_mode:
-            output_path = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,'Dists')
-        else:
-            output_path = os.path.join('CompModifModel',constrNet,'Dists')
+        output_path = os.path.join('CompModifModel',constrNet,model_name_base+suffix)
     else:
         output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
-    # For images
+    # For dico
     if output_path_for_dico is None:
         output_path_for_dico = os.path.join(output_path,'Overlapping')
     else:
@@ -765,11 +762,7 @@ def do_featVizu_for_Extrem_points(dataset,model_name_base,constrNet='InceptionV1
                             cropCenter = cropCenter,
                             ReDo=ReDo)
       
-    if platform.system()=='Windows': 
-        output_path = os.path.join('CompModifModel',constrNet,model_name_base)
-    else:
-        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+add_end_folder_name)
-    
+
     
     
     ROBUSTNESS = True
@@ -778,93 +771,256 @@ def do_featVizu_for_Extrem_points(dataset,model_name_base,constrNet='InceptionV1
     list_percentage = []
     
     if 'RandInit' in model_name_base or 'RandForUnfreezed' in model_name_base:
+        raise(NotImplementedError)
         list_models = [model_name_base,model_name_base]
         list_suffix = [suffix,'']
     else:
         list_models = [model_name_base,'pretrained']
         list_suffix = [suffix,'']
+        
+    if DECORRELATE:
+        ext='_Deco'
+    else:
+        ext=''
+    
+    if ROBUSTNESS:
+      ext+= ''
+    else:
+      ext+= '_noRob'
+        
+    firstTime = True
+     
     for model_name,suffix_str in zip(list_models,list_suffix):
-#        if model_name=='pretrained':
-#            path_lucid_model = os.path.join('')
-#        else:
-#            path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
-#                                                                   
-#        if not(model_name=='pretrained'):
-#            name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
-#            if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
-#                # get the initialisation model for randinit ???
-#                name_pb = convert_finetuned_modelToFrozenGraph(model_name,
-#                                           constrNet=constrNet,path=path_lucid_model,suffix=suffix)
-#            if constrNet=='VGG':
-#                input_name_lucid ='block1_conv1_input'
-#            elif constrNet=='InceptionV1':
-#                input_name_lucid ='input_1'
-#            elif constrNet=='InceptionV1_slim':
-#                input_name_lucid ='input_1'
-#        
-#        else:
-#            name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet=constrNet)
+        prexif_name=model_name+suffix
+        if model_name=='pretrained':
+            prexif_name = 'Imagnet'
+        # TODO et le cas init ????
+        if not(model_name=='pretrained'):
+            path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
+            name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
+            if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
+                name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                                           constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+            if constrNet=='VGG':
+                input_name_lucid ='block1_conv1_input'
+            elif constrNet=='InceptionV1':
+                input_name_lucid ='input_1'
+            elif constrNet=='InceptionV1_slim':
+                input_name_lucid ='input_1'
+        
+        else:
+            name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
+
+        add_end_folder_name = suffix_str
+        if platform.system()=='Windows': 
+            if owncloud_mode:
+                path_output_lucid_im = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,model_name+add_end_folder_name)
+            else:
+                path_output_lucid_im = os.path.join('CompModifModel',constrNet,model_name+add_end_folder_name)
+        else:
+            path_output_lucid_im = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+add_end_folder_name)
+    
+        if firstTime:
+            dico_overlapping_index_feat = {}
+
         for layer in list_layers:
-            path_output_lucid_im = os.path.join(output_path,layer)
+            
+            path_output_lucid_im_l = os.path.join(path_output_lucid_im,layer)
+            
+            pathlib.Path(path_output_lucid_im_l).mkdir(parents=True, exist_ok=True)
+
             #pathlib.Path(path_output_lucid_im).mkdir(parents=True, exist_ok=True)
             percentage_intersec_list = dico_percentage_intersec_list[layer]
+            percentage_intersec_np = np.array(percentage_intersec_list)
+            #print(percentage_intersec_list)
             median_l = np.median(percentage_intersec_list)
             argsort_overlap_ratio = np.argsort(percentage_intersec_list)
+            #print(argsort_overlap_ratio)
             smallest_pt = argsort_overlap_ratio[0:numb_points]
             highest_pt = argsort_overlap_ratio[-numb_points:]
-            print('==',layer,'==')
-            print('Smallest  : ',layer,smallest_pt)
-            #print('values  : ',np.array(percentage_intersec_list)[layer,smallest_pt])
-            print('Highest  : ',layer,highest_pt)
-            #print('values  : ',np.array(percentage_intersec_list)[layer,highest_pt])
+            per_minus_med = np.abs(percentage_intersec_np - median_l)
+            med_pt = np.argsort(per_minus_med)[0:numb_points]
+#            print('==',layer,'==')
+#            print('Smallest  : ',layer,smallest_pt)
+#            print('values  : ',percentage_intersec_np[smallest_pt])
+#            print('Highest  : ',layer,highest_pt)
+#            print('values  : ',percentage_intersec_np[highest_pt])
+#            print('Mediane  : ',layer,med_pt)
+#            print('values  : ',percentage_intersec_np[med_pt])
             
-            # mediane a gerer ! 
+            if firstTime:
+                dico_overlapping_index_feat[layer] = [smallest_pt,med_pt,highest_pt,percentage_intersec_np[smallest_pt],percentage_intersec_np[med_pt],percentage_intersec_np[highest_pt]]
             
-            for index_feature in smallest_pt:
-                prexif_name = '_'+str(index_feature)
+            all_features_index = list(smallest_pt)
+            all_features_index.extend(list(highest_pt))
+            all_features_index.extend(list(med_pt))
+            #print(all_features_index)
+            for index_feature in all_features_index:
                 
                 obj_str,kind_layer = lucid_utils.get_obj_and_kind_layer(layer_to_print=layer
                                                                         ,Net=constrNet)
     
-                if DECORRELATE:
-                    ext='_Deco'
-                else:
-                    ext=''
+                #layer
+                name_base = layer + kind_layer +'_'+str(index_feature)+'_'+prexif_name+ext+'_toRGB.png'
                 
-                if ROBUSTNESS:
-                  ext+= ''
-                else:
-                  ext+= '_noRob'
-                name_base = layer  + kind_layer+'_'+prexif_name+ext+'_toRGB.png'
+                full_name=os.path.join(path_output_lucid_im_l,name_base)
+                print(full_name)
                 
-                full_name=os.path.join(path_output_lucid_im,name_base)
-                #print(full_name)
-#                
-#                if not(os.path.isfile(full_name)):
-#                    suffix_str = suffix                                                                     
-#                    if not(model_name=='pretrained'):
-#                        name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
-#                        if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
-#                            name_pb = convert_finetuned_modelToFrozenGraph(model_name,
-#                                                       constrNet=constrNet,path=path_lucid_model,suffix=suffix)
-#                        if constrNet=='VGG':
-#                            input_name_lucid ='block1_conv1_input'
-#                        elif constrNet=='InceptionV1':
-#                            input_name_lucid ='input_1'
-#                        elif constrNet=='InceptionV1_slim':
-#                            input_name_lucid ='input_1'
-#                    
-#                    else:
-#                        name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
-#                    # Ici il peut y avoir un problem si par le passe il y a eu un bug lors de l execution du code, 
-#                    # le fichier .pb doit etre supprime et recreer
-#                    #print('name_pb',os.path.join(path_lucid_model,name_pb))
-#                    lucid_utils.print_images(model_path=os.path.join(path_lucid_model,name_pb),
-#                                             list_layer_index_to_print=[[layer,index_feature]],
-#                                             path_output=path_output_lucid_im,prexif_name=prexif_name,\
-#                                             input_name=input_name_lucid,Net=constrNet,sizeIm=224,
-#                                             ROBUSTNESS=ROBUSTNESS,
-#                                             DECORRELATE=DECORRELATE)     
+                if not(os.path.isfile(full_name)): # If the image do not exist, we 
+                    # will create it
+                    suffix_str = suffix                                                                     
+                    if not(model_name=='pretrained'):
+                        name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
+                        if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
+                            name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                                                       constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+                        if constrNet=='VGG':
+                            input_name_lucid ='block1_conv1_input'
+                        elif constrNet=='InceptionV1':
+                            input_name_lucid ='input_1'
+                        elif constrNet=='InceptionV1_slim':
+                            input_name_lucid ='input_1'
+                    
+                    else:
+                        name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
+                    # Ici il peut y avoir un problem si par le passe il y a eu un bug lors de l execution du code, 
+                    # le fichier .pb doit etre supprime et recreer
+                    #print('name_pb',os.path.join(path_lucid_model,name_pb))
+                    lucid_utils.print_images(model_path=os.path.join(path_lucid_model,name_pb),
+                                             list_layer_index_to_print=[[layer,index_feature]],
+                                             path_output=path_output_lucid_im,prexif_name=prexif_name,\
+                                             input_name=input_name_lucid,Net=constrNet,sizeIm=224,
+                                             ROBUSTNESS=ROBUSTNESS,
+                                             DECORRELATE=DECORRELATE)   
+                    
+                    # Il faut aussi faire le cas pretrained ou init model !
+                    #TODO
+        firstTime = False
+                    
+       
+    # Now we deal with the figure of the different feat vizu !             
+    
+    for layer in list_layers:
+        i_line = 0 
+        figw, figh = numb_points*2, 3
+        smallest_pt,med_pt,highest_pt,sm_val,med_val,high_val = dico_overlapping_index_feat[layer]
+        plt.rcParams["figure.figsize"] = [figw, figh]
+        plt.rcParams["axes.titlesize"] = 12
+        plt.rcParams["axes.labelsize"] = 6
+        
+        fig = plt.figure()
+        gs0 = gridspec.GridSpec(3, numb_points, figure=fig)
+        #gs00 = gridspec.GridSpecFromSubplotSpec(3, 3, subplot_spec=gs0[0])
+        #fig, axes = plt.subplots(3, numb_points*2) 
+        # squeeze=False for the case of one figure only
+        fig.suptitle(layer)
+        for index_feature_list,value_list,case in zip([smallest_pt,med_pt,highest_pt],[sm_val,med_val,high_val],['Smallest','Median','Highest']):
+            for j,(index_feature,value) in enumerate(zip(index_feature_list,value_list)):
+                
+                ## FT model
+                #Name of the image 
+                model_name = list_models[0]
+                suffix_str = list_suffix[0]
+                prexif_name=model_name+suffix
+                if model_name=='pretrained':
+                    prexif_name = 'Imagnet'
+                add_end_folder_name = suffix_str
+                if platform.system()=='Windows': 
+                    if owncloud_mode:
+                        path_output_lucid_im = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,model_name+add_end_folder_name)
+                    else:
+                        path_output_lucid_im = os.path.join('CompModifModel',constrNet,model_name+add_end_folder_name)
+                else:
+                    path_output_lucid_im = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+add_end_folder_name)
+                path_output_lucid_im_l = os.path.join(path_output_lucid_im,layer)
+                obj_str,kind_layer = lucid_utils.get_obj_and_kind_layer(layer_to_print=layer
+                                                                        ,Net=constrNet)
+                name_base = layer + kind_layer +'_'+str(index_feature)+'_'+prexif_name+ext+'_toRGB.png'
+                full_name=os.path.join(path_output_lucid_im_l,name_base)
+                
+                # Get the subplot
+                gsij = gridspec.GridSpecFromSubplotSpec(1,2, subplot_spec=gs0[i_line,j],wspace = 0.0)
+                #ax = fig.add_subplot(1,2,gs0[i_line,j],wspace = 0.0)
+                ax = fig.add_subplot(gsij[0])
+                #ax = axes[i_line,j*2]
+                img = plt.imread(full_name)
+                #print(img)
+                ax.imshow(img, interpolation='none')
+                title_l_j = 'FT' + ' ' + str(index_feature) + ' : ' + str(value) #+ ' ' + title_beginning
+                #gsij.set_title(title_l_j, fontsize=8)
+                ax.set_title(title_l_j, fontsize=6,pad=3.0)
+                if j==0:
+                    ax.set_ylabel(case, fontsize=6)
+                ax.tick_params(axis='both', which='both', length=0)
+                plt.setp(ax.get_xticklabels(), visible=False)
+                plt.setp(ax.get_yticklabels(), visible=False)
+                #fig = ax.get_figure()
+                #fig.tight_layout()
+                #fig.subplots_adjust(top=1.05)
+                
+                ## Initialisation model
+                #Name of the image 
+                model_name = list_models[1]
+                suffix_str = list_suffix[1]
+                prexif_name=model_name+suffix
+                if model_name=='pretrained':
+                    prexif_name = 'Imagnet'
+                add_end_folder_name = suffix_str
+                if platform.system()=='Windows': 
+                    if owncloud_mode:
+                        path_output_lucid_im = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,model_name+add_end_folder_name)
+                    else:
+                        path_output_lucid_im = os.path.join('CompModifModel',constrNet,model_name+add_end_folder_name)
+                else:
+                    path_output_lucid_im = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+add_end_folder_name)
+                path_output_lucid_im_l = os.path.join(path_output_lucid_im,layer)
+                obj_str,kind_layer = lucid_utils.get_obj_and_kind_layer(layer_to_print=layer
+                                                                        ,Net=constrNet)
+                name_base = layer + kind_layer +'_'+str(index_feature)+'_'+prexif_name+ext+'_toRGB.png'
+                full_name=os.path.join(path_output_lucid_im_l,name_base)
+                
+                # Get the subplot
+                #ax = axes[i_line,j*2+1]
+                ax = fig.add_subplot(gsij[1])
+                img = plt.imread(full_name)
+                #print(img)
+                ax.imshow(img, interpolation='none')
+                if model_name=='pretrained':
+                    title_beginning = 'Pretrained'
+                else:
+                    title_beginning = 'Init'
+                title_l_j = title_beginning #+' ' + case + ' ' + str(index_feature) + ' : ' + str(value)
+                ax.set_title(title_l_j, fontsize=6,pad=3.0)
+#                ax.tick_params(axis='both', which='both', length=0)
+#                plt.setp(ax.get_xticklabels(), visible=False)
+#                plt.setp(ax.get_yticklabels(), visible=False)
+                
+                #title_l_j = 'FT' + ' ' + str(index_feature) + ' : ' + str(value) + ' ' + title_beginning
+                #gsij.set_title(title_l_j, fontsize=8)
+                ax.tick_params(axis='both', which='both', length=0)
+                plt.setp(ax.get_xticklabels(), visible=False)
+                plt.setp(ax.get_yticklabels(), visible=False)
+                #fig = ax.get_figure()
+                #fig.tight_layout()
+                #fig.subplots_adjust(top=1.05)
+                
+            i_line += 1
+        #plt.subplots_adjust(top=1-1/figh)         
+        # name figure
+        name_fig = 'FeatVizu with_Caract_OverRatio_'+str(numberIm)
+        if not(stats_on_layer=='meanAfterRelu'):
+            name_fig+= '_' + stats_on_layer
+        if not(dataset=='RASTA'):
+            name_fig+= '_' + dataset
+            
+        name_fig += '_'+str(numb_points) +'_Feat_per_case.png'
+        name_fig = layer + '_' + name_fig
+        path_fig = os.path.join(output_path_for_dico,name_fig)
+        plt.savefig(path_fig,dpi=300,bbox_inches='tight')
+        plt.close()
+                    
+                    
+                    
         
 def overlapping_rate_print(dataset,model_name,constrNet='InceptionV1',
                       list_layers=['conv2d0','conv2d1',
@@ -995,129 +1151,131 @@ def overlapping_rate_print(dataset,model_name,constrNet='InceptionV1',
 if __name__ == '__main__': 
     # Petit test 
     #compute_OneValue_Per_Feature(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1')
-    plot_images_Pos_Images(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1',
-                                                layer_name='mixed4d_3x3_bottleneck_pre_relu',
-                                                num_feature=64,
-                                                numberIm=9)
-#    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
+#    plot_images_Pos_Images(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1',
 #                                                layer_name='mixed4d_3x3_bottleneck_pre_relu',
 #                                                num_feature=64,
-#                                                numberIm=81)
-    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
-                                                layer_name='mixed4d_3x3_pre_relu',
-                                                num_feature=52,
-                                                numberIm=81)
-#    # mixed4d_pool_reduce_pre_reluConv2D_63_RASTA_small01_modif.png	
+#                                                numberIm=9)
+##    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
+##                                                layer_name='mixed4d_3x3_bottleneck_pre_relu',
+##                                                num_feature=64,
+##                                                numberIm=81)
 #    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
+#                                                layer_name='mixed4d_3x3_pre_relu',
+#                                                num_feature=52,
+#                                                numberIm=81)
+##    # mixed4d_pool_reduce_pre_reluConv2D_63_RASTA_small01_modif.png	
+##    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
+##                                                layer_name='mixed4d_pool_reduce_pre_relu',
+##                                                num_feature=63,
+##                                                numberIm=81)
+##    #Nom de fichier	mixed4b_3x3_bottleneck_pre_reluConv2D_35_RASTA_small01_modif.png	
+##    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
+##                                                layer_name='mixed4b_3x3_bottleneck_pre_relu',
+##                                                num_feature=35,
+##                                                numberIm=81)
+##    plot_images_Pos_Images(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1',
+##                                                layer_name='mixed4b_3x3_bottleneck_pre_relu',
+##                                                num_feature=35,
+##                                                numberIm=81)
+#    plot_images_Pos_Images(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1',
 #                                                layer_name='mixed4d_pool_reduce_pre_relu',
 #                                                num_feature=63,
 #                                                numberIm=81)
-#    #Nom de fichier	mixed4b_3x3_bottleneck_pre_reluConv2D_35_RASTA_small01_modif.png	
-#    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1',
-#                                                layer_name='mixed4b_3x3_bottleneck_pre_relu',
-#                                                num_feature=35,
+#    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
+#                                                layer_name='mixed4d_3x3_pre_relu',
+#                                                num_feature=80,
 #                                                numberIm=81)
-#    plot_images_Pos_Images(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1',
+#    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
 #                                                layer_name='mixed4b_3x3_bottleneck_pre_relu',
-#                                                num_feature=35,
+#                                                num_feature=21,
 #                                                numberIm=81)
-    plot_images_Pos_Images(dataset='RASTA',model_name='pretrained',constrNet='InceptionV1',
-                                                layer_name='mixed4d_pool_reduce_pre_relu',
-                                                num_feature=63,
-                                                numberIm=81)
-    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
-                                                layer_name='mixed4d_3x3_pre_relu',
-                                                num_feature=80,
-                                                numberIm=81)
-    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
-                                                layer_name='mixed4b_3x3_bottleneck_pre_relu',
-                                                num_feature=21,
-                                                numberIm=81)
-    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
-                                                layer_name='mixed5a_pool_reduce_pre_relu',
-                                                num_feature=120,
-                                                numberIm=81)
-    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
-                                                layer_name='mixed5b_5x5_bottleneck_pre_relu',
-                                                num_feature=41,
-                                                numberIm=81)
-    
-    # Pour IconArt
-    plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_big001_modif_adam_randomCrop_ep200',constrNet='InceptionV1',
-                                                layer_name='mixed4c_pool_reduce_pre_relu',
-                                                num_feature=13,
-                                                numberIm=81)
-    plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_big001_modif_adam_randomCrop_ep200',constrNet='InceptionV1',
-                                                layer_name='mixed4c_pool_reduce_pre_relu',
-                                                num_feature=13,
-                                                numberIm=81)
-    
-    # Nom de fichier	mixed3a_5x5_bottleneck_pre_reluConv2D_8_RASTA_small01_modif.png	
-    dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')
-
-    dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')
-
-    #you are not on the Nicolas PC, so I think you have the data in the data folder
-    #mixed5a_5x5_pre_relu [116]  are negative for  100.0  % of the images of the training set of RASTA
-    #mixed5b_5x5_pre_relu [15]  are negative for  100.0  % of the images of the training set of RASTA
-    #mixed5b_pool_reduce_pre_relu [15, 16, 28, 87]  are negative for  100.0  % of the images of the training set of RASTA
-    dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',constrNet='InceptionV1')
-    
-    for num_feature in [60,14,106,50,56,46]:
-        plot_images_Pos_Images(dataset='RASTA',
-                               model_name='RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                               constrNet='InceptionV1',
-                                layer_name='mixed4d',
-                                num_feature=num_feature,
-                                numberIm=81,
-                                stats_on_layer='mean')
-        
-    # Pour le model from scratch trained on RASTA 
-    # RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG a faire aussi
-    # A faire tourner 
-    for num_feature in [469,103,16,66,57,8]:
-        plot_images_Pos_Images(dataset='RASTA',
-                               model_name='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                               constrNet='InceptionV1',
-                                layer_name='mixed4d',
-                                num_feature=num_feature,
-                                numberIm=100,
-                                stats_on_layer='mean')
-        plot_images_Pos_Images(dataset='RASTA',
-                               model_name='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                               constrNet='InceptionV1',
-                                layer_name='mixed4d',
-                                num_feature=num_feature,
-                                numberIm=100,
-                                stats_on_layer='mean',
-                                FTmodel=False)
-    for num_feature in [469,103,16,66,57,8]:
-        plot_images_Pos_Images(dataset='RASTA',
-                               model_name='RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                               constrNet='InceptionV1',
-                                layer_name='mixed4d',
-                                num_feature=num_feature,
-                                numberIm=100,
-                                stats_on_layer='mean')
-        plot_images_Pos_Images(dataset='RASTA',
-                               model_name='RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                               constrNet='InceptionV1',
-                                layer_name='mixed4d',
-                                num_feature=num_feature,
-                                numberIm=100,
-                                stats_on_layer='mean',
-                                FTmodel=False)
-        
+#    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
+#                                                layer_name='mixed5a_pool_reduce_pre_relu',
+#                                                num_feature=120,
+#                                                numberIm=81)
+#    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big001_modif_RandInit_ep120',constrNet='InceptionV1',
+#                                                layer_name='mixed5b_5x5_bottleneck_pre_relu',
+#                                                num_feature=41,
+#                                                numberIm=81)
+#    
+#    # Pour IconArt
+#    plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_big001_modif_adam_randomCrop_ep200',constrNet='InceptionV1',
+#                                                layer_name='mixed4c_pool_reduce_pre_relu',
+#                                                num_feature=13,
+#                                                numberIm=81)
+#    plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_big001_modif_adam_randomCrop_ep200',constrNet='InceptionV1',
+#                                                layer_name='mixed4c_pool_reduce_pre_relu',
+#                                                num_feature=13,
+#                                                numberIm=81)
+#    
+#    # Nom de fichier	mixed3a_5x5_bottleneck_pre_reluConv2D_8_RASTA_small01_modif.png	
+#    dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')
+#
+#    dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')
+#
+#    #you are not on the Nicolas PC, so I think you have the data in the data folder
+#    #mixed5a_5x5_pre_relu [116]  are negative for  100.0  % of the images of the training set of RASTA
+#    #mixed5b_5x5_pre_relu [15]  are negative for  100.0  % of the images of the training set of RASTA
+#    #mixed5b_pool_reduce_pre_relu [15, 16, 28, 87]  are negative for  100.0  % of the images of the training set of RASTA
+#    dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_big001_modif_adam_randomCrop_deepSupervision_ep200',constrNet='InceptionV1')
+#    
+#    for num_feature in [60,14,106,50,56,46]:
+#        plot_images_Pos_Images(dataset='RASTA',
+#                               model_name='RASTA_big001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+#                               constrNet='InceptionV1',
+#                                layer_name='mixed4d',
+#                                num_feature=num_feature,
+#                                numberIm=81,
+#                                stats_on_layer='mean')
+#        
+#    # Pour le model from scratch trained on RASTA 
+#    # RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG a faire aussi
+#    # A faire tourner 
+#    for num_feature in [469,103,16,66,57,8]:
+#        plot_images_Pos_Images(dataset='RASTA',
+#                               model_name='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+#                               constrNet='InceptionV1',
+#                                layer_name='mixed4d',
+#                                num_feature=num_feature,
+#                                numberIm=100,
+#                                stats_on_layer='mean')
+#        plot_images_Pos_Images(dataset='RASTA',
+#                               model_name='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+#                               constrNet='InceptionV1',
+#                                layer_name='mixed4d',
+#                                num_feature=num_feature,
+#                                numberIm=100,
+#                                stats_on_layer='mean',
+#                                FTmodel=False)
+#    for num_feature in [469,103,16,66,57,8]:
+#        plot_images_Pos_Images(dataset='RASTA',
+#                               model_name='RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+#                               constrNet='InceptionV1',
+#                                layer_name='mixed4d',
+#                                num_feature=num_feature,
+#                                numberIm=100,
+#                                stats_on_layer='mean')
+#        plot_images_Pos_Images(dataset='RASTA',
+#                               model_name='RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+#                               constrNet='InceptionV1',
+#                                layer_name='mixed4d',
+#                                num_feature=num_feature,
+#                                numberIm=100,
+#                                stats_on_layer='mean',
+#                                FTmodel=False)
+#                                          list_layers=['conv2d0','conv2d1',
+#                                              'conv2d2','mixed3a',
+#                                              'mixed3b','mixed4a',
+#                                              'mixed4b','mixed4c',
+#                                              'mixed4d','mixed4e',
+#                                              'mixed5a','mixed5b'],
     do_featVizu_for_Extrem_points(dataset='RASTA',model_name_base='RASTA_small01_modif',
                                   constrNet='InceptionV1',
-                                  list_layers=['conv2d0','conv2d1',
-                                              'conv2d2','mixed3a',
-                                              'mixed3b','mixed4a',
-                                              'mixed4b','mixed4c',
-                                              'mixed4d','mixed4e',
-                                              'mixed5a','mixed5b'],
+                                  list_layers=['mixed4b',
+                                               'mixed4d',
+                                               'mixed5b'],
                                     numberIm=100,
-                                    numb_points=10,stats_on_layer='meanAfterRelu',suffix='',
+                                    numb_points=20,stats_on_layer='meanAfterRelu',suffix='',
                                     FTmodel=True,
                                     output_path_for_dico=None,
                                     cropCenter = True,
