@@ -15,8 +15,10 @@ import numpy as np
 from Dist_CNNs import get_linearCKA_bw_nets,comp_cka_for_paper,get_l2norm_bw_nets,\
                         comp_l2_for_paper
 
-CB_color_cycle = ['#377eb8', '#ff7f00','#984ea3', '#4daf4a','#A2C8EC','#e41a1c',
+CB_color_cycle = ['#377eb8', '#4daf4a','#A2C8EC', '#ff7f00','#984ea3','#e41a1c',
                   '#f781bf', '#a65628', '#dede00','#FFBC79','#999999']
+list_markers = ['o','s','X','*','v','^','<','>','d','1','2','3','4','8','h','H','p','d','$f$','P']
+
 
 title_corr = {'pretrained': 'pretrained on ImageNet',
               'RASTA_small01_modif' : 'FT on RASTA (Mode A training 1)',
@@ -28,7 +30,7 @@ title_corr = {'pretrained': 'pretrained on ImageNet',
               'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_init': 'Random Init'
                 }
 
-def cka_fct_layers_plot():
+def cka_fct_layers_plot(forPhDmanuscript=False):
     
     #matplotlib.use('Agg')
     #plt.switch_backend('agg')
@@ -42,12 +44,26 @@ def cka_fct_layers_plot():
     # Now need to find the wanted pairs
     
     all_pairs = [['pretrained','RASTA_small01_modif'],
-                ['pretrained','RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200'],
-                ['pretrained','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'],
                 ['RASTA_small01_modif','RASTA_small01_modif1'],
                 ['RASTA_small01_modif','RASTA_small001_modif'],
                 ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200','RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200_init'],
-                ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_init']]
+                ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_init'],
+                ['pretrained','RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200'],
+                ['pretrained','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'],
+                ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200','RASTA_small01_modif'],
+                ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG','RASTA_small01_modif']
+                ]
+    if forPhDmanuscript:
+        all_pairs = [['pretrained','RASTA_small01_modif'],
+                ['RASTA_small01_modif','RASTA_small01_modif1'],
+                ['RASTA_small01_modif','RASTA_small001_modif'],
+                ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200','RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200_init'],
+                ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_init'],
+                ['pretrained','RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200'],
+                ['pretrained','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'],
+                ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200','RASTA_small01_modif'],
+                ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG','RASTA_small01_modif']
+                ]
     
     
     
@@ -145,21 +161,28 @@ def cka_fct_layers_plot():
                 list_index_cka += [i]
         
         label_p = title_corr[netA] +' vs '+title_corr[netB]
-        plt.plot(list_index_cka, list_cka, marker='o',color=CB_color_cycle[p], label=label_p)
+        plt.plot(list_index_cka, list_cka,linestyle='--', marker=list_markers[p],
+                 color=CB_color_cycle[p], label=label_p, markersize=10)
         print(netA,netB,list_cka)
         
     plt.grid(True)
-    plt.ylim((0.,1.))
+    plt.ylim((0.,1.01))
+    plt.yticks(fontsize=18)
         
-    ax.set_xlabel("Layer")
-    ax.set_ylabel("CKA (linear)")
+    ax.set_xlabel("Layer",fontsize=20)
+    ax.set_ylabel("CKA (linear)",fontsize=20)
     
-    ax.legend(loc='upper center',  bbox_to_anchor=(0.5, 1.1), # under  bbox_to_anchor=(0.5, -0.05),
-          fancybox=True, shadow=False, ncol=3)
+    ncol= 2
+    bbox_to_anchor=(0.5, 1.2)
+    if forPhDmanuscript:
+        ncol = 3
+        bbox_to_anchor=(0.5, 1.15)
+    ax.legend(loc='upper center',  bbox_to_anchor=bbox_to_anchor, # under  bbox_to_anchor=(0.5, -0.05),
+          fancybox=True, shadow=False, ncol=ncol,fontsize=18)
     
     
     ax.set_xticks(np.arange(len(list_layers)))
-    ax.set_xticklabels(labels_, rotation=45)
+    ax.set_xticklabels(labels_, rotation=45,fontsize=18)
     
     plt.show()
     
@@ -188,8 +211,8 @@ def l2norm_fct_layers_plot():
         pass
     
     # Ces 2 cas la n'ont pas de raison d'etre car les filtres peuvent etre n'importe ou :
-#    ['pretrained','RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200'],
-#    ['pretrained','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'],
+    ['pretrained','RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200'],
+    ['pretrained','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'],
     
     all_pairs = [['pretrained','RASTA_small01_modif'],
                 ['RASTA_small01_modif','RASTA_small01_modif1'],
@@ -325,7 +348,8 @@ def l2norm_fct_layers_plot():
         
         label_p = title_corr[netA] +' vs '+title_corr[netB]
         all_list_l2norm += list_l2norm
-        plt.plot(list_index_l2, list_l2norm, marker='o',color=CB_color_cycle[p], label=label_p)
+        plt.plot(list_index_l2, list_l2norm,linestyle='--', marker=list_markers[p],color=CB_color_cycle[p], label=label_p)
+        #marker='o' pour un rond
         print(netA,netB,list_l2norm)
         
     plt.grid(True)
@@ -335,7 +359,7 @@ def l2norm_fct_layers_plot():
     ax.set_ylabel("$\ell_{2}$ norm")
     
     ax.legend(loc='upper center',  bbox_to_anchor=(0.5, 1.1), # under  bbox_to_anchor=(0.5, -0.05),
-          fancybox=True, shadow=False, ncol=2)
+          fancybox=True, shadow=False, ncol=3)
     
     
     #ax.set_xticks(np.arange(len(list_layers)))
@@ -345,5 +369,5 @@ def l2norm_fct_layers_plot():
     #input("wait")
 
 if __name__=='__main__':
-    #cka_fct_layers_plot()    
-    l2norm_fct_layers_plot()
+    cka_fct_layers_plot(forPhDmanuscript=True)    
+    #l2norm_fct_layers_plot()

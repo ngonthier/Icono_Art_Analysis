@@ -948,7 +948,7 @@ def do_featVizu_for_Extrem_points(dataset,model_name_base,constrNet='InceptionV1
                 img = plt.imread(full_name)
                 #print(img)
                 ax.imshow(img, interpolation='none')
-                title_l_j = 'FT' + ' ' + str(index_feature) + ' : ' + str(value) #+ ' ' + title_beginning
+                title_l_j = 'FT' + ' ' + str(index_feature) + ' : ' + "{:.2f}.".format(value) #+ ' ' + title_beginning
                 #gsij.set_title(title_l_j, fontsize=8)
                 ax.set_title(title_l_j, fontsize=6,pad=3.0)
                 if j==0:
@@ -1271,16 +1271,26 @@ if __name__ == '__main__':
 #                                              'mixed4b','mixed4c',
 #                                              'mixed4d','mixed4e',
 #                                              'mixed5a','mixed5b'],
+#    do_featVizu_for_Extrem_points(dataset='RASTA',model_name_base='RASTA_small01_modif',
+#                                  constrNet='InceptionV1',
+#                                  list_layers=['conv2d0','conv2d1',
+#                                              'conv2d2','mixed3a',
+#                                              'mixed3b','mixed4a',
+#                                              'mixed4b','mixed4c',
+#                                              'mixed4d','mixed4e',
+#                                              'mixed5a','mixed5b'],
+#                                    numberIm=100,
+#                                    numb_points=5,stats_on_layer='meanAfterRelu',suffix='',
+#                                    FTmodel=True,
+#                                    output_path_for_dico=None,
+#                                    cropCenter = True,
+#                                    ReDo=False,
+#                                    owncloud_mode=True)
     do_featVizu_for_Extrem_points(dataset='RASTA',model_name_base='RASTA_small01_modif',
                                   constrNet='InceptionV1',
-                                  list_layers=['conv2d0','conv2d1',
-                                              'conv2d2','mixed3a',
-                                              'mixed3b','mixed4a',
-                                              'mixed4b','mixed4c',
-                                              'mixed4d','mixed4e',
-                                              'mixed5a','mixed5b'],
+                                  list_layers=['mixed4c'],
                                     numberIm=100,
-                                    numb_points=5,stats_on_layer='meanAfterRelu',suffix='',
+                                    numb_points=10,stats_on_layer='meanAfterRelu',suffix='',
                                     FTmodel=True,
                                     output_path_for_dico=None,
                                     cropCenter = True,

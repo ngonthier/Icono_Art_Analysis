@@ -84,6 +84,44 @@ def get_l2_norm_weights(list_name_layers,list_weights,net_finetuned,verbose=Fals
             
         
     return(dict_layers_diff,l2_norm_total)
+    
+def get_corr_weights(list_name_layers,list_weights,net_finetuned,verbose=False):
+    finetuned_layers = net_finetuned.layers
+        
+    j = 0
+    dict_layers_diff = {}
+    l2_norm_total = 0.
+    for finetuned_layer in finetuned_layers:
+        # check for convolutional layer
+        layer_name = finetuned_layer.name
+        if not(layer_name in list_name_layers):
+            continue
+        if isinstance(finetuned_layer, Conv2D) :
+            
+            list_weights_j = list_weights[j]
+            if len(list_weights)==2:
+                o_filters, o_biases = list_weights_j
+                f_filters, f_biases = finetuned_layer.get_weights()
+            else:
+                o_filters = np.array(list_weights_j[0]) # We certainly are in the Inception_V1 case with no biases
+                f_filters = np.array(finetuned_layer.get_weights()[0])
+            j+=1
+
+            # correlation 2 between the weights of the filters
+            # TODO mais comment faire en fait ????
+            raise(NotImplementedError)
+            diff_filters = o_filters - f_filters
+            frobenium_norm = np.linalg.norm(diff_filters)
+            l2_norm_total += frobenium_norm
+            if verbose:
+                print('== For layer :',layer_name,' ==')
+                print('= Frobenius norm =')
+                print_stats_on_diff(frobenium_norm)
+            
+            dict_layers_diff[layer_name] = frobenium_norm
+            
+        
+    return(dict_layers_diff,l2_norm_total)
 
 
     
@@ -869,7 +907,8 @@ def feat_sim(model_nameA,model_nameB,dataset,list_layers=['conv2d0','mixed5b']
         
     return(dico)
 
-def comp_l2_for_paper(dataset='RASTA',verbose=False):
+def comp_l2_for_paper(dataset='RASTA',verbose=False,
+                      Version_courte=True):
     """
     compute all the l2 difference for the different pair of models
     """
@@ -965,7 +1004,8 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
                             'pretrained'
                             ]
         # Version plus courte
-        list_models_name_P = ['Paintings_small01_modif',
+        if Version_courte:
+            list_models_name_P = ['Paintings_small01_modif',
                               'Paintings_big01_modif',
                             'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
@@ -1007,7 +1047,8 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False):
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                             'pretrained'
                             ]
-        list_models_name_I = ['IconArt_v1_small01_modif',
+        if Version_courte:
+            list_models_name_I = ['IconArt_v1_small01_modif',
                                'IconArt_v1_big01_modif',
                             'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
@@ -1042,7 +1083,8 @@ def test_pb_nan_in_cka():
                                       'mixed4d','mixed4e',
                                       'mixed5a','mixed5b'])
     
-def comp_cka_for_paper(dataset='RASTA',verbose=False):
+def comp_cka_for_paper(dataset='RASTA',verbose=False,
+                       Version_courte=True):
     """
     Compute the linear CKA for the different pair of models
     """
@@ -1172,7 +1214,8 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                             'pretrained']
         # Version courte
-        list_models_name_P = ['Paintings_small01_modif',
+        if Version_courte:
+            list_models_name_P = ['Paintings_small01_modif',
                               'Paintings_big01_modif',
                             'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
@@ -1219,7 +1262,8 @@ def comp_cka_for_paper(dataset='RASTA',verbose=False):
                             'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                             'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                             'pretrained']
-        list_models_name_I = ['IconArt_v1_small01_modif',
+        if Version_courte:
+            list_models_name_I = ['IconArt_v1_small01_modif',
                               'IconArt_v1_big01_modif',
                             'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
                             'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
@@ -1653,8 +1697,8 @@ if __name__ == '__main__':
 #                                                          'mixed5a','mixed5b'])
     
     # comp_cka_for_paper('RASTA')
-    comp_cka_for_paper('Paintings')
-    comp_cka_for_paper('IconArt_v1')
+    comp_cka_for_paper('Paintings',Version_courte=False)
+    comp_cka_for_paper('IconArt_v1',Version_courte=False)
     #comp_l2_for_paper(dataset='RASTA')
-    comp_l2_for_paper(dataset='Paintings')
-    comp_l2_for_paper(dataset='IconArt_v1')
+    comp_l2_for_paper(dataset='Paintings',Version_courte=False)
+    comp_l2_for_paper(dataset='IconArt_v1',Version_courte=False)
