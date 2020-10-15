@@ -574,6 +574,8 @@ def doing_overlaps_for_paper():
     numberIm_list = [100,1000,-1]
     model_list = ['RASTA_small01_modif']
     model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+    model_list = ['RASTA_big001_modif_deepSupervision',
+                  'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
     for model_name in model_list:
         for numberIm in numberIm_list:
             overlapping_rate_print(dataset='RASTA',model_name=model_name,
