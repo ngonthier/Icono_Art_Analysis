@@ -9,7 +9,7 @@ Created on Fri May 24 14:54:36 2019
 import pandas as pd
 import os
 
-def get_database(database):
+def get_database(database,verbose=False):
     ext = '.txt'
     default_path_imdb = '/media/gonthier/HDD/data/'
     default_path_imdb2 = '/media/gonthier/HDD2/data/'
@@ -218,7 +218,7 @@ def get_database(database):
     if not(os.path.exists(path_data)): # Thats means you are not on the Nicolas Computer
         # Modification of the path used
         Not_on_NicolasPC = True
-        print('you are not on the Nicolas PC, so I think you have the data in the data folder')
+        if verbose: print('you are not on the Nicolas PC, so I think you have the data in the data folder')
         path_tmp = 'data/' 
         path_to_img = path_tmp + path_to_img
         path_data = path_tmp + 'ClassifPaintings/'
