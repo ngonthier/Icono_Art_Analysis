@@ -367,6 +367,7 @@ def proportion_labels(list_most_pos_images,dataset,verbose=True):
     """
     The goal of this fct is to provide the labels proportion in the list of image 
     provide
+    @return : dico of percentage and list of proba 
     """
     
     item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
@@ -380,14 +381,19 @@ def proportion_labels(list_most_pos_images,dataset,verbose=True):
         list_labels += np.ravel(labels_image_i)
     argsort_from_max_to_min = np.argsort(list_labels)[::-1]
     dico_c = {}
+    list_c = []
     for index_c in argsort_from_max_to_min:
         classe = classes[index_c]
         number_im_c = list_labels[index_c]
         if number_im_c >0:
+            proba_c = number_im_c/number_im
             per_c = number_im_c/number_im*100.0
             if verbose: print(classe,per_c)
             dico_c[classe] = per_c
-    return(dico_c)
+            list_c += [proba_c]
+        else:
+            list_c += [0.]
+    return(dico_c,list_c)
     
 def plot_images_Pos_Images(dataset,model_name,constrNet,
                             layer_name='mixed4d_3x3_bottleneck_pre_relu',
@@ -432,6 +438,8 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
                                                          suffix,cropCenter,FTmodel,
                                                          model_name_wo_oldModel)
         
+    # TODO ici il doit y avoir un pb avec le load des trucs
+    
     if alreadyAtInit: # Load the activation on the initialisation model
         if weights == 'pretrained':
             if platform.system()=='Windows': 
@@ -522,9 +530,12 @@ def plot_images_Pos_Images(dataset,model_name,constrNet,
                               path_img=path_to_img,name_fig=name_fig,cropCenter=cropCenter,
                               Net=None,title_imgs=title_imgs,roundColor=list_most_pos_images_init)
             if alreadyAtInit:
-                print(output_path_for_img,name_fig,'Percentage intersection : ',percentage_intersec)
+                print(output_path_for_img,name_fig,'Percentage intersection (overlaping) between before and after training : ',percentage_intersec,' in %')
                 
+            # This function will print the proportion of the different classes in the input set
+            # for a given dataset
             proportion_labels(list_most_pos_images,dataset)
+            
             
 #            # Slightly positive images : TODO
 #            list_slightly_pos_images = name_images_l_f_pos[argsort[-numberIm:]]
@@ -578,9 +589,29 @@ def doing_overlaps_for_paper():
                   'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
     for model_name in model_list:
         for numberIm in numberIm_list:
-            overlapping_rate_print(dataset='RASTA',model_name=model_name,
+            overlapping_rate_boxplots(dataset='RASTA',model_name=model_name,
                                constrNet='InceptionV1',numberIm=numberIm,
                                stats_on_layer='meanAfterRelu')# because meanAfterRelu already computed
+ 
+def doing_impurity_for_paper():
+    
+    numberIm_list = [100,1000,-1]
+    numberIm_list = [100]
+    model_list = ['RASTA_small01_modif',
+                  'pretrained',
+                  'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                  'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
+    kind_purity_tab = ['gini','entropy']
+    #model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+    #model_list = ['RASTA_big001_modif_deepSupervision',
+    #              'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
+    for model_name in model_list:
+        for numberIm in numberIm_list:
+            for kind_purity in kind_purity_tab:
+                class_purity_boxplots(dataset='RASTA',model_name=model_name,
+                               constrNet='InceptionV1',numberIm=numberIm,
+                               stats_on_layer='meanAfterRelu',
+                               kind_purity=kind_purity)# because meanAfterRelu already computed
  
 def get_overlapping_dico(dataset,model_name,constrNet='InceptionV1',
                       list_layers=['conv2d0','conv2d1',
@@ -714,6 +745,139 @@ def get_overlapping_dico(dataset,model_name,constrNet='InceptionV1',
                     percentage_intersec_list += [percentage_intersec_f]
                     
                 dico_percentage_intersec_list[layer_name_inlist] = percentage_intersec_list
+                
+                with open(name_path_dico, 'wb') as handle:
+                    pickle.dump(dico_percentage_intersec_list,handle)
+    return(dico_percentage_intersec_list)
+    
+    
+def get_purity_dico(dataset,model_name,constrNet='InceptionV1',
+                      list_layers=['conv2d0','conv2d1',
+                                  'conv2d2','mixed3a',
+                                  'mixed3b','mixed4a',
+                                  'mixed4b','mixed4c',
+                                  'mixed4d','mixed4e',
+                                  'mixed5a','mixed5b'],
+                            numberIm=100,stats_on_layer='mean',suffix='',
+                            FTmodel=True,
+                            output_path_for_dico=None,
+                            cropCenter = True,
+                            ReDo=False,
+                            kind_purity='entropy'):
+    """
+    @param kind_purity='entropy' or 'gini'
+    """
+    
+    model_name_wo_oldModel,weights = get_model_name_wo_oldModel(model_name)
+    
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+    path_data,Not_on_NicolasPC = get_database(dataset)
+    df_train = df_label[df_label['set']=='train']
+    name_images = df_train[item_name].values
+    
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name+suffix)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
+    # For images
+    if output_path_for_dico is None:
+        output_path_for_dico = os.path.join(output_path,'Overlapping')
+    else:
+        output_path_for_dico = os.path.join(output_path_for_dico,'Overlapping')
+
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    pathlib.Path(output_path_for_dico).mkdir(parents=True, exist_ok=True) 
+
+    dico_percentage_intersec_list = {}
+    
+    name_dico = 'Purity_'+kind_purity+'_inTop'+str(numberIm)
+    if not(stats_on_layer=='meanAfterRelu'):
+        name_dico+= '_' + stats_on_layer
+    if not(dataset=='RASTA'):
+        name_dico+= '_' + dataset
+    name_path_dico = os.path.join(output_path_for_dico,name_dico+'.pkl')
+    
+    
+    if os.path.exists(name_path_dico) and not(ReDo):
+        # The file exist
+        with open(name_path_dico, 'rb') as handle:
+            dico_percentage_intersec_list = pickle.load(handle)
+    else:
+    
+        list_outputs_name,activations = get_list_activations(dataset,
+                                                         output_path,stats_on_layer,
+                                                         model_name,constrNet,
+                                                         suffix,cropCenter,FTmodel,
+                                                         model_name_wo_oldModel)
+        
+        
+        
+        
+        
+        
+        # Load the activation on the initialisation model # 
+        if weights == 'pretrained':
+            if platform.system()=='Windows': 
+                output_path_init = os.path.join('CompModifModel',constrNet,'pretrained')
+            else:
+                output_path_init = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,'pretrained')
+            pathlib.Path(output_path_init).mkdir(parents=True, exist_ok=True) 
+            list_outputs_name_init,activations_init= get_list_activations(dataset,
+                                                        output_path_init,stats_on_layer,
+                                                        'pretrained',constrNet,
+                                                        '',cropCenter,FTmodel,
+                                                        'pretrained')
+        elif weights == 'random':
+            list_outputs_name_init,activations_init= get_list_activations(dataset,
+                                                        output_path,stats_on_layer,
+                                                        model_name,constrNet,
+                                                        suffix,cropCenter,False,
+                                                        model_name) # FTmodel = False to get the initialisation model
+        else:
+            if platform.system()=='Windows': 
+                output_path_init = os.path.join('CompModifModel',constrNet,weights)
+            else:
+                output_path_init = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,weights)
+            pathlib.Path(output_path_init).mkdir(parents=True, exist_ok=True) 
+            list_outputs_name_init,activations_init= get_list_activations(dataset,
+                                                        output_path,stats_on_layer,
+                                                        weights,constrNet,
+                                                        '',cropCenter,FTmodel,
+                                                        weights)
+        
+        for layer_name_inlist,activations_l in zip(list_outputs_name,activations):
+            if layer_name_inlist in list_layers:
+                print('===',layer_name_inlist,'===')
+                num_im, number_of_features = activations_l.shape
+                
+                purity_score_list = []
+                
+                for num_feature in range(number_of_features):
+                    activations_l_f = activations_l[:,num_feature]
+                    where_activations_l_f_pos = np.where(activations_l_f>0)[0]
+                    if len(where_activations_l_f_pos)==0:
+                        print('No activation positive for this layer')
+                        continue
+                    activations_l_f_pos = activations_l_f[where_activations_l_f_pos]
+                    name_images_l_f_pos = name_images[where_activations_l_f_pos]
+                    argsort = np.argsort(activations_l_f_pos)[::-1]
+                    # Most positive images
+                    list_most_pos_images = name_images_l_f_pos[argsort[0:numberIm]]
+                    
+                    
+                    dico_num_im_per_class,list_c = proportion_labels(list_most_pos_images,dataset,verbose=False)
+                    np_l = np.array(list_c)
+                    
+                    if kind_purity=='entropy':
+                        np_l = np_l[np.where(np_l>0.)]
+                        purity_score_f = np.sum(-np_l*np.log2(np_l)) # Information gain per class
+                    elif kind_purity=='gini':
+                        purity_score_f = np.sum(np_l*(1.-np_l))
+                        # A Gini Impurity of 0 is the lowest and best possible impurity
+                    
+                    purity_score_list += [purity_score_f]
+                    
+                dico_percentage_intersec_list[layer_name_inlist] = purity_score_list
                 
                 with open(name_path_dico, 'wb') as handle:
                     pickle.dump(dico_percentage_intersec_list,handle)
@@ -1026,7 +1190,7 @@ def do_featVizu_for_Extrem_points(dataset,model_name_base,constrNet='InceptionV1
                     
                     
         
-def overlapping_rate_print(dataset,model_name,constrNet='InceptionV1',
+def overlapping_rate_boxplots(dataset,model_name,constrNet='InceptionV1',
                       list_layers=['conv2d0','conv2d1',
                                   'conv2d2','mixed3a',
                                   'mixed3b','mixed4a',
@@ -1098,6 +1262,141 @@ def overlapping_rate_print(dataset,model_name,constrNet='InceptionV1',
     #ax1.set_title('Comparison of '+leg_str+' score for different methods')
     ax1.set_xlabel('Layer')
     ax1.set_ylabel('Overlapping (\%)')
+    
+    medians = np.empty(len(list_layers))
+    for i in range(len(list_layers)):
+        box = bp['boxes'][i]
+        boxX = []
+        boxY = []
+        for j in range(5):
+            boxX.append(box.get_xdata()[j])
+            boxY.append(box.get_ydata()[j])
+        box_coords = np.column_stack([boxX, boxY])
+        # Color of the box
+        ax1.add_patch(Polygon(box_coords, facecolor=CB_color_cycle[i % (len(CB_color_cycle))],alpha=0.5))
+        # Now draw the median lines back over what we just filled in
+        med = bp['medians'][i]
+        medianX = []
+        medianY = []
+        for j in range(2):
+            medianX.append(med.get_xdata()[j])
+            medianY.append(med.get_ydata()[j])
+            ax1.plot(medianX, medianY, 'k')
+        # Finally, overplot the sample averages, with horizontal alignment
+        # in the center of each box
+        if output_img=='png':
+            ax1.plot(np.average(med.get_xdata()), np.average(list_percentage[i]),
+                 color='w', marker='*', markeredgecolor='k', markersize=8)
+        elif output_img=='tikz':
+            ax1.plot(np.average(med.get_xdata()), np.average(list_percentage[i]),
+                 color='w', marker='h', markeredgecolor='k', markersize=6)
+    # X labels
+    if output_img=='png':
+        ax1.set_xticklabels(list_layers,
+                    rotation=45, fontsize=8) 
+    elif output_img=='tikz':
+        ax1.set_xticklabels(list_layers,
+                    rotation=75, fontsize=8)    
+    if save_or_show:
+        if output_img=='png':
+            plt.tight_layout()
+            path_fig = os.path.join(output_path_for_dico,ext_name+case_str+'_Boxplots_per_layer.png')
+            plt.savefig(path_fig,bbox_inches='tight')
+            plt.close()
+        if output_img=='tikz':
+            path_fig = os.path.join(output_path_for_dico,ext_name+case_str+'_Boxplots_per_layer.tex')
+            tikzplotlib.save(path_fig)
+            # From from DataForPerceptual_Evaluation import modify_underscore,modify_labels,modify_fontsizeByInput
+            # si besoin
+#            modify_underscore(path_fig)
+#            modify_labels(path_fig)
+#            modify_fontsizeByInput(path_fig)
+    else:
+        plt.show()
+        input('Enter to close.')
+        plt.close()
+        
+def class_purity_boxplots(dataset,model_name,constrNet='InceptionV1',
+                      list_layers=['conv2d0','conv2d1',
+                                  'conv2d2','mixed3a',
+                                  'mixed3b','mixed4a',
+                                  'mixed4b','mixed4c',
+                                  'mixed4d','mixed4e',
+                                  'mixed5a','mixed5b'],
+                            numberIm=100,stats_on_layer='mean',suffix='',
+                            FTmodel=True,
+                            output_path_for_dico=None,
+                            cropCenter = True,
+                            ReDo=False,
+                            kind_purity='gini'):
+    """
+    This function will plot in boxplot class purity in the top k images 
+    @param : numberIm = top k images used : numberIm = -1 if you want to take all the images
+    """
+    matplotlib.rcParams['text.usetex'] = True
+    sns.set()
+    sns.set_style("whitegrid")
+
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name+suffix)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
+    # For images
+    if output_path_for_dico is None:
+        output_path_for_dico = os.path.join(output_path,'Overlapping')
+    else:
+        output_path_for_dico = os.path.join(output_path_for_dico,'Overlapping')
+
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    pathlib.Path(output_path_for_dico).mkdir(parents=True, exist_ok=True) 
+    
+    dico_score_list = get_purity_dico(dataset,model_name,constrNet=constrNet,
+                      list_layers=list_layers,
+                            numberIm=numberIm,stats_on_layer=stats_on_layer,suffix=suffix,
+                            FTmodel=FTmodel,
+                            output_path_for_dico=None,
+                            cropCenter = cropCenter,
+                            ReDo=ReDo,
+                            kind_purity=kind_purity)
+      
+    # Print the boxplot per layer
+    list_percentage = []
+    for layer_name_inlist in list_layers:
+        percentage_intersec_list = dico_score_list[layer_name_inlist]
+        list_percentage += [percentage_intersec_list]
+        
+    save_or_show = True
+    
+    if save_or_show:
+        matplotlib.use('Agg')
+        plt.switch_backend('agg')
+        
+    output_img = 'png'
+    case_str = str(numberIm)
+
+    ext_name =  'Purity_'+kind_purity
+    if kind_purity=='entropy':
+       str_kind = "Entropy"
+       leg_str = 'Entropy over classes'
+    elif kind_purity=='gini':
+        str_kind = 'Gini Impurity'
+        leg_str = 'Gini Impurity over classes'
+    
+    if output_img=='png':
+        fig, ax1 = plt.subplots(figsize=(10, 6))
+    elif output_img=='tikz':
+        fig, ax1 = plt.subplots()
+        
+    fig.canvas.set_window_title('Boxplots of the Impurity computed with '+str_kind+'.')
+    bp = ax1.boxplot(list_percentage, notch=0, sym='+')
+    plt.setp(bp['boxes'], color='black')
+    plt.setp(bp['whiskers'], color='black')
+    plt.setp(bp['fliers'], color='black', marker='+')
+    # Hide these grid behind plot objects
+    ax1.set_axisbelow(True)
+    #ax1.set_title('Comparison of '+leg_str+' score for different methods')
+    ax1.set_xlabel('Layer')
+    ax1.set_ylabel(leg_str)
     
     medians = np.empty(len(list_layers))
     for i in range(len(list_layers)):
@@ -1288,15 +1587,37 @@ if __name__ == '__main__':
 #                                    cropCenter = True,
 #                                    ReDo=False,
 #                                    owncloud_mode=True)
-    do_featVizu_for_Extrem_points(dataset='RASTA',model_name_base='RASTA_small01_modif',
-                                  constrNet='InceptionV1',
-                                  list_layers=['mixed4c'],
-                                    numberIm=100,
-                                    numb_points=10,stats_on_layer='meanAfterRelu',suffix='',
-                                    FTmodel=True,
-                                    output_path_for_dico=None,
-                                    cropCenter = True,
-                                    ReDo=False,
-                                    owncloud_mode=True)
+#    do_featVizu_for_Extrem_points(dataset='RASTA',model_name_base='RASTA_small01_modif',
+#                                  constrNet='InceptionV1',
+#                                  list_layers=['mixed4c'],
+#                                    numberIm=100,
+#                                    numb_points=10,stats_on_layer='meanAfterRelu',suffix='',
+#                                    FTmodel=True,
+#                                    output_path_for_dico=None,
+#                                    cropCenter = True,
+#                                    ReDo=False,
+#                                    owncloud_mode=True)
+    
+    # Model RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200 : faire l'image Top 100 pour certaines couches
+    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                           constrNet='InceptionV1',
+                            layer_name='mixed4d_5x5_pre_relu',
+                            num_feature=50,
+                            numberIm=100,alreadyAtInit=True)
+    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                           constrNet='InceptionV1',
+                            layer_name='mixed5a_3x3_bottleneck_pre_relu',
+                            num_feature=1,
+                            numberIm=100,alreadyAtInit=True)
+#    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+#                           constrNet='InceptionV1',
+#                            layer_name='mixed4d_5x5_pre_relu',
+#                            num_feature=50,
+#                            numberIm=100,alreadyAtInit=False)
+#    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+#                           constrNet='InceptionV1',
+#                            layer_name='mixed5a_3x3_bottleneck_pre_relu',
+#                            num_feature=1,
+#                            numberIm=100,alreadyAtInit=False)
         
     
