@@ -601,7 +601,10 @@ def doing_impurity_for_paper():
                   'pretrained',
                   'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                   'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
+    model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                  'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
     kind_purity_tab = ['gini','entropy']
+    kind_purity_tab = ['entropy']
     #model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
     #model_list = ['RASTA_big001_modif_deepSupervision',
     #              'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
@@ -871,10 +874,14 @@ def get_purity_dico(dataset,model_name,constrNet='InceptionV1',
                     if kind_purity=='entropy':
                         np_l = np_l[np.where(np_l>0.)]
                         purity_score_f = np.sum(-np_l*np.log2(np_l)) # Information gain per class
+                        # avec 20 classes
+                        # The highest value possible is 4.321928094887363 
+                        # loest 0.
                     elif kind_purity=='gini':
                         purity_score_f = np.sum(np_l*(1.-np_l))
                         # A Gini Impurity of 0 is the lowest and best possible impurity
-                    
+                        # avec 20 class the highest is 0.95
+                        # lowest 0.
                     purity_score_list += [purity_score_f]
                     
                 dico_percentage_intersec_list[layer_name_inlist] = purity_score_list
