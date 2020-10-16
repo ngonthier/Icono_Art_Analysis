@@ -211,7 +211,7 @@ def compute_OneValue_Per_Feature(dataset,model_name,constrNet,stats_on_layer='me
     else:
         # Pour ton windows il va falloir copier les model .h5 finetuné dans ce dossier la 
         # C:\media\gonthier\HDD2\output_exp\Covdata\RASTA\model
-        if 'RandInit' in model_name:
+        if 'RandInit' in model_name or 'RandForUnfreezed' in model_name:
             FT_model,init_model = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
             if FTmodel:
                 base_model = FT_model
