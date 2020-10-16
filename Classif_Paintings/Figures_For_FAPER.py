@@ -30,7 +30,7 @@ title_corr = {'pretrained': 'pretrained on ImageNet',
               'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_init': 'Random Init'
                 }
 
-def cka_fct_layers_plot(forPhDmanuscript=False):
+def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True):
     
     #matplotlib.use('Agg')
     #plt.switch_backend('agg')
@@ -49,9 +49,7 @@ def cka_fct_layers_plot(forPhDmanuscript=False):
                 ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200','RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200_init'],
                 ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_init'],
                 ['pretrained','RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200'],
-                ['pretrained','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG'],
-                ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200','RASTA_small01_modif'],
-                ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG','RASTA_small01_modif']
+                ['pretrained','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
                 ]
     if forPhDmanuscript:
         all_pairs = [['pretrained','RASTA_small01_modif'],
@@ -173,16 +171,26 @@ def cka_fct_layers_plot(forPhDmanuscript=False):
     ax.set_ylabel("CKA (linear)",fontsize=20)
     
     ncol= 2
+    loc='upper center'
     bbox_to_anchor=(0.5, 1.2)
     if forPhDmanuscript:
         ncol = 3
         bbox_to_anchor=(0.5, 1.15)
-    ax.legend(loc='upper center',  bbox_to_anchor=bbox_to_anchor, # under  bbox_to_anchor=(0.5, -0.05),
+    if side_legend:
+        ncol= 1
+        bbox_to_anchor=(1.01, 0.5)
+        loc='center left'
+    ax.legend(loc=loc,  bbox_to_anchor=bbox_to_anchor, # under  bbox_to_anchor=(0.5, -0.05),
           fancybox=True, shadow=False, ncol=ncol,fontsize=18)
+#    ax.legend(loc='upper center',  bbox_to_anchor=bbox_to_anchor, # under  bbox_to_anchor=(0.5, -0.05),
+#          fancybox=True, shadow=False, ncol=ncol,fontsize=18)
     
     
     ax.set_xticks(np.arange(len(list_layers)))
     ax.set_xticklabels(labels_, rotation=45,fontsize=18)
+    
+    if side_legend:
+        plt.tight_layout()
     
     plt.show()
     
@@ -369,5 +377,5 @@ def l2norm_fct_layers_plot():
     #input("wait")
 
 if __name__=='__main__':
-    cka_fct_layers_plot(forPhDmanuscript=True)    
+    cka_fct_layers_plot(forPhDmanuscript=False)    
     #l2norm_fct_layers_plot()
