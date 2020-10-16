@@ -601,8 +601,7 @@ def doing_impurity_for_paper():
                   'pretrained',
                   'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                   'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
-    model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
-                  'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
+    model_list = ['RASTA_small01_modif']
     kind_purity_tab = ['gini','entropy']
     kind_purity_tab = ['entropy']
     #model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
@@ -1323,6 +1322,81 @@ def overlapping_rate_boxplots(dataset,model_name,constrNet='InceptionV1',
         input('Enter to close.')
         plt.close()
         
+def scatter_plot_impurity_overlapping(dataset,model_name,constrNet='InceptionV1',
+                      list_layers=['conv2d0','conv2d1',
+                                  'conv2d2','mixed3a',
+                                  'mixed3b','mixed4a',
+                                  'mixed4b','mixed4c',
+                                  'mixed4d','mixed4e',
+                                  'mixed5a','mixed5b'],
+                            numberIm=100,stats_on_layer='mean',suffix='',
+                            FTmodel=True,
+                            output_path_for_dico=None,
+                            cropCenter = True,
+                            ReDo=False,
+                            kind_purity='gini'):
+    """
+    This function will plot in boxplot class purity in the top k images 
+    @param : numberIm = top k images used : numberIm = -1 if you want to take all the images
+    """
+    matplotlib.rcParams['text.usetex'] = True
+    sns.set()
+    sns.set_style("whitegrid")
+
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name+suffix)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
+    # For images
+    if output_path_for_dico is None:
+        output_path_for_dico = os.path.join(output_path,'Overlapping')
+    else:
+        output_path_for_dico = os.path.join(output_path_for_dico,'Overlapping')
+
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    pathlib.Path(output_path_for_dico).mkdir(parents=True, exist_ok=True) 
+    
+    dico_score_list = get_purity_dico(dataset,model_name,constrNet=constrNet,
+                      list_layers=list_layers,
+                            numberIm=numberIm,stats_on_layer=stats_on_layer,suffix=suffix,
+                            FTmodel=FTmodel,
+                            output_path_for_dico=None,
+                            cropCenter = cropCenter,
+                            ReDo=ReDo,
+                            kind_purity=kind_purity)
+      
+    if kind_purity=='entropy':
+        item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+        path_data,Not_on_NicolasPC = get_database(dataset)
+        np_l = np.array([1./num_classes]*num_classes)
+        max_entropy = np.sum(-np_l*np.log2(np_l))
+    
+    # Print the boxplot per layer
+    list_percentage = []
+    for layer_name_inlist in list_layers:
+        percentage_intersec_list = dico_score_list[layer_name_inlist]
+        if kind_purity=='entropy':
+            # we will normalize the entropy by the maximum entropy possible
+            percentage_intersec_list /= max_entropy 
+        list_percentage += [percentage_intersec_list]
+        
+    save_or_show = True
+    
+    if save_or_show:
+        matplotlib.use('Agg')
+        plt.switch_backend('agg')
+        
+    output_img = 'png'
+    case_str = str(numberIm)
+
+    ext_name =  'Purity_'+kind_purity
+    if kind_purity=='entropy':
+       str_kind = "Entropy"
+       leg_str = 'Entropy over classes'
+    elif kind_purity=='gini':
+        str_kind = 'Gini Impurity'
+        leg_str = 'Gini Impurity over classes'
+        
 def class_purity_boxplots(dataset,model_name,constrNet='InceptionV1',
                       list_layers=['conv2d0','conv2d1',
                                   'conv2d2','mixed3a',
@@ -1366,10 +1440,17 @@ def class_purity_boxplots(dataset,model_name,constrNet='InceptionV1',
                             ReDo=ReDo,
                             kind_purity=kind_purity)
       
+    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+    path_data,Not_on_NicolasPC = get_database(dataset)
+    np_l = np.array([1./num_classes]*num_classes)
+    max_score = np.sum(-np_l*np.log2(np_l))
+    
     # Print the boxplot per layer
     list_percentage = []
     for layer_name_inlist in list_layers:
         percentage_intersec_list = dico_score_list[layer_name_inlist]
+        # we will normalize the entropy by the maximum entropy possible or gini index by it max
+        percentage_intersec_list /= max_score 
         list_percentage += [percentage_intersec_list]
         
     save_or_show = True
