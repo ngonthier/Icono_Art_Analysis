@@ -1319,6 +1319,10 @@ def create_pairs_of_feat_vizu(model_name_base,constrNet='InceptionV1',
     @param : owncloud_mode we will use the synchronise owncloud folder tmp3 as output
 
     """
+    
+    matplotlib.use('Agg')
+    plt.switch_backend('agg')
+    
     if not(FTmodel):
         raise(NotImplementedError)
 
@@ -1420,7 +1424,7 @@ def create_pairs_of_feat_vizu(model_name_base,constrNet='InceptionV1',
                 name_base = layer + kind_layer +'_'+str(index_feature)+'_'+prexif_name+ext+'_toRGB.png'
                 
                 full_name=os.path.join(path_output_lucid_im_l,name_base)
-                print(full_name)
+                #print(full_name)
                 
                 if not(os.path.isfile(full_name)): # If the image do not exist, we 
                     # will create it
@@ -1457,23 +1461,30 @@ def create_pairs_of_feat_vizu(model_name_base,constrNet='InceptionV1',
     # Now we deal with the figure of the different feat vizu !             
     
     for layer in list_layers:
-        i_line = 0 
-        figw, figh = 2,2.1
+        print('===',layer,'===')
+        
+        output_path_for_pair_l =os.path.join(output_path_for_pair,layer)
+
+        pathlib.Path(output_path_for_pair_l).mkdir(parents=True, exist_ok=True)
+        
+        #i_line = 0 
+        figw, figh = 2,1.1
         num_feat = list_num_feat[layer]
         
         
-        smallest_pt,med_pt,highest_pt,sm_val,med_val,high_val = dico_overlapping_index_feat[layer]
+        #smallest_pt,med_pt,highest_pt,sm_val,med_val,high_val = dico_overlapping_index_feat[layer]
         plt.rcParams["figure.figsize"] = [figw, figh]
         plt.rcParams["axes.titlesize"] = 12
-        plt.rcParams["axes.labelsize"] = 6
+        #plt.rcParams["axes.labelsize"] = 6
         
-        fig = plt.figure()
-        gs0 = gridspec.GridSpec(1, 1, figure=fig)
+        
         #gs00 = gridspec.GridSpecFromSubplotSpec(3, 3, subplot_spec=gs0[0])
         #fig, axes = plt.subplots(3, numb_points*2) 
         # squeeze=False for the case of one figure only
         #fig.suptitle(layer)
         for index_feature in range(0,num_feat):
+            fig = plt.figure()
+            gs0 = gridspec.GridSpec(1, 1, figure=fig)
                 
             ## FT model
             #Name of the image 
@@ -1497,14 +1508,14 @@ def create_pairs_of_feat_vizu(model_name_base,constrNet='InceptionV1',
             full_name=os.path.join(path_output_lucid_im_l,name_base)
             
             # Get the subplot
-            gsij = gridspec.GridSpecFromSubplotSpec(1,2, subplot_spec=gs0[i_line,j],wspace = 0.0)
+            gsij = gridspec.GridSpecFromSubplotSpec(1,2, subplot_spec=gs0[0],wspace = 0.0)
             #ax = fig.add_subplot(1,2,gs0[i_line,j],wspace = 0.0)
             ax = fig.add_subplot(gsij[0])
             #ax = axes[i_line,j*2]
             img = plt.imread(full_name)
             #print(img)
             ax.imshow(img, interpolation='none')
-            title_l_j = str(index_feature) + 'FT'
+            title_l_j = str(index_feature) + ' : FT'
             #gsij.set_title(title_l_j, fontsize=8)
             ax.set_title(title_l_j, fontsize=6,pad=3.0)
             ax.tick_params(axis='both', which='both', length=0)
@@ -1559,16 +1570,13 @@ def create_pairs_of_feat_vizu(model_name_base,constrNet='InceptionV1',
             #fig = ax.get_figure()
             #fig.tight_layout()
                 #fig.subplots_adjust(top=1.05)
-                
-            i_line += 1
+
         #plt.subplots_adjust(top=1-1/figh)         
         # name figure
             name_fig = 'FeatVizu_Pair_'+str(index_feature)
-            if not(dataset=='RASTA'):
-                name_fig+= '_' + dataset
             
             name_fig = layer + '_' + name_fig
-            path_fig = os.path.join(output_path_for_pair,name_fig)
+            path_fig = os.path.join(output_path_for_pair_l,name_fig)
             plt.savefig(path_fig,dpi=300,bbox_inches='tight')
             plt.close()
                     
@@ -2096,16 +2104,16 @@ if __name__ == '__main__':
 #                                                num_feature=13,
 #                                                numberIm=81)
     
-    list_features = [['mixed4c_3x3_bottleneck_pre_relu',78],
-                     ['mixed4c_pool_reduce_pre_relu',2],
-                     ['mixed4d_5x5_pre_relu',49]
-                     ]
-    for layer_name,num_feature in list_features:
-        plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_small01_modif',
-                               constrNet='InceptionV1',
-                            layer_name=layer_name,
-                            num_feature=num_feature,
-                            numberIm=100)
+    # list_features = [['mixed4c_3x3_bottleneck_pre_relu',78],
+    #                  ['mixed4c_pool_reduce_pre_relu',2],
+    #                  ['mixed4d_5x5_pre_relu',49]
+    #                  ]
+    # for layer_name,num_feature in list_features:
+    #     plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_small01_modif',
+    #                            constrNet='InceptionV1',
+    #                         layer_name=layer_name,
+    #                         num_feature=num_feature,
+    #                         numberIm=100)
 #    
 #    # Nom de fichier	mixed3a_5x5_bottleneck_pre_reluConv2D_8_RASTA_small01_modif.png	
 #    dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')
