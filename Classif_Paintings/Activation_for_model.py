@@ -51,6 +51,11 @@ from CompNet_FT_lucidIm import get_fine_tuned_model,convert_finetuned_modelToFro
 CB_color_cycle = ['#377eb8', '#ff7f00','#984ea3', '#4daf4a','#A2C8EC','#e41a1c',
                   '#f781bf', '#a65628', '#dede00','#FFBC79','#999999','#747fba']
 
+list_modified_in_unfreeze50 = ['mixed4a',
+          'mixed4b','mixed4c',
+          'mixed4d','mixed4e',
+          'mixed5a','mixed5b']
+
 def get_Network(Net):
     weights = 'imagenet'
     
@@ -586,8 +591,10 @@ def doing_overlaps_for_paper():
     numberIm_list = [100,1000,-1]
     model_list = ['RASTA_small01_modif']
     model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
-    model_list = ['RASTA_big001_modif_deepSupervision',
-                  'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
+    model_list = ['RASTA_small01_modif',
+                  'RASTA_big001_modif_deepSupervision',
+                  'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                  'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
     for model_name in model_list:
         for numberIm in numberIm_list:
             overlapping_rate_boxplots(dataset='RASTA',model_name=model_name,
@@ -603,6 +610,8 @@ def doing_impurity_for_paper():
                   'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                   'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
     model_list = ['RASTA_small01_modif']
+    model_list = ['RASTA_small01_modif','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                  'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
     kind_purity_tab = ['gini','entropy']
     kind_purity_tab = ['entropy']
     #model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
@@ -1599,6 +1608,21 @@ def overlapping_rate_boxplots(dataset,model_name,constrNet='InceptionV1',
     This function will plot in boxplot overlapping ratio between the top k images 
     @param : numberIm = top k images used : numberIm = -1 if you want to take all the images
     """
+    
+    if 'RandForUnfreezed' in model_name:
+        if not('unfreeze50' in  model_name):
+           raise(NotImplementedError)
+        list_layers_new = []
+        index_start_color =0
+        for layer in list_layers:
+            if layer in list_modified_in_unfreeze50:
+                list_layers_new += [layer]
+            else:
+                index_start_color+=1
+        list_layers = list_layers_new
+    else:
+        index_start_color= 0
+    
     matplotlib.rcParams['text.usetex'] = True
     sns.set()
     sns.set_style("whitegrid")
@@ -1666,7 +1690,7 @@ def overlapping_rate_boxplots(dataset,model_name,constrNet='InceptionV1',
             boxY.append(box.get_ydata()[j])
         box_coords = np.column_stack([boxX, boxY])
         # Color of the box
-        ax1.add_patch(Polygon(box_coords, facecolor=CB_color_cycle[i % (len(CB_color_cycle))],alpha=0.5))
+        ax1.add_patch(Polygon(box_coords, facecolor=CB_color_cycle[index_start_color+i % (len(CB_color_cycle))],alpha=0.5))
         # Now draw the median lines back over what we just filled in
         med = bp['medians'][i]
         medianX = []
@@ -1922,7 +1946,21 @@ def class_purity_boxplots(dataset,model_name,constrNet='InceptionV1',
     matplotlib.rcParams['text.usetex'] = True
     sns.set()
     sns.set_style("whitegrid")
-
+    
+    if 'RandForUnfreezed' in model_name:
+        if not('unfreeze50' in  model_name):
+           raise(NotImplementedError)
+        list_layers_new = []
+        index_start_color =0
+        for layer in list_layers:
+            if layer in list_modified_in_unfreeze50:
+                list_layers_new += [layer]
+            else:
+                index_start_color+=1
+        list_layers = list_layers_new
+    else:
+        index_start_color= 0
+            
     if platform.system()=='Windows': 
         output_path = os.path.join('CompModifModel',constrNet,model_name+suffix)
     else:
@@ -2001,7 +2039,7 @@ def class_purity_boxplots(dataset,model_name,constrNet='InceptionV1',
             boxY.append(box.get_ydata()[j])
         box_coords = np.column_stack([boxX, boxY])
         # Color of the box
-        ax1.add_patch(Polygon(box_coords, facecolor=CB_color_cycle[i % (len(CB_color_cycle))],alpha=0.5))
+        ax1.add_patch(Polygon(box_coords, facecolor=CB_color_cycle[index_start_color+i % (len(CB_color_cycle))],alpha=0.5))
         # Now draw the median lines back over what we just filled in
         med = bp['medians'][i]
         medianX = []
@@ -2104,16 +2142,18 @@ if __name__ == '__main__':
 #                                                num_feature=13,
 #                                                numberIm=81)
     
-    # list_features = [['mixed4c_3x3_bottleneck_pre_relu',78],
-    #                  ['mixed4c_pool_reduce_pre_relu',2],
-    #                  ['mixed4d_5x5_pre_relu',49]
-    #                  ]
-    # for layer_name,num_feature in list_features:
-    #     plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_small01_modif',
-    #                            constrNet='InceptionV1',
-    #                         layer_name=layer_name,
-    #                         num_feature=num_feature,
-    #                         numberIm=100)
+
+#    list_features = [['mixed4c_3x3_bottleneck_pre_relu',78],
+#                     ['mixed4c_pool_reduce_pre_relu',2],
+#                     ['mixed4d_5x5_pre_relu',49]
+#                     ]
+#    for layer_name,num_feature in list_features:
+#        plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_small01_modif',
+#                               constrNet='InceptionV1',
+#                            layer_name=layer_name,
+#                            num_feature=num_feature,
+#                            numberIm=100)
+
 #    
 #    # Nom de fichier	mixed3a_5x5_bottleneck_pre_reluConv2D_8_RASTA_small01_modif.png	
 #    dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')
@@ -2203,6 +2243,20 @@ if __name__ == '__main__':
 #                                    owncloud_mode=True)
     
     # Model RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200 : faire l'image Top 100 pour certaines couches
+# Random Initialisation
+    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                           constrNet='InceptionV1',
+                            layer_name='mixed4d_5x5_pre_relu',
+                            num_feature=50,
+                            numberIm=100,alreadyAtInit=False,
+                            FTmodel=False)
+    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                           constrNet='InceptionV1',
+                            layer_name='mixed5a_3x3_bottleneck_pre_relu',
+                            num_feature=1,
+                            numberIm=100,alreadyAtInit=False,
+                            FTmodel=False)
+    # Trained model 
 #    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
 #                           constrNet='InceptionV1',
 #                            layer_name='mixed4d_5x5_pre_relu',

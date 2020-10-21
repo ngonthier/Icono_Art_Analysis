@@ -137,12 +137,15 @@ if __name__ == '__main__':
                     output_path=output_path,
                     alreadyAtInit=False)
     
-    # Model from scratch completement
+    # Model from scratch pour l'annexe du papier
     list_models = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
     list_features = [['mixed4d',8],['mixed4d',16],['mixed4d',66]]
     output_path = os.path.join(os.sep,'Users','gonthier','Travail','V3DHNORD','im_old')
     do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
                                  output_path=output_path,constrNet='InceptionV1')
+
+    
+    
     do_TopK_figures(list_models_name=list_models,
                     list_layer_index_to_print=list_features,
                     suffix_tab=[''],dataset='RASTA',
@@ -161,6 +164,12 @@ if __name__ == '__main__':
     output_path = os.path.join(os.sep,'Users','gonthier','Travail','V3DHNORD','im_old')
     do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
                                  output_path=output_path,constrNet='InceptionV1',init_model_use=True)
+    list_models = ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
+    list_features = [['mixed4d_5x5_pre_relu',50],['mixed5a_3x3_bottleneck_pre_relu',1]]
+    output_path = os.path.join(os.sep,'Users','gonthier','Travail','V3DHNORD','im_old')
+    do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
+                                 output_path=output_path,constrNet='InceptionV1',init_model_use=True)
+    
     
     do_TopK_figures(list_models_name=list_models,
                     list_layer_index_to_print=list_features,
