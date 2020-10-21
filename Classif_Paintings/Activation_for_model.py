@@ -2134,16 +2134,16 @@ if __name__ == '__main__':
 #                                                num_feature=13,
 #                                                numberIm=81)
     
-    list_features = [['mixed4c_3x3_bottleneck_pre_relu',78],
-                     ['mixed4c_pool_reduce_pre_relu',2],
-                     ['mixed4d_5x5_pre_relu',49]
-                     ]
-    for layer_name,num_feature in list_features:
-        plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_small01_modif',
-                               constrNet='InceptionV1',
-                            layer_name=layer_name,
-                            num_feature=num_feature,
-                            numberIm=100)
+#    list_features = [['mixed4c_3x3_bottleneck_pre_relu',78],
+#                     ['mixed4c_pool_reduce_pre_relu',2],
+#                     ['mixed4d_5x5_pre_relu',49]
+#                     ]
+#    for layer_name,num_feature in list_features:
+#        plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_small01_modif',
+#                               constrNet='InceptionV1',
+#                            layer_name=layer_name,
+#                            num_feature=num_feature,
+#                            numberIm=100)
 #    
 #    # Nom de fichier	mixed3a_5x5_bottleneck_pre_reluConv2D_8_RASTA_small01_modif.png	
 #    dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')
@@ -2233,6 +2233,20 @@ if __name__ == '__main__':
 #                                    owncloud_mode=True)
     
     # Model RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200 : faire l'image Top 100 pour certaines couches
+# Random Initialisation
+    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                           constrNet='InceptionV1',
+                            layer_name='mixed4d_5x5_pre_relu',
+                            num_feature=50,
+                            numberIm=100,alreadyAtInit=False,
+                            FTmodel=False)
+    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                           constrNet='InceptionV1',
+                            layer_name='mixed5a_3x3_bottleneck_pre_relu',
+                            num_feature=1,
+                            numberIm=100,alreadyAtInit=False,
+                            FTmodel=False)
+    # Trained model 
 #    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
 #                           constrNet='InceptionV1',
 #                            layer_name='mixed4d_5x5_pre_relu',
