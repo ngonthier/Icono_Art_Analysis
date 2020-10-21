@@ -26,7 +26,8 @@ def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],
                     stats_on_layer = 'meanAfterRelu',
                     output_path='',
                     alreadyAtInit=False,
-                    ReDo=False):
+                    ReDo=False,
+                    FTmodel=True):
     
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     for model_name in list_models_name:
@@ -54,7 +55,7 @@ def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],
                                 num_feature=num_feature,
                                 numberIm=numberIm,stats_on_layer=stats_on_layer,
                                 suffix=suffix,
-                                FTmodel=True,
+                                FTmodel=FTmodel,
                                 output_path_for_img=output_path_for_img,
                                 alreadyAtInit=alreadyAtInit,ReDo=ReDo)
                     
@@ -139,7 +140,7 @@ if __name__ == '__main__':
     # Model from scratch completement
     list_models = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
     list_features = [['mixed4d',8],['mixed4d',16],['mixed4d',66]]
-    output_path = os.path.join(os.sep,'Users','gonthier','Travail','DHNordPaper','im')
+    output_path = os.path.join(os.sep,'Users','gonthier','Travail','V3DHNORD','im_old')
     do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
                                  output_path=output_path,constrNet='InceptionV1')
     do_TopK_figures(list_models_name=list_models,
@@ -151,6 +152,26 @@ if __name__ == '__main__':
                     output_path=output_path,
                     alreadyAtInit=False)
     
+    # Same model but random initialisation
+    from CompNet_FT_lucidIm import do_lucid_vizu_for_list_model,print_performance_FineTuned_network
+    from Figures_For_DHNord import do_TopK_figures
+    import os
+    list_models = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+    list_features = [['mixed4d',8],['mixed4d',16],['mixed4d',66]]
+    output_path = os.path.join(os.sep,'Users','gonthier','Travail','V3DHNORD','im_old')
+    do_lucid_vizu_for_list_model(list_models_name=list_models,list_layer_index_to_print=list_features,
+                                 output_path=output_path,constrNet='InceptionV1',init_model_use=True)
+    
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 100,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path,
+                    FTmodel=False)
+    
+    
     # Print fine-tuned models :
     list_models_name = ['RASTA_small01_modif',
                         'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
@@ -160,7 +181,8 @@ if __name__ == '__main__':
                                         suffix_tab=[''],latexOutput=True)
     
     # Figures pour Model trained on RASTA and then on IconArt 
-    list_models_name = ['IconArt_v1_big01_modif_XXRASTA_small01_modifXX','RASTA_small01_modif','pretrained']
+    list_models_name = ['IconArt_v1_big01_modif_XXRASTA_small01_modifXX','RASTA_small01_modif',
+                        'pretrained']
     list_models_name = ['IconArt_v1_small01_modif']
     list_features = [['mixed4d_3x3_bottleneck_pre_relu',64],
                      ['mixed4c_5x5_bottleneck_pre_relu',1],

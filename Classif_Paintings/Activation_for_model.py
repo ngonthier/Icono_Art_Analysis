@@ -43,12 +43,13 @@ import matplotlib.gridspec as gridspec
 import matplotlib.image as mpimg
 import pandas as pd
 import tikzplotlib
+from matplotlib.colors import LinearSegmentedColormap
 
 from CompNet_FT_lucidIm import get_fine_tuned_model,convert_finetuned_modelToFrozenGraph,\
     get_path_pbmodel_pretrainedModel
 
 CB_color_cycle = ['#377eb8', '#ff7f00','#984ea3', '#4daf4a','#A2C8EC','#e41a1c',
-                  '#f781bf', '#a65628', '#dede00','#FFBC79','#999999']
+                  '#f781bf', '#a65628', '#dede00','#FFBC79','#999999','#747fba']
 
 def get_Network(Net):
     weights = 'imagenet'
@@ -614,6 +615,28 @@ def doing_impurity_for_paper():
                                constrNet='InceptionV1',numberIm=numberIm,
                                stats_on_layer='meanAfterRelu',
                                kind_purity=kind_purity)# because meanAfterRelu already computed
+                
+def doing_scatter_for_paper():
+    
+    numberIm_list = [100,1000,-1]
+    numberIm_list = [100]
+    model_list = ['RASTA_small01_modif',
+                  'pretrained',
+                  'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                  'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
+    model_list = ['RASTA_small01_modif']
+    kind_purity_tab = ['gini','entropy']
+    kind_purity_tab = ['entropy']
+    #model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+    #model_list = ['RASTA_big001_modif_deepSupervision',
+    #              'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
+    for model_name in model_list:
+        for numberIm in numberIm_list:
+            for kind_purity in kind_purity_tab:
+                scatter_plot_impurity_overlapping(dataset='RASTA',model_name=model_name,
+                               constrNet='InceptionV1',numberIm=numberIm,
+                               stats_on_layer='meanAfterRelu',
+                               kind_purity=kind_purity)# because meanAfterRelu already computed
  
 def get_overlapping_dico(dataset,model_name,constrNet='InceptionV1',
                       list_layers=['conv2d0','conv2d1',
@@ -748,9 +771,90 @@ def get_overlapping_dico(dataset,model_name,constrNet='InceptionV1',
                     
                 dico_percentage_intersec_list[layer_name_inlist] = percentage_intersec_list
                 
-                with open(name_path_dico, 'wb') as handle:
-                    pickle.dump(dico_percentage_intersec_list,handle)
+        with open(name_path_dico, 'wb') as handle:
+            pickle.dump(dico_percentage_intersec_list,handle)
+            
     return(dico_percentage_intersec_list)
+    
+def get_deadkernel_dico(dataset,model_name,constrNet='InceptionV1',
+                      list_layers=['conv2d0','conv2d1',
+                                  'conv2d2','mixed3a',
+                                  'mixed3b','mixed4a',
+                                  'mixed4b','mixed4c',
+                                  'mixed4d','mixed4e',
+                                  'mixed5a','mixed5b'],
+                            numberIm=100,stats_on_layer='mean',suffix='',
+                            output_path_for_dico=None,
+                            cropCenter = True,
+                            ReDo=False):
+    """
+    This fct return the dico of channel that have a positive response for at least
+    one image on the dataset
+    """
+    FTmodel = True
+    model_name_wo_oldModel,weights = get_model_name_wo_oldModel(model_name)
+    
+#    item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,\
+#    path_data,Not_on_NicolasPC = get_database(dataset)
+#    df_train = df_label[df_label['set']=='train']
+    #name_images = df_train[item_name].values
+    
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name+suffix)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
+    # For images
+    if output_path_for_dico is None:
+        output_path_for_dico = os.path.join(output_path,'Overlapping')
+    else:
+        output_path_for_dico = os.path.join(output_path_for_dico,'Overlapping')
+
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    pathlib.Path(output_path_for_dico).mkdir(parents=True, exist_ok=True) 
+
+    
+    name_dico = 'NotDeadKernel_'+str(numberIm)
+    if not(stats_on_layer=='meanAfterRelu'):
+        name_dico+= '_' + stats_on_layer
+    if not(dataset=='RASTA'):
+        name_dico+= '_' + dataset
+    name_path_dico = os.path.join(output_path_for_dico,name_dico+'.pkl')
+    
+    
+    if os.path.exists(name_path_dico) and not(ReDo):
+        # The file exist
+        with open(name_path_dico, 'rb') as handle:
+            dico_index_list = pickle.load(handle)
+    else:
+    
+        dico_index_list = {}
+        
+        list_outputs_name,activations = get_list_activations(dataset,
+                                                         output_path,stats_on_layer,
+                                                         model_name,constrNet,
+                                                         suffix,cropCenter,FTmodel,
+                                                         model_name_wo_oldModel)
+        
+       
+        for layer_name_inlist,activations_l in zip(list_outputs_name,activations):
+            if layer_name_inlist in list_layers:
+                print('===',layer_name_inlist,'===')
+                num_im, number_of_features = activations_l.shape
+                
+                index_list = []
+                
+                for num_feature in range(number_of_features):
+                    activations_l_f = activations_l[:,num_feature]
+                    where_activations_l_f_pos = np.where(activations_l_f>0)[0]
+                    if len(where_activations_l_f_pos)>0:
+                        index_list += [num_feature]
+                    
+                dico_index_list[layer_name_inlist] = index_list
+                
+        with open(name_path_dico, 'wb') as handle:
+            pickle.dump(dico_index_list,handle)
+            
+    return(dico_index_list)
     
     
 def get_purity_dico(dataset,model_name,constrNet='InceptionV1',
@@ -885,8 +989,9 @@ def get_purity_dico(dataset,model_name,constrNet='InceptionV1',
                     
                 dico_percentage_intersec_list[layer_name_inlist] = purity_score_list
                 
-                with open(name_path_dico, 'wb') as handle:
-                    pickle.dump(dico_percentage_intersec_list,handle)
+        with open(name_path_dico, 'wb') as handle:
+            pickle.dump(dico_percentage_intersec_list,handle)
+                    
     return(dico_percentage_intersec_list)
     
               
@@ -912,11 +1017,13 @@ def do_featVizu_for_Extrem_points(dataset,model_name_base,constrNet='InceptionV1
     @param : owncloud_mode we will use the synchronise owncloud folder tmp3 as output
 
     """
+    if not(FTmodel):
+        raise(NotImplementedError)
     assert(numb_points>0)
     if platform.system()=='Windows': 
         output_path = os.path.join('CompModifModel',constrNet,model_name_base+suffix)
     else:
-        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+suffix)
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name_base+suffix)
     # For dico
     if output_path_for_dico is None:
         output_path_for_dico = os.path.join(output_path,'Overlapping')
@@ -1192,6 +1299,278 @@ def do_featVizu_for_Extrem_points(dataset,model_name_base,constrNet='InceptionV1
         path_fig = os.path.join(output_path_for_dico,name_fig)
         plt.savefig(path_fig,dpi=300,bbox_inches='tight')
         plt.close()
+        
+def create_pairs_of_feat_vizu(model_name_base,constrNet='InceptionV1',
+                              list_layers=['conv2d0','conv2d1',
+                                  'conv2d2','mixed3a',
+                                  'mixed3b','mixed4a',
+                                  'mixed4b','mixed4c',
+                                  'mixed4d','mixed4e',
+                                  'mixed5a','mixed5b']
+                                 ,suffix='',
+                                FTmodel=True,
+                                output_path_for_pair=None,
+                                cropCenter = True,
+                                ReDo=False,
+                                owncloud_mode=True):
+    """
+    This fct will create images with pairs of feat vizu pairs for the layers in 
+    list_layers
+    @param : owncloud_mode we will use the synchronise owncloud folder tmp3 as output
+
+    """
+    if not(FTmodel):
+        raise(NotImplementedError)
+
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,model_name_base+suffix)
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name_base+suffix)
+    # For output images
+    if output_path_for_pair is None:
+        output_path_for_pair = os.path.join(output_path,'Pairs')
+    else:
+        output_path_for_pair = os.path.join(output_path_for_pair,'Pairs')
+
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    pathlib.Path(output_path_for_pair).mkdir(parents=True, exist_ok=True) 
+    
+    
+    ROBUSTNESS = True
+    DECORRELATE = True
+    
+    if 'RandInit' in model_name_base or 'RandForUnfreezed' in model_name_base:
+        raise(NotImplementedError)
+        list_models = [model_name_base,model_name_base]
+        list_suffix = [suffix,'']
+    else:
+        list_models = [model_name_base,'pretrained']
+        list_suffix = [suffix,'']
+        
+    if DECORRELATE:
+        ext='_Deco'
+    else:
+        ext=''
+    
+    if ROBUSTNESS:
+      ext+= ''
+    else:
+      ext+= '_noRob'
+        
+    firstTime = True
+     
+    list_num_feat = {}
+    
+    for model_name,suffix_str in zip(list_models,list_suffix):
+        prexif_name=model_name+suffix
+        if model_name=='pretrained':
+            prexif_name = 'Imagnet'
+        # TODO et le cas init ????
+        if not(model_name=='pretrained'):
+            net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+
+            path_lucid_model = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','Lucid_model')
+            name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
+            if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
+                name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                                           constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+            if constrNet=='VGG':
+                input_name_lucid ='block1_conv1_input'
+            elif constrNet=='InceptionV1':
+                input_name_lucid ='input_1'
+            elif constrNet=='InceptionV1_slim':
+                input_name_lucid ='input_1'
+        
+        else:
+            path_lucid_model = os.path.join('')
+            name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet=constrNet)
+
+        add_end_folder_name = suffix_str
+        if platform.system()=='Windows': 
+            if owncloud_mode:
+                path_output_lucid_im = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,model_name+add_end_folder_name)
+            else:
+                path_output_lucid_im = os.path.join('CompModifModel',constrNet,model_name+add_end_folder_name)
+        else:
+            path_output_lucid_im = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+add_end_folder_name)
+    
+        if firstTime:
+            dico_overlapping_index_feat = {}
+
+        for layer in list_layers:
+            
+            # output folder of the images
+            path_output_lucid_im_l = os.path.join(path_output_lucid_im,layer)
+            pathlib.Path(path_output_lucid_im_l).mkdir(parents=True, exist_ok=True)
+            
+            net_layer = net_finetuned.get_layer(layer)
+            shape_layer = net_layer.output_shape
+            num_feat = shape_layer[-1]
+            if firstTime:
+                list_num_feat[layer] = num_feat
+            
+            all_features_index = [i for i in range(num_feat)]
+            
+            for index_feature in all_features_index:
+                
+                obj_str,kind_layer = lucid_utils.get_obj_and_kind_layer(layer_to_print=layer
+                                                                        ,Net=constrNet)
+    
+                #layer
+                name_base = layer + kind_layer +'_'+str(index_feature)+'_'+prexif_name+ext+'_toRGB.png'
+                
+                full_name=os.path.join(path_output_lucid_im_l,name_base)
+                print(full_name)
+                
+                if not(os.path.isfile(full_name)): # If the image do not exist, we 
+                    # will create it
+                    suffix_str = suffix                                                                     
+                    if not(model_name=='pretrained'):
+                        name_pb = 'tf_graph_'+constrNet+model_name+suffix_str+'.pb'
+                        if not(os.path.isfile(os.path.join(path_lucid_model,name_pb))):
+                            name_pb = convert_finetuned_modelToFrozenGraph(model_name,
+                                                       constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+                        if constrNet=='VGG':
+                            input_name_lucid ='block1_conv1_input'
+                        elif constrNet=='InceptionV1':
+                            input_name_lucid ='input_1'
+                        elif constrNet=='InceptionV1_slim':
+                            input_name_lucid ='input_1'
+                    
+                    else:
+                        name_pb,input_name_lucid = get_path_pbmodel_pretrainedModel(constrNet='InceptionV1')
+                    # Ici il peut y avoir un problem si par le passe il y a eu un bug lors de l execution du code, 
+                    # le fichier .pb doit etre supprime et recreer
+                    #print('name_pb',os.path.join(path_lucid_model,name_pb))
+                    lucid_utils.print_images(model_path=os.path.join(path_lucid_model,name_pb),
+                                             list_layer_index_to_print=[[layer,index_feature]],
+                                             path_output=path_output_lucid_im_l,prexif_name=prexif_name,\
+                                             input_name=input_name_lucid,Net=constrNet,sizeIm=224,
+                                             ROBUSTNESS=ROBUSTNESS,
+                                             DECORRELATE=DECORRELATE)   
+                    
+                    # Il faut aussi faire le cas pretrained ou init model !
+                    #TODO
+        firstTime = False
+                    
+       
+    # Now we deal with the figure of the different feat vizu !             
+    
+    for layer in list_layers:
+        i_line = 0 
+        figw, figh = 2,2.1
+        num_feat = list_num_feat[layer]
+        
+        
+        smallest_pt,med_pt,highest_pt,sm_val,med_val,high_val = dico_overlapping_index_feat[layer]
+        plt.rcParams["figure.figsize"] = [figw, figh]
+        plt.rcParams["axes.titlesize"] = 12
+        plt.rcParams["axes.labelsize"] = 6
+        
+        fig = plt.figure()
+        gs0 = gridspec.GridSpec(1, 1, figure=fig)
+        #gs00 = gridspec.GridSpecFromSubplotSpec(3, 3, subplot_spec=gs0[0])
+        #fig, axes = plt.subplots(3, numb_points*2) 
+        # squeeze=False for the case of one figure only
+        #fig.suptitle(layer)
+        for index_feature in range(0,num_feat):
+                
+            ## FT model
+            #Name of the image 
+            model_name = list_models[0]
+            suffix_str = list_suffix[0]
+            prexif_name=model_name+suffix
+            if model_name=='pretrained':
+                prexif_name = 'Imagnet'
+            add_end_folder_name = suffix_str
+            if platform.system()=='Windows': 
+                if owncloud_mode:
+                    path_output_lucid_im = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,model_name+add_end_folder_name)
+                else:
+                    path_output_lucid_im = os.path.join('CompModifModel',constrNet,model_name+add_end_folder_name)
+            else:
+                path_output_lucid_im = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+add_end_folder_name)
+            path_output_lucid_im_l = os.path.join(path_output_lucid_im,layer)
+            obj_str,kind_layer = lucid_utils.get_obj_and_kind_layer(layer_to_print=layer
+                                                                    ,Net=constrNet)
+            name_base = layer + kind_layer +'_'+str(index_feature)+'_'+prexif_name+ext+'_toRGB.png'
+            full_name=os.path.join(path_output_lucid_im_l,name_base)
+            
+            # Get the subplot
+            gsij = gridspec.GridSpecFromSubplotSpec(1,2, subplot_spec=gs0[i_line,j],wspace = 0.0)
+            #ax = fig.add_subplot(1,2,gs0[i_line,j],wspace = 0.0)
+            ax = fig.add_subplot(gsij[0])
+            #ax = axes[i_line,j*2]
+            img = plt.imread(full_name)
+            #print(img)
+            ax.imshow(img, interpolation='none')
+            title_l_j = str(index_feature) + 'FT'
+            #gsij.set_title(title_l_j, fontsize=8)
+            ax.set_title(title_l_j, fontsize=6,pad=3.0)
+            ax.tick_params(axis='both', which='both', length=0)
+            plt.setp(ax.get_xticklabels(), visible=False)
+            plt.setp(ax.get_yticklabels(), visible=False)
+            #fig = ax.get_figure()
+            #fig.tight_layout()
+            #fig.subplots_adjust(top=1.05)
+            
+            ## Initialisation model
+            #Name of the image 
+            model_name = list_models[1]
+            suffix_str = list_suffix[1]
+            prexif_name=model_name+suffix
+            if model_name=='pretrained':
+                prexif_name = 'Imagnet'
+            add_end_folder_name = suffix_str
+            if platform.system()=='Windows': 
+                if owncloud_mode:
+                    path_output_lucid_im = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,model_name+add_end_folder_name)
+                else:
+                    path_output_lucid_im = os.path.join('CompModifModel',constrNet,model_name+add_end_folder_name)
+            else:
+                path_output_lucid_im = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,model_name+add_end_folder_name)
+            path_output_lucid_im_l = os.path.join(path_output_lucid_im,layer)
+            obj_str,kind_layer = lucid_utils.get_obj_and_kind_layer(layer_to_print=layer
+                                                                    ,Net=constrNet)
+            name_base = layer + kind_layer +'_'+str(index_feature)+'_'+prexif_name+ext+'_toRGB.png'
+            full_name=os.path.join(path_output_lucid_im_l,name_base)
+            
+            # Get the subplot
+            #ax = axes[i_line,j*2+1]
+            ax = fig.add_subplot(gsij[1])
+            img = plt.imread(full_name)
+            #print(img)
+            ax.imshow(img, interpolation='none')
+            if model_name=='pretrained':
+                title_beginning = 'Pretrained'
+            else:
+                title_beginning = 'Init'
+            title_l_j = title_beginning #+' ' + case + ' ' + str(index_feature) + ' : ' + str(value)
+            ax.set_title(title_l_j, fontsize=6,pad=3.0)
+#                ax.tick_params(axis='both', which='both', length=0)
+#                plt.setp(ax.get_xticklabels(), visible=False)
+#                plt.setp(ax.get_yticklabels(), visible=False)
+            
+            #title_l_j = 'FT' + ' ' + str(index_feature) + ' : ' + str(value) + ' ' + title_beginning
+            #gsij.set_title(title_l_j, fontsize=8)
+            ax.tick_params(axis='both', which='both', length=0)
+            plt.setp(ax.get_xticklabels(), visible=False)
+            plt.setp(ax.get_yticklabels(), visible=False)
+            #fig = ax.get_figure()
+            #fig.tight_layout()
+                #fig.subplots_adjust(top=1.05)
+                
+            i_line += 1
+        #plt.subplots_adjust(top=1-1/figh)         
+        # name figure
+            name_fig = 'FeatVizu_Pair_'+str(index_feature)
+            if not(dataset=='RASTA'):
+                name_fig+= '_' + dataset
+            
+            name_fig = layer + '_' + name_fig
+            path_fig = os.path.join(output_path_for_pair,name_fig)
+            plt.savefig(path_fig,dpi=300,bbox_inches='tight')
+            plt.close()
                     
                     
                     
@@ -1329,16 +1708,19 @@ def scatter_plot_impurity_overlapping(dataset,model_name,constrNet='InceptionV1'
                                   'mixed4b','mixed4c',
                                   'mixed4d','mixed4e',
                                   'mixed5a','mixed5b'],
+#                      list_layers=['mixed5b'],
                             numberIm=100,stats_on_layer='mean',suffix='',
                             FTmodel=True,
                             output_path_for_dico=None,
                             cropCenter = True,
                             ReDo=False,
-                            kind_purity='gini'):
+                            kind_purity='entropy'):
     """
     This function will plot in boxplot class purity in the top k images 
     @param : numberIm = top k images used : numberIm = -1 if you want to take all the images
     """
+    
+    #scatter_plot_impurity_overlapping('RASTA','RASTA_small01_modif',stats_on_layer=)
     matplotlib.rcParams['text.usetex'] = True
     sns.set()
     sns.set_style("whitegrid")
@@ -1356,6 +1738,29 @@ def scatter_plot_impurity_overlapping(dataset,model_name,constrNet='InceptionV1'
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
     pathlib.Path(output_path_for_dico).mkdir(parents=True, exist_ok=True) 
     
+    dico_not_deadkernel_list = get_deadkernel_dico(dataset,model_name,constrNet=constrNet,
+                      list_layers=list_layers,
+                            numberIm=numberIm,stats_on_layer=stats_on_layer,suffix=suffix,
+                            output_path_for_dico=None,
+                            cropCenter = cropCenter,
+                            ReDo=ReDo)
+      
+    
+    dico_percentage_intersec_list = get_overlapping_dico(dataset,model_name,constrNet=constrNet,
+                      list_layers=list_layers,
+                            numberIm=numberIm,stats_on_layer=stats_on_layer,suffix=suffix,
+                            FTmodel=FTmodel,
+                            output_path_for_dico=None,
+                            cropCenter = cropCenter,
+                            ReDo=ReDo)
+      
+    # Print the boxplot per layer
+    list_percentage = [] # Overlapping
+    for layer_name_inlist in list_layers:
+        percentage_intersec_list = dico_percentage_intersec_list[layer_name_inlist]
+        list_percentage += [percentage_intersec_list]
+    
+    
     dico_score_list = get_purity_dico(dataset,model_name,constrNet=constrNet,
                       list_layers=list_layers,
                             numberIm=numberIm,stats_on_layer=stats_on_layer,suffix=suffix,
@@ -1372,15 +1777,15 @@ def scatter_plot_impurity_overlapping(dataset,model_name,constrNet='InceptionV1'
         max_entropy = np.sum(-np_l*np.log2(np_l))
     
     # Print the boxplot per layer
-    list_percentage = []
+    list_impurity = []
     for layer_name_inlist in list_layers:
-        percentage_intersec_list = dico_score_list[layer_name_inlist]
+        impurity_score = dico_score_list[layer_name_inlist]
         if kind_purity=='entropy':
             # we will normalize the entropy by the maximum entropy possible
-            percentage_intersec_list /= max_entropy 
-        list_percentage += [percentage_intersec_list]
+            impurity_score /= max_entropy 
+        list_impurity += [impurity_score]
         
-    save_or_show = True
+    save_or_show = False
     
     if save_or_show:
         matplotlib.use('Agg')
@@ -1389,13 +1794,105 @@ def scatter_plot_impurity_overlapping(dataset,model_name,constrNet='InceptionV1'
     output_img = 'png'
     case_str = str(numberIm)
 
-    ext_name =  'Purity_'+kind_purity
+    ext_name =  'Scatter_'+kind_purity
     if kind_purity=='entropy':
        str_kind = "Entropy"
        leg_str = 'Entropy over classes'
     elif kind_purity=='gini':
         str_kind = 'Gini Impurity'
         leg_str = 'Gini Impurity over classes'
+                
+    output_img = 'png'
+    ext_name += '_OverLap_'
+    
+    if output_img=='png':
+        fig, ax = plt.subplots(figsize=(10, 6))
+    elif output_img=='tikz':
+        fig, ax = plt.subplots()
+        
+    fig.canvas.set_window_title('Overlapping percentage versus ' +str_kind) 
+        
+#    cmap_name = 'plasma'
+#    n_bin = len(list_layers)
+#    cm = LinearSegmentedColormap.from_list(
+#        cmap_name, colors, N=n_bin)
+    
+    lim_impurity = 0.2
+    
+    extrem_pts = []
+    dict_extrem_pts = {}
+    dict_extrem_keys = []
+    
+    for i,layer_name in enumerate(list_layers):
+        x = list_percentage[i]
+        y = list_impurity[i]
+        
+        if not(len(x)==len(y)):
+            not_dead_kernel = dico_not_deadkernel_list[layer_name]
+            x = np.array(x)[not_dead_kernel]
+        else:
+            not_dead_kernel = np.arange(0,len(x),1)
+            
+        where_low_impurity = np.where(y<lim_impurity)[0]
+        y_where = y[where_low_impurity]
+        x_where = np.array(x)[where_low_impurity]
+        feat_indexes = np.array(not_dead_kernel)[where_low_impurity]
+        for per,imp,feat_index in zip(x_where,y_where,feat_indexes):
+            if not(per in dict_extrem_keys):     
+                dict_extrem_pts[per] = [layer_name,per,imp,feat_index] 
+                dict_extrem_keys += [per]
+            else:
+                _,per_old,imp_old,_ = dict_extrem_pts[per]
+                if imp <= imp_old:
+                    dict_extrem_pts[per] = [layer_name,per,imp,feat_index] 
+            
+        print(i,layer_name,len(x),len(y))
+        color_i = CB_color_cycle[i % (len(CB_color_cycle))]
+        plt.scatter(x, y,c=color_i,label=layer_name,alpha=0.7)
+        
+    offset_x = 0.1
+    offset_y = -0.2
+    for key in dict_extrem_keys :
+        [layer_name,per,imp,feat_index] = dict_extrem_pts[key]
+        i =  list_layers.index(layer_name)
+        color_i = CB_color_cycle[i % (len(CB_color_cycle))]
+        ax.annotate(feat_index, (per+offset_x,imp+offset_y),c=color_i)
+        
+    plt.grid(True)
+    plt.ylim((-0.01,1.01))
+    plt.xlim((-1.,101.))
+    plt.yticks(fontsize=18)
+    plt.xticks(fontsize=18)
+        
+    ax.set_xlabel("Overlapping (\%)",fontsize=20)
+    ax.set_ylabel(leg_str,fontsize=20)
+    
+    ncol= 1
+    bbox_to_anchor=(1.01, 0.5)
+    loc='center left'
+    ax.legend(loc=loc,  bbox_to_anchor=bbox_to_anchor, # under  bbox_to_anchor=(0.5, -0.05),
+          fancybox=True, shadow=False, ncol=ncol,fontsize=18)
+
+    
+
+    if save_or_show:
+        if output_img=='png':
+            plt.tight_layout()
+            path_fig = os.path.join(output_path_for_dico,ext_name+case_str+'_Boxplots_per_layer.png')
+            plt.savefig(path_fig,bbox_inches='tight')
+            plt.close()
+        if output_img=='tikz':
+            path_fig = os.path.join(output_path_for_dico,ext_name+case_str+'_Boxplots_per_layer.tex')
+            tikzplotlib.save(path_fig)
+            # From from DataForPerceptual_Evaluation import modify_underscore,modify_labels,modify_fontsizeByInput
+            # si besoin
+#            modify_underscore(path_fig)
+#            modify_labels(path_fig)
+#            modify_fontsizeByInput(path_fig)
+    else:
+        plt.show()
+        #input('Enter to close.')
+        #plt.close()    
         
 def class_purity_boxplots(dataset,model_name,constrNet='InceptionV1',
                       list_layers=['conv2d0','conv2d1',
@@ -1598,6 +2095,17 @@ if __name__ == '__main__':
 #                                                layer_name='mixed4c_pool_reduce_pre_relu',
 #                                                num_feature=13,
 #                                                numberIm=81)
+    
+    list_features = [['mixed4c_3x3_bottleneck_pre_relu',78],
+                     ['mixed4c_pool_reduce_pre_relu',2],
+                     ['mixed4d_5x5_pre_relu',49]
+                     ]
+    for layer_name,num_feature in list_features:
+        plot_images_Pos_Images(dataset='IconArt_v1',model_name='IconArt_v1_small01_modif',
+                               constrNet='InceptionV1',
+                            layer_name=layer_name,
+                            num_feature=num_feature,
+                            numberIm=100)
 #    
 #    # Nom de fichier	mixed3a_5x5_bottleneck_pre_reluConv2D_8_RASTA_small01_modif.png	
 #    dead_kernel_QuestionMark(dataset='RASTA',model_name='RASTA_small01_modif',constrNet='InceptionV1')
@@ -1687,16 +2195,16 @@ if __name__ == '__main__':
 #                                    owncloud_mode=True)
     
     # Model RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200 : faire l'image Top 100 pour certaines couches
-    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                           constrNet='InceptionV1',
-                            layer_name='mixed4d_5x5_pre_relu',
-                            num_feature=50,
-                            numberIm=100,alreadyAtInit=True)
-    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
-                           constrNet='InceptionV1',
-                            layer_name='mixed5a_3x3_bottleneck_pre_relu',
-                            num_feature=1,
-                            numberIm=100,alreadyAtInit=True)
+#    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+#                           constrNet='InceptionV1',
+#                            layer_name='mixed4d_5x5_pre_relu',
+#                            num_feature=50,
+#                            numberIm=9,alreadyAtInit=False)
+#    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+#                           constrNet='InceptionV1',
+#                            layer_name='mixed5a_3x3_bottleneck_pre_relu',
+#                            num_feature=1,
+#                            numberIm=9,alreadyAtInit=False)
 #    plot_images_Pos_Images(dataset='RASTA',model_name='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
 #                           constrNet='InceptionV1',
 #                            layer_name='mixed4d_5x5_pre_relu',
@@ -1707,5 +2215,19 @@ if __name__ == '__main__':
 #                            layer_name='mixed5a_3x3_bottleneck_pre_relu',
 #                            num_feature=1,
 #                            numberIm=100,alreadyAtInit=False)
+    
+    create_pairs_of_feat_vizu(model_name_base='RASTA_small01_modif',constrNet='InceptionV1',
+                              list_layers=['conv2d0','conv2d1',
+                                  'conv2d2','mixed3a',
+                                  'mixed3b','mixed4a',
+                                  'mixed4b','mixed4c',
+                                  'mixed4d','mixed4e',
+                                  'mixed5a','mixed5b']
+                                 ,suffix='',
+                                FTmodel=True,
+                                output_path_for_pair=None,
+                                cropCenter = True,
+                                ReDo=False,
+                                owncloud_mode=True)
         
     

@@ -307,7 +307,8 @@ def get_fine_tuned_model(model_name,constrNet='InceptionV1',suffix='',get_Metric
     # output= metrics
     return(output)
 
-def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suffix=''):
+def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suffix='',
+                                         init_model_use=False):
     
     tf.keras.backend.clear_session()
     tf.reset_default_graph()
@@ -319,10 +320,18 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suff
     if model_name=='random':
         net_finetuned = get_random_net(constrNet)
     else:
-        if 'RandInit' in model_name:
+        if 'RandInit' in model_name or 'RandForUnfreezed' in model_name :
             net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+            if init_model_use:
+                net_ = init_net
+                #¾net_.build(input_shape=(224,224,3))
+                suffix += 'Initialization'
+                del net_finetuned
+            else:
+                net_ = net_finetuned
+                del init_net
         else:
-            net_finetuned,_  = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
+            net_,_  = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
 
     if path=='':
         os.makedirs('./model', exist_ok=True)
@@ -330,7 +339,7 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suff
     else:
         os.makedirs(path, exist_ok=True)
     frozen_graph = lucid_utils.freeze_session(K.get_session(),
-                              output_names=[out.op.name for out in net_finetuned.outputs])
+                              output_names=[out.op.name for out in net_.outputs])
     if not(suffix=='' or suffix is None):
         suffix_str = '_'+suffix
     else:
@@ -438,7 +447,7 @@ def get_weights_and_name_layers(keras_net):
     return(list_weights,list_name_layers)
 
 def do_lucid_vizu_for_list_model(list_models_name,list_layer_index_to_print,suffix_tab=[''],
-                                 output_path='',constrNet='InceptionV1'):
+                                 output_path='',constrNet='InceptionV1',init_model_use=False):
 
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
 
@@ -466,14 +475,26 @@ def do_lucid_vizu_for_list_model(list_models_name,list_layer_index_to_print,suff
                 pathlib.Path(output_path_with_model).mkdir(parents=True, exist_ok=True)
                 
                 net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
-                print(net_finetuned.summary())
-                del init_net
+                if init_model_use:
+                    net_ = init_net  
+                    suffix_init = '_Initialization'
+                    del net_finetuned
+                else:
+                    net_ = net_finetuned
+                    suffix_init= ''
+                    del init_net
+                print(net_.summary())
+
                 name_pb = convert_finetuned_modelToFrozenGraph(model_name,
-                                   constrNet=constrNet,path=path_lucid_model,suffix=suffix)
+                                   constrNet=constrNet,path=path_lucid_model,suffix=suffix,
+                                   init_model_use=init_model_use)
+
+                print('name_pb',name_pb)
 
                 lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
-                         ,path_output=output_path_with_model,prexif_name=model_name+suffix,
-                         input_name=input_name_lucid,Net=constrNet,reDo=reDo)
+                         ,path_output=output_path_with_model,prexif_name=model_name+suffix+suffix_init,
+                         input_name=input_name_lucid,Net=constrNet,reDo=reDo,
+                         verbose=True)
 
                 
 

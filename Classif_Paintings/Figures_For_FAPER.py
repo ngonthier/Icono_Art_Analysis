@@ -160,7 +160,8 @@ def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True):
         
         label_p = title_corr[netA] +' vs '+title_corr[netB]
         plt.plot(list_index_cka, list_cka,linestyle='--', marker=list_markers[p],
-                 color=CB_color_cycle[p], label=label_p, markersize=10)
+                 color=CB_color_cycle[p], label=label_p, markersize=10,
+                 linewidth=3)
         print(netA,netB,list_cka)
         
     plt.grid(True)
@@ -377,5 +378,5 @@ def l2norm_fct_layers_plot():
     #input("wait")
 
 if __name__=='__main__':
-    cka_fct_layers_plot(forPhDmanuscript=False)    
+    cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True)    
     #l2norm_fct_layers_plot()
