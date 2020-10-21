@@ -324,7 +324,7 @@ def convert_finetuned_modelToFrozenGraph(model_name,constrNet='VGG',path='',suff
             net_finetuned, init_net = get_fine_tuned_model(model_name,constrNet=constrNet,suffix=suffix)
             if init_model_use:
                 net_ = init_net
-                #¾net_.build(input_shape=(224,224,3))
+                #net_.build(input_shape=(224,224,3))
                 suffix += 'Initialization'
                 del net_finetuned
             else:
@@ -478,23 +478,29 @@ def do_lucid_vizu_for_list_model(list_models_name,list_layer_index_to_print,suff
                 if init_model_use:
                     net_ = init_net  
                     suffix_init = '_Initialization'
+                    ext_lucid_net = '_1'
                     del net_finetuned
                 else:
                     net_ = net_finetuned
                     suffix_init= ''
+                    ext_lucid_net =''
                     del init_net
-                print(net_.summary())
-
+                #print(net_.summary())
+                #print(net_.input)
+                #print(net_(np.random.rand(1,224,224,3)))
                 name_pb = convert_finetuned_modelToFrozenGraph(model_name,
                                    constrNet=constrNet,path=path_lucid_model,suffix=suffix,
                                    init_model_use=init_model_use)
 
                 print('name_pb',name_pb)
+                
+                
+                
 
                 lucid_utils.print_images(model_path=path_lucid_model+'/'+name_pb,list_layer_index_to_print=list_layer_index_to_print\
                          ,path_output=output_path_with_model,prexif_name=model_name+suffix+suffix_init,
                          input_name=input_name_lucid,Net=constrNet,reDo=reDo,
-                         verbose=True)
+                         verbose=True,ext_lucid_net=ext_lucid_net)
 
                 
 

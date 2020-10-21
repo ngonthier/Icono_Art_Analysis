@@ -482,7 +482,8 @@ def feature_block_var(channels,w, h=None, batch=None, sd=None, fft=True):
 def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name='',\
                  input_name='block1_conv1_input',Net='VGG',sizeIm=224,\
                  DECORRELATE = True,ROBUSTNESS  = True,just_return_output=False,
-                 dico=None,image_shape=None,inverseAndSave=True,reDo=False,verbose=False):
+                 dico=None,image_shape=None,inverseAndSave=True,reDo=False,verbose=False,
+                 ext_lucid_net=''):
     """
     This fct will run the feature visualisation for the layer and feature in the
     list_layer_index_to_print list 
@@ -491,6 +492,8 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     
     if not(os.path.isfile(os.path.join(model_path))):
         raise(ValueError(model_path + ' does not exist !'))
+    
+    input_name += ext_lucid_net
     
     if Net=='VGG':
         lucid_net = Lucid_VGGNet(model_path=model_path,input_name=input_name)
@@ -535,10 +538,14 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
     output_im_list = []
     for layer_index_to_print in list_layer_index_to_print:
         layer, i = layer_index_to_print
-    
-        obj_str, type_layer= get_obj_and_kind_layer(layer,Net)
+        layer_raw = layer
+        layer += ext_lucid_net
+        obj_str, type_layer= get_obj_and_kind_layer(layer_raw,Net)
+        
         obj = obj_str+':'+str(i)
-        name_base = layer  + type_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
+        obj = obj.replace(layer_raw,layer)
+        print(obj)
+        name_base = layer_raw  + type_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
               
         name_output = os.path.join(path_output,name_base)
         new_output_path = os.path.join(path_output,'RGB')
