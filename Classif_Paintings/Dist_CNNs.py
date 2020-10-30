@@ -33,6 +33,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import seaborn as sns
 import tikzplotlib
+import pandas as pd
 
 from StatsConstr_ClassifwithTL import predictionFT_net
 import Stats_Fcts
@@ -389,15 +390,21 @@ def layer_3dots(inputA,inputB,sampling_FM=None,k=1,name=''):
         Ashape = K.int_shape(inputA)
         #print(Ashape)
         b,h,w,c = Ashape
-        step = h//(k+1)
-        select_k2_A = Lambda(lambda z: z[:,step:-1:step,step:-1:step,:],name=name+'_selectkA')
+        stepA = h//(k+1)
+        if stepA==0:
+            stepA = 1
+        
+        select_k2_A = Lambda(lambda z: z[:,stepA:-1:stepA,stepA:-1:stepA,:],name=name+'_selectkA')
+        layer_outputA = select_k2_A(inputA) # batch size and on the other one channel * h * w
         # start:end:step
         Bshape = K.int_shape(inputB)
         #print(Bshape)
         b,h,w,c = Bshape
-        step = h//(k+1)
-        select_k2_B = Lambda(lambda z: z[:,step:-1:step,step:-1:step,:],name=name+'_selectkB') #start:end:step
-        layer_outputA = select_k2_A(inputA) # batch size and on the other one channel * h * w
+        stepB = h//(k+1)
+        if stepB==0:
+            stepB = 1
+        select_k2_B = Lambda(lambda z: z[:,stepB:-1:stepB,stepB:-1:stepB,:],name=name+'_selectkB') #start:end:step
+        
         layer_outputB = select_k2_B(inputB)
         layer_outputA = layers.Flatten(name=name+'_flatten_A')(layer_outputA) # batch size and on the other one channel * h * w
         layer_outputB = layers.Flatten(name=name+'_flatten_B')(layer_outputB)       
@@ -640,17 +647,21 @@ def get_linearCKA_bw_nets(dataset,netA,netB,constrNet='InceptionV1',
         model,_ = get_cumulated_output_model(keras_netA,keras_netB,list_layers,sampling_FM=sampling_FM,k=k) # the merge model
         
         #print(model.summary())
+#        print('here')
         if k >1:
+            print('k>1')
             data_to_save = {}
             batch_size = 1 
             # We are in a case where we need to cumulate the example ! 
             i = 0
             dicto = {}
             for index_ in range(num_samples):
-                raise(NotImplementedError)
-                row = df_test.iloc[index_,:]
-                print(row)
-                activations = predictionFT_net(model,row,x_col=item_name,y_col=classes,path_im=path_to_img,
+                #raise(NotImplementedError)
+                df_row = df_test.take([index_])
+#                print(df_row)
+#                df_row = pd.DataFrame(row)
+#                print(df_row)
+                activations = predictionFT_net(model,df_row,x_col=item_name,y_col=classes,path_im=path_to_img,
                              Net=constrNet,cropCenter=cropCenter,verbose_predict=1,
                              two_images_as_input=True,batch_size=batch_size)
             
@@ -1695,10 +1706,21 @@ if __name__ == '__main__':
 #                                                          'mixed4b','mixed4c',
 #                                                          'mixed4d','mixed4e',
 #                                                          'mixed5a','mixed5b'])
+    get_linearCKA_bw_nets(dataset='RASTA',
+                          sampling_FM='selectk2points',
+                          k = 2,
+                         netA='pretrained',
+                         netB='RASTA_small01_modif',
+                         list_layers=['conv2d0','conv2d1',
+                              'conv2d2','mixed3a',
+                              'mixed3b','mixed4a',
+                              'mixed4b','mixed4c',
+                              'mixed4d','mixed4e',
+                              'mixed5a','mixed5b'])
     
     # comp_cka_for_paper('RASTA')
-    comp_cka_for_paper('Paintings',Version_courte=False)
-    comp_cka_for_paper('IconArt_v1',Version_courte=False)
-    #comp_l2_for_paper(dataset='RASTA')
-    comp_l2_for_paper(dataset='Paintings',Version_courte=False)
-    comp_l2_for_paper(dataset='IconArt_v1',Version_courte=False)
+#    comp_cka_for_paper('Paintings',Version_courte=False)
+#    comp_cka_for_paper('IconArt_v1',Version_courte=False)
+#    #comp_l2_for_paper(dataset='RASTA')
+#    comp_l2_for_paper(dataset='Paintings',Version_courte=False)
+#    comp_l2_for_paper(dataset='IconArt_v1',Version_courte=False)
