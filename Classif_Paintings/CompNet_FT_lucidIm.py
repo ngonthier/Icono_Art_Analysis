@@ -1633,15 +1633,15 @@ if __name__ == '__main__':
 
     # A faire pour site web FAPER ! 
     
-#    list_layers=['mixed4c','mixed5a','mixed4a','mixed3a','mixed4e',
-#                     'mixed3b','conv2d0','conv2d1','conv2d2']
-#    for layer in list_layers:
-#        list_name_models = ['RASTA_small01_modif','pretrained']
-#        Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
-#                                          constrNet = 'InceptionV1',
-#                                          list_layers=[layer],
-#                                          suffix='',
-#                                          FTModel=True)
+    list_layers=['mixed4c','mixed5a','mixed4a','mixed3a','mixed4e',
+                    'mixed3b','conv2d0','conv2d1','conv2d2']
+    for layer in list_layers:
+        list_name_models = ['RASTA_small01_modif','pretrained']
+        Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+                                          constrNet = 'InceptionV1',
+                                          list_layers=[layer],
+                                          suffix='',
+                                          FTModel=True)
 
 
 #    # A fire pour DHNord Paper : 
