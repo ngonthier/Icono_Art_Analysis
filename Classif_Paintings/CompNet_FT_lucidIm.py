@@ -1001,6 +1001,7 @@ def print_RASTA_performance():
     print_performance_FineTuned_network(constrNet='ResNet50',
                                         list_models_name=list_models_name,
                                         suffix_tab=[''],latexOutput=True)
+    
 def print_IconArtv1_performance(latexOutput=True):
 
     list_models_name = ['IconArt_v1_small01_modif',
@@ -1567,7 +1568,8 @@ if __name__ == '__main__':
 #                          'RASTA_big001_modif_GAP_adam_unfreeze20_randomCrop',
 
 ###%  A faire tourner plus tard !
-#     list_model_name_5 = ['RASTA_big001_modif_GAP_adam_unfreeze20_RandForUnfreezed_randomCrop'] # Provide 60% on Top1 
+#     list_model_name_5 = ['RASTA_big001_modif_GAP_adam_unfreeze20_RandForUnfreezed_randomCrop'] 
+## Provide 60% on Top1 
 #     Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
 #    # InceptionV1 and ResNet50 models have been trained => need to look at the results ! 
 #    #Test avec RMSprop non fait !
@@ -1631,15 +1633,15 @@ if __name__ == '__main__':
 
     # A faire pour site web FAPER ! 
     
-    list_layers=['mixed4c','mixed5a','mixed4a','mixed3a','mixed4e',
-                     'mixed3b','conv2d0','conv2d1','conv2d2']
-    for layer in list_layers:
-        list_name_models = ['RASTA_small01_modif','pretrained']
-        Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
-                                          constrNet = 'InceptionV1',
-                                          list_layers=[layer],
-                                          suffix='',
-                                          FTModel=True)
+#    list_layers=['mixed4c','mixed5a','mixed4a','mixed3a','mixed4e',
+#                     'mixed3b','conv2d0','conv2d1','conv2d2']
+#    for layer in list_layers:
+#        list_name_models = ['RASTA_small01_modif','pretrained']
+#        Do_FeatVizu_all_a_layer_FineTunedModel(list_name_models,
+#                                          constrNet = 'InceptionV1',
+#                                          list_layers=[layer],
+#                                          suffix='',
+#                                          FTModel=True)
 
 
 #    # A fire pour DHNord Paper : 

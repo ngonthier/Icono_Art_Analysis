@@ -544,7 +544,7 @@ def print_images(model_path,list_layer_index_to_print,path_output='',prexif_name
         
         obj = obj_str+':'+str(i)
         obj = obj.replace(layer_raw,layer)
-        print(obj)
+
         name_base = layer_raw  + type_layer+'_'+str(i)+'_'+prexif_name+ext+'.png'
               
         name_output = os.path.join(path_output,name_base)

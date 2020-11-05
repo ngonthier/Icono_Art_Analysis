@@ -3071,8 +3071,8 @@ def RunUnfreezeLayerPerformanceVGG(plot=False):
 def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short=False,
                            scenario=0,onlyPlot=False,BV=True,cropCenter=True):
     """
-    Plot some mAP  on ArtUK Paintings dataset with different model just to see
-    if we can say someting
+    Plot some mAP  on ArtUK Paintings or IconArt dataset with different model 
+    just to see if we can say someting
     """
     # Normally metric = AP_per_class,P_per_class,R_per_class,P20_per_class,F1_per_class but sometimes F1 is missing
     if metricploted=='mAP':
@@ -3092,7 +3092,8 @@ def PlotSomePerformanceVGG(metricploted='mAP',target_dataset = 'Paintings',short
     list_freezingType = ['FromTop','FromBottom','Alter']
     #list_freezingType = ['FromTop']
     
-    transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D'] # Not the flatten case for the moment
+    transformOnFinalLayer_tab = ['GlobalMaxPooling2D','GlobalAveragePooling2D'] 
+    # Not the flatten case for the moment
     #transformOnFinalLayer_tab = ['GlobalMaxPooling2D'] # Not the flatten case for the moment
     
     dropout=None
