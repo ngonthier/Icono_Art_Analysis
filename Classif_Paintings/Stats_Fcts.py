@@ -221,6 +221,13 @@ def VGG_baseline_model(num_of_classes=10,transformOnFinalLayer ='GlobalMaxPoolin
                                             input_shape=(imSize, imSize, 3))
       random_model = tf.keras.applications.vgg19.VGG19(include_top=include_top, weights=None,\
                                             input_shape=(imSize, imSize, 3))
+  elif test_if_the_name_is_correct(weights):
+      pre_model,_ = CompNet_FT_lucidIm.get_fine_tuned_model(weights,constrNet='VGG',suffix='',
+                         get_Metrics=False,verbose=False) # it will returns the fine-tuned net and the initialization
+  else:
+      raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in possible finetuned short name'))
+    
+          
   
   # Need to shape that to be able to have different input size later ! 
   SomePartFreezed = False

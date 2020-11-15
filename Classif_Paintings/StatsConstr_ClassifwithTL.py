@@ -545,7 +545,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     if weights in [None,'RandForUnfreezed','imagenet','']:  
         pass    
     elif test_if_the_name_is_correct_wTwiceTrained(weights): # When we used a fine-tuned model from one dataset to another one
-        if not(constrNet=='InceptionV1' or constrNet=='InceptionV1_slim' or constrNet=='ResNet50'):
+        if not(constrNet=='InceptionV1' or constrNet=='InceptionV1_slim' or constrNet=='ResNet50' or constrNet=='VGG'):
             raise(NotImplementedError('Fine tuning an already fine-tuned network is only available for InceptionV1 and ResNet model not for '+constrNet))
     else:
         raise(NotImplementedError(weights+' is unknown.'))
@@ -1249,6 +1249,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                 raise(NotImplementedError)
                 
         elif kind_method=='FT':
+            # Fine Tuning case 
             
             include_optimizer=False
 
