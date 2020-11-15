@@ -11,13 +11,16 @@ import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import platform
+import os
+import tikzplotlib
 
 from Dist_CNNs import get_linearCKA_bw_nets,comp_cka_for_paper,get_l2norm_bw_nets,\
                         comp_l2_for_paper
 
 CB_color_cycle = ['#377eb8', '#4daf4a','#A2C8EC', '#ff7f00','#984ea3','#e41a1c',
                   '#f781bf', '#a65628', '#dede00','#FFBC79','#999999']
-list_markers = ['o','s','X','*','v','^','<','>','d','1','2','3','4','8','h','H','p','d','$f$','P']
+list_markers = ['o','s','d','*','v','^','<','>','X','1','2','3','4','8','h','H','p','d','$f$','P']
 
 
 title_corr = {'pretrained': 'pretrained on ImageNet',
@@ -30,7 +33,7 @@ title_corr = {'pretrained': 'pretrained on ImageNet',
               'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_init': 'Random Init'
                 }
 
-def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True):
+def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True,output_img='png'):
     
     #matplotlib.use('Agg')
     #plt.switch_backend('agg')
@@ -51,7 +54,9 @@ def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True):
                 ['pretrained','RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200'],
                 ['pretrained','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
                 ]
+    case_str = "ForPaper_"
     if forPhDmanuscript:
+        case_str = "ForPhDmodels_"
         all_pairs = [['pretrained','RASTA_small01_modif'],
                 ['RASTA_small01_modif','RASTA_small01_modif1'],
                 ['RASTA_small01_modif','RASTA_small001_modif'],
@@ -105,6 +110,13 @@ def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True):
               'mixed4d','mixed4e',
               'mixed5a','mixed5b']
     
+    if output_img=='png':
+        markersize=10
+        linewidth=3
+    elif output_img=='tikz':
+       markersize=5
+       linewidth=1.5 
+        
     list_net = []
     plt.figure()
     ax = plt.subplot(111)
@@ -160,8 +172,8 @@ def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True):
         
         label_p = title_corr[netA] +' vs '+title_corr[netB]
         plt.plot(list_index_cka, list_cka,linestyle='--', marker=list_markers[p],
-                 color=CB_color_cycle[p], label=label_p, markersize=10,
-                 linewidth=3)
+                 color=CB_color_cycle[p], label=label_p, markersize=markersize,
+                 linewidth=linewidth)
         print(netA,netB,list_cka)
         
     plt.grid(True)
@@ -189,13 +201,29 @@ def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True):
     
     ax.set_xticks(np.arange(len(list_layers)))
     ax.set_xticklabels(labels_, rotation=45,fontsize=18)
+        
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel')
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel')
+    # For images
     
-    if side_legend:
+    if output_img=='png':
+        if side_legend:
+            plt.tight_layout()
         plt.tight_layout()
+        path_fig = os.path.join(output_path,case_str+'_CKA_per_layer.png')
+        plt.savefig(path_fig,bbox_inches='tight')
+        plt.show()
+    if output_img=='tikz':
+        path_fig = os.path.join(output_path,case_str+'_CKA_per_layer.tex')
+        tikzplotlib.save(path_fig)
     
-    plt.show()
     
-def l2norm_fct_layers_plot():
+    
+    
+    
+def l2norm_fct_layers_plot(side_legend=False,output_img='png'):
     
     #matplotlib.use('Agg')
     #plt.switch_backend('agg')
@@ -228,7 +256,8 @@ def l2norm_fct_layers_plot():
                 ['RASTA_small01_modif','RASTA_small001_modif'],
                 ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200','RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200_init'],
                 ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_init']]
-    
+
+    case_str = "ForPaper_"
     
     #set tick marks for grid
     labels_ = []
@@ -370,13 +399,28 @@ def l2norm_fct_layers_plot():
     ax.legend(loc='upper center',  bbox_to_anchor=(0.5, 1.1), # under  bbox_to_anchor=(0.5, -0.05),
           fancybox=True, shadow=False, ncol=3)
     
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel')
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel')
+
+    if output_img=='png':
+        if side_legend:
+            plt.tight_layout()
+        plt.tight_layout()
+        path_fig = os.path.join(output_path,case_str+'_l2norm_per_layer.png')
+        plt.savefig(path_fig,bbox_inches='tight')
+        plt.show()
+    if output_img=='tikz':
+        path_fig = os.path.join(output_path,case_str+'_l2norm_per_layer.tex')
+        tikzplotlib.save(path_fig)
     
     #ax.set_xticks(np.arange(len(list_layers)))
     #ax.set_xticklabels(labels_, rotation=45)
     
-    plt.show()
+    #plt.show()
     #input("wait")
 
 if __name__=='__main__':
-    cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True)    
+    cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True,output_img='tikz')
     #l2norm_fct_layers_plot()

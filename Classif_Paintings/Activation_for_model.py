@@ -589,17 +589,19 @@ def get_model_name_wo_oldModel(model_name):
 def doing_overlaps_for_paper():
     
     numberIm_list = [100,1000,-1]
+    numberIm_list = [100]
     model_list = ['RASTA_small01_modif']
     model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
     model_list = ['RASTA_small01_modif',
                   'RASTA_big001_modif_deepSupervision',
                   'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
                   'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+    model_list = ['RASTA_small01_modif']
     for model_name in model_list:
         for numberIm in numberIm_list:
             overlapping_rate_boxplots(dataset='RASTA',model_name=model_name,
                                constrNet='InceptionV1',numberIm=numberIm,
-                               stats_on_layer='meanAfterRelu')# because meanAfterRelu already computed
+                               stats_on_layer='meanAfterRelu',output_img='tikz')# because meanAfterRelu already computed
  
 def doing_impurity_for_paper():
     
@@ -612,6 +614,7 @@ def doing_impurity_for_paper():
     model_list = ['RASTA_small01_modif']
     model_list = ['RASTA_small01_modif','RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
                   'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200']
+    model_list = ['RASTA_small01_modif']
     kind_purity_tab = ['gini','entropy']
     kind_purity_tab = ['entropy']
     #model_list = ['RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
@@ -623,7 +626,7 @@ def doing_impurity_for_paper():
                 class_purity_boxplots(dataset='RASTA',model_name=model_name,
                                constrNet='InceptionV1',numberIm=numberIm,
                                stats_on_layer='meanAfterRelu',
-                               kind_purity=kind_purity)# because meanAfterRelu already computed
+                               kind_purity=kind_purity,output_img='tikz')# because meanAfterRelu already computed
                 
 def doing_scatter_for_paper():
     
@@ -1603,7 +1606,8 @@ def overlapping_rate_boxplots(dataset,model_name,constrNet='InceptionV1',
                             FTmodel=True,
                             output_path_for_dico=None,
                             cropCenter = True,
-                            ReDo=False):
+                            ReDo=False,
+                            output_img = 'png'):
     """
     This function will plot in boxplot overlapping ratio between the top k images 
     @param : numberIm = top k images used : numberIm = -1 if you want to take all the images
@@ -1659,8 +1663,7 @@ def overlapping_rate_boxplots(dataset,model_name,constrNet='InceptionV1',
     if save_or_show:
         matplotlib.use('Agg')
         plt.switch_backend('agg')
-        
-    output_img = 'png'
+
     case_str = str(numberIm)
     ext_name = 'OverLap_'
     
@@ -1713,7 +1716,7 @@ def overlapping_rate_boxplots(dataset,model_name,constrNet='InceptionV1',
                     rotation=45, fontsize=8) 
     elif output_img=='tikz':
         ax1.set_xticklabels(list_layers,
-                    rotation=75, fontsize=8)    
+                    rotation=45, fontsize=8)    
     if save_or_show:
         if output_img=='png':
             plt.tight_layout()
@@ -1722,6 +1725,7 @@ def overlapping_rate_boxplots(dataset,model_name,constrNet='InceptionV1',
             plt.close()
         if output_img=='tikz':
             path_fig = os.path.join(output_path_for_dico,ext_name+case_str+'_Boxplots_per_layer.tex')
+            print('save at :',path_fig)
             tikzplotlib.save(path_fig)
             # From from DataForPerceptual_Evaluation import modify_underscore,modify_labels,modify_fontsizeByInput
             # si besoin
@@ -1938,7 +1942,8 @@ def class_purity_boxplots(dataset,model_name,constrNet='InceptionV1',
                             output_path_for_dico=None,
                             cropCenter = True,
                             ReDo=False,
-                            kind_purity='gini'):
+                            kind_purity='gini',
+                            output_img = 'png'):
     """
     This function will plot in boxplot class purity in the top k images 
     @param : numberIm = top k images used : numberIm = -1 if you want to take all the images
@@ -2002,7 +2007,7 @@ def class_purity_boxplots(dataset,model_name,constrNet='InceptionV1',
         matplotlib.use('Agg')
         plt.switch_backend('agg')
         
-    output_img = 'png'
+    
     case_str = str(numberIm)
 
     ext_name =  'Purity_'+kind_purity
@@ -2062,7 +2067,7 @@ def class_purity_boxplots(dataset,model_name,constrNet='InceptionV1',
                     rotation=45, fontsize=8) 
     elif output_img=='tikz':
         ax1.set_xticklabels(list_layers,
-                    rotation=75, fontsize=8)    
+                    rotation=45, fontsize=8)    
     if save_or_show:
         if output_img=='png':
             plt.tight_layout()
