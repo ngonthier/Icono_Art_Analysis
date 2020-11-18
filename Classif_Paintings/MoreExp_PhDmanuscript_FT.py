@@ -189,7 +189,7 @@ def print_perform_Paintings_IconArt_RASTA_intermediaire(latexOutput=False):
                         'IconArt_v1_big001_modif_GAP_XXRASTA_big001_modif_GAP_RandInit_randomCrop_ep200_LRschedGXX'
                         ]
 
-    print_performance_FineTuned_network(constrNet='ResNet',
+    print_performance_FineTuned_network(constrNet='ResNet50',
                                         list_models_name=list_models_name,
                                         suffix_tab=[''],latexOutput=latexOutput)
     # VGG Paintings
@@ -221,7 +221,7 @@ def print_perform_Paintings_IconArt_RASTA_intermediaire(latexOutput=False):
                         'Paintings_big001_modif_GAP_XXRASTA_big001_modif_GAP_RandInit_randomCrop_ep200_LRschedGXX'
                         ]
 
-    print_performance_FineTuned_network(constrNet='ResNet',
+    print_performance_FineTuned_network(constrNet='ResNet50',
                                         list_models_name=list_models_name,
                                         suffix_tab=[''],latexOutput=latexOutput)
 
