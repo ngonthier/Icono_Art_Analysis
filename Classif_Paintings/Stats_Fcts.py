@@ -393,13 +393,13 @@ def vgg_FRN(style_layers,num_of_classes=10,\
               model.add(Flatten())
       break
 
+  if getBeforeReLU:# refresh the non linearity 
+      model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True,
+                                              custom_objects=custom_objects)
+      
   model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,
                            regularizers,dropout,\
                            final_activation=final_activation,metrics=metrics,loss=loss)
-
-  if getBeforeReLU:# refresh the non linearity 
-      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True,
-                                              custom_objects=custom_objects)
 
   if verbose: print(model.summary())
   return model
@@ -483,7 +483,8 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
       model.add(bn_layer)
         
       if getBeforeReLU: # add back the non linearity
-          model.add(Activation('relu'))
+          new_activation = Activation('relu')
+          model.add(new_activation)
       i += 1
     else:
       model.add(layer)
@@ -497,12 +498,13 @@ def vgg_AdaIn(style_layers,num_of_classes=10,\
               model.add(Flatten())
       break
   
+  if getBeforeReLU:# refresh the non linearity 
+      model = utils_keras.apply_modifications(model,include_optimizer=False,needFix = True)
+  # Before appling the optimizer to avoid pb
+  
   model = new_head_VGGcase(model,num_of_classes,final_clf,lr,lr_multiple,multipliers,opt,regularizers,dropout,\
                            final_activation=final_activation,metrics=metrics,loss=loss)
 
-  if getBeforeReLU:# refresh the non linearity 
-      model = utils_keras.apply_modifications(model,include_optimizer=True,needFix = True)
-  
   if verbose: print(model.summary())
   return model
 

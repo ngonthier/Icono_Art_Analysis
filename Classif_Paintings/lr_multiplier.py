@@ -19,8 +19,11 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.ops import clip_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import state_ops
+from tensorflow.python.keras.utils import generic_utils
 
 from tensorflow.python.training import training_ops
+
+
 
 class LearningRateMultiplier(Optimizer):
     """Optimizer wrapper for per layer learning rate.
@@ -44,6 +47,11 @@ class LearningRateMultiplier(Optimizer):
         config = self._optimizer.get_config()
         self.kind_opt = config['name']
         self._lr_multipliers = lr_multipliers or {}
+        try:
+            name = optimizer.name + '_LRM'
+        except AttributeError as e:
+            name = 'LRM'
+        self._init_set_name(name)
 
     def _get_multiplier(self, param):
         for k in self._lr_multipliers.keys():
@@ -80,6 +88,14 @@ class LearningRateMultiplier(Optimizer):
             raise(NotImplementedError)
         else:
             raise(NotImplementedError)
+            
+    def _init_set_name(self, name, zero_based=True):
+        if not name:
+          self._name = K.unique_object_name(
+              generic_utils.to_snake_case(self.__class__.__name__),
+              zero_based=zero_based)
+        else:
+          self._name = name
         
     def get_updates_SGD(self, loss, params):
         

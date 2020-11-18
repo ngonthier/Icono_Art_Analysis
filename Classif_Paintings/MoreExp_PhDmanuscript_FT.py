@@ -296,11 +296,15 @@ def exp_BN_only():
 
 if __name__ == '__main__': 
     
-    #exp_BN_only()
+    # Exp avec BatchNorm model
+    exp_BN_only()
     #a faire plus tard
     
-    print_IconArtv1_performance()
-    print_Paintings_performance()
-    print_RASTA_performance()
+    # # Classif performance
+    # print_IconArtv1_performance()
+    # print_Paintings_performance()
+    # print_RASTA_performance()
+    # print_perform_Paintings_IconArt_RASTA_intermediaire()
+    
+    # Feat vizu autre reseaux pour RASTA
     #RASTA_ResNet_VGG_feat_vizu()
-    print_perform_Paintings_IconArt_RASTA_intermediaire()
