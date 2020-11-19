@@ -1371,9 +1371,9 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
       print('Not implemented yet the resnet 101 or 152 need to update to tf 2.0')
       raise(NotImplementedError)
   
-  if not(final_layer in getResNet50layersName()):
-      print(final_layer,'is not in ResNet')
-      raise(NotImplementedError)
+  # if not(final_layer in getResNet50layersName()):
+  #     print(final_layer,'is not in ResNet')
+  #     raise(NotImplementedError)
   if not(transformOnFinalLayer in [None,'','GlobalMaxPooling2D','GlobalAveragePooling2D']):
       print(transformOnFinalLayer,'is unknwon')
       raise(NotImplementedError)
@@ -1392,6 +1392,7 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
   opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
 
   for layer in pre_model.layers:
+      #print(layer.name,final_layer)
       if layer.name in style_layers:
           layer.trainable = True
           if lr_multiple: 

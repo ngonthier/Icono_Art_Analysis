@@ -402,8 +402,62 @@ def exp_BN_only():
     constrNet = 'ResNet50AdaIn'
     getBeforeReLU = True
     #batch_size = 16 
-    features = 'block5_pool' 
-    style_layers = getBNlayersResNet50()
+    features = 'conv5_block3_out' 
+    #style_layers = getBNlayersResNet50() # En fait cela ne marche pas il y a un soucis 
+    # getBNlayersResNet50 ne correspond pas aux couches dans le modele et je en sais pas pourquoi 
+    style_layers = ['conv1_bn',
+                    'conv2_block1_1_bn', 
+                    'conv2_block1_2_bn', 
+                    'conv2_block1_0_bn', 
+                    'conv2_block1_3_bn', 
+                    'conv2_block2_1_bn', 
+                    'conv2_block2_2_bn', 
+                    'conv2_block2_3_bn', 
+                    'conv2_block3_1_bn', 
+                    'conv2_block3_2_bn', 
+                    'conv2_block3_3_bn', 
+                    'conv3_block1_1_bn', 
+                    'conv3_block1_2_bn', 
+                    'conv3_block1_0_bn', 
+                    'conv3_block1_3_bn', 
+                    'conv3_block2_1_bn', 
+                    'conv3_block2_2_bn', 
+                    'conv3_block2_3_bn', 
+                    'conv3_block3_1_bn', 
+                    'conv3_block3_2_bn', 
+                    'conv3_block3_3_bn', 
+                    'conv3_block4_1_bn', 
+                    'conv3_block4_2_bn', 
+                    'conv3_block4_3_bn', 
+                    'conv4_block1_1_bn', 
+                    'conv4_block1_2_bn', 
+                    'conv4_block1_0_bn', 
+                    'conv4_block1_3_bn', 
+                    'conv4_block2_1_bn', 
+                    'conv4_block2_2_bn',  
+                    'conv4_block2_3_bn',  
+                    'conv4_block3_1_bn',  
+                    'conv4_block3_2_bn',  
+                    'conv4_block3_3_bn', 
+                    'conv4_block4_1_bn', 
+                    'conv4_block4_2_bn', 
+                    'conv4_block4_3_bn', 
+                    'conv4_block5_1_bn', 
+                    'conv4_block5_2_bn', 
+                    'conv4_block5_3_bn', 
+                    'conv4_block6_1_bn', 
+                    'conv4_block6_2_bn', 
+                    'conv4_block6_3_bn',  
+                    'conv5_block1_1_bn', 
+                    'conv5_block1_2_bn', 
+                    'conv5_block1_0_bn', 
+                    'conv5_block1_3_bn',  
+                    'conv5_block2_1_bn', 
+                    'conv5_block2_2_bn',  
+                    'conv5_block2_3_bn',
+                    'conv5_block3_1_bn', 
+                    'conv5_block3_2_bn',
+                    'conv5_block3_3_bn']    
     for target_dataset in target_dataset_tab:
 #            print(constrNet,style_layers)
         metrics = learn_and_eval(target_dataset=target_dataset,constrNet=constrNet,\
