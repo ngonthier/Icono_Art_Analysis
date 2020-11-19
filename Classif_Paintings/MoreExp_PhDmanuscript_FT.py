@@ -276,7 +276,7 @@ def exp_BN_only():
     constrNet = 'ResNet50AdaIn'
     getBeforeReLU = True
     #batch_size = 16 
-    features = 'activation_48' 
+    features = 'block5_pool' 
     style_layers = getBNlayersResNet50()
     for target_dataset in target_dataset_tab:
 #            print(constrNet,style_layers)

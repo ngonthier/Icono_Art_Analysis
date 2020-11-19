@@ -1398,8 +1398,10 @@ def ResNet_AdaIn(style_layers,final_layer='activation_48',num_of_classes=10,tran
               multipliers[layer.name] = multiply_lrp
       else:
           layer.trainable = False
+          
       if final_layer==layer.name:
           x = layer.output
+          break
 
 #  x = pre_model.output
   if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
