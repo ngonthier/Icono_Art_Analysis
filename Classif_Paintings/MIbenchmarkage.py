@@ -1882,12 +1882,13 @@ if __name__ == '__main__':
 # A tester : SVM with SGD and then loss hinge in our case
 
     # Gaussian Toy test
+    #fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,verbose=True,reDo=True)
 #    fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,verbose=True,reDo=True)
 #    fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=1.,verbose=True,reDo=True,dataNormalizationWhen='onTrainSet',dataNormalization='std')
 #    fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.1,verbose=True,reDo=True,dataNormalizationWhen='onTrainSet',dataNormalization='std')
 #    fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,verbose=True,reDo=True,dataNormalizationWhen=None,dataNormalization='std',overlap=True)
 #    fit_train_plot_GaussianToy(method='MIMAX',dataset='GaussianToy',WR=0.01,verbose=True,reDo=True,dataNormalizationWhen='onTrainSet',dataNormalization='std')
-
+#    fit_train_plot_GaussianToy(method='IA_mi_model',dataset='GaussianToy',WR=0.01,verbose=True,reDo=True)
 #    evalPerfGaussianToy(method='LinearSISVM',dataset='GaussianToy',WR=0.01,verbose=True)
 #    evalPerfGaussianToy(method='LinearSISVM',dataset='GaussianToy',WR=0.003,verbose=True)
 #    ToyProblemRun()

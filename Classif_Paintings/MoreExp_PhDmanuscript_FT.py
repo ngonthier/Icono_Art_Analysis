@@ -13,8 +13,134 @@ from CompNet_FT_lucidIm import Comparaison_of_FineTunedModel,print_performance_F
 from StatsConstr_ClassifwithTL import learn_and_eval
 from keras_resnet_utils import getBNlayersResNet50
 
-### Cas de Paintings et IconArt pour fine-tune les modeles et voir les performances
+### Cas de Paintings IconArt et RASTA en mode Off-the-shelf feature extraction
+def perf_IconArt_ArtUK_RASTA_baseline_TL():
+    
+    print('RASTA')
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+    learn_and_eval('RASTA',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
+    
+    print('IconArt - VGG')
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big0001_modif_GAP_adam_unfreeze8_RandForUnfreezed_SmallDataAug_ep200',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_GAP_RandInit_randomCrop_ep200_LRschedG',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+    
+    
+    print('IconArt - ResNet50')
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big0001_modif_GAP_adam_unfreeze20_RandForUnfreezed_SmallDataAug_ep200',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_GAP_RandInit_randomCrop_ep200_LRschedG',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
+    
+    print('Paintings - VGG')
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big0001_modif_GAP_adam_unfreeze8_RandForUnfreezed_SmallDataAug_ep200',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_GAP_RandInit_randomCrop_ep200_LRschedG',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+    
+    
+    print('Paintings - ResNet50')
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='imagenet',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big0001_modif_GAP_adam_unfreeze20_RandForUnfreezed_SmallDataAug_ep200',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
+                constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_GAP_RandInit_randomCrop_ep200_LRschedG',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer='GlobalAveragePooling2D',
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
+    
+    
+    
 
+
+### Cas de Paintings et IconArt pour fine-tune les modeles et voir les performances
 def print_IconArtv1_performance(latexOutput=False):
     # For Classification performance different setup
     # 'IconArt_v1_big01_modif_GAP', diverge
