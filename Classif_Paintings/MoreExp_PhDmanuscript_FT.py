@@ -31,15 +31,22 @@ def perf_IconArt_ArtUK_RASTA_baseline_TL():
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
     
     print('IconArt - VGG')
+    # Diverge
+    # learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+    #             constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
+    #             pretrainingModif=False,return_best_model=True,weights='imagenet',\
+    #             optimizer='SGD',opt_option=[0.01],
+    #             transformOnFinalLayer='GlobalAveragePooling2D',
+    #             epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
                 constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
                 pretrainingModif=False,return_best_model=True,weights='imagenet',\
-                optimizer='SGD',opt_option=[0.01],
+                optimizer='SGD',opt_option=[0.1,0.01],
                 transformOnFinalLayer='GlobalAveragePooling2D',
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
                 constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
-                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif',\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif_GAP',\
                 optimizer='SGD',opt_option=[0.01],
                 transformOnFinalLayer='GlobalAveragePooling2D',
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
@@ -66,7 +73,7 @@ def perf_IconArt_ArtUK_RASTA_baseline_TL():
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
                 constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
-                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif',\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif_GAP',\
                 optimizer='SGD',opt_option=[0.01],
                 transformOnFinalLayer='GlobalAveragePooling2D',
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
@@ -87,12 +94,12 @@ def perf_IconArt_ArtUK_RASTA_baseline_TL():
     learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
                 constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
                 pretrainingModif=False,return_best_model=True,weights='imagenet',\
-                optimizer='SGD',opt_option=[0.01],
+                optimizer='SGD',opt_option=[0.1,0.01],
                 transformOnFinalLayer='GlobalAveragePooling2D',
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
     learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
                 constrNet='VGG',kind_method='FT',gridSearch=False,ReDo=False,\
-                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif',\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif_GAP',\
                 optimizer='SGD',opt_option=[0.01],
                 transformOnFinalLayer='GlobalAveragePooling2D',
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
@@ -119,7 +126,7 @@ def perf_IconArt_ArtUK_RASTA_baseline_TL():
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
     learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='conv5_block3_out',\
                 constrNet='ResNet50',kind_method='FT',gridSearch=False,ReDo=False,\
-                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif',\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_small01_modif_GAP',\
                 optimizer='SGD',opt_option=[0.01],
                 transformOnFinalLayer='GlobalAveragePooling2D',
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)
@@ -476,8 +483,11 @@ def exp_BN_only():
 
 if __name__ == '__main__': 
     
+    # Baseline perfo 
+    perf_IconArt_ArtUK_RASTA_baseline_TL()
+    
     # Exp avec BatchNorm model
-    exp_BN_only()
+    #exp_BN_only()
     #a faire plus tard
     
     # # Classif performance
