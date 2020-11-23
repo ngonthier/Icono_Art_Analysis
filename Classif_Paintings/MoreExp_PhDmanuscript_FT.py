@@ -13,6 +13,37 @@ from CompNet_FT_lucidIm import Comparaison_of_FineTunedModel,print_performance_F
 from StatsConstr_ClassifwithTL import learn_and_eval
 from keras_resnet_utils import getBNlayersResNet50
 
+### Cas de Paintings IconArt en mode Off-the-shelf feature extraction InceptionV1
+def perf_OffTheshelf_InceptionV1_IconArt_ArtUK_baseline():
+        
+    print('IconArt - InceptionV1')
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer=None,
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+    learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_RandInit_randomCrop_ep200_LRschedG',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer=None,
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+        
+    print('Paintings - InceptionV1')
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer=None,
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
+    learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_RandInit_randomCrop_ep200_LRschedG',\
+                optimizer='SGD',opt_option=[0.01],
+                transformOnFinalLayer=None,
+                epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
+
 ### Cas de Paintings IconArt et RASTA en mode Off-the-shelf feature extraction
 def perf_IconArt_ArtUK_RASTA_baseline_TL():
     
@@ -370,7 +401,7 @@ def exp_BN_only():
     'block3_conv1','block3_conv2','block3_conv3','block3_conv4',
     'block4_conv1','block4_conv2','block4_conv3','block4_conv4', 
     'block5_conv1','block5_conv2','block5_conv3','block5_conv4']
-    opt_option=[0.1,0.01]
+    opt_option_tab=[[0.1,0.01],[0.01]]
     optimizer='SGD'
     SGDmomentum=0.9
     decay=1e-4
@@ -390,19 +421,22 @@ def exp_BN_only():
 
     pretrainingModif = False
     
-    for target_dataset in target_dataset_tab:
-    #            print(constrNet,style_layers)
-        metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
-                                epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
-                                forLatex=True,optimizer=optimizer,\
-                                pretrainingModif=pretrainingModif,freezingType=freezingType,\
-                                opt_option=opt_option,cropCenter=cropCenter,\
-                                style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
-                                final_clf=final_clf,features=features,\
-                                return_best_model=return_best_model,\
-                                onlyReturnResult=onlyPlot,\
-                                dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
-                                nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+    for opt_option in opt_option_tab:
+        print('opt_option',opt_option)
+        for target_dataset in target_dataset_tab:
+        #            print(constrNet,style_layers)
+            metrics = learn_and_eval(target_dataset,constrNet=constrNet,kind_method='FT',\
+                                    epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                                    forLatex=True,optimizer=optimizer,\
+                                    pretrainingModif=pretrainingModif,freezingType=freezingType,\
+                                    opt_option=opt_option,cropCenter=cropCenter,\
+                                    style_layers=style_layers,getBeforeReLU=getBeforeReLU,\
+                                    final_clf=final_clf,features=features,\
+                                    return_best_model=return_best_model,\
+                                    onlyReturnResult=onlyPlot,verbose=True,\
+                                    dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                                    nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+            print(target_dataset,metrics)
                 
     ## ResNet50 :
         
@@ -465,17 +499,20 @@ def exp_BN_only():
                     'conv5_block3_1_bn', 
                     'conv5_block3_2_bn',
                     'conv5_block3_3_bn']    
-    for target_dataset in target_dataset_tab:
-#            print(constrNet,style_layers)
-        metrics = learn_and_eval(target_dataset=target_dataset,constrNet=constrNet,\
-                                 forLatex=True,
-                                 kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
-                                 pretrainingModif=pretrainingModif,freezingType=freezingType,\
-                                 optimizer=optimizer,opt_option=opt_option, #batch_size=batch_size,\
-                                 final_clf=final_clf,features=features,return_best_model=return_best_model,\
-                                 onlyReturnResult=onlyPlot,style_layers=style_layers,
-                                 cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
-                                 nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+    for opt_option in opt_option_tab:
+        print('opt_option',opt_option)
+        for target_dataset in target_dataset_tab:
+    #            print(constrNet,style_layers)
+            metrics = learn_and_eval(target_dataset=target_dataset,constrNet=constrNet,\
+                                     forLatex=True,verbose=True,\
+                                     kind_method='FT',epochs=epochs,transformOnFinalLayer=transformOnFinalLayer,\
+                                     pretrainingModif=pretrainingModif,freezingType=freezingType,\
+                                     optimizer=optimizer,opt_option=opt_option, #batch_size=batch_size,\
+                                     final_clf=final_clf,features=features,return_best_model=return_best_model,\
+                                     onlyReturnResult=onlyPlot,style_layers=style_layers,
+                                     cropCenter=cropCenter,dropout=dropout,regulOnNewLayer=regulOnNewLayer,\
+                                     nesterov=nesterov,SGDmomentum=SGDmomentum,decay=decay)
+            print(target_dataset,metrics)
             
     # InceptionV1 adaIn a faire !
             
@@ -484,10 +521,10 @@ def exp_BN_only():
 if __name__ == '__main__': 
     
     # Baseline perfo 
-    perf_IconArt_ArtUK_RASTA_baseline_TL()
+    #perf_IconArt_ArtUK_RASTA_baseline_TL()
     
     # Exp avec BatchNorm model
-    #exp_BN_only()
+    exp_BN_only()
     #a faire plus tard
     
     # # Classif performance
