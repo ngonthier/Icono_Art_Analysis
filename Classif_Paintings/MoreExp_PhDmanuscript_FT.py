@@ -25,7 +25,7 @@ def perf_OffTheshelf_InceptionV1_IconArt_ArtUK_baseline():
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
     learn_and_eval('IconArt_v1',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
-                pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_RandInit_randomCrop_ep200_LRschedG',\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',\
                 optimizer='SGD',opt_option=[0.01],
                 transformOnFinalLayer=None,
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
@@ -39,7 +39,7 @@ def perf_OffTheshelf_InceptionV1_IconArt_ArtUK_baseline():
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4)  
     learn_and_eval('Paintings',source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                 constrNet='InceptionV1',kind_method='FT',gridSearch=False,ReDo=False,\
-                pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_RandInit_randomCrop_ep200_LRschedG',\
+                pretrainingModif=False,return_best_model=True,weights='RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',\
                 optimizer='SGD',opt_option=[0.01],
                 transformOnFinalLayer=None,
                 epochs=20,cropCenter=True,verbose=True,SGDmomentum=0.9,decay=1e-4) 
@@ -526,6 +526,8 @@ if __name__ == '__main__':
     # Exp avec BatchNorm model
     exp_BN_only()
     #a faire plus tard
+    
+    perf_OffTheshelf_InceptionV1_IconArt_ArtUK_baseline()
     
     # # Classif performance
     # print_IconArtv1_performance()
