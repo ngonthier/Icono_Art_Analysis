@@ -13,6 +13,8 @@ from CompNet_FT_lucidIm import Comparaison_of_FineTunedModel,print_performance_F
 from StatsConstr_ClassifwithTL import learn_and_eval
 from keras_resnet_utils import getBNlayersResNet50
 
+from Gram_For_Better_Feat_Vizu import get_confusion_matrices_for_list_models
+
 ### Cas de Paintings IconArt en mode Off-the-shelf feature extraction InceptionV1
 def perf_OffTheshelf_InceptionV1_IconArt_ArtUK_baseline():
         
@@ -318,7 +320,25 @@ def RASTA_ResNet_VGG_feat_vizu():
                             ]
      Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG')
 
+### Cas ou l on regroupe les modeles ensemble
 
+
+def combine_ens_models():
+    
+    list_model_name= ['RASTA_small01_modif_GAP',
+                      'RASTA_big0001_modif_GAP_adam_unfreeze8_RandForUnfreezed_SmallDataAug_ep200',
+                      'RASTA_big001_modif_GAP_RandInit_randomCrop_ep200_LRschedG']
+    print('VGG ensembles : ',list_model_name)
+    get_confusion_matrices_for_list_models(list_model_name=list_model_name,
+                                           list_constrNet=['VGG'],
+                                           bagging_method = 'mean')
+    list_model_name= ['RASTA_small01_modif_GAP',
+                      'RASTA_big0001_modif_GAP_adam_unfreeze20_RandForUnfreezed_SmallDataAug_ep200',
+                      'RASTA_big001_modif_GAP_RandInit_randomCrop_ep200_LRschedG']
+    print('ResNet50 ensembles : ',list_model_name)
+    get_confusion_matrices_for_list_models(list_model_name=list_model_name,
+                                           list_constrNet=['ResNet50'],
+                                           bagging_method = 'mean')
 
 ### Cas de Paintins et IconArt avec un passage intermediaire par RASTA
 
@@ -522,12 +542,13 @@ if __name__ == '__main__':
     
     # Baseline perfo 
     #perf_IconArt_ArtUK_RASTA_baseline_TL()
+    #perf_OffTheshelf_InceptionV1_IconArt_ArtUK_baseline()
     
     # Exp avec BatchNorm model
-    exp_BN_only()
-    #a faire plus tard
-    
-    perf_OffTheshelf_InceptionV1_IconArt_ArtUK_baseline()
+    #exp_BN_only()
+       
+    # Combine 3 nets together
+    #combine_ens_models()
     
     # # Classif performance
     # print_IconArtv1_performance()
@@ -536,4 +557,4 @@ if __name__ == '__main__':
     # print_perform_Paintings_IconArt_RASTA_intermediaire()
     
     # Feat vizu autre reseaux pour RASTA
-    #RASTA_ResNet_VGG_feat_vizu()
+    RASTA_ResNet_VGG_feat_vizu()
