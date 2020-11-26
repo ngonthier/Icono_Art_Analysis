@@ -20,7 +20,7 @@ from Dist_CNNs import get_linearCKA_bw_nets,comp_cka_for_paper,get_l2norm_bw_net
 
 CB_color_cycle = ['#377eb8', '#4daf4a','#A2C8EC', '#ff7f00','#984ea3','#e41a1c',
                   '#f781bf', '#a65628', '#dede00','#FFBC79','#999999']
-list_markers = ['o','s','d','*','v','^','<','>','X','1','2','3','4','8','h','H','p','d','$f$','P']
+list_markers = ['o','s','d','*','v','^','<','>','h','H','X','1','2','3','4','8','p','d','$f$','P']
 
 
 title_corr = {'pretrained': 'pretrained on ImageNet',
@@ -187,8 +187,11 @@ def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True,output_img='png'
     loc='upper center'
     bbox_to_anchor=(0.5, 1.2)
     if forPhDmanuscript:
-        ncol = 3
-        bbox_to_anchor=(0.5, 1.15)
+#        ncol = 3
+#        bbox_to_anchor=(0.5, 1.15)
+        ncol= 1
+        bbox_to_anchor=(1.01, 0.5)
+        loc='center left'
     if side_legend:
         ncol= 1
         bbox_to_anchor=(1.01, 0.5)
@@ -422,5 +425,6 @@ def l2norm_fct_layers_plot(side_legend=False,output_img='png'):
     #input("wait")
 
 if __name__=='__main__':
-    cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True,output_img='tikz')
+    #cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True,output_img='tikz')
+    cka_fct_layers_plot(forPhDmanuscript=True,side_legend=True,output_img='tikz')
     #l2norm_fct_layers_plot()
