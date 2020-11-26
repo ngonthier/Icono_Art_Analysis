@@ -583,6 +583,12 @@ def Use_of_diff_final_model_ResNet_VGG_InceptionV1():
         # ResNet50 Block1-5\_conv1 activation\_48 GlobalAveragePooling2D LinearSVCGS 
         # & 71.1 & 48.3 & 92.9 & 75.8 & 64.4 & 72.5 & 56.6 & 80.7 & 70.5 & 88.5 & 72.2 \\ 
         
+        print('Same experiment with ResNet50 but a MLP1')
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='activation_48',\
+                       constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
+                       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,
+                       opt_option=[0.01],verbose=True)    
+        
         print('Same experiment with ResNet50 but a MLP2')
         learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
                        constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
@@ -608,6 +614,12 @@ def Use_of_diff_final_model_ResNet_VGG_InceptionV1():
         # ResNet50 Block1-5\_conv1 activation\_48 GlobalAveragePooling2D LinearSVCGS 
         # & 71.1 & 48.3 & 92.9 & 75.8 & 64.4 & 72.5 & 56.6 & 80.7 & 70.5 & 88.5 & 72.2 \\ 
         
+        print('Same experiment with VGG but a MLP1')
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
+                       constrNet='VGG',kind_method='TL',gridSearch=False,ReDo=ReDo,\
+                       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,
+                       opt_option=[0.01],verbose=True)    
+        
         print('Same experiment with VGG but a MLP2')
         learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
                        constrNet='VGG',kind_method='TL',gridSearch=False,ReDo=ReDo,\
@@ -631,6 +643,12 @@ def Use_of_diff_final_model_ResNet_VGG_InceptionV1():
         # ResNet50 Block1-5\_conv1 activation\_48 GlobalAveragePooling2D LinearSVCGS 
         # & 71.1 & 48.3 & 92.9 & 75.8 & 64.4 & 72.5 & 56.6 & 80.7 & 70.5 & 88.5 & 72.2 \\ 
         
+        print('Same experiment with InceptionV1 but a MLP2')
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
+                       constrNet='InceptionV1',kind_method='TL',gridSearch=False,ReDo=ReDo,\
+                       transformOnFinalLayer='',cropCenter=True,
+                       opt_option=[0.01],verbose=True)
+            
         print('Same experiment with InceptionV1 but a MLP2')
         learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='avgpool',\
                        constrNet='InceptionV1',kind_method='TL',gridSearch=False,ReDo=ReDo,\
@@ -669,7 +687,7 @@ if __name__ == '__main__':
     #print_Paintings_IconArt_IncppetionV1_scratch_performance()
     
     # Feat vizu autre reseaux pour RASTA
-    RASTA_ResNet_VGG_feat_vizu() # pb a voir plus tard
+    #RASTA_ResNet_VGG_feat_vizu() # pb a voir plus tard
     
     #Use_of_diff_features_VGG()
-    #Use_of_diff_final_model_ResNet_VGG_InceptionV1()
+    Use_of_diff_final_model_ResNet_VGG_InceptionV1()
