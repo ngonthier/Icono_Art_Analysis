@@ -424,6 +424,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         ResNet50_ROWD_CUMUL_AdaIn : fine tune only the batch normalisation refined
         InceptionV1 : last layer avg_pool
         InceptionV1_slim : ne fonctionne pas !?
+        InceptionV1AdaIn 
 
         TODO : VGGGram that modify the gram matrices
     @param : transformOnFinalLayer can be :
@@ -826,6 +827,15 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                     network_features_extraction = Stats_Fcts.vgg_BaseNorm(style_layers,list_mean_and_std_source,
                         list_mean_and_std_target,final_layer=final_layer,transformOnFinalLayer=transformOnFinalLayer,
                         getBeforeReLU=getBeforeReLU)
+                
+                elif constrNet=='InceptionV1':
+                    # in the case of InceptionV1 : final_alyer = features = 'avgpool'
+                    network_features_extraction = Stats_Fcts.InceptionV1_cut(final_layer=features,\
+                                     transformOnFinalLayer =transformOnFinalLayer,\
+                                         verbose=verbose,weights=weights)
+                    
+                    if returnStatistics:
+                        return(network_features_extraction)
                 
                 elif constrNet=='ResNet50':
                     # in the case of ResNet50 : final_alyer = features = 'activation_48'
@@ -1779,6 +1789,8 @@ def get_deep_model_for_FT(constrNet,target_dataset,num_classes,pretrainingModif,
                              final_activation=final_activation,metrics=metrics,
                              loss=loss,deepSupervision=deepSupervision,clipnorm=clipnorm,\
                              imSize=imSize,final_layer=features)
+
+
     elif constrNet=='InceptionV1_slim':
         model = Stats_Fcts.InceptionV1_baseline_model(num_of_classes=num_classes,\
                              pretrainingModif=pretrainingModif,verbose=verbose,weights=weights,\

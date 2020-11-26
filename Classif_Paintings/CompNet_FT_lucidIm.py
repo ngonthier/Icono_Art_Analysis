@@ -746,7 +746,8 @@ def name_most_relatively_modified_filters(model_name,layer_name,constrNet='Incep
 def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
                                   doAlsoImagesOfOtherModel_feature = False,
                                   testMode=False,
-                                  suffix_tab = [''],reDo=False):
+                                  suffix_tab = [''],reDo=False,
+                                  noPretrainedModel_FeatVizu=False):
     """
     This function will load the two models (deep nets) before and after fine-tuning 
     and then compute the difference between the weights and finally run a 
@@ -834,7 +835,8 @@ def Comparaison_of_FineTunedModel(list_models_name,constrNet = 'VGG',
                          ,path_output=output_path_with_model,prexif_name=model_name+suffix,
                          input_name=input_name_lucid,Net=constrNet,reDo=reDo)
                     
-                    print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
+                    if not(noPretrainedModel_FeatVizu):
+                        print_imags_for_pretrainedModel(list_layer_index_to_print_base_model,output_path=output_path_with_model,\
                                          constrNet=constrNet,reDo=reDo)
                         
                      # Do the images for the other models case

@@ -240,7 +240,20 @@ def print_Paintings_performance(latexOutput=False):
 #    print_performance_FineTuned_network(constrNet='InceptionV1_slim',
 #                                        list_models_name=list_models_name,
 #                                        suffix_tab=[''],latexOutput=latexOutput)
-    
+ 
+### Cas de training from scratch pour IconArt et Paintings pour InceptionV1
+def print_Paintings_IconArt_IncppetionV1_scratch_performance(latexOutput=False):
+    # For Classification performance different setup
+    # 'Paintings_big01_modif_GAP',  diverge
+    list_models_name = ['IconArt_v1_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                        'IconArt_v1_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                        'Paintings_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                        'Paintings_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                            ]
+
+    print_performance_FineTuned_network(constrNet='InceptionV1',
+                                        list_models_name=list_models_name,
+                                        suffix_tab=[''],latexOutput=latexOutput)   
     
 ### RASTA performance : 
 
@@ -251,7 +264,7 @@ def print_RASTA_performance(latexOutput=False):
                         'RASTA_big001_modif_GAP_RandInit_randomCrop_ep200_LRschedG'
                         ]
                         
-    print_performance_FineTuned_network(constrNet='ResNet50',
+    print_performance_FineTuned_network(constrNet='VGG',
                                         list_models_name=list_models_name,
                                         suffix_tab=[''],latexOutput=latexOutput)
     # 'RASTA_small01_modif_GAP'
@@ -293,9 +306,8 @@ def RASTA_ResNet_VGG_feat_vizu():
 #                          'RASTA_big001_modif_GAP_adam_unfreeze20_randomCrop',
 
 ###%  A faire tourner plus tard !
-     list_model_name_5 = ['RASTA_big0001_modif_GAP_adam_unfreeze20_RandForUnfreezed_SmallDataAug_ep200'] 
-## Provide 60% on Top1 
-     Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
+  #   list_model_name_5 = ['RASTA_big0001_modif_GAP_adam_unfreeze20_RandForUnfreezed_SmallDataAug_ep200'] 
+  #   Comparaison_of_FineTunedModel(list_model_name_5,constrNet='ResNet50') 
 
     
 #    list_model_name_5 = ['RASTA_big001_modif_GAP_adam_unfreeze20_RandForUnfreezed_randomCrop'] 
@@ -318,7 +330,7 @@ def RASTA_ResNet_VGG_feat_vizu():
                             'RASTA_big0001_modif_GAP_adam_unfreeze8_RandForUnfreezed_SmallDataAug_ep200',
                             'RASTA_big001_modif_GAP_RandInit_randomCrop_ep200_LRschedG',
                             ]
-     Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG')
+     Comparaison_of_FineTunedModel(list_model_name_4,constrNet='VGG',noPretrainedModel_FeatVizu=True)
 
 ### Cas ou l on regroupe les modeles ensemble
 
@@ -537,6 +549,103 @@ def exp_BN_only():
     # InceptionV1 adaIn a faire !
             
 
+def Use_of_diff_features_VGG():
+    
+    ReDo = False
+    for target_dataset in ['Paintings','IconArt_v1']:
+        print('The following experiments will normally reproduce the performance of Crowley 2016 with VGG central crop, grid search on C parameter of SVM but no augmentation of the image (multi crop).')
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='fc2',\
+                       constrNet='VGG',kind_method='TL',gridSearch=True,ReDo=ReDo,cropCenter=True,verbose=True)
+        # 67.1 & 50.6 & 93.0 & 74.6 & 61.3 & 70.2 & 56.1 & 78.8 & 67.1 & 85.5 & 70.5 \\ 
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='fc1',\
+                       constrNet='VGG',kind_method='TL',gridSearch=True,ReDo=ReDo,cropCenter=True,verbose=True)
+    
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='block5_pool',\
+                       constrNet='VGG',kind_method='TL',gridSearch=True,ReDo=ReDo,cropCenter=True,
+                       transformOnFinalLayer='GlobalAveragePooling2D',verbose=True)
+
+        
+    
+   
+    
+    
+def Use_of_diff_final_model_ResNet_VGG_InceptionV1():
+
+    ReDo = False    
+
+    for target_dataset in ['Paintings','IconArt_v1']:
+    
+        print('Same experiment with ResNet50 ')
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='activation_48',\
+                       transformOnFinalLayer='GlobalAveragePooling2D',
+                       constrNet='ResNet50',kind_method='TL',gridSearch=True,
+                       ReDo=ReDo,cropCenter=True,verbose=True)
+        # ResNet50 Block1-5\_conv1 activation\_48 GlobalAveragePooling2D LinearSVCGS 
+        # & 71.1 & 48.3 & 92.9 & 75.8 & 64.4 & 72.5 & 56.6 & 80.7 & 70.5 & 88.5 & 72.2 \\ 
+        
+        print('Same experiment with ResNet50 but a MLP2')
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
+                       constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
+                       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,
+                       opt_option=[0.01],verbose=True)
+        # & 57.3 & 34.0 & 89.7 & 68.9 & 51.5 & 62.4 & 45.9 & 72.9 & 60.5 & 77.1 & 62.0 \\
+        
+        print('Same experiment with ResNet50 but a MLP3 with decay etc')
+        # 72.4 AP sur Paintings : a verifier car il y  avait de probleme avec le crop center fct
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='activation_48',\
+                       constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
+                       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                       regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.01],\
+                       epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,verbose=True)
+            
+            
+            
+        print('Same experiment with VGG ')
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='block5_pool',\
+                       transformOnFinalLayer='GlobalAveragePooling2D',
+                       constrNet='VGG',kind_method='TL',gridSearch=True,
+                       ReDo=ReDo,cropCenter=True,verbose=True)
+        # ResNet50 Block1-5\_conv1 activation\_48 GlobalAveragePooling2D LinearSVCGS 
+        # & 71.1 & 48.3 & 92.9 & 75.8 & 64.4 & 72.5 & 56.6 & 80.7 & 70.5 & 88.5 & 72.2 \\ 
+        
+        print('Same experiment with VGG but a MLP2')
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
+                       constrNet='VGG',kind_method='TL',gridSearch=False,ReDo=ReDo,\
+                       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,
+                       opt_option=[0.01],verbose=True)
+        # & 57.3 & 34.0 & 89.7 & 68.9 & 51.5 & 62.4 & 45.9 & 72.9 & 60.5 & 77.1 & 62.0 \\
+        
+        print('Same experiment with VGG but a MLP3 with decay etc')
+        # 72.4 AP sur Paintings : a verifier car il y  avait de probleme avec le crop center fct
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='block5_pool',\
+                       constrNet='VGG',kind_method='TL',gridSearch=False,ReDo=ReDo,\
+                       transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
+                       regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.01],\
+                       epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,verbose=True)
+            
+        print('Same experiment with InceptionV1 ')
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='avgpool',\
+                       transformOnFinalLayer='',
+                       constrNet='InceptionV1',kind_method='TL',gridSearch=True,
+                       ReDo=ReDo,cropCenter=True,verbose=True)
+        # ResNet50 Block1-5\_conv1 activation\_48 GlobalAveragePooling2D LinearSVCGS 
+        # & 71.1 & 48.3 & 92.9 & 75.8 & 64.4 & 72.5 & 56.6 & 80.7 & 70.5 & 88.5 & 72.2 \\ 
+        
+        print('Same experiment with InceptionV1 but a MLP2')
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='avgpool',\
+                       constrNet='InceptionV1',kind_method='TL',gridSearch=False,ReDo=ReDo,\
+                       transformOnFinalLayer='',cropCenter=True,
+                       opt_option=[0.01],verbose=True)
+        # & 57.3 & 34.0 & 89.7 & 68.9 & 51.5 & 62.4 & 45.9 & 72.9 & 60.5 & 77.1 & 62.0 \\
+        
+        print('Same experiment with InceptionV1 but a MLP3 with decay etc')
+        # 72.4 AP sur Paintings : a verifier car il y  avait de probleme avec le crop center fct
+        learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP3',features='avgpool',\
+                       constrNet='InceptionV1',kind_method='TL',gridSearch=False,ReDo=ReDo,\
+                       transformOnFinalLayer='',cropCenter=True,\
+                       regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.01],\
+                       epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,verbose=True)
+
 
 if __name__ == '__main__': 
     
@@ -556,5 +665,11 @@ if __name__ == '__main__':
     # print_RASTA_performance()
     # print_perform_Paintings_IconArt_RASTA_intermediaire()
     
+    # Training from scratch InceptionV1 Paintings and IconArt
+    #print_Paintings_IconArt_IncppetionV1_scratch_performance()
+    
     # Feat vizu autre reseaux pour RASTA
-    RASTA_ResNet_VGG_feat_vizu()
+    RASTA_ResNet_VGG_feat_vizu() # pb a voir plus tard
+    
+    #Use_of_diff_features_VGG()
+    #Use_of_diff_final_model_ResNet_VGG_InceptionV1()

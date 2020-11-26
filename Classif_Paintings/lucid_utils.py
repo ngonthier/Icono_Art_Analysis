@@ -181,6 +181,7 @@ def get_pretrained_model(Net,include_top=True):
         
 def create_pb_model_of_pretrained(Net):
     K.set_learning_phase(0)
+    #if not(Net=='VGG'):
     tf.reset_default_graph()
     with K.get_session().as_default():
         if Net=='InceptionV1_slim':
@@ -190,7 +191,8 @@ def create_pb_model_of_pretrained(Net):
             model = inception_v1_oldTF(weights='imagenet',include_top=True)
             name= "tf_inception_v1.pb"
         elif Net=='VGG':
-            model = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet',input_shape=(224,224,3))
+            model = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet',\
+                                                      input_shape=(224,224,3))
             name= "tf_vgg19.pb"
         elif Net=='ResNet50':
             model = tf.keras.applications.resnet50.ResNet50(include_top=True, weights='imagenet',\

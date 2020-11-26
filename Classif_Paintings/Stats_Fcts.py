@@ -2323,6 +2323,44 @@ def get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm):
       
     return(opt)
 
+
+# For Feature extraction
+def InceptionV1_cut(final_layer='avgpool',transformOnFinalLayer ='',\
+                             verbose=False,weights='imagenet',imSize=224): 
+  """
+  To use the InceptionV1 as a features extractor
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+ 
+  Return a keras model that can be use for features extraction  
+  """
+  # create model
+#  input_tensor = Input(shape=(224, 224, 3)) 
+
+  pre_model = Inception_V1(include_top=False, weights=weights,\
+                              input_shape= (imSize, imSize, 3))
+  
+  if not(transformOnFinalLayer in [None,'','GlobalMaxPooling2D','GlobalAveragePooling2D']):
+      print(transformOnFinalLayer,'is unknwon')
+      raise(NotImplementedError)
+  
+  pre_model .trainable = False
+  for layer in pre_model.layers:
+      if layer.name==final_layer:
+          x = layer.output
+
+  if transformOnFinalLayer =='GlobalMaxPooling2D': # IE spatial max pooling
+     x = GlobalMaxPooling2D()(x)
+  elif transformOnFinalLayer =='GlobalAveragePooling2D': # IE spatial max pooling
+      x = GlobalAveragePooling2D()(x)
+  elif transformOnFinalLayer is None or transformOnFinalLayer=='' :
+      x= Flatten()(x)
+  
+  model = Model(inputs=pre_model.input, outputs=x)
+ 
+  if verbose: print(model.summary())
+  return model
+
+
 def InceptionV1_baseline_model(num_of_classes=10,\
                              pretrainingModif=True,verbose=True,weights='imagenet',\
                              optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',\
@@ -2372,7 +2410,7 @@ def InceptionV1_baseline_model(num_of_classes=10,\
           random_model = Inception_V1(include_top=False, weights=None,\
                               input_shape= (imSize, imSize, 3))
       elif test_if_the_name_is_correct(weights):
-          print('RRRR ',weights)
+          #print('RRRR ',weights)
           pre_model,_ = CompNet_FT_lucidIm.get_fine_tuned_model(weights,constrNet='InceptionV1',suffix='',
                                get_Metrics=False,verbose=False) # it will returns the fine-tuned net and the initialization
       else:
@@ -2461,6 +2499,149 @@ def InceptionV1_baseline_model(num_of_classes=10,\
   if verbose: print(model.summary())
   return model
     
+### InceptionV1 adaptative layers 
+      
+def InceptionV1_AdaIn(style_layers,num_of_classes=10,\
+                              list_mean_and_std_source=None,list_mean_and_std_target=None,\
+                             pretrainingModif=True,verbose=True,weights='imagenet',\
+                             optimizer='adam',opt_option=[0.01],freezingType='FromTop',final_clf='MLP2',\
+                             regulOnNewLayer=None,regulOnNewLayerParam=[],\
+                             final_layer='avgpool',
+                             dropout=None,nesterov=False,SGDmomentum=0.0,decay=0.0,
+                             final_activation='sigmoid',metrics='accuracy',
+                             loss='binary_crossentropy',deepSupervision=False,\
+                             slim=False,clipnorm=None,imSize=224): 
+  """
+  @param : weights: one of None (random initialization) or 'imagenet' (pre-training on ImageNet).
+  We only allow to train the layer in the style_layers listt
+  """
+  # create model
+#  input_tensor = Input(shape=(224, 224, 3)) 
+  if list_mean_and_std_source is None or list_mean_and_std_target is None:
+      ParamInitialision = False
+  else:
+      ParamInitialision = True
+
+  regularizers=get_regularizers(regulOnNewLayer=regulOnNewLayer,regulOnNewLayerParam=regulOnNewLayerParam)
+  
+  if slim:
+      assert(not(deepSupervision))
+      if final_layer=='avgpool': 
+          print("In  the case of the slim model the last layer is named global_pooling and not avgpool, we will change it automatically.")
+          print("Some problem may come from this final_layer parameter")
+          final_layer='global_pooling'
+      if weights=='imagenet' or weights is None:
+          pre_model = InceptionV1_slim(include_top=False, weights=weights,\
+                          input_shape= (imSize, imSize, 3),pooling='avg')
+      # elif weights=='RandForUnfreezed':
+      #     pre_model = InceptionV1_slim(include_top=False, weights='imagenet',\
+      #                         input_shape= (imSize, imSize, 3),pooling='avg')
+      #     random_model = InceptionV1_slim(include_top=False, weights=None,\
+      #                         input_shape= (imSize, imSize, 3),pooling='avg')  
+      # elif test_if_the_name_is_correct(weights):
+      #     pre_model,_ = CompNet_FT_lucidIm.get_fine_tuned_model(weights,constrNet='InceptionV1',suffix='',
+      #                          get_Metrics=False,verbose=False) # it will returns the fine-tuned net and the initialization
+      else:
+          raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in short name list models'))
+             
+      number_of_trainable_layers = 114 # Total number of layers 199
+      # TODO Chiffre faux qu il faudra modifier TODO
+  else:
+      if weights=='imagenet' or weights is None:
+          pre_model = Inception_V1(include_top=False, weights=weights,\
+                              input_shape= (imSize, imSize, 3))
+      # elif weights=='RandForUnfreezed':
+      #     pre_model = Inception_V1(include_top=False, weights='imagenet',\
+      #                         input_shape= (imSize, imSize, 3))
+      #     random_model = Inception_V1(include_top=False, weights=None,\
+      #                         input_shape= (imSize, imSize, 3))
+      # elif test_if_the_name_is_correct(weights):
+      #     print('RRRR ',weights)
+      #     pre_model,_ = CompNet_FT_lucidIm.get_fine_tuned_model(weights,constrNet='InceptionV1',suffix='',
+      #                          get_Metrics=False,verbose=False) # it will returns the fine-tuned net and the initialization
+      else:
+          raise(NotImplementedError('weights must be equal to imagenet, RandForUnfreezed, None or in short name models'))
+      if deepSupervision:
+          number_of_trainable_layers = 65
+      else:
+          number_of_trainable_layers = 65
+  
+
+    
+  lr_multiple = False
+  multiply_lrp, lr  = None,None
+  multipliers = {}
+  if len(opt_option)==2:
+      multiply_lrp, lr = opt_option # lrp : learning rate pretrained and lr : learning rate
+      multipliers = {}
+      lr_multiple = True
+  elif len(opt_option)==1:
+      lr = opt_option[-1]
+  else:
+      lr = 0.01
+  opt = get_partial_optimizer(optimizer,SGDmomentum,nesterov,decay,clipnorm)
+
+
+  if slim: # Dans le cas slim c est facile il y a des batchs norm dans le modele
+      print('Attention cas jamais tester !!!')
+      for layer in pre_model.layers:
+          #print(layer.name,final_layer)
+          if layer.name in style_layers:
+              layer.trainable = True
+              if lr_multiple: 
+                  multipliers[layer.name] = multiply_lrp
+          else:
+              layer.trainable = False
+              
+          if final_layer==layer.name:
+              x = layer.output
+              break
+          
+  else:
+      i = 0
+      for layer in pre_model.layers:
+          #print(layer.name,final_layer)
+          layer.trainable =False
+          if layer.name in style_layers:
+              if not(ParamInitialision):
+                  bn_layer = layers.BatchNormalization(axis=-1, center=True, scale=True)
+              else:
+                  # Scaling parameters
+                  beta_initializer = tf.constant_initializer(list_mean_and_std_source[i][0])
+                  gamma_initializer = tf.constant_initializer(list_mean_and_std_source[i][1])
+                  # Normalisation parameters
+                  moving_mean_initializer = tf.constant_initializer(list_mean_and_std_target[i][0])
+                  moving_variance_initializer = tf.constant_initializer(np.square(list_mean_and_std_target[i][1]))
+                  bn_layer = layers.BatchNormalization(axis=-1, center=True, scale=True,\
+                                                       beta_initializer=beta_initializer,\
+                                                       gamma_initializer=gamma_initializer,\
+                                                       moving_mean_initializer=moving_mean_initializer,\
+                                                       moving_variance_initializer=moving_variance_initializer)
+              layer_regex = layer.name + '_bn'
+              bn_layer.trainable = True
+              pre_model = insert_layer_nonseq(pre_model, layer_regex, bn_layer, position='after') 
+              i += 1     
+          if final_layer==layer.name:
+              x = layer.output
+              break
+  
+      if deepSupervision:
+          outputs = pre_model.output
+          x = [outputs[0],outputs[1],x[0]]
+ 
+      pre_model = utils_keras.apply_modifications(pre_model,include_optimizer=False,needFix = True)
+    
+
+  model = new_head_InceptionV1(pre_model,x,final_clf,num_of_classes,multipliers,\
+                               lr_multiple,lr,opt,regularizers,dropout,
+                               final_activation=final_activation,metrics=metrics,\
+                               loss=loss,deepSupervision=deepSupervision,\
+                               slim=slim)
+ 
+  if verbose: print(model.summary())
+  return model
+
+
 ### Convert a already loaded model to a Mean Cov Model
   
 def get_Model_cov_mean_features(style_layers,pre_model):
