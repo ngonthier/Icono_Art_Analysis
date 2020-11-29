@@ -587,13 +587,13 @@ def Use_of_diff_final_model_ResNet_VGG_InceptionV1():
         learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='activation_48',\
                        constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,
-                       opt_option=[0.01],verbose=True)    
+                       opt_option=[0.01],verbose=True,return_best_model=True)    
         
         print('Same experiment with ResNet50 but a MLP2')
         learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='activation_48',\
                        constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,
-                       opt_option=[0.01],verbose=True)
+                       opt_option=[0.01],verbose=True,return_best_model=True)  
         # & 57.3 & 34.0 & 89.7 & 68.9 & 51.5 & 62.4 & 45.9 & 72.9 & 60.5 & 77.1 & 62.0 \\
         
         print('Same experiment with ResNet50 but a MLP3 with decay etc')
@@ -602,7 +602,7 @@ def Use_of_diff_final_model_ResNet_VGG_InceptionV1():
                        constrNet='ResNet50',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                        regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.01],\
-                       epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,verbose=True)
+                       epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,verbose=True,return_best_model=True)  
             
             
             
@@ -618,13 +618,13 @@ def Use_of_diff_final_model_ResNet_VGG_InceptionV1():
         learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='block5_pool',\
                        constrNet='VGG',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,
-                       opt_option=[0.01],verbose=True)    
+                       opt_option=[0.01],verbose=True,return_best_model=True)      
         
         print('Same experiment with VGG but a MLP2')
         learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='block5_pool',\
                        constrNet='VGG',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,
-                       opt_option=[0.01],verbose=True)
+                       opt_option=[0.01],verbose=True,return_best_model=True)  
         # & 57.3 & 34.0 & 89.7 & 68.9 & 51.5 & 62.4 & 45.9 & 72.9 & 60.5 & 77.1 & 62.0 \\
         
         print('Same experiment with VGG but a MLP3 with decay etc')
@@ -633,13 +633,13 @@ def Use_of_diff_final_model_ResNet_VGG_InceptionV1():
                        constrNet='VGG',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                        transformOnFinalLayer='GlobalAveragePooling2D',cropCenter=True,\
                        regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.01],\
-                       epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,verbose=True)
+                       epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,verbose=True,return_best_model=True)  
             
         print('Same experiment with InceptionV1 ')
         learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='LinearSVC',features='avgpool',\
                        transformOnFinalLayer='',
                        constrNet='InceptionV1',kind_method='TL',gridSearch=True,
-                       ReDo=ReDo,cropCenter=True,verbose=True)
+                       ReDo=ReDo,cropCenter=True,verbose=True,return_best_model=True)  
         # ResNet50 Block1-5\_conv1 activation\_48 GlobalAveragePooling2D LinearSVCGS 
         # & 71.1 & 48.3 & 92.9 & 75.8 & 64.4 & 72.5 & 56.6 & 80.7 & 70.5 & 88.5 & 72.2 \\ 
         
@@ -647,13 +647,13 @@ def Use_of_diff_final_model_ResNet_VGG_InceptionV1():
         learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP1',features='avgpool',\
                        constrNet='InceptionV1',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                        transformOnFinalLayer='',cropCenter=True,
-                       opt_option=[0.01],verbose=True)
+                       opt_option=[0.01],verbose=True,return_best_model=True)  
             
         print('Same experiment with InceptionV1 but a MLP2')
         learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',features='avgpool',\
                        constrNet='InceptionV1',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                        transformOnFinalLayer='',cropCenter=True,
-                       opt_option=[0.01],verbose=True)
+                       opt_option=[0.01],verbose=True,return_best_model=True)  
         # & 57.3 & 34.0 & 89.7 & 68.9 & 51.5 & 62.4 & 45.9 & 72.9 & 60.5 & 77.1 & 62.0 \\
         
         print('Same experiment with InceptionV1 but a MLP3 with decay etc')
@@ -662,7 +662,7 @@ def Use_of_diff_final_model_ResNet_VGG_InceptionV1():
                        constrNet='InceptionV1',kind_method='TL',gridSearch=False,ReDo=ReDo,\
                        transformOnFinalLayer='',cropCenter=True,\
                        regulOnNewLayer='l2',optimizer='SGD',opt_option=[0.01],\
-                       epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,verbose=True)
+                       epochs=20,nesterov=True,SGDmomentum=0.99,decay=0.0005,verbose=True,return_best_model=True)  
 
 
 if __name__ == '__main__': 
