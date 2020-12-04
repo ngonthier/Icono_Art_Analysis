@@ -272,6 +272,28 @@ def print_old_results_MIMAX_artistic_datasets():
                         ,scenarioSubset=[0,5,3,22],withoutAggregW=True,num_rep=10,
                         pm_only_on_mean=True)
         
+def print_old_results_HiddenLayer_MIMAX_artistics_datasets():
+    
+    database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
+        
+    print('=== Hidden layer MIMAX model ===')
+    print('== avec score ==')
+    for database in database_tab :
+        print(database)
+    
+        unefficient_evaluation_PrintResults(database=database,num_rep = 10,
+                                        Optimizer='GradientDescent',
+                                        MaxOfMax=False,MaxMMeanOfMax=False,
+                                        max_iters_all_base=3000,AddOneLayer=True,
+                                        num_features_hidden=256,pm_only_on_mean=True,
+                                        mi_model=False,
+                                        seuillage_by_score=False,
+                                        obj_score_add_tanh=False,
+                                        obj_score_mul_tanh = False,
+                                        number_restarts=11,
+                                        with_scores_tab=[True,False],
+                                        loss_type_tab=[''])
+
 
 if __name__ == '__main__':                                       
     
@@ -291,17 +313,20 @@ if __name__ == '__main__':
     #                     ,scenarioSubset=[23,24],withoutAggregW=True,num_rep=10)
     
     
-    print('Other_way_to_use_score_MaxOfMax')
-#    Other_way_to_use_score_MaxOfMax()
-    MaxOfMax_other_way_score_print_results()
-    
-    print('Old MaxOfMax results redo')
-    print_old_results_MaxOfMax_artistic_datasets()
+#    print('Other_way_to_use_score_MaxOfMax')
+##    Other_way_to_use_score_MaxOfMax()
+#    MaxOfMax_other_way_score_print_results()
+#    
+#    print('Old MaxOfMax results redo')
+#    print_old_results_MaxOfMax_artistic_datasets()
 #    
 #    print('miperceptron_for_artistist_dataset')
 #    miperceptron_for_artistist_dataset()
 #    
 #    print('PascalVOC_sanity_check')
 #    PascalVOC_sanity_check()
+    
+    print('Hidden layer artistics nets')
+    print_old_results_HiddenLayer_MIMAX_artistics_datasets()
 
     
