@@ -891,6 +891,79 @@ def Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',
     except KeyboardInterrupt:
         gc.collect()  
   
+def print_baseline_perf(demonet = 'res152_COCO',database = 'IconArt_v1',
+                        Test_on_k_bag = False,
+                        normalisation= False,baseline_kind = 'MAX1',
+                        verbose = True,gridSearch=False,k_per_bag=300,jtest=0,
+                        testMode=False,
+                        clf='LinearSVC',PCAuse=False,variance_thres= 0.9,
+                        restarts = 0,max_iter = 10,
+                        number_composant=None):
+    
+    raise(NotImplementedError)
+    
+    # if demonet == 'vgg16_COCO':
+    #     num_features = 4096
+    # elif demonet in ['res101_COCO','res152_COCO','res101_VOC07']:
+    #     num_features = 2048
+    # item_name,path_to_img,default_path_imdb,classes,ext,num_classes,str_val,df_label,path_data,\
+    #     Not_on_NicolasPC  = get_database(database)
+
+    # if(jtest>len(classes)) and testMode:
+    #    print("We are in test mode but jtest>len(classes), we will use jtest =0" )
+    #    jtest =0
+    # N = 1
+    # extL2 = ''
+    # nms_thresh = 0.7
+    # savedstr = '_all'
+    # name_pkl = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+ \
+    #     '_TLforMIL_nms_'+str(nms_thresh)+savedstr+'.pkl'
+           
+    
+    
+    # det_name_file = 'Detect_Baseline_'+database+'_'+baseline_kind
+    # if testMode:
+    #     det_name_file += '_TestMode'
+    # if normalisation:
+    #     det_name_file += '_Normed'
+    # if baseline_kind in ['MISVM','miSVM']:
+    #     det_name_file += '_r'+str(restarts) +'_m'+str(max_iter)
+    # if PCAuse:
+    #     if number_composant is None:
+    #         print('You have to specify the number of components')
+    #         raise(ValueError)
+    #     det_name_file += '_PCA'+str(number_composant)
+    # if gridSearch:
+    #     det_name_file += '_GS'
+    # det_name_fileAP = os.path.join(path_data,det_name_file + '_AP.pkl')
+    # if not(os.path.isfile(det_name_fileAP)):
+    #     print('The results file does not exists')
+
+    # else:
+    
+    #     pkl = open(det_name_fileAP, 'rb')
+    #     results_pkl = pickle.load(pkl)    
+    
+    #     det_name_filef = det_name_file + '.pkl'
+            
+    #     output_dir =  os.path.join(path_data,'tmp',database) # path_data +'tmp/' + database + '/'
+    
+
+    #     aps = results_pkl['AP_IOU05']
+    #     #print("Detection scores at 0.5 for Baseline :",baseline_kind,'gridSearch',gridSearch,'on ',database)
+    #     #if PCAuse: print("With PCA and ",number_composant," componants")
+    #     #if baseline_kind in ['MISVM','miSVM']:
+    #     #    print('restarts',restarts,'max_iter',max_iter)
+    #     print("Detection score with thres at ",0.5)
+    #     print(arrayToLatex(aps,per=True))
+        
+    #     apsAt01 = results_pkl['AP_IOU01']
+    #     print("Detection score with thres at ",0.1)
+    #     print(arrayToLatex(apsAt01,per=True))
+        
+        
+        
+  
 def BaselineRunAll():
     """ Run severals baseline model on two datasets
     """
