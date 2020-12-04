@@ -303,7 +303,7 @@ def print_PASCAL_sanity_checks_extra():
             unefficient_evaluation_PrintResults(database=database,num_rep = 10,
                             Optimizer='GradientDescent',
                             max_iters_all_base = 3000,
-                            number_restarts = 11,scores_tab =[True,False],
+                            number_restarts = 11,with_scores_tab =[True,False],
                             demonet=demonet,MaxOfMax=True,
                             pm_only_on_mean=True)
         except Exception as e:
@@ -317,7 +317,7 @@ def print_PASCAL_sanity_checks_extra():
             unefficient_evaluation_PrintResults(database=database,num_rep = 10,
                             Optimizer='GradientDescent',
                             max_iters_all_base = 3000,num_features_hidden=256,
-                            number_restarts = 11,scores_tab =[True,False],
+                            number_restarts = 11,with_scores_tab =[True,False],
                             demonet=demonet,AddOneLayer=True,
                             pm_only_on_mean=True)
         except Exception as e:
