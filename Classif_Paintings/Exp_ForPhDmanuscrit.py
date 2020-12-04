@@ -284,15 +284,45 @@ def print_old_results_HiddenLayer_MIMAX_artistics_datasets():
         unefficient_evaluation_PrintResults(database=database,num_rep = 10,
                                         Optimizer='GradientDescent',
                                         MaxOfMax=False,MaxMMeanOfMax=False,
-                                        max_iters_all_base=3000,AddOneLayer=True,
+                                        max_iters_all_base=300,AddOneLayer=True,
                                         num_features_hidden=256,pm_only_on_mean=True,
                                         mi_model=False,
                                         seuillage_by_score=False,
                                         obj_score_add_tanh=False,
                                         obj_score_mul_tanh = False,
                                         number_restarts=11,
-                                        with_scores_tab=[True,False],
+                                        with_scores_tab=[True],
                                         loss_type_tab=[''])
+
+def print_PASCAL_sanity_checks_extra():
+        
+    # Max Of Max : 
+    database = 'VOC2007'
+    for demonet in ['res152_COCO','res101_VOC07']:
+        try: 
+            unefficient_evaluation_PrintResults(database=database,num_rep = 10,
+                            Optimizer='GradientDescent',
+                            max_iters_all_base = 3000,
+                            number_restarts = 11,scores_tab =[True,False],
+                            demonet=demonet,MaxOfMax=True,
+                            pm_only_on_mean=True)
+        except Exception as e:
+             print(e)
+             pass
+    
+
+    # MIMAX HL
+    for demonet in ['res152_COCO','res101_VOC07']:
+        try: 
+            unefficient_evaluation_PrintResults(database=database,num_rep = 10,
+                            Optimizer='GradientDescent',
+                            max_iters_all_base = 3000,num_features_hidden=256,
+                            number_restarts = 11,scores_tab =[True,False],
+                            demonet=demonet,AddOneLayer=True,
+                            pm_only_on_mean=True)
+        except Exception as e:
+             print(e)
+             pass
 
 
 if __name__ == '__main__':                                       
@@ -326,7 +356,10 @@ if __name__ == '__main__':
 #    print('PascalVOC_sanity_check')
 #    PascalVOC_sanity_check()
     
-    print('Hidden layer artistics nets')
-    print_old_results_HiddenLayer_MIMAX_artistics_datasets()
+#    print('Hidden layer artistics nets')
+#    print_old_results_HiddenLayer_MIMAX_artistics_datasets()
+    
+    print('PASCAL VOC 2007 sanity check')
+    print_PASCAL_sanity_checks_extra()
 
     
