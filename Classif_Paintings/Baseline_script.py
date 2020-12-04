@@ -922,6 +922,32 @@ def BaselineRunAll():
                     normalisation= normalisation,baseline_kind=method,verbose=False,
                     gridSearch=False,k_per_bag=300,n_jobs=4,PCAuse=PCAuse,variance_thres= variance_thres,
                     restarts=restarts,max_iter=max_iter,reDo=False)
+def Baseline_IconArtv1():
+    """ Run severals baseline model on two datasets
+    """
+    
+    datasets = ['IconArt_v1']
+    list_methods =['MISVM','miSVM','MAX1','MAXA']
+    normalisation = False
+    restarts = 0
+    max_iter = 50
+    variance_thres = 0.9
+    for database in datasets:
+        for method in list_methods: 
+            if method in ['MAXA','MAX1','SISVM']:
+                GS_tab = [False,True]
+                GS_tab = [True]
+                PCA_tab = [True]
+            else:
+                GS_tab = [False]
+                PCA_tab = [True]
+            for GS in GS_tab:
+                for PCAuse in PCA_tab:
+                    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database =database,Test_on_k_bag=False,
+                            normalisation= normalisation,baseline_kind=method,verbose=False,
+                            gridSearch=GS,k_per_bag=300,n_jobs=4,PCAuse=PCAuse,variance_thres= variance_thres,
+                            restarts=restarts,max_iter=max_iter,reDo=False)
+    
 
 def stack_elt_from_object_list(all_boxes_order,i,imdb):
     list_img_i = []
@@ -1003,10 +1029,10 @@ if __name__ == '__main__':
 #                        normalisation= False,baseline_kind = 'MISVM',verbose = True,
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
 #                        restarts=0,max_iter=50,testMode=True)
-    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'PeopleArt',Test_on_k_bag=False,
-                        normalisation= False,baseline_kind = 'miSVM',verbose = True,
-                        gridSearch=False,k_per_bag=300,n_jobs=4,PCAuse=False,variance_thres= 0.9,
-                        restarts=0,max_iter=50,testMode=False,reDo=False)
+#    Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'PeopleArt',Test_on_k_bag=False,
+#                        normalisation= False,baseline_kind = 'miSVM',verbose = True,
+#                        gridSearch=False,k_per_bag=300,n_jobs=4,PCAuse=False,variance_thres= 0.9,
+#                        restarts=0,max_iter=50,testMode=False,reDo=False)
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
 #                        normalisation= False,baseline_kind = 'SISVM',verbose = True,
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
@@ -1040,3 +1066,5 @@ if __name__ == '__main__':
 #                        normalisation= False,baseline_kind = 'miSVM',verbose = True,
 #                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.75,
 #                        restarts=10,max_iter=100)
+    
+    Baseline_IconArtv1()
