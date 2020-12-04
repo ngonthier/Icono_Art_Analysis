@@ -382,7 +382,15 @@ def runSeveralMInet(dataset_nm='IconArt_v1',MILmodel='MI_Net',demonet = 'res152_
             
 
 if __name__ == '__main__':
+#    MILmodel_tab = ['MI_Net','MI_Net_with_DS','MI_Net_with_RC','mi_Net']
+#
+#    for MILmodel in MILmodel_tab:
+#        mainEval(MILmodel=MILmodel,max_epoch=20,test=False)
     MILmodel_tab = ['MI_Net','MI_Net_with_DS','MI_Net_with_RC','mi_Net']
-
-    for MILmodel in MILmodel_tab:
-        mainEval(MILmodel=MILmodel,max_epoch=20,test=False)
+    database_tab = ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
+    for dataset_nm in database_tab:
+        for MILmodel in MILmodel_tab:
+            print(dataset_nm,MILmodel)
+            runSeveralMInet(dataset_nm=dataset_nm,MILmodel=MILmodel,demonet = 'res152_COCO',\
+                        k_per_bag=300,layer='fc7',num_rep = 10,metamodel = 'FasterRCNN',
+                        printR=True,pm_only_on_mean=True,ReDo=False)
