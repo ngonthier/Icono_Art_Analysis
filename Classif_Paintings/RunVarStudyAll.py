@@ -704,11 +704,11 @@ def unefficient_evaluation_PrintResults(database='IconArt_v1',num_rep = 10,
                                         obj_score_mul_tanh = False,
                                         number_restarts=11,
                                         with_scores_tab=[False,True],
-                                        loss_type_tab=['','hinge']):
+                                        loss_type_tab=['','hinge'],
+                                        demonet = 'res152_COCO'):
 
     seuil = 0
     C_Searching = False
-    demonet = 'res152_COCO'
     layer = 'fc7'
     CV_Mode = ''
     AggregW = None
