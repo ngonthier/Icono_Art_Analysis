@@ -95,6 +95,21 @@ def PascalVOC_sanity_check():
              print(e)
              pass
          
+def PascalVOC_sanity_check_HL1run(): 
+
+    # MIMAX HL
+    database = 'VOC2007'
+    for demonet in ['res152_COCO','res101_VOC07']:
+        try: 
+            unefficient_way_OneHiddenLayer_evaluation(database=database,num_rep = 1,
+                            Optimizer='GradientDescent',
+                            max_iters_all_base = 3000,num_features_hidden=256,
+                            number_restarts = 11,scores_tab =[True,False],
+                            demonet=demonet)
+        except Exception as e:
+             print(e)
+             pass
+         
 #    # Instance based model mi_model : doesn t converge and we don t know why ...
 #    for demonet in ['res152_COCO','res101_VOC07']:
 #        try:
