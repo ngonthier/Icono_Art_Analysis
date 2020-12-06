@@ -103,7 +103,7 @@ def PascalVOC_sanity_check_HL1run():
         try: 
             unefficient_way_OneHiddenLayer_evaluation(database=database,num_rep = 1,
                             Optimizer='GradientDescent',
-                            max_iters_all_base = 3000,num_features_hidden=256,
+                            max_iters_all_base = 300,num_features_hidden=256,
                             number_restarts = 11,scores_tab =[True,False],
                             demonet=demonet)
         except Exception as e:
