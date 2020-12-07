@@ -16,6 +16,10 @@ from RunVarStudyAll import VariationStudyPart1,VariationStudyPart2,VariationStud
 from IMDB_study import modify_EdgeBoxesWrongBoxes
 import matplotlib.pyplot as plt
 import numpy as np
+
+import tikzplotlib
+import os
+
 from CNNfeatures import Compute_EdgeBoxesAndCNN_features
 
 from MILnet_eval import runSeveralMInet
@@ -45,7 +49,7 @@ def ExperienceRuns(database_tab = ['IconArt_v1','watercolor','PeopleArt','clipar
             VariationStudyPart1(database,[0],num_rep = 10,C=C)
             VariationStudyPart2(database,[0],num_rep = 10,C=C)
         
-def print_run_studyParam():
+def print_run_studyParam(output_file='png'):
     """
     In this function we plot the evolution of the different parameters evaluation
     """
@@ -53,6 +57,11 @@ def print_run_studyParam():
     #colors = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf']
     colors = ['#4e79a7','#59a14f','#9c755f','#e15759','#b07aa1','#bab0ac'] # From https://www.tableau.com/about/blog/2016/7/colors-upgrade-tableau-10-56782
     makers = ['P','X','o','v','D','h','^']
+    
+    if output_file=='tikz':
+        linewidth = 5
+    else:
+        linewidth = 1
     
     list_param = ['r','bs','C']
     for param in list_param:
@@ -107,20 +116,29 @@ def print_run_studyParam():
                 i+= 1
             #plt.plot(x,y,c,label=database)
             label = database.replace('_v1','')
-            plt.errorbar(x, y,linestyle=':', yerr=std,marker=m,c=c,label=label,solid_capstyle='projecting', capsize=5)
+            plt.errorbar(x, y,linestyle=':', yerr=std,marker=m,c=c,label=label,
+                         solid_capstyle='projecting', capsize=5,linewidth = linewidth )
         plt.xticks(x, p_tab)
         plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
            ncol=3, mode="expand", borderaxespad=0)
         plt.xlabel(tx,fontsize=12)
         plt.ylabel(r'mAP ( \% )',fontsize=12)
-        fname = 'fig/'+name_figure +'.png'
-        fpdf = 'fig/'+name_figure +'.pdf'
-        plt.savefig(fname)
-        plt.savefig(fpdf)
+        if output_file =='png':
+            fname = 'fig/'+name_figure +'.png'
+            plt.show()
+            plt.savefig(fname)
+        elif output_file=='tikz':
+            path_output= 'imInTex'
+            path_fig = os.path.join(path_output,name_figure+'.tex')
+            tikzplotlib.save(path_fig, axis_height='7cm',dpi=600,float_format='.5g')
+        elif output_file=='pdf':
+            fpdf = 'fig/'+name_figure +'.pdf'
+            
+            plt.savefig(fpdf)
 #        str_t = r"Evolution of the impact of "+ tt
 #        plt.title(str_t,
 #              fontsize=16)
-        plt.show()
+        
             
 def mainDatabase(database_tab=['clipart']):
    optim_list =['GradientDescent']
