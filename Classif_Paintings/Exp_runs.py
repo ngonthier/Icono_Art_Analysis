@@ -55,13 +55,18 @@ def print_run_studyParam(output_file='png'):
     """
     database_tab =  ['IconArt_v1','watercolor','PeopleArt','clipart','comic','CASPApaintings']
     #colors = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf']
-    colors = ['#4e79a7','#59a14f','#9c755f','#e15759','#b07aa1','#bab0ac'] # From https://www.tableau.com/about/blog/2016/7/colors-upgrade-tableau-10-56782
+    colors = ['#4e79a7','#59a14f','#9c755f','#e15759','#b07aa1','#bab0ac'] 
+    # From https://www.tableau.com/about/blog/2016/7/colors-upgrade-tableau-10-56782
     makers = ['P','X','o','v','D','h','^']
     
     if output_file=='tikz':
-        linewidth = 5
+        markersize=5
+        linewidth=1.5 
+        makers = ['o','s','d','*','v','^','<','>'] # ['P','X','o','v','D','h','^']
     else:
+        markersize = 1
         linewidth = 1
+        makers = ['P','X','o','v','D','h','^']
     
     list_param = ['r','bs','C']
     for param in list_param:
@@ -81,7 +86,7 @@ def print_run_studyParam(output_file='png'):
             tx = r'Regularization term'
             name_figure ='C'
     
-        plt.figure()
+        fig, ax = plt.subplots()
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif')
         multi = 100 # Multiplicative term to get something between 0 and 100 % 
@@ -116,8 +121,10 @@ def print_run_studyParam(output_file='png'):
                 i+= 1
             #plt.plot(x,y,c,label=database)
             label = database.replace('_v1','')
-            plt.errorbar(x, y,linestyle=':', yerr=std,marker=m,c=c,label=label,
+            ax.errorbar(x, y,linestyle=':', yerr=std,marker=m,c=c,label=label,
+                         markersize=markersize,
                          solid_capstyle='projecting', capsize=5,linewidth = linewidth )
+            legend1 = ax.legend()
         plt.xticks(x, p_tab)
         plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
            ncol=3, mode="expand", borderaxespad=0)
