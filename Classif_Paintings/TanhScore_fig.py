@@ -15,7 +15,7 @@ import seaborn as sns
 sns.set_theme(style="whitegrid")
 import matplotlib
 matplotlib.rcParams['text.usetex'] = True
-
+matplotlib.rcParams['font.size'] = 20
 #ax = fig.add_subplot(3, 4, 1, projection='3d') # nrows, ncols, index,
 #ax.set_xlabel("Wx+b")
 #ax.set_ylabel("Objectness score")
@@ -97,6 +97,8 @@ cset = ax.contourf(X, Y, score_with_addition, zdir='x', offset=-4, cmap=cm.coolw
 cset = ax.contourf(X, Y, score_with_addition, zdir='y', offset=0, cmap=cm.coolwarm)
 
 
+num_levels = 20
+
 x = np.arange(-4,4.1,0.1)
 #obj_score = np.arange(0,1,0.1/20)
 obj_score = np.arange(0,1.1,0.1)
@@ -106,27 +108,33 @@ score_with_obj_inside_tanh = np.tanh(X*Y)
 lambda_ = 0.5
 score_with_addition = (1-lambda_)*np.tanh(X) + lambda_*Y*np.sign(X)
 fig, (ax1, ax2,ax3) = plt.subplots(1, 3)
-cset1 = ax1.contourf(X, Y, score_with_obj_inside_tanh, levels=40,cmap=cm.coolwarm,vmin=-1.,vmax=1.)
-cset = ax2.contourf(X, Y, score_with_obj_outside_tanh, levels=40, cmap=cm.coolwarm,vmin=-1.,vmax=1.)
-cset = ax3.contourf(X, Y, score_with_addition, levels=40, cmap=cm.coolwarm,vmin=-1.,vmax=1.)
+cset1 = ax1.contourf(X, Y, score_with_obj_inside_tanh, levels=num_levels,cmap=cm.coolwarm,vmin=-1.,vmax=1.)
+cset = ax2.contourf(X, Y, score_with_obj_outside_tanh, levels=num_levels, cmap=cm.coolwarm,vmin=-1.,vmax=1.)
+cset = ax3.contourf(X, Y, score_with_addition, levels=num_levels, cmap=cm.coolwarm,vmin=-1.,vmax=1.)
 #fig.colorbar(surf, ax=ax3, orientation='horizontal')
 
 #cset1 = ax1.imshow(score_with_obj_inside_tanh, vmin=-1, vmax=1, cmap=cm.coolwarm)
 #cset2 = ax2.imshow(score_with_obj_outside_tanh, vmin=-1, vmax=1, cmap=cm.coolwarm)
 #cset3 = ax3.imshow(score_with_addition, vmin=-1, vmax=1, cmap=cm.coolwarm)
 
-ax1.set_xlabel(r'$W^{T}X+b$')
-ax1.set_ylabel(r'Objectness score')
-ax1.set_title(r'$\mathop{Tanh}  \lbrace  s  \left(W^{T} x + b \right) \rbrace$')
-ax2.set_xlabel(r'$W^{T}X+b$')
-ax2.set_ylabel(r'Objectness score')
-ax2.set_title(r'$s * \mathop{Tanh}  \lbrace W^{T} x + b \rbrace$')
-ax3.set_xlabel(r'$W^{T}X+b$')
-ax3.set_ylabel(r'Objectness score')
-ax3.set_title(r'$( 1 - \lambda ) * \mathop{Tanh}  \left( W^{T} x + b \right) + \lambda s  \mathop{sign}  \left( W^{T} x + b \right) ~ with ~ \lambda = 0.5$')
+fontsize_sitckslabel= 14
+fontsize_axis = 16
+fontsizeititle = 20
+ax1.tick_params(labelsize=fontsize_sitckslabel)
+ax1.set_xlabel(r'$W^{T}X+b$', fontsize=fontsize_axis)
+ax1.set_ylabel(r'Objectness score', fontsize=fontsize_axis)
+ax1.set_title(r'$\mathop{Tanh}  \lbrace  s  \left(W^{T} X + b \right) \rbrace$', fontsize=fontsizeititle)
+ax2.tick_params(labelsize=fontsize_sitckslabel)
+ax2.set_xlabel(r'$W^{T}X+b$', fontsize=fontsize_axis)
+ax2.set_ylabel(r'Objectness score', fontsize=fontsize_axis)
+ax2.set_title(r'$s * \mathop{Tanh}  \lbrace W^{T} X + b \rbrace$', fontsize=fontsizeititle)
+ax3.tick_params(labelsize=fontsize_sitckslabel)
+ax3.set_xlabel(r'$W^{T}X+b$', fontsize=fontsize_axis)
+ax3.set_ylabel(r'Objectness score', fontsize=fontsize_axis)
+ax3.set_title(r'$( 1 - \lambda ) * \mathop{Tanh}  \left( W^{T} X + b \right) + \\ \lambda * s * \mathop{sign}  \left( W^{T} X + b \right) ~ with ~ \lambda = 0.5$', fontsize=fontsizeititle)
 
 #fig.suptitle(r'
 fig.subplots_adjust(right=0.8)
 cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-fig.colorbar(cset1, cax=cbar_ax, orientation='vertical')
-
+cbar = fig.colorbar(cset1, cax=cbar_ax, orientation='vertical')
+cbar.ax.tick_params(labelsize=fontsize_sitckslabel)
