@@ -1001,10 +1001,12 @@ def Baseline_IconArtv1():
     
     datasets = ['IconArt_v1']
     list_methods =['MISVM','miSVM','MAX1','MAXA']
+    list_methods =['MAXA']
     normalisation = False
     restarts = 0
-    max_iter = 50
+    max_iter = 0
     variance_thres = 0.9
+    n_jobs= 1
     for database in datasets:
         for method in list_methods: 
             if method in ['MAXA','MAX1','SISVM']:
@@ -1018,7 +1020,7 @@ def Baseline_IconArtv1():
                 for PCAuse in PCA_tab:
                     Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database =database,Test_on_k_bag=False,
                             normalisation= normalisation,baseline_kind=method,verbose=False,
-                            gridSearch=GS,k_per_bag=300,n_jobs=4,PCAuse=PCAuse,variance_thres= variance_thres,
+                            gridSearch=GS,k_per_bag=300,n_jobs=n_jobs,PCAuse=PCAuse,variance_thres= variance_thres,
                             restarts=restarts,max_iter=max_iter,reDo=False)
     
 
@@ -1108,7 +1110,7 @@ if __name__ == '__main__':
 #                        restarts=0,max_iter=50,testMode=False,reDo=False)
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
 #                        normalisation= False,baseline_kind = 'SISVM',verbose = True,
-#                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9,
+#                        gridSearch=False,k_per_bag=300,n_jobs=3,PCAuse=True,variance_thres= 0.9aalice15098
 #                        restarts=0,max_iter=50)
 #   Baseline_FRCNN_TL_Detect(demonet = 'res152_COCO',database = 'IconArt_v1',Test_on_k_bag=False,
 #                        normalisation= False,baseline_kind = 'MAX1',verbose = True,
