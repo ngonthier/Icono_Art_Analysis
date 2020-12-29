@@ -169,6 +169,7 @@ def get_MIL_benchmarck_results(list_datasets):
     return(dictOfSels)
     
 def ProducePDF():
+    
 
     list_datasets = ['Birds','SIVAL','Newsgroups']
     dictOfSels = get_MIL_benchmarck_results(list_datasets)
@@ -265,4 +266,5 @@ def ProducePDF():
 
 
 if __name__ == '__main__':
-    ProducePDF()
+    #ProducePDF()
+    ProduceTexTabular()

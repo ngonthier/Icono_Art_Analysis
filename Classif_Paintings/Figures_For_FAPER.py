@@ -115,7 +115,7 @@ def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True,output_img='png'
         linewidth=3
     elif output_img=='tikz':
        markersize=5
-       linewidth=1.5 
+       linewidth=2
         
     list_net = []
     plt.figure()
@@ -170,7 +170,13 @@ def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True,output_img='png'
                 list_cka += [cka_l]
                 list_index_cka += [i]
         
-        label_p = title_corr[netA] +' vs '+title_corr[netB]
+        if forPhDmanuscript:
+            if (netA=='RASTA_small01_modif' and netB=='RASTA_small01_modif1') or (netA=='RASTA_small01_modif'and netB=='RASTA_small001_modif'):
+                label_p = title_corr[netA] +r' vs \\ '+title_corr[netB]
+            else:
+                label_p = title_corr[netA] +' vs '+title_corr[netB]
+        else:
+            label_p = title_corr[netA] +' vs '+title_corr[netB]
         plt.plot(list_index_cka, list_cka,linestyle='--', marker=list_markers[p],
                  color=CB_color_cycle[p], label=label_p, markersize=markersize,
                  linewidth=linewidth)
@@ -197,7 +203,7 @@ def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True,output_img='png'
         bbox_to_anchor=(1.01, 0.5)
         loc='center left'
     ax.legend(loc=loc,  bbox_to_anchor=bbox_to_anchor, # under  bbox_to_anchor=(0.5, -0.05),
-          fancybox=True, shadow=False, ncol=ncol,fontsize=18)
+          fancybox=True, shadow=False, ncol=ncol,fontsize=16)
 #    ax.legend(loc='upper center',  bbox_to_anchor=bbox_to_anchor, # under  bbox_to_anchor=(0.5, -0.05),
 #          fancybox=True, shadow=False, ncol=ncol,fontsize=18)
     

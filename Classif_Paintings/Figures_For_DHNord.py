@@ -62,6 +62,40 @@ def do_TopK_figures(list_models_name,list_layer_index_to_print,suffix_tab=[''],
             else:
                 raise(NotImplementedError('random model not implemented'))
 
+def Extra_Fig_For_Phd_manuscrit():
+    # Top100 with overlapping image with green squared
+    
+    # Figure 4.6 Multiple training same channel
+    suffix_tab = ['','1']
+    list_features = [['mixed4d_3x3_pre_relu',52]]
+    list_models = ['RASTA_small01_modif','RASTA_small001_modif','RASTA_big001_modif',
+                        'RASTA_small001_modif_deepSupervision',
+                        'RASTA_big001_modif_deepSupervision']
+    output_path = os.path.join(os.sep,'ownCloud','Mes_Latex','2021_PhD_Thesis','imHD','im')
+    
+    # Afficher les 100 images qui repondent le plus pour ces filtres là :
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=suffix_tab,dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 100,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path,
+                    alreadyAtInit=True)
+    
+    # Figure 4.7 
+    list_models = ['RASTA_small01_modif']
+    list_features = [['mixed5b_pool_reduce_pre_relu',92],['mixed5b_3x3_pre_relu',33],['mixed5b_5x5_pre_relu',82]]
+    do_TopK_figures(list_models_name=list_models,
+                    list_layer_index_to_print=list_features,
+                    suffix_tab=[''],dataset='RASTA',
+                    constrNet='InceptionV1',
+                    numberIm = 100,
+                    stats_on_layer = 'meanAfterRelu',
+                    output_path=output_path,
+                    alreadyAtInit=True)
+    
+
 if __name__ == '__main__': 
     
     # To get the performance results
