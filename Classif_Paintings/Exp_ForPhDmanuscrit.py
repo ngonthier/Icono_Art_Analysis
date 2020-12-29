@@ -363,7 +363,7 @@ def print_PASCAL_sanity_checks_extra():
                             max_iters_all_base = 300,num_features_hidden=256,
                             number_restarts = 11,with_scores_tab =[True,False],
                             demonet=demonet,AddOneLayer=True,
-                            pm_only_on_mean=True)
+                            pm_only_on_mean=True,MaxOfMax=False)
         except Exception as e:
              print(e)
              pass
@@ -377,7 +377,7 @@ def print_PASCAL_sanity_checks_extra():
                             max_iters_all_base = 300,num_features_hidden=256,
                             number_restarts = 11,with_scores_tab =[True,False],
                             demonet=demonet,AddOneLayer=True,
-                            pm_only_on_mean=True)
+                            pm_only_on_mean=True,MaxOfMax=False)
         except Exception as e:
              print(e)
              pass
