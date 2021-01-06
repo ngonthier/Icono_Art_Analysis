@@ -91,7 +91,7 @@ def get_corr_weights(list_name_layers,list_weights,net_finetuned,verbose=False):
         
     j = 0
     dict_layers_diff = {}
-    l2_norm_total = 0.
+    corr_total = 0.
     for finetuned_layer in finetuned_layers:
         # check for convolutional layer
         layer_name = finetuned_layer.name
@@ -109,20 +109,28 @@ def get_corr_weights(list_name_layers,list_weights,net_finetuned,verbose=False):
             j+=1
 
             # correlation 2 between the weights of the filters
-            # TODO mais comment faire en fait ????
+            # 
+            # Vectorization :
+            
+            corrcoef_layer = []
+            print(f_filters.shape)
+            for k in range(len(o_filters)):
+                o_filters_k = np.ravel(o_filters[k,:,:])
+                f_filters_k = np.ravel(f_filters[k,:,:])
+                corrcoef_k = np.corrcoef(o_filters_k,f_filters_k)
+                corrcoef_layer += [corrcoef_k]
             raise(NotImplementedError)
-            diff_filters = o_filters - f_filters
-            frobenium_norm = np.linalg.norm(diff_filters)
-            l2_norm_total += frobenium_norm
+            corrcoef_layer_arr = np.array(corrcoef_layer)
+            corr_total += np.mean(corrcoef_layer_arr)
             if verbose:
                 print('== For layer :',layer_name,' ==')
-                print('= Frobenius norm =')
-                print_stats_on_diff(frobenium_norm)
+                print('= Corr coeff =')
+                print_stats_on_diff(corrcoef_layer_arr)
             
-            dict_layers_diff[layer_name] = frobenium_norm
+            dict_layers_diff[layer_name] = corrcoef_layer_arr
             
         
-    return(dict_layers_diff,l2_norm_total)
+    return(dict_layers_diff,corr_total)
 
 
     
@@ -208,6 +216,90 @@ def get_l2norm_bw_nets(netA,netB,constrNet='InceptionV1',suffixA='',suffixB='',
     list_name_layers_A,dict_layers_diff,l2_norm_total = data_to_save
     
     return(list_name_layers_A,dict_layers_diff,l2_norm_total)
+    
+def get_corr_bw_nets(netA,netB,constrNet='InceptionV1',suffixA='',suffixB='',
+                   initA=False,initB=False,
+                   ReDo=False,
+                   owncloud_mode=True):
+    """ 
+    Distance in parameters space between network. 
+    This fct will compute the correlation
+    if initA is True : we will use the initialization of A as model
+    @param : owncloud_mode = True look at the value on the owncloud shared folder
+    """
+    
+    if platform.system()=='Windows': 
+        if owncloud_mode:
+            output_path = os.path.join('C:\\','Users','gonthier','ownCloud','tmp3','Lucid_outputs',constrNet,'Dists')
+        else:
+            output_path = os.path.join('CompModifModel',constrNet,'Dists')
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,'Dists')
+    # For output data
+    output_path_full = os.path.join(output_path,'data')
+
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True) 
+    pathlib.Path(output_path_full).mkdir(parents=True, exist_ok=True)
+    
+    name_data = 'corr-'+netA+'-'+suffixA+'-'+netB+'-'+suffixB+'.pkl'
+    
+    name_data = os.path.join(output_path_full,name_data)
+    
+    if os.path.exists(name_data) and not(ReDo):
+        # The file exist
+        with open(name_data, 'rb') as handle:
+            data_to_save = pickle.load(handle)
+    else:
+    
+        net_P = None  
+        if netA=='pretrained':
+            net_P = 'pretrained'
+            net_Autre = netB
+            suffix_Autre = suffixB
+            init_Autre = initB
+        elif netB=='pretrained':
+            net_P = 'pretrained'
+            suffix_Autre = suffixA
+            init_Autre = initA
+            net_Autre = netA
+    
+        if not(net_P is None): # Dans le cas ou un des deux networks est pretrained weights
+            list_weights,list_name_layers = get_imageNet_weights(Net=constrNet)
+        
+            net_finetuned, init_net = get_fine_tuned_model(net_Autre,constrNet=constrNet,suffix=suffix_Autre)
+            if init_Autre:
+                autre_model = init_net
+            else:
+                autre_model = net_finetuned
+            
+            dict_layers_diff,corr_total = get_corr_weights(list_name_layers,list_weights,autre_model,verbose=False)
+            
+            data_to_save = list_name_layers,dict_layers_diff,corr_total
+            
+        else: # No pretrained model compared to an other one
+            net_finetuned_A, init_net_A = get_fine_tuned_model(netA,constrNet=constrNet,suffix=suffixA)
+            if initA:
+                modelA = init_net_A
+            else:
+                modelA = net_finetuned_A
+            list_weights_A,list_name_layers_A = get_weights_and_name_layers(modelA)
+            net_finetuned_B, init_net_B = get_fine_tuned_model(netB,constrNet=constrNet,suffix=suffixB)
+            if initB:
+                modelB = init_net_B
+            else:
+                modelB = net_finetuned_B
+            dict_layers_diff,corr_total = get_corr_weights(list_name_layers_A,list_weights_A,modelB,verbose=False)
+        
+            data_to_save = list_name_layers_A,dict_layers_diff,corr_total
+        
+        print('===',netA,netB,corr_total)
+
+        with open(name_data, 'wb') as handle:
+            pickle.dump(data_to_save, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    list_name_layers_A,dict_layers_diff,corr_total = data_to_save
+    
+    return(list_name_layers_A,dict_layers_diff,corr_total)
     
 #def compute_CKA_similarity():
 #    
@@ -1081,6 +1173,170 @@ def comp_l2_for_paper(dataset='RASTA',verbose=False,
         
     else:
         raise(ValueError(dataset+' is unknown'))
+        
+def comp_corr_for_paper(dataset='RASTA',verbose=False,
+                      Version_courte=True):
+    """
+    compute all the corr coeff difference for the different pair of models
+    """
+    
+    if dataset=='RASTA':
+        
+        l_rasta_dico = []
+        l_rasta_pairs = []
+        
+        list_models = ['pretrained',
+                       'RASTA_small01_modif',
+                       'RASTA_small001_modif',
+                       'RASTA_big001_modif',
+                       'RASTA_small001_modif_deepSupervision',
+                       'RASTA_big001_modif_deepSupervision',
+                       'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                       'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                       'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+        
+        list_with_suffix = ['RASTA_small01_modif',
+                       'RASTA_small001_modif',
+                       'RASTA_big001_modif',
+                       'RASTA_small001_modif_deepSupervision',
+                       'RASTA_big001_modif_deepSupervision']
+        
+        all_pairs = itertools.combinations(list_models, r=2)
+         
+        for pair in all_pairs:
+            netA,netB = pair
+            dico = get_l2norm_bw_nets(netA=netA,netB=netB)
+            if verbose:print(netA,netB,dico)
+            l_rasta_dico += [dico]
+            l_rasta_pairs += [(netA,netB)]
+            
+            if netA in list_with_suffix:
+                dico = get_l2norm_bw_nets(netA=netA,netB=netB,
+                                                suffixA='1')
+                if verbose:print(netA,'1',netB,dico)
+                l_rasta_dico += [dico]
+                l_rasta_pairs += [(netA+'1',netB)]
+            if netB in list_with_suffix:
+                dico = get_l2norm_bw_nets(netA=netA,netB=netB,
+                                                suffixB='1')
+                if verbose: print(netA,netB,'1',dico)
+                l_rasta_dico += [dico]
+                l_rasta_pairs += [(netA,netB+'1')]
+            if (netB in list_with_suffix) and (netA in list_with_suffix):
+                dico = get_l2norm_bw_nets(netA=netA,netB=netB,
+                                                suffixA='1',suffixB='1')
+                if verbose:print(netA,'1',netB,'1',dico)
+                l_rasta_dico += [dico]
+                l_rasta_pairs += [(netA+'1',netB+'1')]
+                
+        list_net_init = ['RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                       'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                       'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
+                
+        for net_init in list_net_init: # Net with a random initialisation at some moment
+            dico = get_l2norm_bw_nets(netA=net_init,netB=net_init,
+                                         initB=True)
+            l_rasta_dico += [dico]
+            l_rasta_pairs += [(net_init,net_init+'_init')]
+            
+        for net_ in list_with_suffix: # Net with a random initialisation at some moment
+            dico = get_l2norm_bw_nets(netA=net_,netB=net_,
+                                         suffixB='1')
+            l_rasta_dico += [dico]
+            l_rasta_pairs += [(net_,net_+'1')]
+            
+        return(l_rasta_pairs,l_rasta_dico)
+        
+    elif dataset=='Paintings':
+        # Paintings dataset 
+        l_paintings_dico = []
+        l_paintings_pairs = []
+        
+        # Paintings dataset 
+        list_models_name_P = ['Paintings_small01_modif',
+                            'Paintings_big01_modif',
+                            'Paintings_big001_modif',
+                            'Paintings_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'Paintings_small01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'Paintings_big001_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'Paintings_small01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'Paintings_small01_modif_XXRASTA_small01_modifXX',
+                            'Paintings_big01_modif_XXRASTA_small01_modifXX',
+                            'Paintings_big001_modif_XXRASTA_small01_modifXX',
+                            'RASTA_small01_modif',
+                            'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                            'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                            'pretrained'
+                            ]
+        # Version plus courte
+        if Version_courte:
+            list_models_name_P = ['Paintings_small01_modif',
+                              'Paintings_big01_modif',
+                            'Paintings_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'Paintings_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'Paintings_big01_modif_XXRASTA_small01_modifXX',
+                            'RASTA_small01_modif',
+                            'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                            'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                            'pretrained'
+                            ]
+        all_pairs = itertools.combinations(list_models_name_P, r=2)
+        for pair in all_pairs:
+            netA,netB = pair
+            dico = get_l2norm_bw_nets(netA=netA,netB=netB)   
+            if verbose:print(netA,netB,dico)
+            l_paintings_dico += [dico]
+            l_paintings_pairs += [(netA,netB)]
+        
+        return(l_paintings_pairs,l_paintings_dico)
+        
+    elif dataset=='IconArt_v1':
+        l_iconart_dico = []
+        l_iconart_pairs = []
+        # IconArt v1 dataset 
+        # IconArt_v1_small01_modif diverge 
+        list_models_name_I = ['IconArt_v1_small01_modif',
+                              'IconArt_v1_big01_modif',
+                            'IconArt_v1_big001_modif',
+                            'IconArt_v1_big001_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'IconArt_v1_small01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'IconArt_v1_big001_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'IconArt_v1_small01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'IconArt_v1_small01_modif_XXRASTA_small01_modifXX',
+                            'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
+                            'IconArt_v1_big001_modif_XXRASTA_small01_modifXX',
+                            'RASTA_small01_modif',
+                            'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                            'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                            'pretrained'
+                            ]
+        if Version_courte:
+            list_models_name_I = ['IconArt_v1_small01_modif',
+                               'IconArt_v1_big01_modif',
+                            'IconArt_v1_big01_modif_XXRASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200XX',
+                            'IconArt_v1_big01_modif_XXRASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedGXX',
+                            'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
+                            'RASTA_small01_modif',
+                            'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200',
+                            'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+                            'pretrained'
+                            ]
+        all_pairs = itertools.combinations(list_models_name_I, r=2)
+        for pair in all_pairs:
+            netA,netB = pair
+            dico = get_l2norm_bw_nets(netA=netA,netB=netB)      
+            if verbose:print(netA,netB,dico)
+            l_iconart_dico += [dico]
+            l_iconart_pairs += [(netA,netB)]
+        
+        return(l_iconart_pairs,l_iconart_dico)
+        
+    else:
+        raise(ValueError(dataset+' is unknown'))
     
 def test_pb_nan_in_cka():
     netA = 'pretrained'
@@ -1706,17 +1962,17 @@ if __name__ == '__main__':
 #                                                          'mixed4b','mixed4c',
 #                                                          'mixed4d','mixed4e',
 #                                                          'mixed5a','mixed5b'])
-    get_linearCKA_bw_nets(dataset='RASTA',
-                          sampling_FM='selectk2points',
-                          k = 2,
-                         netA='pretrained',
-                         netB='RASTA_small01_modif',
-                         list_layers=['conv2d0','conv2d1',
-                              'conv2d2','mixed3a',
-                              'mixed3b','mixed4a',
-                              'mixed4b','mixed4c',
-                              'mixed4d','mixed4e',
-                              'mixed5a','mixed5b'])
+#    get_linearCKA_bw_nets(dataset='RASTA',
+#                          sampling_FM='selectk2points',
+#                          k = 2,
+#                         netA='pretrained',
+#                         netB='RASTA_small01_modif',
+#                         list_layers=['conv2d0','conv2d1',
+#                              'conv2d2','mixed3a',
+#                              'mixed3b','mixed4a',
+#                              'mixed4b','mixed4c',
+#                              'mixed4d','mixed4e',
+#                              'mixed5a','mixed5b'])
     
     # comp_cka_for_paper('RASTA')
 #    comp_cka_for_paper('Paintings',Version_courte=False)
@@ -1724,3 +1980,6 @@ if __name__ == '__main__':
 #    #comp_l2_for_paper(dataset='RASTA')
 #    comp_l2_for_paper(dataset='Paintings',Version_courte=False)
 #    comp_l2_for_paper(dataset='IconArt_v1',Version_courte=False)
+
+    comp_corr_for_paper(dataset='RASTA',verbose=False,
+                      Version_courte=True)
