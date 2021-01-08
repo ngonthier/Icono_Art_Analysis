@@ -1,4 +1,4 @@
-gui# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created on Mon Oct  5 12:28:29 2020
 
@@ -118,11 +118,13 @@ def get_corr_weights(list_name_layers,list_weights,net_finetuned,verbose=False):
             for k in range(number_kernels):
                 o_filters_k = np.ravel(o_filters[:,:,:,k])
                 f_filters_k = np.ravel(f_filters[:,:,:,k])
-                corrcoef_k = np.corrcoef(o_filters_k,f_filters_k)
+                corrcoef_k_matrix = np.corrcoef(o_filters_k,f_filters_k)
+                corrcoef_k = corrcoef_k_matrix[0,1] # between -1 and 1 
                 corrcoef_layer += [corrcoef_k]
-
+                
+           
             corrcoef_layer_arr = np.array(corrcoef_layer)
-            corr_total += np.mean(corrcoef_layer_arr)
+            corr_total += np.mean(np.abs(corrcoef_layer_arr))
             if verbose:
                 print('== For layer :',layer_name,' ==')
                 print('= Corr coeff =')
@@ -1210,7 +1212,7 @@ def comp_corr_for_paper(dataset='RASTA',verbose=False,
          
         for pair in all_pairs:
             netA,netB = pair
-            dico = get_l2norm_bw_nets(netA=netA,netB=netB)
+            dico = get_corr_bw_nets(netA=netA,netB=netB)
             if verbose:print(netA,netB,dico)
             l_rasta_dico += [dico]
             l_rasta_pairs += [(netA,netB)]
@@ -1914,6 +1916,7 @@ def produce_latex_tab_result_corr(dataset = 'RASTA'):
     for pair, l3_dico in zip(l_pairs,l_dico):
         netA = pair[0]
         netB = pair[1]
+        #print(netA,netB)
         _,dico,_ = l3_dico
         
         if not(netA in list_net):
@@ -1937,6 +1940,8 @@ def produce_latex_tab_result_corr(dataset = 'RASTA'):
                 else:
                    latex_str += ' & '
             else:
+               #print(layer)
+               #print(l2_l.shape)
                latex_str += ' & ' + '{0:.2f}'.format(l2_l)
                list_cka += [l2_l]
                
@@ -2142,12 +2147,12 @@ if __name__ == '__main__':
 #    comp_l2_for_paper(dataset='Paintings',Version_courte=False)
 #    comp_l2_for_paper(dataset='IconArt_v1',Version_courte=False)
 
-#    comp_corr_for_paper(dataset='RASTA',
-#                      Version_courte=False)
-#    comp_corr_for_paper(dataset='IconArt_v1',
-#                      Version_courte=False)    
-#    comp_corr_for_paper(dataset='Paintings',
-#                      Version_courte=False)
+    comp_corr_for_paper(dataset='RASTA',
+                      Version_courte=False)
+    comp_corr_for_paper(dataset='IconArt_v1',
+                      Version_courte=False)    
+    comp_corr_for_paper(dataset='Paintings',
+                      Version_courte=False)
     
     for dataset in ['RASTA','IconArt_v1','Paintings']:
         produce_latex_tab_result_corr(dataset)
