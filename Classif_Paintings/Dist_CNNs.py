@@ -1816,6 +1816,163 @@ def produce_latex_tab_result_l2norm(dataset = 'RASTA'):
                                 output_path=output_path,
                                 ext_name=ext_name,case_str=case_str,
                                 format_str='{0:.1f}')
+    
+def produce_latex_tab_result_corr(dataset = 'RASTA'):
+    """
+    Produce latex tabular and matrice visualisation of the mean l2norm distance
+    """
+    
+    # Realisation d un tableau mais aussi d une matrice geante avec les cka moyen
+    
+#    list_layers=['conv2d0','conv2d1',
+#                  'conv2d2','mixed3a',
+#                  'mixed3b','mixed4a',
+#                  'mixed4b','mixed4c',
+#                  'mixed4d','mixed4e',
+#                  'mixed5a','mixed5b']
+    list_modified_in_unfreeze50 = ['mixed4a_3x3_bottleneck_pre_relu',
+                                 'mixed4a_5x5_bottleneck_pre_relu',
+                                 'mixed4a_1x1_pre_relu',
+                                 'mixed4a_3x3_pre_relu',
+                                 'mixed4a_5x5_pre_relu',
+                                 'mixed4a_pool_reduce_pre_relu',
+                                 'mixed4b_3x3_bottleneck_pre_relu',
+                                 'mixed4b_5x5_bottleneck_pre_relu',
+                                 'mixed4b_1x1_pre_relu',
+                                 'mixed4b_3x3_pre_relu',
+                                 'mixed4b_5x5_pre_relu',
+                                 'mixed4b_pool_reduce_pre_relu',
+                                 'mixed4c_3x3_bottleneck_pre_relu',
+                                 'mixed4c_5x5_bottleneck_pre_relu',
+                                 'mixed4c_1x1_pre_relu',
+                                 'mixed4c_3x3_pre_relu',
+                                 'mixed4c_5x5_pre_relu',
+                                 'mixed4c_pool_reduce_pre_relu',
+                                 'mixed4d_3x3_bottleneck_pre_relu',
+                                 'mixed4d_5x5_bottleneck_pre_relu',
+                                 'mixed4d_1x1_pre_relu',
+                                 'mixed4d_3x3_pre_relu',
+                                 'mixed4d_5x5_pre_relu',
+                                 'mixed4d_pool_reduce_pre_relu',
+                                 'mixed4e_3x3_bottleneck_pre_relu',
+                                 'mixed4e_5x5_bottleneck_pre_relu',
+                                 'mixed4e_1x1_pre_relu',
+                                 'mixed4e_3x3_pre_relu',
+                                 'mixed4e_5x5_pre_relu',
+                                 'mixed4e_pool_reduce_pre_relu',
+                                 'mixed5a_3x3_bottleneck_pre_relu',
+                                 'mixed5a_5x5_bottleneck_pre_relu',
+                                 'mixed5a_1x1_pre_relu',
+                                 'mixed5a_3x3_pre_relu',
+                                 'mixed5a_5x5_pre_relu',
+                                 'mixed5a_pool_reduce_pre_relu',
+                                 'mixed5b_3x3_bottleneck_pre_relu',
+                                 'mixed5b_5x5_bottleneck_pre_relu',
+                                 'mixed5b_1x1_pre_relu',
+                                 'mixed5b_3x3_pre_relu',
+                                 'mixed5b_5x5_pre_relu',
+                                 'mixed5b_pool_reduce_pre_relu']
+    
+    
+    constrNet = 'InceptionV1'
+    
+    l_pairs,l_dico = comp_corr_for_paper(dataset=dataset)
+    
+    list_layers,dict_layers_diff,l2_norm_total = l_dico[0]
+        
+    #list_keys = list(dict_layers_diff.keys()) 
+    
+    try:
+        list_layers.remove('head0_bottleneck_pre_relu')
+    except ValueError:
+        pass
+    try:
+        list_layers.remove('head1_bottleneck_pre_relu')
+    except ValueError:
+        pass
+    
+    main = '\\begin{tabular}{|c|c|'
+    for _ in list_layers:
+        main += 'c'
+    main +='|c|} \\\\ \\hline  '
+    print(main)
+        
+    second_line = 'NetA & NetB '
+    for layer in list_layers:
+        second_line += ' & ' +layer.replace('_','\_')
+    second_line += ' & mean'    
+    second_line += "\\\\ \\hline "
+    print(second_line)
+
+    list_net = []
+    list_mean_l2norm = []
+    for pair, l3_dico in zip(l_pairs,l_dico):
+        netA = pair[0]
+        netB = pair[1]
+        _,dico,_ = l3_dico
+        
+        if not(netA in list_net):
+            list_net += [netA]
+        if not(netB in list_net):
+            list_net += [netB]
+        latex_str = netA.replace('_','\_') + ' & ' + netB.replace('_','\_')
+        list_cka = []
+        for layer in list_layers:
+            l2_l = dico[layer]
+            
+            #if dataset == 'RASTA' and ('RandForUnfreezed' in  netA or 'RandForUnfreezed' in  netB):
+            # cas du randinit
+            if (('RandForUnfreezed' in netA) and (dataset == 'RASTA' or netB=='pretrained')) or (('RandForUnfreezed' in netB) and (dataset == 'RASTA' or netA=='pretrained')):
+                if not('unfreeze50' in  netA or 'unfreeze50' in  netB):
+                   raise(NotImplementedError)
+                if layer in list_modified_in_unfreeze50:
+                   latex_str += ' & ' + '{0:.2f}'.format(l2_l)
+                   list_cka += [l2_l]
+                   #print(list_cka)
+                else:
+                   latex_str += ' & '
+            else:
+               latex_str += ' & ' + '{0:.2f}'.format(l2_l)
+               list_cka += [l2_l]
+               
+
+        mean_cka = np.mean(list_cka)
+        list_mean_l2norm += [mean_cka]
+        latex_str += ' & ' + '{0:.2f}'.format(mean_cka)
+        latex_str += "\\\\"
+        print(latex_str)
+
+    last_line = '\\hline  \n \\end{tabular} '
+    print(last_line)
+    
+    #print(len(list_net))
+    l2norm_matrice = np.ones((len(list_net),len(list_net)))
+    l2norm_matrice = l2norm_matrice*np.nan
+    
+    symetric_plot = True
+    
+    for pair, mean_cka in zip(l_pairs,list_mean_l2norm):
+        netA = pair[0]
+        netB = pair[1]
+        l2norm_matrice[list_net.index(netA),list_net.index(netB)] = mean_cka
+        if symetric_plot:
+            l2norm_matrice[list_net.index(netB),list_net.index(netA)] = mean_cka
+        
+        
+    case_str = dataset
+    ext_name = 'corr'+'_'
+    if platform.system()=='Windows': 
+        output_path = os.path.join('CompModifModel',constrNet,'Dists')
+    else:
+        output_path = os.path.join(os.sep,'media','gonthier','HDD2','output_exp','Covdata','CompModifModel',constrNet,'Dists')
+    # For output data
+    #print(cka_matrice)
+    max_val = np.max(list_mean_l2norm)
+    create_matrices_plot_values(matrice=l2norm_matrice,labels=list_net,
+                                min_val=0., max_val=max_val,
+                                output_path=output_path,
+                                ext_name=ext_name,case_str=case_str,
+                                format_str='{0:.1f}')
         
 
 def create_matrices_plot_values(matrice,labels,min_val=0., max_val=1.,
