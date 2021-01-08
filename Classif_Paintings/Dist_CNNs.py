@@ -2142,9 +2142,12 @@ if __name__ == '__main__':
 #    comp_l2_for_paper(dataset='Paintings',Version_courte=False)
 #    comp_l2_for_paper(dataset='IconArt_v1',Version_courte=False)
 
-    comp_corr_for_paper(dataset='RASTA',
-                      Version_courte=False)
-    comp_corr_for_paper(dataset='IconArt_v1',
-                      Version_courte=False)    
-    comp_corr_for_paper(dataset='Paintings',
-                      Version_courte=False)
+#    comp_corr_for_paper(dataset='RASTA',
+#                      Version_courte=False)
+#    comp_corr_for_paper(dataset='IconArt_v1',
+#                      Version_courte=False)    
+#    comp_corr_for_paper(dataset='Paintings',
+#                      Version_courte=False)
+    
+    for dataset in ['RASTA','IconArt_v1','Paintings']:
+        produce_latex_tab_result_corr(dataset)
