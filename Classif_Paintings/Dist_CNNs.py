@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+gui# -*- coding: utf-8 -*-
 """
 Created on Mon Oct  5 12:28:29 2020
 
@@ -113,13 +113,14 @@ def get_corr_weights(list_name_layers,list_weights,net_finetuned,verbose=False):
             # Vectorization :
             
             corrcoef_layer = []
-            print(f_filters.shape)
-            for k in range(len(o_filters)):
-                o_filters_k = np.ravel(o_filters[k,:,:])
-                f_filters_k = np.ravel(f_filters[k,:,:])
+            #print(f_filters.shape)
+            h,w,c,number_kernels = f_filters.shape
+            for k in range(number_kernels):
+                o_filters_k = np.ravel(o_filters[:,:,:,k])
+                f_filters_k = np.ravel(f_filters[:,:,:,k])
                 corrcoef_k = np.corrcoef(o_filters_k,f_filters_k)
                 corrcoef_layer += [corrcoef_k]
-            raise(NotImplementedError)
+
             corrcoef_layer_arr = np.array(corrcoef_layer)
             corr_total += np.mean(corrcoef_layer_arr)
             if verbose:
@@ -220,7 +221,7 @@ def get_l2norm_bw_nets(netA,netB,constrNet='InceptionV1',suffixA='',suffixB='',
 def get_corr_bw_nets(netA,netB,constrNet='InceptionV1',suffixA='',suffixB='',
                    initA=False,initB=False,
                    ReDo=False,
-                   owncloud_mode=True):
+                   owncloud_mode=True,verbose=False):
     """ 
     Distance in parameters space between network. 
     This fct will compute the correlation
@@ -272,7 +273,9 @@ def get_corr_bw_nets(netA,netB,constrNet='InceptionV1',suffixA='',suffixB='',
             else:
                 autre_model = net_finetuned
             
-            dict_layers_diff,corr_total = get_corr_weights(list_name_layers,list_weights,autre_model,verbose=False)
+            dict_layers_diff,corr_total = get_corr_weights(list_name_layers,
+                                                           list_weights,autre_model,
+                                                           verbose=verbose)
             
             data_to_save = list_name_layers,dict_layers_diff,corr_total
             
@@ -288,7 +291,9 @@ def get_corr_bw_nets(netA,netB,constrNet='InceptionV1',suffixA='',suffixB='',
                 modelB = init_net_B
             else:
                 modelB = net_finetuned_B
-            dict_layers_diff,corr_total = get_corr_weights(list_name_layers_A,list_weights_A,modelB,verbose=False)
+            dict_layers_diff,corr_total = get_corr_weights(list_name_layers_A,
+                                                           list_weights_A,modelB,
+                                                           verbose=verbose)
         
             data_to_save = list_name_layers_A,dict_layers_diff,corr_total
         
@@ -1211,19 +1216,19 @@ def comp_corr_for_paper(dataset='RASTA',verbose=False,
             l_rasta_pairs += [(netA,netB)]
             
             if netA in list_with_suffix:
-                dico = get_l2norm_bw_nets(netA=netA,netB=netB,
+                dico = get_corr_bw_nets(netA=netA,netB=netB,
                                                 suffixA='1')
                 if verbose:print(netA,'1',netB,dico)
                 l_rasta_dico += [dico]
                 l_rasta_pairs += [(netA+'1',netB)]
             if netB in list_with_suffix:
-                dico = get_l2norm_bw_nets(netA=netA,netB=netB,
+                dico = get_corr_bw_nets(netA=netA,netB=netB,
                                                 suffixB='1')
                 if verbose: print(netA,netB,'1',dico)
                 l_rasta_dico += [dico]
                 l_rasta_pairs += [(netA,netB+'1')]
             if (netB in list_with_suffix) and (netA in list_with_suffix):
-                dico = get_l2norm_bw_nets(netA=netA,netB=netB,
+                dico = get_corr_bw_nets(netA=netA,netB=netB,
                                                 suffixA='1',suffixB='1')
                 if verbose:print(netA,'1',netB,'1',dico)
                 l_rasta_dico += [dico]
@@ -1234,13 +1239,13 @@ def comp_corr_for_paper(dataset='RASTA',verbose=False,
                        'RASTA_big0001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG']
                 
         for net_init in list_net_init: # Net with a random initialisation at some moment
-            dico = get_l2norm_bw_nets(netA=net_init,netB=net_init,
+            dico = get_corr_bw_nets(netA=net_init,netB=net_init,
                                          initB=True)
             l_rasta_dico += [dico]
             l_rasta_pairs += [(net_init,net_init+'_init')]
             
         for net_ in list_with_suffix: # Net with a random initialisation at some moment
-            dico = get_l2norm_bw_nets(netA=net_,netB=net_,
+            dico = get_corr_bw_nets(netA=net_,netB=net_,
                                          suffixB='1')
             l_rasta_dico += [dico]
             l_rasta_pairs += [(net_,net_+'1')]
@@ -1285,7 +1290,7 @@ def comp_corr_for_paper(dataset='RASTA',verbose=False,
         all_pairs = itertools.combinations(list_models_name_P, r=2)
         for pair in all_pairs:
             netA,netB = pair
-            dico = get_l2norm_bw_nets(netA=netA,netB=netB)   
+            dico = get_corr_bw_nets(netA=netA,netB=netB)   
             if verbose:print(netA,netB,dico)
             l_paintings_dico += [dico]
             l_paintings_pairs += [(netA,netB)]
@@ -1328,7 +1333,7 @@ def comp_corr_for_paper(dataset='RASTA',verbose=False,
         all_pairs = itertools.combinations(list_models_name_I, r=2)
         for pair in all_pairs:
             netA,netB = pair
-            dico = get_l2norm_bw_nets(netA=netA,netB=netB)      
+            dico = get_corr_bw_nets(netA=netA,netB=netB)      
             if verbose:print(netA,netB,dico)
             l_iconart_dico += [dico]
             l_iconart_pairs += [(netA,netB)]
@@ -1974,7 +1979,6 @@ def produce_latex_tab_result_corr(dataset = 'RASTA'):
                                 ext_name=ext_name,case_str=case_str,
                                 format_str='{0:.1f}')
         
-
 def create_matrices_plot_values(matrice,labels,min_val=0., max_val=1.,
                                 output_path='',save_or_show=True,
                                 ext_name='',case_str='',
@@ -2138,5 +2142,9 @@ if __name__ == '__main__':
 #    comp_l2_for_paper(dataset='Paintings',Version_courte=False)
 #    comp_l2_for_paper(dataset='IconArt_v1',Version_courte=False)
 
-    comp_corr_for_paper(dataset='RASTA',verbose=False,
-                      Version_courte=True)
+    comp_corr_for_paper(dataset='RASTA',
+                      Version_courte=False)
+    comp_corr_for_paper(dataset='IconArt_v1',
+                      Version_courte=False)    
+    comp_corr_for_paper(dataset='Paintings',
+                      Version_courte=False)
