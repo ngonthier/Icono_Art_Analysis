@@ -107,4 +107,6 @@ Classif_Paintings/darkflow/.cache/
 *.h5
 *.tf
 
+# MIL Benchmark 
+Classif_Paintings/MILbenchmark/Results/
 
