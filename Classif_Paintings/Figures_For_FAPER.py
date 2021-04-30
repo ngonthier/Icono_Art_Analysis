@@ -46,13 +46,16 @@ def get_list_name_weights_FT_models():
               'RASTA_small01_modif',
               'RASTA_small001_modif',
               'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
-              'IconArt_v1_small01_modif'
+              'IconArt_v1_small01_modif',
+              'Paintings_small01_modif',
+              'Paintings_big01_modif_XXRASTA_small01_modifXX'
               ]
     
     
     list_nets_to_save_descrip = ['FT on RASTA (Mode A training 1)','The end from scratch',
                                  'From scratch','FT on RASTA (Mode A training 2)',
-      'FT on RASTA (Mode B training 1)', 'RASTA Mode A then IconArt Mode F', ' IconArt Mode A']
+      'FT on RASTA (Mode B training 1)', 'RASTA Mode A then IconArt Mode F',
+      ' IconArt Mode A',' Paintings Mode A', 'RASTA Mode A then Paintings Mode F',]
     
     list_suffix =  ['',
               '' ,
@@ -60,22 +63,26 @@ def get_list_name_weights_FT_models():
               '1',
               '',
               '',
-              '']
+              '',
+              '','']
     
     print('=== InceptionV1 ===')
     constrNet = 'InceptionV1'
     for net,suffix_Autre,text in zip(list_nets_to_save,list_suffix,list_nets_to_save_descrip):
         print('Case : ',text)
         ft,init = get_fine_tuned_model(net,constrNet=constrNet,suffix=suffix_Autre,returnName_models=True)
-        print(ft)
-        print(init)
+        print('FineTuned :',ft)
+        print('Initialization',init)
         
     print('=== ResNet50 ===')    
     ft,init = get_fine_tuned_model('RASTA_small01_modif_GAP','ResNet50','',returnName_models=True)
+    print('FineTuned :',ft)
+    print('Initialization',init)
     
     print('=== VGG ===')    
     ft,init = get_fine_tuned_model('RASTA_small01_modif_GAP','VGG','',returnName_models=True)
-    
+    print('FineTuned :',ft)
+    print('Initialization',init)
 
 
 def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True,output_img='png'):
