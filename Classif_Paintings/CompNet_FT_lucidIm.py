@@ -108,7 +108,7 @@ def get_random_net(constrNet='VGG'):
     return(randomNet)
 
 def get_fine_tuned_model(model_name,constrNet='InceptionV1',suffix='',get_Metrics=False,
-                         verbose=True,clearSessionTf=True):
+                         verbose=True,clearSessionTf=True,returnName_models=False):
     
     opt_option_small=[0.1,0.001] # Car opt_option = multiplier_lrp, lr
     opt_option_small01=[0.1,0.01]
@@ -298,7 +298,7 @@ def get_fine_tuned_model(model_name,constrNet='InceptionV1',suffix='',get_Metric
                            dataAug=dataAug,randomCrop=randomCrop,SaveInit=SaveInit,\
                            loss=loss,clipnorm=clipnorm,LR_scheduling_kind=LR_scheduling_kind,\
                            verbose=verbose,dropout=dropout,\
-                           clearSessionTf=clearSessionTf)
+                           clearSessionTf=clearSessionTf,returnName_models=returnName_models)
     # If returnStatistics with RandInit 
     # output = net_finetuned, init_net
     # If returnStatistics without RandInit

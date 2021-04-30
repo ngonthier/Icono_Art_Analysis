@@ -17,6 +17,8 @@ import tikzplotlib
 
 from Dist_CNNs import get_linearCKA_bw_nets,comp_cka_for_paper,get_l2norm_bw_nets,\
                         comp_l2_for_paper
+                        
+from CompNet_FT_lucidIm import get_fine_tuned_model
 
 CB_color_cycle = ['#377eb8', '#4daf4a','#A2C8EC', '#ff7f00','#984ea3','#e41a1c',
                   '#f781bf', '#a65628', '#dede00','#FFBC79','#999999']
@@ -32,6 +34,49 @@ title_corr = {'pretrained': 'pretrained on ImageNet',
               'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200_init': 'Random Init',
               'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG_init': 'Random Init'
                 }
+
+def get_list_name_weights_FT_models():
+    """
+    The goal of this fct is to return the name of the fine-tuned models 
+    """
+    # InceptionV1 :
+    list_nets_to_save = ['RASTA_small01_modif',
+              'RASTA_big0001_modif_adam_unfreeze50_RandForUnfreezed_SmallDataAug_ep200' ,
+              'RASTA_big001_modif_RandInit_randomCrop_deepSupervision_ep200_LRschedG',
+              'RASTA_small01_modif',
+              'RASTA_small001_modif',
+              'IconArt_v1_big01_modif_XXRASTA_small01_modifXX',
+              'IconArt_v1_small01_modif'
+              ]
+    
+    
+    list_nets_to_save_descrip = ['FT on RASTA (Mode A training 1)','The end from scratch',
+                                 'From scratch','FT on RASTA (Mode A training 2)',
+      'FT on RASTA (Mode B training 1)', 'RASTA Mode A then IconArt Mode F', ' IconArt Mode A']
+    
+    list_suffix =  ['',
+              '' ,
+              '',
+              '1',
+              '',
+              '',
+              '']
+    
+    print('=== InceptionV1 ===')
+    constrNet = 'InceptionV1'
+    for net,suffix_Autre,text in zip(list_nets_to_save,list_suffix,list_nets_to_save_descrip):
+        print('Case : ',text)
+        ft,init = get_fine_tuned_model(net,constrNet=constrNet,suffix=suffix_Autre,returnName_models=True)
+        print(ft)
+        print(init)
+        
+    print('=== ResNet50 ===')    
+    ft,init = get_fine_tuned_model('RASTA_small01_modif_GAP','ResNet50','',returnName_models=True)
+    
+    print('=== VGG ===')    
+    ft,init = get_fine_tuned_model('RASTA_small01_modif_GAP','VGG','',returnName_models=True)
+    
+
 
 def cka_fct_layers_plot(forPhDmanuscript=False,side_legend=True,output_img='png'):
     

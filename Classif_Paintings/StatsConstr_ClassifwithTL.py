@@ -390,7 +390,7 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
                    BaysianOptimFT = False,imSize=224,deepSupervision=False,\
                    suffix='',dataAug=False,randomCrop=False,\
                    SaveInit=False,loss=None,clipnorm=None,LR_scheduling_kind=None,\
-                   patience=5,param_wildcat=None,clearSessionTf=True):
+                   patience=5,param_wildcat=None,clearSessionTf=True,returnName_models=False):
     """
     This function will train a SVM or MLP on extracted features or a full deep model
     It will return the metrics or the model itself depending on the input parameters
@@ -485,6 +485,8 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
     @param : param_wildcat in the case of the wildcat param that are not None (ie default)
         numberfilterPerClass, kmax,kmin,alpha = param_wildcat
     @param : clearSessionTf : to clear the old session and everything !
+    @param : returnName_models only return the textual name of the saved model 
+        and the initial one
     """
 #    tf.enable_eager_execution()
     # for ResNet you need to use different layer name such as  ['bn_conv1','bn2a_branch1','bn3a_branch1','bn4a_branch1','bn5a_branch1']
@@ -1104,6 +1106,9 @@ def learn_and_eval(target_dataset,source_dataset='ImageNet',final_clf='MLP2',fea
         init_model_path += '_Initial.h5'
     else:
         init_model_path = None
+        
+    if returnName_models:
+        return(model_path,init_model_path)
     
     custom_objects = {} # Custom object that can be need for getting for loading the model
     
