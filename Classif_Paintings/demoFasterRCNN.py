@@ -47,7 +47,7 @@ CLASSESCOCO = ('__background__','person', 'bicycle','car','motorcycle', 'aeropla
 
 
 NETS = {'vgg16': ('vgg16_faster_rcnn_iter_70000.ckpt',)
-    ,'vgg16_coco': ('/media/HDD/models/tf-faster-rcnn/vgg16/vgg16_faster_rcnn_iter_1190000.ckpt',)    
+    ,'vgg16_coco': ('/media/gonthier/HDD/models/tf-faster-rcnn/vgg16/vgg16_faster_rcnn_iter_1190000.ckpt',)    
     ,'res101': ('res101_faster_rcnn_iter_110000.ckpt',)
     ,'res152' : ('res152_faster_rcnn_iter_1190000.ckpt',)}
 
@@ -63,7 +63,7 @@ NETS_Pretrained = {'vgg16_VOC07' :'vgg16_faster_rcnn_iter_70000.ckpt',
 CLASSES_SET ={'VOC' : CLASSESVOC,
               'COCO' : CLASSESCOCO }
 
-path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
 
 def FasterRCNN_demo():
     """
@@ -193,7 +193,7 @@ def compute_FasterRCNN_feature_TransferLearning():
             CLASSES = CLASSES_SET['COCO']
             anchor_scales = [4, 8, 16, 32] # we  use  3  aspect  ratios  and  4  scales (adding 64**2)
         nbClasses = len(CLASSES)
-        path_to_model = '/media/HDD/models/tf-faster-rcnn/'
+        path_to_model = '/media/gonthier/HDD/models/tf-faster-rcnn/'
         tfmodel = os.path.join(path_to_model,NETS_Pretrained[demonet])
         tfconfig = tf.ConfigProto(allow_soft_placement=True)
         tfconfig.gpu_options.allow_growth=True

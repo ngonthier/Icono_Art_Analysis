@@ -32,7 +32,7 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
     if database=='VOC2007':
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/VOCdevkit/VOC2007/JPEGImages/'
         classes =  ['aeroplane', 'bicycle', 'bird', 'boat',
            'bottle', 'bus', 'car', 'cat', 'chair',
            'cow', 'diningtable', 'dog', 'horse',
@@ -41,7 +41,7 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
     elif database=='watercolor':
         ext = '.csv'
         item_name = 'name_img'
-        path_to_img = '/media/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
+        path_to_img = '/media/gonthier/HDD/data/cross-domain-detection/datasets/watercolor/JPEGImages/'
         classes =  ['bicycle', 'bird','car', 'cat','dog', 'person']
     else:
         raise(NotImplemented)
@@ -352,8 +352,8 @@ def plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,
 
 def plotEXP1():
     """ Difference of result with and without right ratio """
-    cache_model_right_ratio = '/media/HDD/output_exp/ClassifPaintings/MILSVM1527210600.5675514/model'
-    cache_model_false_ratio = '/media/HDD/output_exp/ClassifPaintings/MILSVM1527118925.7643065/model'
+    cache_model_right_ratio = '/media/gonthier/HDD/output_exp/ClassifPaintings/MILSVM1527210600.5675514/model'
+    cache_model_false_ratio = '/media/gonthier/HDD/output_exp/ClassifPaintings/MILSVM1527118925.7643065/model'
     database = 'VOC2007'
     number_im = 250
     N = 1
@@ -364,11 +364,11 @@ def plotEXP1():
     dict_name_file = {}
     demonet = 'res152_COCO'
     problem_class = ['boat','chair','cow']
-    path_data =  '/media/HDD/output_exp/ClassifPaintings/'
+    path_data =  '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     for set_str in sets:
         name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
         dict_name_file[set_str] = name_pkl_all_features
-    path_to_output2 = '/media/HDD/output_exp/ClassifPaintings/Illus_Exp1/'
+    path_to_output2 = '/media/gonthier/HDD/output_exp/ClassifPaintings/Illus_Exp1/'
     RPN = False
     water_mark = 'TrueRatio'
     plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,\
@@ -381,8 +381,8 @@ def plotEXP2():
     """ Illustration of the use of score and not """
      # watercolor_res152_COCO_r10_s166_k300_m900_p_wr_gd_MILSVM
      
-    cache_model_wt_score = '/media/HDD/output_exp/ClassifPaintings/MILSVM/1527793922.5090935/model'
-    cache_model_w_score = '/media/HDD/output_exp/ClassifPaintings/MILSVM/1528134380.9923458/model'
+    cache_model_wt_score = '/media/gonthier/HDD/output_exp/ClassifPaintings/MILSVM/1527793922.5090935/model'
+    cache_model_w_score = '/media/gonthier/HDD/output_exp/ClassifPaintings/MILSVM/1528134380.9923458/model'
     database = 'watercolor'
     number_im = 250
     N = 1
@@ -393,11 +393,11 @@ def plotEXP2():
     dict_name_file = {}
     demonet = 'res152_COCO'
     problem_class = ['person','cat','bicycle']
-    path_data =  '/media/HDD/output_exp/ClassifPaintings/'
+    path_data =  '/media/gonthier/HDD/output_exp/ClassifPaintings/'
     for set_str in sets:
         name_pkl_all_features = path_data+'FasterRCNN_'+ demonet +'_'+database+'_N'+str(N)+extL2+'_TLforMIL_nms_'+str(nms_thresh)+savedstr+'_'+set_str+'.tfrecords'
         dict_name_file[set_str] = name_pkl_all_features
-    path_to_output2 = '/media/HDD/output_exp/ClassifPaintings/Illus_Exp2/'
+    path_to_output2 = '/media/gonthier/HDD/output_exp/ClassifPaintings/Illus_Exp2/'
     RPN = False
     water_mark = 'WithoutScore'
     plot_Train_Test_Regions(database,number_im,dict_name_file,path_to_output2,\

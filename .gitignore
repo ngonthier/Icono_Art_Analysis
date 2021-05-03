@@ -11,6 +11,7 @@
 
 *.mat
 *.npy
+*.data
 
 # The Profiling file #
 ######################
@@ -28,14 +29,24 @@ __pycache__/*
 ################
 
 *.pdf
-
+*.aux
+*.bbl
+*.blg
+*.log
+*.syntex.gz
+*.tex
+*.gz
 # The folder      #
 ################
 
 Classif_Paintings/*.txt
 Classif_Paintings/tmp/*
 Classif_Paintings/*.npy
-Classif_Paintings/__pycache/* 
+Classif_Paintings/__pycache/*
+Classif_Paintings/__pycache__/*
+Classif_Paintings/graphs 
+Classif_Paintings/graphs/* 
+Classif_Paintings/summary/* 
 #Classif_Paintings/data/* 
 *.html
 
@@ -59,6 +70,8 @@ Classif_Paintings/darkflow/requirements*.txt
 Classif_Paintings/darkflow/*.pb
 Classif_Paintings/darkflow/profile
 Classif_Paintings/darkflow/test.py
+Classif_Paintings/graphs/*
+
 
 # Built cython files
 Classif_Paintings/darkflow/darkflow/cython_utils/*.pyd
@@ -85,7 +98,15 @@ Classif_Paintings/darkflow/.cache/
 ../cpm/.ipynb_checkpoints/
 
 # For tf records
+
 *.tfrecords
 *.tfrecord
 
+# For pb records
+*.pb
+*.h5
+*.tf
+
+# MIL Benchmark 
+Classif_Paintings/MILbenchmark/Results/
 

@@ -21,12 +21,12 @@ import subprocess
 import uuid
 from ..datasets.voc_eval import voc_eval
 from ..model.config import cfg
-
+import pathlib
 
 class CrossMod_db(imdb):
   def __init__(self, _image_db,image_set, use_diff=False,devkit_path=None,test_ext=False,
                force_dont_use_07_metric=False):
-    name = image_set
+    name = _image_db + '_' + image_set
     if use_diff:
       name += '_diff'
     imdb.__init__(self, name)
@@ -41,6 +41,8 @@ class CrossMod_db(imdb):
 #    print(self._data_path)
     if self._image_db == 'watercolor' or self._image_db == 'comic':
         self._classes = ('__background__',"bicycle", "bird","car", "cat", "dog", "person") 
+    elif self._image_db == 'PeopleArt':
+        self._classes = ('__background__', "person") 
     elif self._image_db == 'clipart': # In the clipart case
         self._classes = ('__background__',  # always index 0
                          'aeroplane', 'bicycle', 'bird', 'boat',
@@ -48,8 +50,14 @@ class CrossMod_db(imdb):
                          'cow', 'diningtable', 'dog', 'horse',
                          'motorbike', 'person', 'pottedplant',
                          'sheep', 'sofa', 'train', 'tvmonitor')
+    elif self._image_db == 'comic': # In the clipart case
+        self._classes = ('__background__',  # always index 0
+                         'bike','bird','car','cat','dog','person')
+    elif self._image_db == 'CASPApaintings': # In the clipart case
+        self._classes = ('__background__',  # always index 0
+                          "bear", "bird", "cat", "cow", "dog", "elephant", "horse", "sheep")
     else:
-        raise(NotImplemented)
+        raise(NotImplementedError)
     self._class_to_ind = dict(list(zip(self.classes, list(range(self.num_classes)))))
     self._image_ext = '.jpg'
     self._image_index = self._load_image_set_index()
@@ -93,8 +101,10 @@ class CrossMod_db(imdb):
     """
     # Example path to image set file:
     # self._devkit_path + /VOCdevkit2007/VOC2007/ImageSets/Main/val.txt
-    image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
-                                  self._image_set + '.txt')
+    print(self._data_path,'!!!!')
+    long_path = self._data_path+ '/ImageSets/Main/'
+    pathlib.Path(long_path).mkdir(parents=True, exist_ok=True)
+    image_set_file = os.path.join(long_path,self._image_set + '.txt')
     assert os.path.exists(image_set_file), \
       'Path does not exist: {}'.format(image_set_file)
 #    print(image_set_file)
@@ -220,6 +230,8 @@ class CrossMod_db(imdb):
         continue
       print('Writing {} VOC results file'.format(cls))
       filename = self._get_voc_results_file_template().format(cls)
+      head,tail = os.path.split(filename)
+      pathlib.Path(head).mkdir(parents=True, exist_ok=True)
       with open(filename, 'wt') as f:
         for im_ind, index in enumerate(self.image_index):
           dets = all_boxes[cls_ind][im_ind]
@@ -232,6 +244,9 @@ class CrossMod_db(imdb):
                            dets[k, 0] + 1, dets[k, 1] + 1,
                            dets[k, 2] + 1, dets[k, 3] + 1))
 
+  def set_use_diff(self,boolean):
+      self.config['use_diff']=boolean
+      
   def set_force_dont_use_07_metric(self,boolean):
       self.force_dont_use_07_metric=boolean
       
@@ -254,7 +269,7 @@ class CrossMod_db(imdb):
     if self.force_dont_use_07_metric == True: use_07_metric = False
     print('VOC07 metric? ' + ('Yes' if use_07_metric else 'No'))
     if not os.path.isdir(output_dir):
-      os.mkdir(output_dir)
+      pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
     for i, cls in enumerate(self._classes):
       if cls == '__background__':
         continue
@@ -296,6 +311,57 @@ class CrossMod_db(imdb):
               self._image_set, output_dir)
     print(('Running:\n{}'.format(cmd)))
     status = subprocess.call(cmd, shell=True)
+
+  def evaluate_localisation_ovthresh(self,all_boxes, output_dir,ovthresh):
+    """
+    Ajout par Nicolas Gonthier pour calculer des metrics un peu plus facile
+    """
+    self._write_voc_results_file(all_boxes)
+    annopath = os.path.join(
+      self._devkit_path,
+      self._image_db,
+      'Annotations',
+      '{:s}.xml')
+    imagesetfile = os.path.join(
+      self._devkit_path,
+      self._image_db,
+      'ImageSets',
+      'Main',
+      self._image_set + '.txt')
+    cachedir = os.path.join(self._devkit_path, 'annotations_cache')
+    aps = []
+    # The PASCAL VOC metric changed in 2010
+    use_07_metric = True if self.force_dont_use_07_metric == False else False
+    if self.force_dont_use_07_metric == True: use_07_metric = False
+#    print('VOC07 metric? ' + ('Yes' if use_07_metric else 'No'))
+    if not os.path.isdir(output_dir):
+      pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
+    for i, cls in enumerate(self._classes):
+      if cls == '__background__':
+        continue
+      filename = self._get_voc_results_file_template().format(cls)
+      rec, prec, ap = voc_eval(
+        filename, annopath, imagesetfile, cls, cachedir, ovthresh=ovthresh,
+        use_07_metric=use_07_metric, use_diff=self.config['use_diff'])
+      aps += [ap]
+      print(('AP for {} = {:.4f}'.format(cls, ap)))
+      with open(os.path.join(output_dir, cls + '_pr.pkl'), 'wb') as f:
+        pickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
+    print(('Mean AP = {:.4f}'.format(np.mean(aps))))
+#    print('~~~~~~~~')
+#    print('Results:')
+#    for ap in aps:
+#      print(('{:.3f}'.format(ap)))
+#    print(('{:.3f}'.format(np.mean(aps))))
+#    print('~~~~~~~~')
+##    print('')
+##    print('--------------------------------------------------------------')
+#    print('Results computed with the **unofficial** Python eval code.')
+##    print('Results should be very close to the official MATLAB eval code.')
+##    print('Recompute with `./tools/reval.py --matlab ...` for your paper.')
+##    print('-- Thanks, The Management')
+##    print('--------------------------------------------------------------')
+    return(aps)
 
   def evaluate_detections(self, all_boxes, output_dir):
     self._write_voc_results_file(all_boxes)

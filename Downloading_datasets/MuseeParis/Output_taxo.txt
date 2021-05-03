@@ -1,0 +1,69 @@
+{
+  "data": {
+    "taxonomyTermQuery": {
+      "count": 652,
+      "entities": [
+        {
+          "entityLabel": "Technique dessin"
+        },
+        {
+          "entityLabel": "Aquarelle"
+        },
+        {
+          "entityLabel": "Gouache"
+        },
+        {
+          "entityLabel": "Fusain"
+        },
+        {
+          "entityLabel": "Craie"
+        },
+        {
+          "entityLabel": "Crayon"
+        },
+        {
+          "entityLabel": "Technique peinture"
+        },
+        {
+          "entityLabel": "Peinture à l'huile"
+        },
+        {
+          "entityLabel": "Alliage"
+        },
+        {
+          "entityLabel": "Alliage cuivreux"
+        },
+        {
+          "entityLabel": "Encre"
+        },
+        {
+          "entityLabel": "Céramique"
+        },
+        {
+          "entityLabel": "Terre cuite"
+        },
+        {
+          "entityLabel": "Grès"
+        },
+        {
+          "entityLabel": "Porcelaine"
+        },
+        {
+          "entityLabel": "Bronze"
+        },
+        {
+          "entityLabel": "Bronze de cloche"
+        },
+        {
+          "entityLabel": "Bronze d'aluminium"
+        },
+        {
+          "entityLabel": "Bronze-imitation"
+        },
+        {
+          "entityLabel": "Matériau d'origine minérale"
+        }
+      ]
+    }
+  }
+}

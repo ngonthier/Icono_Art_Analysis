@@ -9,7 +9,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-from tensorflow.contrib.slim import losses
+#from tensorflow.contrib.slim import losses
 from tensorflow.contrib.slim import arg_scope
 
 import numpy as np
@@ -37,6 +37,7 @@ class Network(object):
     self._train_summaries = []
     self._event_summaries = {}
     self._variables_to_fix = {}
+    self.get_fc6 = False
 
   def _add_gt_image(self):
     # add back mean
@@ -210,7 +211,7 @@ class Network(object):
       self._anchors = anchors
       self._anchor_length = anchor_length
 
-  def _build_network_TL(self,is_training):
+  def _build_network_TL(self,is_training,get_fc6=False):
     # select initializers
     if cfg.TRAIN.TRUNCATED:
       initializer = tf.truncated_normal_initializer(mean=0.0, stddev=0.01)
@@ -233,7 +234,10 @@ class Network(object):
       else:
         raise NotImplementedError
 
-    fc7 = self._head_to_tail(pool5, is_training)
+    if self.get_fc6:
+      fc7,fc6 = self._head_to_tail(pool5, is_training)
+    else:
+      fc7 = self._head_to_tail(pool5, is_training)
 #    print('fc7',fc7.shape)
     with tf.variable_scope(self._scope, self._scope):
       # region classification
@@ -244,7 +248,10 @@ class Network(object):
 
     self._score_summaries.update(self._predictions)
 
-    return rois,roi_scores, pool5, fc7, cls_prob, bbox_pred
+    if self.get_fc6:
+      return rois,roi_scores, pool5, fc7,fc6, cls_prob, bbox_pred
+    else:
+      return rois,roi_scores, pool5, fc7, cls_prob, bbox_pred
 
   def _build_network(self, is_training=True):
     # select initializers
@@ -604,16 +611,27 @@ class Network(object):
     feed_dict = {self._image: image,
                  self._im_info: im_info}
     
-
-    cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = sess.run([self._predictions["cls_score"],
-                                                     self._predictions['cls_prob'],
-                                                     self._predictions['bbox_pred'],
-                                                     self._predictions['rois'],
-                                                     self._predictions['roi_scores'],
-                                                     self._predictions['fc7'],
-                                                     self._predictions['pool5']],
-                                                    feed_dict=feed_dict)
-    return cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5
+    if not self.get_fc6:
+        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5 = sess.run([self._predictions["cls_score"],
+                                                         self._predictions['cls_prob'],
+                                                         self._predictions['bbox_pred'],
+                                                         self._predictions['rois'],
+                                                         self._predictions['roi_scores'],
+                                                         self._predictions['fc7'],
+                                                         self._predictions['pool5']],
+                                                        feed_dict=feed_dict) 
+        return cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5
+    else:
+        cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5,fc6 = sess.run([self._predictions["cls_score"],
+                                                         self._predictions['cls_prob'],
+                                                         self._predictions['bbox_pred'],
+                                                         self._predictions['rois'],
+                                                         self._predictions['roi_scores'],
+                                                         self._predictions['fc7'],
+                                                         self._predictions['pool5'],
+                                                         self._predictions['fc6']],
+                                                        feed_dict=feed_dict) 
+        return cls_score, cls_prob, bbox_pred, rois,roi_scores, fc7,pool5
 
   def get_summary(self, sess, blobs):
     feed_dict = {self._image: blobs['data'], self._im_info: blobs['im_info'],

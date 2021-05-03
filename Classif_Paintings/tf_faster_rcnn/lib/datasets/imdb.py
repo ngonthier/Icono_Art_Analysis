@@ -3,6 +3,7 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick and Xinlei Chen
+# Modified by Gonthier Nicolas for Weakly supervised detection
 # --------------------------------------------------------
 from __future__ import absolute_import
 from __future__ import division
@@ -11,7 +12,14 @@ from __future__ import print_function
 import os
 import os.path as osp
 import PIL
-from ..utils.cython_bbox import bbox_overlaps
+try:
+	from ..utils.cython_bbox import bbox_overlaps
+except ImportError: 
+    try:
+        from cython_bbox import bbox_overlaps
+        # That can be install by pip install
+    except ImportError:
+        from ..utils.bbox import bbox_overlaps
 import numpy as np
 import scipy.sparse
 from ..model.config import cfg
@@ -154,6 +162,7 @@ class imdb(object):
     for i in range(self.num_images):
       # Checking for max_overlaps == 1 avoids including crowd annotations
       # (...pretty hacking :/)
+#      print('self.roidb[i]',i,self.roidb[i])
       max_gt_overlaps = self.roidb[i]['gt_overlaps'].toarray().max(axis=1)
       gt_inds = np.where((self.roidb[i]['gt_classes'] > 0) &
                          (max_gt_overlaps == 1))[0]

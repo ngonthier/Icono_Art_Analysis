@@ -529,7 +529,7 @@ if __name__ == '__main__':
   with tf.Graph().as_default():
      # The Inception networks expect the input image to have color channels scaled from [-1, 1]
       
-      checkpoint_file = '/media/HDD/models/NASNet-A/'
+      checkpoint_file = '/media/gonthier/HDD/models/NASNet-A/'
       #NASNet-A_Large_331.ckpt'
       #Load the model
       sess = tf.Session()

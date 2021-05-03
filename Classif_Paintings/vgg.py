@@ -314,9 +314,9 @@ if __name__ == '__main__':
       slim = tf.contrib.slim
       
       input_tensor = tf.placeholder(tf.float32, shape=(None,224,224,3), name='input_image')
-      checkpoint_file = '/media/HDD/models/vgg_19.ckpt'
+      checkpoint_file = '/media/gonthier/HDD/models/vgg_19.ckpt'
       logits, end_points = vgg_19(input_tensor, is_training=False)
-      #checkpoint_file = '/media/HDD/models/vgg_16.ckpt'
+      #checkpoint_file = '/media/gonthier/HDD/models/vgg_16.ckpt'
       #logits, end_points = vgg_16(input_tensor, is_training=False)
       saver = tf.train.Saver()
       saver.restore(sess, checkpoint_file)

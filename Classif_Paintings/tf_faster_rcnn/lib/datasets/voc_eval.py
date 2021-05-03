@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 import os
 import pickle
 import numpy as np
+import pathlib
 
 def parse_rec(filename):
   """ Parse a PASCAL VOC xml file """
@@ -19,9 +20,14 @@ def parse_rec(filename):
   for obj in tree.findall('object'):
     obj_struct = {}
     obj_struct['name'] = obj.find('name').text
-    obj_struct['pose'] = obj.find('pose').text
-    obj_struct['truncated'] = int(obj.find('truncated').text)
-    obj_struct['difficult'] = int(obj.find('difficult').text)
+    for elt in ['pose','truncated','difficult']:
+        try:
+            if elt in ['truncated','difficult']:
+                obj_struct[elt] = int(obj.find(elt).text)
+            else:
+                obj_struct[elt] = obj.find(elt).text
+        except AttributeError:
+            print('No ',elt,' element')
     bbox = obj.find('bndbox')
     obj_struct['bbox'] = [int(bbox.find('xmin').text),
                           int(bbox.find('ymin').text),
@@ -109,7 +115,6 @@ def voc_eval(detpath,
     lines = f.readlines()
   imagenames = [x.strip() for x in lines]
   #print(annopath)
-  #print(cachefile)
 
   if not os.path.isfile(cachefile):
     # load annotations
@@ -121,6 +126,8 @@ def voc_eval(detpath,
 #          i + 1, len(imagenames)))
     # save
     if verbose: print('Saving cached annotations to {:s}'.format(cachefile))
+    head,tail = os.path.split(cachefile)
+    pathlib.Path(head).mkdir(parents=True, exist_ok=True)
     with open(cachefile, 'wb') as f:
       pickle.dump(recs, f)
   else:
@@ -131,7 +138,6 @@ def voc_eval(detpath,
       except:
         print(f)
         recs = pickle.load(f, encoding='bytes')
-
   # extract gt objects for this class
   class_recs = {}
   npos = 0
@@ -147,6 +153,7 @@ def voc_eval(detpath,
     class_recs[imagename] = {'bbox': bbox,
                              'difficult': difficult,
                              'det': det}
+
 
   # read dets
   detfile = detpath.format(classname)
@@ -226,6 +233,7 @@ def loc_metric(detpath,
              use_07_metric=False,
              use_diff=False):
   """ Fonction commencee a etre ecrite par nicolas mais jamais fini """
+  raise(NotImplemented)
   if not os.path.isdir(cachedir):
     os.mkdir(cachedir)
   cachefile = os.path.join(cachedir, '%s_annots.pkl' % imagesetfile)
