@@ -6103,10 +6103,8 @@ if __name__ == '__main__':
 #                          PCAuse=False,trainOnTest=False,AddOneLayer=False) 
 
     
-    ## Test of mi_model ! mi_model a finir !! 
-    # A faire : faire en sorte que les npos et nneg soit recalcules pour chaque batch. 
-    # Il faut aussi regarder a quoi ressemble la loss pour SGD pour CNN
-    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,model='mi_model',
+
+    tfR_FRCNN(demonet = 'res152_COCO',database = 'watercolor', ReDo=True,
                               verbose = True,testMode = False,jtest = 'cow',
                               PlotRegions = False,saved_clf=False,RPN=False,
                               CompBest=False,Stocha=True,k_per_bag=300,
